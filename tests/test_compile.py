@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from research_vault import Result, inbox, literature_notes
+from research_vault import Result, inbox, literature_notes, zotero
 from research_vault import compile as compile_mod
 from research_vault.__main__ import main
 from tests.conftest import must_replace
@@ -1043,8 +1043,12 @@ def test_cmd_compile_plans_and_prints_the_apply_line(
     assert '"valid": true' in out
     assert "apply with: python3 -m research_vault compile --vault" in out
     assert "--approved-plan-sha256 abc123" in out
-    printed, _apply_line = out.rsplit("\napply with:", 1)
+    printed, apply_line = out.rsplit("\napply with:", 1)
     assert printed == json.dumps(json.loads(printed), indent=2)
+    words = apply_line.split()
+    assert words[words.index("--base") + 1] == zotero.base_for(
+        tmp_vault, None, strict=True
+    )
 
 
 def test_cmd_compile_prints_the_sha_placeholder_when_the_tool_omits_it(

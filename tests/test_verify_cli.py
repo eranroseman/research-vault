@@ -28,6 +28,7 @@ from research_vault.__main__ import cmd_inbox, cmd_verify, main
 from research_vault.markers import _mutate_marker, _safe_relative
 from research_vault.pathcodec import PathCodecError, RepoPath, encode_repo_path
 from research_vault.verify import (
+    DEFAULT_BASE,
     _apply_state_transitions,
     _citation_key_hash,
     _file_effects,
@@ -41,6 +42,25 @@ from tests.conftest import must_replace
 def run_verify(vault_root, **kwargs):
     """Report projection of the verification transaction, for assertions only."""
     return verify_state(vault_root, **kwargs)[0]
+
+
+def _verify_args(vault, **overrides):
+    """The `Args` a direct `cmd_verify` call needs, complete: `cmd_verify`
+    reads every attribute `main()` sets, with no `getattr` fallback."""
+    args = {
+        "vault": vault,
+        "offline": True,
+        "rw_csv": None,
+        "surface": "audit",
+        "base": DEFAULT_BASE,
+        "git_base": None,
+        "git_candidate": "worktree",
+        "changed_paths_file": None,
+        "commit_projected": None,
+        "as_of": None,
+    }
+    args.update(overrides)
+    return type("Args", (), args)()
 
 
 def _outcome(check, target, result, reason, **extra):
@@ -874,9 +894,7 @@ def test_cli_prints_unacknowledged_nested_warn_notice(net_vault, monkeypatch, ca
             {id(warning): True},
         ),
     )
-    code = cmd_verify(
-        type("Args", (), {"vault": net_vault, "offline": True, "rw_csv": None})()
-    )
+    code = cmd_verify(_verify_args(net_vault, offline=True, rw_csv=None))
     assert code == 0
     assert "warn-notice — correction" in capsys.readouterr().out
 
@@ -900,9 +918,7 @@ def test_cli_prints_warning_alongside_blocking_update_notice(
             {id(outcome): True},
         ),
     )
-    cmd_verify(
-        type("Args", (), {"vault": net_vault, "offline": True, "rw_csv": None})()
-    )
+    cmd_verify(_verify_args(net_vault, offline=True, rw_csv=None))
     output = capsys.readouterr().out
     assert "retracted — retraction" in output
     assert "warn-notice — correction" in output
@@ -935,9 +951,7 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
         lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
     )
     monkeypatch.setattr("research_vault.verify._network_outcomes", lambda *_: [warning])
-    cmd_verify(
-        type("Args", (), {"vault": net_vault, "offline": False, "rw_csv": None})()
-    )
+    cmd_verify(_verify_args(net_vault, offline=False, rw_csv=None))
     source = (net_vault / "literature" / "smith2020.md").read_text()
     assert any(
         event["check"] == "update-notice" for event in events.verified_checks(source)
@@ -975,11 +989,7 @@ def test_apply_state_transitions_routes_unmatched_update_notice_to_failure_not_a
 def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
     net_vault, monkeypatch
 ):
-    args = type(
-        "Args",
-        (),
-        {"vault": net_vault, "offline": True, "rw_csv": None, "surface": "publish"},
-    )()
+    args = _verify_args(net_vault, offline=True, rw_csv=None, surface="publish")
     cases = [
         (
             [
@@ -1332,9 +1342,7 @@ def test_acknowledged_warning_stays_suppressed_across_effects(
         event["check"] for event in events.verified_checks(source.read_text())
     ].count("update-notice") == 2
 
-    code = cmd_verify(
-        type("Args", (), {"vault": net_vault, "offline": False, "rw_csv": None})()
-    )
+    code = cmd_verify(_verify_args(net_vault, offline=False, rw_csv=None))
     output = capsys.readouterr().out
     assert code == 0
     assert "warn-notice — correction" not in output
@@ -1572,18 +1580,7 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     _isolate_network_verify(monkeypatch, current)
 
     assert (
-        cmd_verify(
-            type(
-                "Args",
-                (),
-                {
-                    "vault": net_vault,
-                    "offline": False,
-                    "rw_csv": None,
-                    "surface": "audit",
-                },
-            )()
-        )
+        cmd_verify(_verify_args(net_vault, offline=False, rw_csv=None, surface="audit"))
         == 0
     )
     warning = next(
@@ -1616,16 +1613,7 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     ]
     assert (
         cmd_verify(
-            type(
-                "Args",
-                (),
-                {
-                    "vault": net_vault,
-                    "offline": False,
-                    "rw_csv": None,
-                    "surface": "publish",
-                },
-            )()
+            _verify_args(net_vault, offline=False, rw_csv=None, surface="publish")
         )
         == 1
     )
@@ -1650,16 +1638,7 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
         "human:test",
         blocker.target_hash,
     )
-    assert (
-        cmd_verify(
-            type(
-                "Args",
-                (),
-                {"vault": net_vault, "offline": False, "rw_csv": None},
-            )()
-        )
-        == 0
-    )
+    assert cmd_verify(_verify_args(net_vault, offline=False, rw_csv=None)) == 0
     assert "retracted — retraction" not in capsys.readouterr().out
     # The lifecycle leg files its own outage under the offline suite's socket
     # guard; the notices are what this test closes.
@@ -1954,18 +1933,7 @@ def test_genuine_unreachable_closes_only_on_explicit_surfaces(
     )
 
     assert (
-        cmd_verify(
-            type(
-                "Args",
-                (),
-                {
-                    "vault": net_vault,
-                    "offline": False,
-                    "rw_csv": None,
-                    "surface": surface,
-                },
-            )()
-        )
+        cmd_verify(_verify_args(net_vault, offline=False, rw_csv=None, surface=surface))
         == expected
     )
 

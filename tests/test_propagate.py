@@ -296,6 +296,9 @@ def test_cli_plans_then_applies_only_against_the_printed_hash(
         words[words.index("--plan") + 1],
         words[words.index("--approved-plan-sha256") + 1],
     )
+    assert words[words.index("--base") + 1] == zotero.base_for(
+        tmp_vault, None, strict=True
+    )
     assert (
         cli.main(
             [

@@ -33,7 +33,6 @@ from .pathcodec import (
 )
 from .verify import (
     CLOSING_BY_SURFACE,
-    DEFAULT_BASE,
     surface_decision,
     verify_state,
 )
@@ -238,6 +237,7 @@ def cmd_propagate(args):
                 print(f"rewrite {surface.path}")
             print(
                 f"apply with: python3 -m research_vault propagate --vault {args.vault} "
+                f"--base {args.base} "
                 f"--plan {path} --approved-plan-sha256 {propagate.plan_sha256(planned)}"
             )
             return 0
@@ -279,11 +279,11 @@ def cmd_verify(args):
             network=not args.offline,
             detection_date=as_of,
             rw_csv=args.rw_csv,
-            base=getattr(args, "base", DEFAULT_BASE),
-            git_base=getattr(args, "git_base", None),
-            git_candidate=getattr(args, "git_candidate", "worktree"),
-            changed_paths_file=getattr(args, "changed_paths_file", None),
-            commit_projected=getattr(args, "commit_projected", None),
+            base=args.base,
+            git_base=args.git_base,
+            git_candidate=args.git_candidate,
+            changed_paths_file=args.changed_paths_file,
+            commit_projected=args.commit_projected,
         )
     except _NAMED_FAILURES as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
@@ -379,6 +379,7 @@ def cmd_compile(args):
     if valid:
         print(
             f"apply with: python3 -m research_vault compile --vault {args.vault} "
+            f"--base {args.base} "
             f"--bundle {bundle_path} --approved-plan-sha256 {inspected.get('approval_sha256', '<sha>')}"
         )
     return max(worst, 0 if valid else 1)

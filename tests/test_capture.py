@@ -133,9 +133,19 @@ def test_refresh_after_compile_embeds_the_page_and_completes_the_note(
         "## Compiled\n\n![[wiki/sources/Co-Writing.md]]\n\n## Item\n"
         in note.read_text()
     )
+    snapshot = {
+        p: p.read_bytes()
+        for p in tmp_vault.rglob("*")
+        if p.is_file() and ".git" not in p.parts
+    }
     assert (
         capture.capture(tmp_vault, client, ["E352DFS8"])[0].reason == "matched — NOOP"
     )
+    assert {
+        p: p.read_bytes()
+        for p in tmp_vault.rglob("*")
+        if p.is_file() and ".git" not in p.parts
+    } == snapshot  # row 41: a NOOP capture changes no byte of any file
 
 
 def test_an_unreadable_ledger_holds_the_item_and_leaves_the_note_alone(

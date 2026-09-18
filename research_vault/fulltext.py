@@ -26,20 +26,24 @@ def verdict(response) -> TextVerdict:
     """The two tests §3.3 step 3 requires: page/char completeness, then a content floor."""
     if response is None:
         return TextVerdict(False, "no-index")
-    if "indexedPages" in response:
-        indexed, total, unit = (
+    if "indexedPages" in response or "totalPages" in response:
+        unit, indexed, total = (
+            "indexedPages",
             response.get("indexedPages"),
             response.get("totalPages"),
-            "indexedPages",
         )
-    else:
-        indexed, total, unit = (
+    elif "indexedChars" in response or "totalChars" in response:
+        unit, indexed, total = (
+            "indexedChars",
             response.get("indexedChars"),
             response.get("totalChars"),
-            "indexedChars",
         )
+    else:
+        return TextVerdict(False, "malformed — indexedPages/indexedChars pair missing")
     if not isinstance(indexed, int) or not isinstance(total, int):
         return TextVerdict(False, f"malformed — {unit} pair missing")
+    if indexed > total:
+        return TextVerdict(False, "malformed — indexed exceeds total")
     if indexed < total:
         return TextVerdict(False, f"partial — {unit} {indexed} of {total}")
     length = len(response.get("content") or "")
@@ -63,8 +67,11 @@ def _render(attachment_key, item_key, response) -> str:
         ("zotero-item-key", item_key),
     ]
     for pair in (("indexedPages", "totalPages"), ("indexedChars", "totalChars")):
-        if pair[0] in response:
-            fields.extend((name, int(response[name])) for name in pair)
+        if pair[0] in response or pair[1] in response:
+            values = [response.get(name) for name in pair]
+            if not all(isinstance(value, int) for value in values):
+                raise ValueError(f"malformed — {pair[0]} pair missing")
+            fields.extend(zip(pair, values, strict=True))
     return frontmatter.serialize(dict(fields)) + (response.get("content") or "")
 
 

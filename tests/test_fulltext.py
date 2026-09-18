@@ -87,19 +87,15 @@ def test_write_renders_a_char_indexed_response_and_no_content_as_an_empty_body(
     assert body == ""
 
 
-def test_write_renders_a_pair_only_when_its_indexed_half_is_present(tmp_vault):
-    """`totalPages` alone is not a pair: nothing page-shaped is rendered and
-    the write still lands (the verdict, not the writer, calls it malformed)."""
-    path, _digest = fulltext.write(
-        tmp_vault, "D7EJ9FTG", "E352DFS8", {"content": "c", "totalPages": 3}
-    )
-    data, body = frontmatter.parse(path.read_text())
-    assert data == {
-        "type": "fulltext",
-        "zotero-attachment-key": "D7EJ9FTG",
-        "zotero-item-key": "E352DFS8",
-    }
-    assert body == "c"
+def test_write_refuses_a_total_without_its_indexed_half(tmp_vault):
+    """`totalPages` alone is not a pair: the writer now refuses it the same
+    way `verdict` calls it malformed (row 25 — `_render` guards symmetrically)."""
+    import pytest
+
+    with pytest.raises(ValueError, match="malformed — indexedPages pair missing"):
+        fulltext.write(
+            tmp_vault, "D7EJ9FTG", "E352DFS8", {"content": "c", "totalPages": 3}
+        )
 
 
 def test_write_creates_the_fulltext_directory_and_keeps_line_endings(tmp_vault):
@@ -114,3 +110,27 @@ def test_write_creates_the_fulltext_directory_and_keeps_line_endings(tmp_vault):
         {"content": "one\r\ntwo\n", "indexedPages": 1, "totalPages": 1},
     )
     assert path.read_bytes().endswith(b"---\none\r\ntwo\n")
+
+
+def test_verdict_names_the_neither_pair_case_and_an_indexed_count_over_total():
+    """Row 25: a response with neither pair is malformed under a label naming
+    both units; `indexed > total` is malformed, never partial and never usable."""
+    assert fulltext.verdict({"content": "y" * 600}) == (
+        False,
+        "malformed — indexedPages/indexedChars pair missing",
+    )
+    assert fulltext.verdict(
+        {"content": "y" * 600, "indexedPages": 3, "totalPages": 2}
+    ) == (False, "malformed — indexed exceeds total")
+
+
+def test_render_refuses_a_non_numeric_pair_with_the_malformed_label(tmp_vault):
+    import pytest
+
+    with pytest.raises(ValueError, match="malformed — indexedChars pair missing"):
+        fulltext.write(
+            tmp_vault,
+            "D7EJ9FTG",
+            "E352DFS8",
+            {"content": "c", "indexedChars": "x", "totalChars": 1},
+        )
