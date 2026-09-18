@@ -351,6 +351,8 @@ The earlier text called this a scoping review and then admitted the collision in
 
 **Lane 2's inherited evidence is wrong in a specific way.** The 36-repository catalogue read **repository manifests**; the machine runs **shipped `.xpi` manifests**, and they differ — `zoterotldr` and `scite` are both active on 10.0.1 while the catalogue records ranges that would refuse them. Seventeen catalogue rows say "loads on 9.0.6"; none mentions 10.0.1. Lane 2 re-measures loadability from the installed `.xpi`.
 
+*Pointer, 2026-09-17:* lane 3a also owns two items the pre-lane-2 spec (`2026-09-17-pre-lane-2-design.md` §8.2, §8.3) sent onward — a doctor row for the tool's mode beside the `.obsidian/` seeding, and the tool's obsidian-bases skill against the seeded `.base` files: #161.
+
 ### 7.4 Lane 5 — the gap pass
 
 **Runs after lanes 1–4, and it is what separates "we adopted things" from "we adopted things that serve the workflow."** Two halves, in order:
@@ -363,6 +365,8 @@ The founding guidelines are already this pass's yardstick without needing to be 
 **Lane 5 has begun accumulating named inheritances, recorded here so the gap pass does not have to rediscover them (2026-09-07).** Lane 1 deferred three things to it explicitly, each with the reason it was not settled earlier. **The compile methodology** — bending the adopted tool's research loop toward PRISMA-S and the historians' method. Two reasons, and the second is the load-bearing one. Forking that prose means re-deriving it against a tree whose every file is rewritten at each upstream release. But more to the point, **lane 4 may supply the method instead**: it curates research skills against these very floors, so a curated skill carrying PRISMA-S would make bending the tool's prose work we never needed. That is precisely a gap-pass question — walk the obligations index, and source only what nothing answers. **Two-way content sync**, whose original deferral was about capability and expired when Zotero shipped local writes; what stands in its place is direction, and lane 5 decides whether that argument still holds once everything else is built. And **the OCR path**, deferred to after lane 2 rather than to lane 5 specifically, because `zotero-ocr` is already installed and the question is a plugin one.
 
 Lane 5 will need its own spec (decision 22); this section is its decomposition, not its design.
+
+*Pointer, 2026-09-17:* the eight gaps neither the tool's skills nor research-vault's cover (pre-lane-2 spec §8.4) are lane 5's, filed as #162; invariant 5's pre-commit leg is held with this pass as its trigger (pre-lane-2 spec §3.7).
 
 ## 8. Cold-start contract
 
