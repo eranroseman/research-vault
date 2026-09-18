@@ -1673,7 +1673,16 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     )
     assert cmd_verify(_verify_args(net_vault, offline=False, rw_csv=None)) == 0
     assert "retracted — retraction" not in capsys.readouterr().out
-    assert inbox.open_entries(net_vault) == []  # nothing else open: the whole-set pin
+    # The whole-set pin: the fixture's two structural SKIPPED rows (no applied
+    # propagation plan, no source ledger) and nothing else — no update-notice
+    # survives the ack.
+    assert sorted(
+        (entry.check, entry.result, entry.reason)
+        for entry in inbox.open_entries(net_vault)
+    ) == [
+        ("captured-set", "SKIPPED", "no-identifier — no source ledger"),
+        ("propagation", "SKIPPED", "no-identifier — no applied propagation plan"),
+    ]
 
 
 def _projecting_failure(check):
