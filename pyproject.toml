@@ -239,6 +239,8 @@ tmp_path_retention_policy = "failed"
 #   .claude-plugin            test_skeleton, test_config_validity manifests
 #   .pre-commit-config.yaml   test_config_validity's pyproject-fmt/mdformat pins
 #   CONTEXT.md, README.md     test_templates
+#   .gitignore                test_config_validity's contributor-vault-state test
+#                             (git check-ignore inside mutants/, its own git init)
 # pytest_add_cli_args: no .pytest_cache under mutants/ (the tree is hashed and
 # swept by the gate; a cache dir is noise there). -n is never added: mutation
 # runs would nest a pool per mutant (see the pytest-xdist note above).
