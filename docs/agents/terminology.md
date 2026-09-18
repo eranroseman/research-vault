@@ -198,3 +198,25 @@ table above; an adoption is named here, with its source):
 | `verified[].{by, at}`                                                  | OKF §5.2 event shape; `check` is the research-vault extension recording which check passed and driving coverage-derived trust tiers |
 | `unverified` / `machine-confirmed` / `human-reviewed` trust tier names | OKF §5.3, verbatim                                                                                                                  |
 | `human:<id>` / `<producer>/<version>` actor convention                 | OKF §7                                                                                                                              |
+
+## 5. Retired spellings
+
+A spelling the tree no longer uses. `tests/test_current_state.py::test_no_retired_vocabulary` reads this table — it is the deny-list's one writer — and refuses each pattern on every prose surface that states the present (dated records are out of scope). A row is a regular expression in a code span (`|` escaped as `\|`), the date it was retired, and what replaced it. The table's own rows are exempt from the scan; a prose line that names a retired spelling in order to forbid it uses one of the hatch words the test names (`_Avoid_`, `Declined anchor`, `stale names`, `not aliases`).
+
+| Pattern                                      | Retired | Replaced by                                               |
+| -------------------------------------------- | ------- | --------------------------------------------------------- |
+| `synthesis/`                                 | 2026-09 | `wiki/`, written by the adopted compile tool              |
+| `\bfixity-sha256\b`                          | 2026-09 | `managed-sha256`                                          |
+| `knowledge-harness`                          | 2026-08 | `research-vault` (the product rename, #91)                |
+| `\.harness/`                                 | 2026-08 | `.research-vault/`                                        |
+| `\bHARNESS_`                                 | 2026-08 | `RV_*`                                                    |
+| `\bhk-[a-z]`                                 | 2026-08 | `rv-` (the registered product prefix)                     |
+| `\bmanaged region`                           | 2026-09 | the whole note body is capture's                          |
+| `\bfree region`                              | 2026-09 | none — no hand-written region in a literature note        |
+| `\b[Aa]dmission is (?:a\|the) human act`     | 2026-09 | selection is the person's act; `add` and `capture` follow |
+| `\b[Aa]dmitted (?:through\|into\|to) Zotero` | 2026-09 | added to Zotero                                           |
+| `\bcitekey:`                                 | 2026-09 | `citationKey:`                                            |
+| `\bimport-source\b`                          | 2026-09 | `capture-source`                                          |
+| `\bscreening-state\b`                        | 2026-09 | none — screening states retired with admission            |
+| `\bLiterature screening states\b`            | 2026-09 | none                                                      |
+| `\brename log\b`                             | 2026-09 | `system/propagations/` (the applied propagation plans)    |

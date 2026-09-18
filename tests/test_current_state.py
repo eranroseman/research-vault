@@ -29,6 +29,22 @@ def _tracked(*globs: str) -> list[Path]:
     return sorted(ROOT / p for p in out)
 
 
+_DISPOSITION = re.compile(r"^Disposition: (\S+)", re.MULTILINE)
+
+
+def _active_design_specs() -> list[str]:
+    """Every tracked design spec whose header carries no `Disposition:` line:
+    the active specs enter this scan by construction, the historical one and
+    the `*-evidence.md` siblings stay out."""
+    return [
+        str(path.relative_to(ROOT))
+        for path in _tracked("docs/superpowers/specs/*-design.md")
+        if not _DISPOSITION.search(
+            "\n".join(path.read_text(encoding="utf-8").splitlines()[:10])
+        )
+    ]
+
+
 CURRENT_STATE_SURFACES = _tracked(
     "README.md",
     "CONTEXT.md",
@@ -36,8 +52,7 @@ CURRENT_STATE_SURFACES = _tracked(
     "ATTRIBUTION.md",
     "docs/agents/*.md",
     "docs/adr/*.md",
-    "docs/superpowers/specs/2026-09-05-assembly-design.md",
-    "docs/superpowers/specs/2026-09-06-import-redesign-design.md",
+    *_active_design_specs(),
     "skills/*/SKILL.md",
     "research_vault/templates/vault/**/*.md",
     ".claude-plugin/*.json",
@@ -74,13 +89,37 @@ def _path_literals(text: str):
         for match in _REPO_PATH.finditer(line):
             token = match.group(1)
             following = line[match.end() : match.end() + 1]
-            if following in "*{":
+            # `"" in "*{"` is True: a path that ends its line must still be
+            # checked, so the glob/template hatch needs a character to read.
+            if following and following in "*{":
                 continue  # a glob or a template
             token = re.sub(r":\d+(?:[-–]\d+)?$", "", token)  # `path.py:12-34`
             token = token.split("#", 1)[0]
             if _PLACEHOLDER.search(token) or token.endswith("/*"):
                 continue
             yield token
+
+
+def test_a_path_that_ends_its_line_is_checked():
+    """The end-of-line hole: `following` is empty there, and an empty string
+    is a substring of every string."""
+    assert list(_path_literals("see docs/agents/nowhere.md")) == [
+        "docs/agents/nowhere.md"
+    ]
+    assert list(_path_literals("see docs/agents/nowhere.md and more")) == [
+        "docs/agents/nowhere.md"
+    ]
+    assert list(_path_literals("glob docs/agents/*")) == []
+
+
+def test_the_active_specs_are_derived_not_listed():
+    """This spec's successor enters the scan without an edit; the historical
+    spec and the evidence siblings stay out."""
+    specs = _active_design_specs()
+    assert "docs/superpowers/specs/2026-09-17-pre-lane-2-design.md" in specs
+    assert "docs/superpowers/specs/2026-09-05-assembly-design.md" in specs
+    assert not any("evidence" in spec for spec in specs)
+    assert not any("2026-09-01-canonical" in spec for spec in specs)
 
 
 @pytest.mark.parametrize("path", CURRENT_STATE_SURFACES, ids=_ids)
@@ -100,53 +139,66 @@ def test_no_dangling_repository_path(path):
 
 # Names of mechanisms the ingest redesign retired (2026-09), or of the product
 # before its rename. Each survives only in dated records; on a current-state
-# surface it asserts something the tree contradicts. Exact identifiers that
-# legitimately survive (`not-admitted` the reason code, `managed-region` the
-# check target kind) do not match these shapes.
-RETIRED = [
-    r"synthesis/",
-    r"\bfixity-sha256\b",
-    r"knowledge-harness",
-    r"\.harness/",
-    r"\bHARNESS_",
-    r"\bhk-[a-z]",
-    r"\bmanaged region",
-    r"\bfree region",
-    r"\b[Aa]dmission is (?:a|the) human act",
-    r"\b[Aa]dmitted (?:through|into|to) Zotero",
-    r"\bcitekey:",
-    r"\bimport-source\b",
-    r"\bscreening-state\b",
-    r"\bLiterature screening states\b",
-    r"\brename log\b",
-]
-_RETIRED = [re.compile(p) for p in RETIRED]
+# surface it asserts something the tree contradicts. The deny-list has one
+# writer: the retired-spellings table in docs/agents/terminology.md §5, read
+# here, one regular expression per row.
+_TERMINOLOGY = ROOT / "docs" / "agents" / "terminology.md"
+_RETIRED_HEADING = "## 5. Retired spellings"
+_RETIRED_ROW = re.compile(r"^\|\s*`(?P<pattern>[^`]+)`\s*\|")
+
+
+def _retired_rows() -> list[tuple[str, str]]:
+    """`(pattern, line)` for every row of the retired-spellings table; the
+    line is kept so the table's own rows can be exempted from the scan."""
+    lines = _TERMINOLOGY.read_text(encoding="utf-8").splitlines()
+    start = lines.index(_RETIRED_HEADING)
+    rows = []
+    for line in lines[start + 1 :]:
+        if line.startswith("## "):
+            break
+        match = _RETIRED_ROW.match(line)
+        if match:
+            rows.append((match.group("pattern").replace("\\|", "|"), line))
+    return rows
+
+
+RETIRED = [pattern for pattern, _line in _retired_rows()]
+_RETIRED = [re.compile(pattern) for pattern in RETIRED]
+_RETIRED_TABLE_LINES = {line for _pattern, line in _retired_rows()}
 # A glossary line that names a spelling in order to forbid it is not a use.
 _FORBIDDING_LINE = re.compile(r"_Avoid_|Declined anchor|stale names|not aliases")
+
+
+def test_the_retired_table_is_the_deny_list():
+    """Fifteen rows on 2026-09-17; every pattern compiles; the pipe inside a
+    code span is written `\\|` in the table and read back as `|`."""
+    assert len(RETIRED) >= 15, RETIRED
+    assert r"\b[Aa]dmission is (?:a|the) human act" in RETIRED
+    assert all(isinstance(pattern, re.Pattern) for pattern in _RETIRED)
 
 
 @pytest.mark.parametrize("path", PROSE_SURFACES, ids=_ids)
 def test_no_retired_vocabulary(path):
     hits = []
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if _FORBIDDING_LINE.search(line):
+        if line in _RETIRED_TABLE_LINES or _FORBIDDING_LINE.search(line):
             continue
-        for pattern in _RETIRED:
-            if pattern.search(line):
-                hits.append(f"{number}: {pattern.pattern} — {line.strip()[:100]}")
+        hits.extend(
+            f"{number}: {pattern.pattern} — {line.strip()[:100]}"
+            for pattern in _RETIRED
+            if pattern.search(line)
+        )
     assert hits == [], (
         f"{path.relative_to(ROOT)} uses retired vocabulary:\n" + "\n".join(hits)
     )
-
-
-_DISPOSITION = re.compile(r"^Disposition: (\S+)", re.M)
 
 
 @pytest.mark.parametrize("path", _tracked("*.md", "**/*.md"), ids=_ids)
 def test_disposition_marker_is_historical_or_superseded(path):
     """The marker system is gone; a header may say a record is history, or name
     what superseded it, and nothing else — `pending-*` and `current` named a
-    workflow that no longer runs."""
+    workflow that no longer runs. Runs over every tracked Markdown file, which
+    the retired-vocabulary scan does not: this guards a header grammar."""
     values = _DISPOSITION.findall(path.read_text(encoding="utf-8"))
     bad = [v for v in values if v.rstrip(":") not in {"historical", "superseded-by"}]
     assert bad == [], f"{path.relative_to(ROOT)}: Disposition {bad}"
