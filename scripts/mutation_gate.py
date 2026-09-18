@@ -455,24 +455,32 @@ def _all_modules() -> list[str]:
     )
 
 
-def count_mutants(relpath: str, root: Path = ROOT) -> int:
-    """How many mutants mutmut would generate for the module: its own
-    generator over the source, in memory -- see the header's budget
-    paragraph. Nothing is written and no test runs."""
-    mm = _mutmut(root)  # loads mutmut's config from root: pragma patterns
+def _mutant_names(mm: ModuleType, root: Path, relpath: str) -> list[str]:
+    """The mutant names mutmut's generator would produce for one module, in
+    memory -- shared by count_mutants and _estimate_seconds so both read the
+    same generator and fail the same way (ModuleParseError) on a module it
+    cannot parse."""
     # Imported after _mutmut, for the reason _mutmut exists (config at import).
     from mutmut.mutation.pragma_handling import PragmaParseError
 
     source = (root / relpath).read_text(encoding="utf-8")
     try:
         with contextlib.chdir(root):
-            return len(mm.mutate_file_contents(relpath, source).mutant_names)
+            return mm.mutate_file_contents(relpath, source).mutant_names
     except (ParserSyntaxError, PragmaParseError) as error:
         message = " ".join(str(error).split())
         raise ModuleParseError(
             f"{relpath}: mutmut's generator cannot parse it "
             f"({type(error).__name__}: {message})"
         ) from error
+
+
+def count_mutants(relpath: str, root: Path = ROOT) -> int:
+    """How many mutants mutmut would generate for the module: its own
+    generator over the source, in memory -- see the header's budget
+    paragraph. Nothing is written and no test runs."""
+    mm = _mutmut(root)  # loads mutmut's config from root: pragma patterns
+    return len(_mutant_names(mm, root, relpath))
 
 
 def _sweep_pycache(root: Path) -> None:
@@ -917,9 +925,7 @@ def _estimate_seconds(modules: list[str], root: Path, max_children: int) -> floa
     total = 0.0
     for relpath in modules:
         dotted = relpath[: -len(".py")].replace("/", ".")
-        source = (root / relpath).read_text(encoding="utf-8")
-        with contextlib.chdir(root):
-            names = mm.mutate_file_contents(relpath, source).mutant_names
+        names = _mutant_names(mm, root, relpath)
         seconds = 0.0
         for name in names:
             function = f"{dotted}.{mm.mangled_name_from_mutant_name(name)}"

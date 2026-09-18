@@ -1957,6 +1957,19 @@ def test_estimate_seconds_is_the_stats_sum_over_children_plus_the_fixed_cost(
     assert mutation_gate._estimate_seconds([b], root, 4) == 300.0
 
 
+def test_estimate_seconds_names_a_module_mutmut_cannot_parse(tmp_path):
+    root = _fake_root(tmp_path)
+    b = "research_vault/b.py"
+    (root / b).write_text("def (:\n", encoding="utf-8")
+    _stats_file(root, b, {})
+
+    with pytest.raises(
+        mutation_gate.ModuleParseError, match=r"research_vault/b\.py"
+    ) as caught:
+        mutation_gate._estimate_seconds([b], root, 4)
+    assert isinstance(caught.value, mutation_gate.GateAbortError)
+
+
 @pytest.mark.parametrize(
     ("argv", "fragment"),
     [
