@@ -45,6 +45,7 @@ Rulings only; each section carries the argument.
 29. **The distribution name is `research-vault-core`; slug and plugin name stay `research-vault`** (§9.2).
 30. **One blanket `--update-baseline --out-dir` run closes the plan** (§10).
 31. **ADR 0001 is severed: the decision stays in the ADR; the OKF mechanism and its conformance deviation register move to `docs/agents/okf-conformance.md` (to be created), in the same commit as §7.5** (§7.6; added 2026-09-18, #163).
+32. **A substitution-prone assertion is strengthened only after its blind spot is demonstrated; the warn-dedup count is replaced by a test that mints, re-files and competes; live values stay structured, never pinned to invented precision** (§7.7; added 2026-09-18, #22).
 
 ______________________________________________________________________
 
@@ -340,6 +341,14 @@ Run-input reads (exit 2 naming the path): `factcheck.py:67,112` (the draft), `in
 
 **Pins.** `tests/test_current_state.py`'s two scans cover the new document once it exists (a `docs/agents/*.md` surface); a test beside §7.5's pin test asserts the three rules are in the document and out of the ADR, the ADR points at the document, and the eight OKF-rule anchors are in the document and out of terminology §3 while the pandoc row stays.
 
+### 7.7 #22 — the substitution-prone assertions (added 2026-09-18)
+
+**Finding.** #22 (unblocked: #45 closed 2026-09-17) names three shapes a trust-sensitive test can pass on: a reason assertion that accepts a different outcome with the same prefix; a "byte-exact" test that checks a suffix; a dedup count a seeded record alone satisfies. At `1c4b08e`: 85 `reason.startswith(…)`, `endswith` and substring assertions across fourteen test files (`test_capture.py` 22, `test_add.py` 15, `test_doctor.py` 10, `test_propagate.py` 9, the rest fewer) and two `len([...]) ==` counts. `test_warn_dedup_reconstructs_type_and_inbox_is_oldest_first` (`tests/test_verify_cli.py:1516`) runs `verify_state(network=False)` with no `rw_csv`, so nothing is minted and its `== 1` holds on the seeded entry by construction — the `target_hash` it seeds is inert, as the issue's third comment measured. `test_live_drill_wakefield_and_fabricated` (`:2030`) pins `notice_date` to the prefix `2010-02`. The free-region test the issue's second comment names retired with the free region (ingest spec §6); that criterion closes on evidence. Rows 24, 41 and 56(a) of §7.2 resolved part of the inventory earlier in this plan.
+
+**Design.** An assertion is strengthened only after its blind spot is demonstrated, and the demonstration is mechanical: grep production for every reason string sharing the asserted prefix; two or more distinct strings sharing it is the blind spot (the test cannot tell them apart), and the assertion becomes exact (`==` the full reason) when the fixture determines the whole string, or structured (`reason.split(" — ")[0] == "<code>"` plus `==` on the stable head and a shape match on the tail) when a provider, the OS or a library writes the tail — an `OSError` text, a JSON-RPC error body, an HTTP status line, a Zotero version. One production string sharing the prefix is no blind spot; the assertion stays (or becomes exact for free when that one string is fixture-determined). A count a seeded record alone satisfies is a tautology: the warn-dedup test splits into the oldest-first pin it also carries and a dedup test that mints a competing correction through `_network_outcomes` (row 56(a)'s isolation) — the same key filed twice reads one entry, a second `verify_state` run (the re-file path) still reads one, a correction with another `notice_date` reads two; its teeth are proven in a scratch copy with the dedup guard removed. The drill's `notice_date` becomes a structured assertion — the month exact, the day optional — never a full date the provider may re-issue; a live run records what Crossref answered on the day, in the report. Nothing mechanical replaces every `startswith`: of 171 in the tests, most match paths, stdout lines and error text and are not this issue's. No production edit rides the sweep; a strengthened assertion that exposes a defect is an issue.
+
+**Pins.** The dedup test's three counts, proven against the guard-less scratch copy; the inventory in the task report — every reason assertion in the fourteen files with its disposition and, for each change, the grep that showed the blind spot; `tests/test_config_validity.py`'s fixture-substitution scan unchanged. Decision 32.
+
 ______________________________________________________________________
 
 ## 8. The skills comparison (#138)
@@ -427,7 +436,7 @@ One plan, tests first in every task:
 04. The batch, §4.1 → §4.5 in order. The first branch touching a module is #125's observation.
 05. §5.1's four gap tests; §5.2.
 06. §7.1, then §7.2–§7.6 (§7.5 and §7.6 in one commit; §7.6 added 2026-09-18).
-07. §6.2, reasons spelled above post-cut keys.
+07. §6.2, reasons spelled above post-cut keys; then §7.7 (added 2026-09-18), the assertion sweep, on the tree the triage leaves.
 08. §8.2, §9, the `pyproject.toml` field with its hand-edited assertions.
 09. **The blanket run** — one run, because no `--out-dir` records exist and the writer refuses a partial write: `python scripts/mutation_gate.py --update-baseline --out-dir <dir>` over all 38 modules (35 plus `doctor.py`, `keystore.py`, `markers.py`), from a committed tree; a module with no survivors still gets its record; the write carries the reasons, reports any it cannot re-attach, and drops the killed and orphaned keys.
 10. The plan's whole-branch review.
@@ -464,7 +473,7 @@ One pass when the operator approves this spec: seventeen closes, each comment na
 | #139  | §9.1     | decision 28                                                                                                                                                                                                                      |
 | #91   | §9.2     | decision 29                                                                                                                                                                                                                      |
 
-**Added 2026-09-18, after approval:** #163 (ADR 0001 severed; the OKF mechanism and its deviation register move to `docs/agents/okf-conformance.md`, to be created) enters as §7.6 and decision 31, lands with §7.5 in one commit, and closes when that commit is on `main`; the issue's own text says the spec was not amended for it — it was, here, on the operator's instruction.
+**Added 2026-09-18, after approval:** #163 (ADR 0001 severed; the OKF mechanism and its deviation register move to `docs/agents/okf-conformance.md`, to be created) enters as §7.6 and decision 31, lands with §7.5 in one commit, and closes when that commit is on `main`; the issue's own text says the spec was not amended for it — it was, here, on the operator's instruction. #22 (substitution-prone assertions; its "blocked by #45" is stale, #45 closed 2026-09-17) enters as §7.7 and decision 32, plan Task 26b, and closes when that task's commit is on `main`; its free-region criterion closes on evidence.
 
 **Filed onward**, each an issue labelled `ready-for-agent` naming its lane; the assembly spec's §7.3 (lane 3a) and §7.4 (lane 5) gain one dated sentence each pointing at them: #131 item 4 (the `no tests` set); lane 3a — the mode doctor row beside the `.obsidian/` seeding, and `obsidian-bases` against the seeded `.base` files; lane 5 — the eight gaps of §8.4, as one issue.
 
