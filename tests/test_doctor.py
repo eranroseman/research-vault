@@ -982,7 +982,7 @@ def test_doctor_is_its_own_module_and_scaffold_keeps_only_scaffolding():
     assert not hasattr(scaffold, "doctor")
     assert not hasattr(scaffold, "Probe")
     assert not hasattr(scaffold, "_installed_plugins")
-    source = Path(doctor.__file__).read_text(encoding="utf-8")
+    source = Path(scaffold.__file__).read_text(encoding="utf-8")
     assert "from .doctor" not in source and "import doctor" not in source  # noqa: PT018
 
 

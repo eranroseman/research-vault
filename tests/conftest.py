@@ -151,7 +151,7 @@ def _per_test_home(request, monkeypatch, tmp_path_factory):
     other test is redirected in every run, live flags or not.
 
     Returns the home, so a test can seed it (the registry fixture in
-    tests/test_scaffold.py). Removed at teardown -- the retained artefact of a
+    tests/test_doctor.py). Removed at teardown -- the retained artefact of a
     failed test is its vault, and the identity is in the commits.
     """
     if request.node.get_closest_marker("live") or request.node.get_closest_marker(
