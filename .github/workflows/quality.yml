@@ -1,32 +1,29 @@
 ---
 name: quality
 on:
-  pull_request:
   push:
-    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: 17 4 * * 1
-# A newer push to the same ref supersedes a PR run; a push-to-main run is a
+# A newer push to the same branch supersedes its run; a push to main is a
 # landing and is never cancelled.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 permissions:
   contents: read
 jobs:
   quality:
-    name: dev-quality lane (advisory)
+    # The required status check (the ruleset on main names this context):
+    # form and lint, the offline suite with branch coverage, the CRAP ceiling
+    # and the duplicate gate. It reports in ~4 min; a landing waits for this
+    # job and never for the mutation gate below.
+    name: quality
     runs-on: ubuntu-latest
-    # From the mutation gate's measured rate (its step comment below): the
-    # budget-sized worst case is ≈254 min end to end, plus ≈18 % variance. Below
-    # GitHub's own 360, so an overrun reads as this job's timeout, not the
-    # platform's.
-    timeout-minutes: 300
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0  # mutation gate diffs against the merge base
           persist-credentials: false  # nothing after checkout fetches or pushes
       - uses: actions/setup-python@v7
         with:
@@ -93,11 +90,35 @@ jobs:
         run: crap4py research_vault --lcov lcov.info --max-crap 30
       - name: Duplicate gate (drywall)
         run: drywall research_vault
-      # No-op on push by construction (origin/main...HEAD is empty after a landing);
-      # this gate earns its keep on pull_request and workflow_dispatch. It runs
-      # mutmut over the research_vault modules the diff touches and fails on any
-      # survivor that mutation-baseline.txt (every module measured) does not carry; the
-      # gate sets PYTHONPATH to its own shims, so the [dev] install is all it needs.
+  mutation-gate:
+    # Not a required check: a landing does not wait for it. It runs after
+    # `quality` on every push and on workflow_dispatch, diffs origin/main...HEAD
+    # -- empty on a push to main by construction, so the gate earns its keep on
+    # branch pushes -- and runs mutmut over the research_vault modules the diff
+    # touches, failing on any survivor mutation-baseline.txt does not carry.
+    # The gate sets PYTHONPATH to its own shims, so the [dev] install is all it
+    # needs. Its timeout has one writer: the repository variable
+    # MUTATION_GATE_TIMEOUT_MINUTES (`gh variable set`), read here through
+    # fromJSON because `timeout-minutes` takes a number and `vars.*` is a
+    # string; the gate step reads the same variable for its time budget.
+    name: mutation-gate
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(vars.MUTATION_GATE_TIMEOUT_MINUTES) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # the gate diffs against origin/main
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Git identity (belt for processes outside the per-test HOME)
+        run: |
+          git config --global user.name "research-vault-ci"
+          git config --global user.email "actions@users.noreply.github.com"
       # --max-children 2 with --child-address-space 3GiB: 2 × 3 GiB = 6 GiB bounds
       # the children on both the 7 GB and the 16 GB ubuntu-latest runners. A bound,
       # not a guarantee: the mutmut parent and every subprocess a test spawns
@@ -111,8 +132,8 @@ jobs:
       # measured optimum.
       # --max-mutants 9000 is the CI mutant budget: a changed set that would run
       # more mutants is reported as "not measured" (exit 0) instead of run, so an
-      # integration-sized diff reads unmeasured rather than hitting the 360-minute
-      # job limit. Arithmetic, MEASURED on run 34827110718 (2026-09-14, a
+      # integration-sized diff reads unmeasured rather than hitting the job
+      # limit. Arithmetic, MEASURED on run 34827110718 (2026-09-14, a
       # one-module diff — scaffold.py, 1,308 mutants — at two children on the
       # 4-vCPU runner: gate step 41 min 02 s, ≈0.53 mutants/s step-inclusive).
       # mutmut's phases are not separable in the log, so the fixed cost per gate
@@ -121,12 +142,12 @@ jobs:
       # phase at 1,308 / ((41.0 − 5) × 60) ≈ 0.61 mutants/s; the other steps take
       # ≈3 min. 9,000 / 0.61 / 60 ≈ 246 min of mutants + 5 + 3 ≈ 254 min: under
       # 360 with ≈30 % headroom, so the provisional 9,000 (360 × 0.75 − 10 min at
-      # an assumed 0.6/s) stands as measured. timeout-minutes on the job (300) is
+      # an assumed 0.6/s) stands as measured. The job timeout (the variable) is
       # this worst case plus ≈18 % variance. The steady state is small diffs
       # (one module ≈40 min); an oversize one is run locally.
       - name: Mutation gate (no new survivors)
-        run: python scripts/mutation_gate.py --base "origin/${{ github.base_ref || 'main' }}"
-          --max-children 2 --child-address-space 3GiB --max-mutants 9000
+        run: python scripts/mutation_gate.py --base origin/main --max-children 2 --child-address-space
+          3GiB --max-mutants 9000
   okf-spec-drift:
     name: OKF spec drift (pin vs upstream)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

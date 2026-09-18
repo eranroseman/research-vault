@@ -23,7 +23,7 @@ This repository is the product source and is read as a repository: vault rules a
 
 ### Git
 
-Merge back to main locally and push main to origin in the same motion. Fetch before claiming something is absent from the remote.
+Push the branch; when its required check is green, `git merge --ff-only` it into `main` and push. A `--no-ff` merge mints a sha no check has run on and the push is refused; a branch behind `main` cannot fast-forward — rebase, push the branch again, wait again. Fetch before claiming something is absent from the remote.
 
 ### Issue tracker
 
