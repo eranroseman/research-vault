@@ -435,8 +435,8 @@ def test_doctor_bbt_not_answering_is_a_setup_fault_when_zotero_answered(
     fake = FakeZotero()
     if local_api_status == 403:
         fake.get("/api/", status=403, body=b"")
-    # No api.ready registered: the fake raises ZoteroError, as the real 404 on
-    # /better-bibtex/json-rpc does when Better BibTeX is not installed.
+    # No api.ready registered: the fake raises the UNMATCHED ZoteroError the real 404
+    # on /better-bibtex/json-rpc does when Better BibTeX is not installed.
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
 
     by = {p.check: p for p in doctor.doctor(vault, client=client)}
@@ -1060,3 +1060,92 @@ def test_installed_plugins_reads_the_registry_under_home_or_answers_empty(
     registry.unlink()
     registry.mkdir()
     assert doctor._installed_plugins() == {}
+
+
+def test_doctor_plugins_reports_a_required_addon_that_is_inactive(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """Row 44: `active: false` with `appDisabled: false` is `inactive`, a
+    failure for a required add-on."""
+    addons = [
+        {
+            "id": "better-bibtex@iris-advies.com",
+            "type": "extension",
+            "location": "app-profile",
+            "version": "9.0.63",
+            "active": False,
+            "appDisabled": False,
+        }
+    ]
+    vault = _profiled_vault(tmp_vault, tmp_path, _profile(tmp_path, addons=addons))
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].result is Result.UNMATCHED
+    assert "Better BibTeX inactive" in by["plugins"].reason
+
+
+def test_doctor_write_guard_is_unreachable_on_a_transport_failure(
+    tmp_vault, monkeypatch
+):
+    vault = _doctor_vault(tmp_vault)
+    fake = FakeZotero()
+    fake.rpc("api.ready", READY)
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    real_http = client._http
+
+    def failing(url, data=None, headers=None, method=None, *, timeout=None):
+        if url.endswith("/api/users/0/items") and method == "POST":
+            raise zotero.ZoteroError("Zotero unreachable at http://x: reset")
+        return real_http(
+            url, data=data, headers=headers, method=method, timeout=timeout
+        )
+
+    monkeypatch.setattr(client, "_http", failing)
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
+    assert by["write-guard"].result is Result.UNREACHABLE
+    assert by["write-guard"].reason.startswith("Zotero unreachable")
+
+
+def test_doctor_path_shim_reads_a_non_numeric_total_as_unreported(
+    tmp_vault, tmp_path, monkeypatch
+):
+    vault = _profiled_vault(tmp_vault, tmp_path, _profile(tmp_path))
+    fake, client = _doctor_fake(monkeypatch, tmp_path)
+    fake.get(
+        LISTING.format(start=0),
+        body=[{"key": "Q1W2E3R4", "data": {"linkMode": "imported_url"}}],
+        headers={"Total-Results": "many"},
+    )
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
+    assert by["path-shim"].result is Result.SKIPPED
+    assert (
+        by["path-shim"].reason
+        == "no stored attachment among the first 1 (total unreported)"
+    )
+
+
+def test_doctor_path_shim_reports_a_malformed_attachment_listing(
+    tmp_vault, tmp_path, monkeypatch
+):
+    vault = _profiled_vault(tmp_vault, tmp_path, _profile(tmp_path))
+    fake, client = _doctor_fake(monkeypatch, tmp_path)
+    fake.get(LISTING.format(start=0), body={"not": "a list"})
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
+    assert by["path-shim"].result is Result.UNMATCHED
+    assert by["path-shim"].reason == "attachment listing malformed: expected a list"
+
+
+def test_doctor_path_shim_reads_total_results_case_insensitively(
+    tmp_vault, tmp_path, monkeypatch
+):
+    vault = _profiled_vault(tmp_vault, tmp_path, _profile(tmp_path))
+    fake, client = _doctor_fake(monkeypatch, tmp_path)
+    fake.get(
+        LISTING.format(start=0),
+        body=[{"key": "Q1W2E3R4", "data": {"linkMode": "imported_url"}}],
+        headers={"total-results": "1"},
+    )
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
+    assert by["path-shim"].reason == "no stored attachment among the first 1 of 1"

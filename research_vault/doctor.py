@@ -13,7 +13,7 @@ from typing import NamedTuple
 
 from . import Result, addons, paths
 from .scaffold import VAULT_DIRS, _git, scaffold_vault
-from .zotero import LocalApiDisabledError, ZoteroClient, ZoteroError
+from .zotero import LocalApiDisabledError, ZoteroClient, ZoteroError, header
 
 
 class Probe(NamedTuple):
@@ -315,7 +315,7 @@ def _first_stored_attachment(client) -> str | Probe:
                 "attachment listing malformed: expected a list",
             )
         if page == 0:
-            reported = headers.get("Total-Results")
+            reported = header(headers, "Total-Results")
             total = (
                 reported if isinstance(reported, str) and reported.isdigit() else None
             )

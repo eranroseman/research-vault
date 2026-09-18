@@ -23,6 +23,18 @@ DEFAULT_BASE = "http://localhost:23119"
 CSL_TRANSLATOR = "Better CSL JSON"
 APP_NAME = "research-vault"
 ITEM_KEY = re.compile(r"^[A-Z0-9]{8}$")
+
+
+def header(headers, name: str) -> str | None:
+    """One response header, matched case-insensitively (row 21): the transport
+    hands back a plain dict of whatever names the server sent."""
+    wanted = name.lower()
+    for key, value in headers.items():
+        if key.lower() == wanted:
+            return value
+    return None
+
+
 _USER = "/api/users/0"
 # Decision 13: the Better BibTeX library route measured 4.78 s cold against
 # the client's 5.0 s default, and a busy Zotero's own retry then timed out
@@ -231,7 +243,7 @@ class ZoteroClient:
 
     @staticmethod
     def _version_header(headers) -> int | None:
-        raw = headers.get("Last-Modified-Version")
+        raw = header(headers, "Last-Modified-Version")
         return int(raw) if isinstance(raw, str) and raw.isdigit() else None
 
     # -- local API reads (§3.3, §3.4) -----------------------------------------
@@ -241,10 +253,10 @@ class ZoteroClient:
         response = self._local("/api/")
         headers = response.headers
         info = {
-            "zotero": headers.get("X-Zotero-Version", ""),
-            "api": headers.get("Zotero-API-Version", ""),
-            "schema": headers.get("Zotero-Schema-Version", ""),
-            "server_id": headers.get("Zotero-Server-ID", ""),
+            "zotero": header(headers, "X-Zotero-Version") or "",
+            "api": header(headers, "Zotero-API-Version") or "",
+            "schema": header(headers, "Zotero-Schema-Version") or "",
+            "server_id": header(headers, "Zotero-Server-ID") or "",
         }
         if not info["server_id"]:
             raise ZoteroError("malformed /api/ response: no Zotero-Server-ID header")
@@ -355,7 +367,7 @@ class ZoteroClient:
             timeout=AUTHORIZE_TIMEOUT,
         )
         if response.status == 429:
-            retry = response.headers.get("Retry-After", "60")
+            retry = header(response.headers, "Retry-After") or "60"
             raise ZoteroError(f"authorize rate-limited; retry after {retry} s")
         if response.status == 403:
             # A denial answers {"denied": true} (record 19); the preference-off

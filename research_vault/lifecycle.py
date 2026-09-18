@@ -47,10 +47,12 @@ def read_live(client: ZoteroClient) -> Live:
     items, _ = client.top_items()
     top: dict[str, dict] = {}
     for item in items:
-        # A malformed row (`data: null`, `relations` not an object) reads as
-        # carrying nothing rather than ending the run with an AttributeError
-        # that no caller's `except ZoteroError` sees.
-        data = item.get("data") if isinstance(item, Mapping) else None
+        # A malformed row (a null row, `data: null`, `relations` not an
+        # object) reads as carrying nothing rather than ending the run with
+        # an AttributeError that no caller's `except ZoteroError` sees.
+        if not isinstance(item, Mapping):
+            continue
+        data = item.get("data")
         if not isinstance(data, Mapping):
             data = {}
         relations = data.get("relations")

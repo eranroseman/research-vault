@@ -627,3 +627,21 @@ def test_lint_lifecycle_rows_every_note_after_a_foreign_one_and_a_current_one(
         ("alkt2026", Result.MATCHED, "matched"),
         ("moved2026", Result.UNMATCHED, "drift — item MOVED001 0 → 3"),
     ]
+
+
+def test_read_live_skips_a_null_top_item_row():
+    """Residual 1: `_validate_object_list` refuses the row in the real client;
+    the guard here is defence in depth for a stub that does not."""
+
+    class Stub:
+        def versions(self):
+            return {}, {}
+
+        def trash_versions(self):
+            return {}
+
+        def top_items(self):
+            return [None, {"key": "E352DFS8", "data": {"citationKey": "a"}}], {}
+
+    live = lifecycle.read_live(Stub())
+    assert list(live.top) == ["E352DFS8"]

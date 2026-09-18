@@ -67,7 +67,9 @@ class FakeZotero:
         self.calls.append(("RPC", method, {"params": params}))
         self.timeouts.append(timeout)
         if method not in self._rpc:
-            raise zotero.ZoteroError(f"JSON-RPC error: unknown method {method}")
+            raise zotero.ZoteroError(
+                f"JSON-RPC error: unknown method {method}", zotero.Result.UNMATCHED
+            )
         result = self._rpc[method]
         return result(params) if callable(result) else result
 

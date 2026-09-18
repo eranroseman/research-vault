@@ -239,6 +239,7 @@ def test_authorize_requires_a_server_id_and_returns_the_key(fake):
     fake.post("/api/local/authorize", body={"key": "k" * 32, "remember": True})
     with pytest.raises(zotero.ZoteroError):
         fake.client.authorize()  # no server id -> authorize() raises before any request
+    assert fake.calls == []  # no request was made before the raise
     fake.client.server_id = "6LpvURP2E933"
     assert fake.client.authorize() == {"key": "k" * 32, "remember": True}
     verb, path, _headers = fake.calls[-1]
@@ -629,6 +630,26 @@ def test_rpc_bbt_null_id_error_envelope_surfaces_error_as_unmatched(monkeypatch)
         zotero_client._rpc("item.export", [["smith2020"], "Better CSL JSON"])
 
     assert error.value.result is Result.UNMATCHED
+
+
+def test_response_headers_are_read_case_insensitively(fake):
+    """Row 21: the transport builds a plain dict, and a server (or a proxy)
+    may lower-case a header name; every reader goes through one helper."""
+    fake.get(
+        "/api/",
+        body=b"",
+        headers={
+            "x-zotero-version": "10.0.2",
+            "zotero-api-version": "3",
+            "zotero-schema-version": "44",
+        },
+    )
+    info = fake.client.server_info()
+    assert (info["zotero"], info["api"], info["schema"]) == ("10.0.2", "3", "44")
+    assert info["server_id"] == "6LpvURP2E933"
+    assert zotero.ZoteroClient._version_header({"last-modified-version": "7"}) == 7
+    assert zotero.header({"Retry-After": "5"}, "retry-after") == "5"
+    assert zotero.header({}, "Retry-After") is None
 
 
 # -- live ---------------------------------------------------------------------
