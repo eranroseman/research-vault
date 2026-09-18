@@ -139,14 +139,34 @@ def _prepare_repository(vault: Path) -> None:
     if not metadata.exists() and not metadata.is_symlink():
         vault.mkdir(parents=True, exist_ok=True)
         _git(vault, "init", "-q")
-        return
-
-    result = _git(vault, "rev-parse", "--show-toplevel", check=False)
-    if result.returncode != 0:
-        _git(vault, "init", "-q")
-        return
-    if Path(result.stdout.strip()).resolve() != vault.resolve():
-        raise ValueError(f"scaffold destination is not its own Git root: {vault}")
+    else:
+        result = _git(vault, "rev-parse", "--show-toplevel", check=False)
+        if result.returncode != 0:
+            _git(vault, "init", "-q")
+        elif Path(result.stdout.strip()).resolve() != vault.resolve():
+            raise ValueError(f"scaffold destination is not its own Git root: {vault}")
+    # The hook is installed at the literal `.git/hooks/pre-commit`, so the
+    # repository's git directory must be that `.git` (a linked worktree's or a
+    # gitfile's is another repository's) and git must read hooks from it (a
+    # core.hooksPath sends every hook elsewhere). Measured 2026-09-17, git
+    # 2.43.0: both put the hook in a foreign directory.
+    common = Path(
+        _git(
+            vault, "rev-parse", "--path-format=absolute", "--git-common-dir"
+        ).stdout.strip()
+    )
+    if common.resolve() != metadata.resolve():
+        raise ValueError(
+            "scaffold destination's git directory is not its own: "
+            f"{common.resolve()} is not {metadata}"
+        )
+    hooks_path = _git(vault, "config", "--get", "core.hooksPath", check=False)
+    if hooks_path.returncode == 0 and hooks_path.stdout.strip():
+        raise ValueError(
+            f"scaffold refuses core.hooksPath {hooks_path.stdout.strip()}: the "
+            f"vault hook lives at {metadata / 'hooks' / 'pre-commit'} and nothing "
+            "reads where git would resolve it"
+        )
 
 
 def _is_tracked(vault: Path, relative: str) -> bool:
@@ -184,12 +204,6 @@ def _preflight_conflicts(
     )
     if conflicts:
         raise ValueError(f"scaffold conflict with tracked path: {conflicts[0]}")
-
-
-def _git_path(vault: Path, path: str) -> Path:
-    result = _git(vault, "rev-parse", "--git-path", path)
-    resolved = Path(result.stdout.strip())
-    return resolved if resolved.is_absolute() else vault / resolved
 
 
 def _trackable_paths(vault: Path, created: list[str]) -> list[str]:
@@ -247,7 +261,7 @@ def scaffold_vault(dest, with_ci: bool = False, with_rw_ci: bool = False) -> lis
         ".research-vault/machine.json",
         created,
     )
-    hook = _git_path(vault, "hooks/pre-commit")
+    hook = vault / ".git" / "hooks" / "pre-commit"
     _copy_if_absent(
         templates.joinpath("git", "pre-commit"), hook, ".git/hooks/pre-commit", created
     )

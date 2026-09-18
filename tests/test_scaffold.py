@@ -337,8 +337,10 @@ def test_scaffold_initializes_a_nested_repository_instead_of_using_an_enclosing_
     assert (hook if hook.is_absolute() else vault / hook).is_file()
 
 
-def test_scaffold_uses_git_plumbing_for_a_linked_worktree_hook(tmp_path):
-    """A linked worktree's .git file must not be treated as a hooks directory."""
+def test_scaffold_refuses_a_linked_worktree_as_a_destination(tmp_path):
+    """A linked worktree's git directory is the main repository's: the hook
+    would land in another repository's `.git/hooks`. Refused, naming both
+    paths (measured 2026-09-17, git 2.43.0)."""
     main = tmp_path / "main"
     initialize_repo(main)
     (main / "baseline.md").write_text("baseline\n")
@@ -347,10 +349,66 @@ def test_scaffold_uses_git_plumbing_for_a_linked_worktree_hook(tmp_path):
     vault = tmp_path / "vault"
     git(main, "worktree", "add", "-q", "-b", "vault", str(vault))
 
-    scaffold.scaffold_vault(vault)
+    with pytest.raises(ValueError, match="git directory is not its own") as caught:
+        scaffold.scaffold_vault(vault)
 
-    hook = Path(git(vault, "rev-parse", "--git-path", "hooks/pre-commit").strip())
-    assert (hook if hook.is_absolute() else vault / hook).is_file()
+    assert str(vault / ".git") in str(caught.value)
+    assert str((main / ".git").resolve()) in str(caught.value)
+    assert not (main / ".git" / "hooks" / "pre-commit").exists()
+    assert not (main / ".git" / "worktrees" / "vault" / "hooks").exists()
+
+
+def test_scaffold_refuses_a_gitfile_pointing_elsewhere(tmp_path):
+    """A `.git` file naming another repository's directory: the same refusal."""
+    other = tmp_path / "other"
+    initialize_repo(other)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".git").write_text(f"gitdir: {(other / '.git').resolve()}\n")
+
+    with pytest.raises(ValueError, match="git directory is not its own"):
+        scaffold.scaffold_vault(vault)
+
+    assert not (other / ".git" / "hooks" / "pre-commit").exists()
+
+
+def test_scaffold_refuses_a_configured_hooks_path(tmp_path):
+    """With core.hooksPath set, git would never run `.git/hooks/pre-commit`,
+    and nothing now reads where git would resolve the hook: refused, naming
+    the configured directory and the literal."""
+    vault = tmp_path / "vault"
+    initialize_repo(vault)
+    git(vault, "config", "core.hooksPath", str(tmp_path / "elsewhere"))
+
+    with pytest.raises(ValueError, match=r"core\.hooksPath") as caught:
+        scaffold.scaffold_vault(vault)
+
+    assert str(tmp_path / "elsewhere") in str(caught.value)
+    assert str(vault / ".git" / "hooks" / "pre-commit") in str(caught.value)
+    assert not (tmp_path / "elsewhere").exists()
+
+
+def test_scaffold_creates_a_missing_parent_directory(tmp_path):
+    """`_prepare_repository`'s `mkdir(parents=True)`: a destination two levels
+    below anything that exists is created, initialised and scaffolded."""
+    vault = tmp_path / "a" / "b" / "vault"
+    created = scaffold.scaffold_vault(vault)
+    assert created == EXPECTED_CREATED
+    assert git(vault, "rev-parse", "--show-toplevel").strip() == str(vault)
+
+
+def test_scaffold_refuses_a_destination_that_is_not_its_own_git_root(tmp_path):
+    """An empty `.git` directory inside another repository's tree: git reads
+    past it to the enclosing repository, whose toplevel is not the vault."""
+    outer = tmp_path / "outer"
+    initialize_repo(outer)
+    vault = outer / "vault"
+    (vault / ".git").mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="not its own Git root"):
+        scaffold.scaffold_vault(vault)
+
+    assert not (outer / ".git" / "hooks" / "pre-commit").exists()
 
 
 def test_scaffold_refuses_owned_symlink_paths_before_writing(tmp_path):
