@@ -704,7 +704,7 @@ def lint_evidence_layer(
                 Outcome("evidence-layer", RepoPath(raw_path), result, reason)
             )
         candidate_data = _frontmatter(image)
-        for key in literature_notes.duplicate_capture_fields(candidate_data or {}):
+        for field in literature_notes.duplicate_capture_fields(candidate_data or {}):
             # #20: `data.get(key)` is last-key-wins, so the drift comparison
             # below would judge whichever copy won; the duplicate itself is
             # the finding and the comparison is skipped for this file.
@@ -714,7 +714,7 @@ def lint_evidence_layer(
                     "evidence-layer",
                     RepoPath(raw_path),
                     Result.UNMATCHED,
-                    f"schema-violation — duplicate {key}",
+                    f"schema-violation — duplicate {field}",
                 )
             )
 
