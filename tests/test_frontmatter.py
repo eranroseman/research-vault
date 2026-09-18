@@ -163,3 +163,94 @@ def test_render_field_mapping_matches_the_same_mapping_as_a_list_item():
     field_inner = field_line.split(": ", 1)[1]
     list_line = frontmatter.serialize({"verified": [mapping]}).splitlines()[2]
     assert list_line == f"  - {field_inner}"
+
+
+# --- the sourcing screen's four gaps (pre-lane-2 spec §5.1) --------------------
+# python-frontmatter 1.3.0 failed every must below (measured 2026-09-17); the
+# in-tree module stays, so each gap the screen found untested is pinned here.
+
+
+def test_m4_serialize_is_byte_identical_for_serializer_emitted_text():
+    """M4: `serialize(parse(x)[0]) == x` for text the serializer wrote — no
+    quote style changes, no reflow of inline mappings or list indents, the
+    trailing newline kept — and `serialize()`'s lines splice lexically into
+    an existing block (events.py's list writer relies on it)."""
+    data = {
+        "citationKey": "smith2020",
+        "title": 'The "gold standard" myth',
+        "date": "2020-01-01",
+        "count": 3,
+        "aliases": ["Smith 2020", "2020-01-01"],
+        "generated": {"by": "research_vault/0.1.0", "at": "2026-08-20T12:34:56Z"},
+        "verified": [
+            {"by": "research_vault/0.1.0", "at": "2026-08-16", "check": "doi"}
+        ],
+    }
+    text = frontmatter.serialize(data)
+    parsed, body = frontmatter.parse(text + "body\n")
+    assert frontmatter.serialize(parsed) == text
+    assert body == "body\n"
+    assert text.endswith("\n")
+    lines = text.splitlines()
+    assert lines[0] == "---"
+    assert lines[-1] == "---"
+    # The lines between the fences are the exact lines a byte-surgical writer
+    # splices: no line is reflowed relative to its standalone rendering.
+    for key, value in data.items():
+        if not isinstance(value, list):
+            assert frontmatter.render_field(key, value) in lines[1:-1]
+
+
+def test_m5_key_order_is_source_order_on_parse_and_insertion_order_on_dump():
+    """M5: the header a reader compares order-exactly (`inbox.py`,
+    `searchlog.py`) never sees keys sorted; a dict dumps in insertion order
+    and parses back in source order, whatever the alphabet says."""
+    data = {"zulu": "1", "alpha": "2", "mike": "3"}
+    text = frontmatter.serialize(data)
+    assert text.splitlines()[1:-1] == ['zulu: "1"', 'alpha: "2"', 'mike: "3"']
+    parsed, _ = frontmatter.parse(text)
+    assert list(parsed) == ["zulu", "alpha", "mike"]
+    assert list(frontmatter._mapping_items(parsed)) == list(data.items())
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ('"no"', "no"),
+        ("no", "no"),
+        ("yes", "yes"),
+        ("1.0", "1.0"),
+        ("0x1f", "0x1f"),
+        ("2020-01-01", "2020-01-01"),
+        ("1e3", "1e3"),
+        ("null", "null"),
+        ("~", "~"),
+        ("42", 42),
+        ("-7", -7),
+        ('"42"', "42"),
+        ('"a \\"b\\" c"', 'a "b" c'),
+    ],
+)
+def test_m7_parse_scalar_never_coerces_a_yaml_1_1_shape(raw, expected):
+    """M7: only a bare optional-minus integer becomes an int; `no`, dates,
+    floats, hex, `null` and `~` stay the strings the person wrote."""
+    assert frontmatter._parse_scalar(raw) == expected
+    assert type(frontmatter._parse_scalar(raw)) is type(expected)
+
+
+@pytest.mark.parametrize("fence", ["----", "---  ", "--- ", " ---", "----\r"])
+def test_m8_the_boundary_grammar_is_exact_and_shared_with_the_writers(fence):
+    """M8: `---` alone on its line, LF or CRLF, is a boundary; nothing else is.
+    The byte-surgical writers spell the same grammar (`stamp._has_delimiter`,
+    `events._replace_frontmatter_list`'s fence test, `literature_notes.
+    rename_frontmatter_key` through `_FRONTMATTER_OPEN`/`_FRONTMATTER_CLOSE`)."""
+    from research_vault import events, literature_notes, stamp
+
+    text = f'{fence}\ntype: "x"\n---\nbody\n'
+    assert frontmatter.parse(text) == ({}, text)  # not an opening
+    assert stamp._has_delimiter(text) is False
+    assert events._replace_frontmatter_list(text, "verified", [], "body\n") == text
+    assert literature_notes.rename_frontmatter_key(text, "type", "kind") == text
+    unterminated = f'---\ntype: "x"\n{fence}\nbody\n'
+    with pytest.raises(frontmatter.FrontmatterError, match="unterminated"):
+        frontmatter.parse(unterminated)  # not a closing either
