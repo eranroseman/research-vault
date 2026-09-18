@@ -1367,3 +1367,87 @@ def test_note_identity_needs_data_and_a_complete_tuple():
         b'zotero-item-version: 1\ncitationKey: "a2020"\n---\nbody\n',
     )
     assert lints._note_identity(tupled) == ("S1", "ABCDEFG1")
+
+
+def _duplicate(text: str, key: str, first: str, last: str) -> str:
+    """The fixture's `<key>: "<value>"` line duplicated: `first` above `last`."""
+    line = next(line for line in text.splitlines() if line.startswith(f"{key}: "))
+    return must_replace(text, line + "\n", f'{key}: "{first}"\n{key}: "{last}"\n')
+
+
+@pytest.mark.parametrize(
+    ("first", "last"),
+    [("evil", "smith2020"), ("smith2020", "evil"), ("smith2020", "smith2020")],
+    ids=["evil-first", "evil-last", "equal"],
+)
+def test_a_duplicated_capture_field_on_a_surviving_note_is_a_schema_violation(
+    fixture_vault, first, last
+):
+    """#20: `data.get(key)` is last-key-wins, so `citationKey: "evil"` then
+    `citationKey: "smith2020"` (equal to base) reported nothing. One row per
+    duplicated key, and the drift comparison is skipped for that file — the
+    duplicate is the finding, not whichever copy won."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literature" / "smith2020.md"
+    source.write_text(_duplicate(source.read_text(), "citationKey", first, last))
+    _refresh_body_witness(source)
+
+    rows = _evidence_rows(fixture_vault, base)
+
+    assert [(r.result, r.reason) for r in rows] == [
+        (Result.UNMATCHED, "schema-violation — duplicate citationKey")
+    ]
+    assert all(r.target == "path-bytes:literature/smith2020.md" for r in rows)
+
+
+@pytest.mark.parametrize("leg", ["surviving", "added"])
+def test_a_duplicated_generated_never_attests(fixture_vault, leg):
+    """A duplicated `generated`, human-first machine-last with a bumped `at`
+    beside an altered key, used to attest the edit; on the added leg the
+    same shape used to read as an attested new note."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literature" / "smith2020.md"
+    text = must_replace(source.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/evil"')
+    text = must_replace(
+        text,
+        _FIXTURE_GENERATED + "\n",
+        'generated: {by: "human:eran", at: "2026-08-16T09:00:00Z"}\n'
+        'generated: {by: "research_vault/0.1.0", at: "2026-09-17T09:00:00Z"}\n',
+    )
+    if leg == "added":
+        target = fixture_vault / "literature" / "added.md"
+        text = must_replace(text, 'citationKey: "smith2020"', 'citationKey: "added"')
+    else:
+        target = source
+    target.write_text(text)
+    _refresh_body_witness(target)
+
+    rows = _evidence_rows(fixture_vault, base)
+
+    duplicate_rows = [
+        r for r in rows if r.reason == "schema-violation — duplicate generated"
+    ]
+    assert len(duplicate_rows) == 1
+    assert duplicate_rows[0].target == f"path-bytes:literature/{target.name}"
+    assert not [r for r in rows if r.reason.startswith("drift — DOI")]
+    assert not [r for r in rows if "added without writer attestation" in r.reason]
+
+
+def test_a_duplicate_in_the_base_that_capture_cleaned_is_not_a_finding(fixture_vault):
+    """The cleaning path: the base carries a human-made duplicate; capture
+    re-renders each capture key once (the candidate is clean) under a fresh
+    machine `generated`. Candidate-side only, so this is []."""
+    source = fixture_vault / "literature" / "smith2020.md"
+    clean = source.read_text()
+    source.write_text(_duplicate(clean, "citationKey", "smith2020", "smith2020"))
+    subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "a duplicated key in the base"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    base = _base_tree(fixture_vault)
+    source.write_text(_bump_generated(clean))
+    _refresh_body_witness(source)
+
+    assert _evidence_rows(fixture_vault, base) == []

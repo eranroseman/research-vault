@@ -696,11 +696,26 @@ def lint_evidence_layer(
     base_files = _literature_files(base_snapshot)
     candidate_files = _literature_files(candidate_snapshot)
 
+    duplicated: set[bytes] = set()
     for raw_path, image in sorted(candidate_files.items()):
         result, reason = literature_notes.validate_managed_witness(image.data or b"")
         if result is not Result.MATCHED:
             outcomes.append(
                 Outcome("evidence-layer", RepoPath(raw_path), result, reason)
+            )
+        candidate_data = _frontmatter(image)
+        for key in literature_notes.duplicate_capture_fields(candidate_data or {}):
+            # #20: `data.get(key)` is last-key-wins, so the drift comparison
+            # below would judge whichever copy won; the duplicate itself is
+            # the finding and the comparison is skipped for this file.
+            duplicated.add(raw_path)
+            outcomes.append(
+                Outcome(
+                    "evidence-layer",
+                    RepoPath(raw_path),
+                    Result.UNMATCHED,
+                    f"schema-violation — duplicate {key}",
+                )
             )
 
     removed = set(base_files) - set(candidate_files)
@@ -727,6 +742,8 @@ def lint_evidence_layer(
                 unpaired_removed.discard(removed_path)
 
     for raw_path in sorted(added):
+        if raw_path in duplicated:
+            continue
         old_path = pairs.get(raw_path)
         candidate_data = _frontmatter(candidate_files[raw_path])
         if old_path is None:
@@ -763,6 +780,8 @@ def lint_evidence_layer(
         for raw_path in sorted(unpaired_removed)
     )
     for raw_path in sorted(set(base_files) & set(candidate_files)):
+        if raw_path in duplicated:
+            continue
         base_data = _frontmatter(base_files[raw_path])
         candidate_data = _frontmatter(candidate_files[raw_path])
         body_changed = _body_bytes(base_files[raw_path]) != _body_bytes(

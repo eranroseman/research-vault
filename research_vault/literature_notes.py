@@ -132,6 +132,18 @@ def validate_managed_witness(note_bytes: bytes) -> tuple[Result, str]:
     return Result.MATCHED, "matched"
 
 
+def duplicate_capture_fields(data) -> list[str]:
+    """Every machine-owned key that occurs more than once in a parsed
+    frontmatter mapping, sorted. `frontmatter._mapping_items` keeps the
+    source's repeats; a plain `dict` has none. Iterating CAPTURE_FIELDS means a
+    future writer field inherits the guard (#20)."""
+    seen: dict[str, int] = {}
+    for key, _value in frontmatter._mapping_items(data):
+        if key in CAPTURE_FIELDS:
+            seen[key] = seen.get(key, 0) + 1
+    return sorted(key for key, count in seen.items() if count > 1)
+
+
 def note_path(vault_root, citation_key) -> Path:
     if (
         not isinstance(citation_key, str)

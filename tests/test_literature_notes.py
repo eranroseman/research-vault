@@ -831,3 +831,16 @@ def test_rerender_replaces_a_blank_or_non_string_prior_accessed_and_drops_a_stal
         )
     )
     assert "compile-input-sha256" not in data
+
+
+def test_duplicate_capture_fields_lists_every_repeated_machine_owned_key_sorted():
+    """A future writer field inherits coverage: the sample is drawn from
+    CAPTURE_FIELDS, never spelled here."""
+    keys = sorted(literature_notes.CAPTURE_FIELDS)[:3]
+    text = "---\n" + "".join(f'{key}: "a"\n{key}: "b"\n' for key in reversed(keys))
+    text += 'human: "x"\nhuman: "y"\n---\n'
+    data, _ = frontmatter.parse(text)
+    assert literature_notes.duplicate_capture_fields(data) == keys
+    single, _ = frontmatter.parse('---\ntitle: "a"\nhuman: "x"\nhuman: "y"\n---\n')
+    assert literature_notes.duplicate_capture_fields(single) == []
+    assert literature_notes.duplicate_capture_fields({}) == []
