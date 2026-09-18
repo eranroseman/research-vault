@@ -378,6 +378,50 @@ def test_baseline_keys_skips_comment_header_and_tolerates_module_keys(tmp_path):
     }
 
 
+def test_baseline_reasons_pairs_each_reason_with_the_key_beneath_it(tmp_path):
+    path = tmp_path / "mutation-baseline.txt"
+    path.write_text(
+        "# mutation-baseline.txt -- header\n"
+        "# reason: a docstring, prose to a human\n"
+        f"{KEY_ADD_1}\n"
+        f"{KEY_ADD_2}\n"
+        "# reason: encoding alias\n"
+        f"{KEY_SIZE_1}\n",
+        encoding="utf-8",
+    )
+    assert mutation_gate.baseline_reasons(path) == {
+        KEY_ADD_1: "a docstring, prose to a human",
+        KEY_SIZE_1: "encoding alias",
+    }
+    assert baseline_keys(path) == {KEY_ADD_1, KEY_ADD_2, KEY_SIZE_1}
+    assert mutation_gate.baseline_reasons(tmp_path / "absent.txt") == {}
+
+
+@pytest.mark.parametrize(
+    "tail",
+    ["", "\n", "# another comment\n", "# reason: two in a row\n" + KEY_ADD_1 + "\n"],
+    ids=["eof", "blank", "comment", "double"],
+)
+def test_a_dangling_reason_is_an_error_naming_its_line(tmp_path, tail):
+    path = tmp_path / "mutation-baseline.txt"
+    path.write_text(f"{KEY_ADD_2}\n# reason: dangling\n{tail}", encoding="utf-8")
+    with pytest.raises(mutation_gate.BaselineFormatError) as caught:
+        mutation_gate.baseline_reasons(path)
+    assert str(caught.value).startswith(f"{path}:2: ")
+    assert isinstance(caught.value, mutation_gate.GateAbortError)
+
+
+def test_read_module_results_records_every_generated_key(tmp_path):
+    """Killed, survived, no tests: each carries a key, so the writer can tell
+    a reason whose key was killed (dropped, correctly) from one whose key no
+    mutant of the run produced (reported)."""
+    root = _fake_root(tmp_path)
+    _fake_module(root, MODULE, {ADD_1: 0, ADD_2: 1, ADD_3: 33, SIZE_1: 1})
+    result = read_module_results(MODULE, root)
+    assert result.survivors == {KEY_ADD_1}
+    assert result.generated == {KEY_ADD_1, KEY_ADD_2, KEY_ADD_3, KEY_SIZE_1}
+
+
 def test_changed_modules_lists_modified_core_files(tmp_path: Path):
     """The one function deciding whether the gate ever runs must be proven live:
     a wrong pathspec makes the diff silently empty and the gate passes forever."""
@@ -1171,6 +1215,90 @@ def test_update_baseline_writes_every_survivor_and_names_the_no_tests_gap(
         _no_tests_line("[baseline]", 1, 1),
         "[baseline]   research_vault/a.py: 1",
     ]
+
+
+def test_update_baseline_carries_reasons_and_reports_the_unattached(
+    tmp_path, monkeypatch, capsys
+):
+    """The three states after a run: a reasoned key that survives is
+    re-emitted beneath its reason; one that was killed is dropped with its
+    reason, silently; one no mutant of the run produced (a cut or rename
+    moved the function, the reason sits above the old spelling) is reported
+    on stderr, and the file no longer carries it."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 33, SIZE_1: 0})
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root)
+    surviving, killed = KEY_ADD_1.replace(MODULE, a), KEY_ADD_2.replace(MODULE, a)
+    moved = f"{a}::func/gone::-    return 0\\n+    return 1"
+    baseline_path.write_text(
+        "# old header\n"
+        "# reason: prose to a human\n"
+        f"{surviving}\n"
+        "# reason: killed by the new test\n"
+        f"{killed}\n"
+        "# reason: written above the pre-cut spelling\n"
+        f"{moved}\n",
+        encoding="utf-8",
+    )
+
+    assert mutation_gate.main() == 0
+
+    text = baseline_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    assert lines[lines.index(surviving) - 1] == "# reason: prose to a human"
+    assert "killed by the new test" not in text
+    assert "pre-cut spelling" not in text
+    assert moved not in text
+    assert baseline_keys(baseline_path) == {surviving, KEY_SIZE_1.replace(MODULE, a)}
+    assert lines[0].startswith(
+        "# mutation-baseline.txt -- every survivor of the research_vault modules"
+    )
+    assert lines[1].startswith("# a `# reason: <text>` line")
+    err = capsys.readouterr().err
+    assert f"[baseline] reason not re-attached: {moved}" in err
+    assert "killed by the new test" not in err
+
+
+def test_update_baseline_refuses_a_malformed_reason_before_measuring(
+    tmp_path, monkeypatch, capsys
+):
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", _fail_if_called)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
+    baseline_path = _argv_baseline(monkeypatch, root)
+    baseline_path.write_text("# reason: dangling\n", encoding="utf-8")
+
+    assert mutation_gate.main() == 1
+    assert capsys.readouterr().out.startswith("[baseline] ABORT: ")
+
+
+def test_cached_record_restores_the_generated_keys(tmp_path, monkeypatch, capsys):
+    """A resumed blanket run reads `generated` back from the record, so a
+    reason above a key the cached module killed is still dropped silently
+    and one it never produced is still reported."""
+    root = _fake_root(tmp_path)
+    a = "research_vault/a.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 33, SIZE_1: 1})
+    out_dir = root / "records"
+    out_dir.mkdir()
+    mutation_gate._write_record(
+        out_dir, a, "out", 0, "ok", read_module_results(a, root)
+    )
+    cached = mutation_gate._cached_result(out_dir, a)
+    assert cached is not None
+    assert cached.generated == {
+        KEY_ADD_1.replace(MODULE, a),
+        KEY_ADD_2.replace(MODULE, a),
+        KEY_ADD_3.replace(MODULE, a),
+        KEY_SIZE_1.replace(MODULE, a),
+    }
+    data = json.loads((out_dir / "research_vault__a.py.result.json").read_text())
+    assert data["generated"] == sorted(cached.generated)
 
 
 def test_max_children_and_the_cap_reach_the_launch_in_both_modes(tmp_path, monkeypatch):

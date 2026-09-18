@@ -95,8 +95,15 @@ on a branch that still admits a baselined mutation text reads ok, and a
 baselined key whose function no longer exists stays in the file unnoticed until
 the next --update-baseline. mutmut does not mutate module scope, so the
 mutate4py-era `<relpath>::module::<mutation>` keys can no longer be produced;
-baseline_keys() still tolerates them as lines. A written baseline starts with a
-`#` header line; baseline_keys() skips comment and blank lines.
+baseline_keys() still tolerates them as lines.
+
+A written baseline starts with two `#` header lines; baseline_keys() skips
+comment and blank lines. A `# reason: <text>` line immediately above a key
+records why that survivor is accepted (baseline_reasons() pairs them and
+refuses a dangling one); --update-baseline re-emits each reason above the
+same key, drops it with a key the run killed, and reports on stderr `[baseline]
+reason not re-attached: <key>` for a key no mutant of the run produced -- the
+case a cut or rename leaves when the reason sits above the old spelling.
 
 Per-child address-space cap. --child-address-space (default 4GiB; a plain byte
 count, or a decimal with a MiB or GiB suffix) is applied to the mutmut process
@@ -288,6 +295,10 @@ class ModuleResult:
     flagged: list[tuple[str, str, str]] = field(default_factory=list)
     # (status, mutmut id) for every NO_VERDICT_STATUSES code: the module is an error.
     no_verdict: list[tuple[str, str]] = field(default_factory=list)
+    # Every key of every mutant that has a verdict, survivors included: what
+    # the baseline writer needs to tell a reason whose key was killed from one
+    # whose key no mutant of the run produced.
+    generated: set[str] = field(default_factory=set)
 
 
 def _mutmut(root: Path) -> ModuleType:
@@ -349,8 +360,6 @@ def read_module_results(relpath: str, root: Path = ROOT) -> ModuleResult:
             if status in NO_VERDICT_STATUSES:
                 result.no_verdict.append((status, name))
                 continue
-            if status not in ("survived", *BY_NAME_STATUSES):
-                continue
             # Whatever mutmut's readers raise for this name -- an assertion on
             # a name without `__mutmut_`, a function the schemata lacks -- is
             # the record's fault, not the gate's: named, classed error.
@@ -362,9 +371,10 @@ def read_module_results(relpath: str, root: Path = ROOT) -> ModuleResult:
                     f"{meta_path}: mutant {name!r} cannot be read back "
                     f"({type(error).__name__}: {error})"
                 ) from error
+            result.generated.add(key)
             if status == "survived":
                 result.survivors.add(key)
-            else:
+            elif status in BY_NAME_STATUSES:
                 result.flagged.append((status, name, key))
     return result
 
@@ -381,6 +391,46 @@ def baseline_keys(path: Path) -> set[str]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line and not line.startswith("#")
     }
+
+
+REASON_PREFIX = "# reason: "
+
+
+class BaselineFormatError(GateAbortError):
+    """A `# reason:` line with no key beneath it: the file's format is the
+    contract Task 26's triage and the writer share, and a reason that pairs
+    with nothing would be dropped silently."""
+
+
+def baseline_reasons(path: Path) -> dict[str, str]:
+    """`# reason: <text>` immediately above a key records why that survivor is
+    accepted; the pairing is positional, so a reason followed by a blank
+    line, a comment, another reason or the end of the file is an error."""
+    if not path.exists():
+        return {}
+    reasons: dict[str, str] = {}
+    pending: tuple[int, str] | None = None
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if line.startswith(REASON_PREFIX):
+            if pending is not None:
+                raise BaselineFormatError(
+                    f"{path}:{pending[0]}: reason line has no key beneath it"
+                )
+            pending = (number, line[len(REASON_PREFIX) :].strip())
+            continue
+        if pending is None:
+            continue
+        if not line or line.startswith("#"):
+            raise BaselineFormatError(
+                f"{path}:{pending[0]}: reason line has no key beneath it"
+            )
+        reasons[line] = pending[1]
+        pending = None
+    if pending is not None:
+        raise BaselineFormatError(
+            f"{path}:{pending[0]}: reason line has no key beneath it"
+        )
+    return reasons
 
 
 def _git_failure(error: subprocess.CalledProcessError) -> GitCommandError:
@@ -788,6 +838,7 @@ def _cached_result(out_dir: Path, module: str) -> ModuleResult | None:
             counts=data["counts"],
             flagged=[(s, n, k) for s, n, k in data["flagged"]],
             no_verdict=[(s, n) for s, n in data["no_verdict"]],
+            generated=set(data["generated"]),
         )
     except (OSError, ValueError, KeyError):
         return None
@@ -810,6 +861,7 @@ def _write_record(
     if result is not None:
         data = asdict(result)
         data["survivors"] = sorted(result.survivors)
+        data["generated"] = sorted(result.generated)
         result_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     else:
         result_path.unlink(missing_ok=True)
@@ -824,9 +876,11 @@ def _update_baseline(
     address_space: int,
 ) -> int:
     _refuse_dirty_tree(ROOT)
+    reasons = baseline_reasons(baseline_path)
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
     keys: set[str] = set()
+    generated: set[str] = set()
     failed: list[str] = []
     unmeasured: list[str] = []
     no_tests: dict[str, int] = {}
@@ -852,6 +906,7 @@ def _update_baseline(
                 continue
             result = measured
         keys |= result.survivors
+        generated |= result.generated
         if result.counts.get("no tests"):
             no_tests[module] = result.counts["no tests"]
     if failed or unmeasured:
@@ -870,11 +925,22 @@ def _update_baseline(
         _summarise_no_tests("[baseline]", no_tests)
         return 1
     header = (
-        "# mutation-baseline.txt -- every research_vault module measured by "
-        "scripts/mutation_gate.py --update-baseline over mutmut; one survivor "
-        "key per line, format in the script header\n"
+        "# mutation-baseline.txt -- every survivor of the research_vault modules "
+        "measured by scripts/mutation_gate.py --update-baseline over mutmut; one "
+        "survivor key per line, format in the script header\n"
+        "# a `# reason: <text>` line immediately above a key records why that "
+        "survivor is accepted; the writer re-emits it above the same key and "
+        "reports on stderr any reason whose key no mutant of the run produced\n"
     )
-    baseline_path.write_text(header + "\n".join(sorted(keys)) + "\n", encoding="utf-8")
+    lines: list[str] = []
+    for key in sorted(keys):
+        if key in reasons:
+            lines.append(f"{REASON_PREFIX}{reasons[key]}")
+        lines.append(key)
+    baseline_path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
+    for key in sorted(set(reasons) - keys):
+        if key not in generated:
+            print(f"[baseline] reason not re-attached: {key}", file=sys.stderr)
     print(f"[baseline] {len(keys)} survivors written to {baseline_path}")
     _summarise_no_tests("[baseline]", no_tests)
     return 0
