@@ -24,11 +24,10 @@ from pathlib import Path
 from . import AGENT_ACTOR, Result, frontmatter, gitstate, okf, stamp
 from .events import record_pass
 from .lints import PUBLISHED_TAG
+from .markers import _read_note_text, _write_note_text
 from .pathcodec import encode_repo_path
 from .verify import (
     DEFAULT_BASE,
-    _read_note_text,
-    _write_note_text,
     surface_decision,
     verify_state,
 )

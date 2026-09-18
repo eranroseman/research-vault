@@ -18,7 +18,6 @@ from . import (
     bibliography,
     captured,
     checks,
-    claims,
     clock,
     events,
     frontmatter,
@@ -32,8 +31,16 @@ from . import (
     quotes,
     structure,
 )
+from .markers import (
+    _mutate_marker,
+    _read_note_text,
+    _safe_relative,
+    _split_line_ending,
+    _terminal_anchor_match,
+    _without_own_marks,
+    _write_note_text,
+)
 from .pathcodec import (
-    PathCodecError,
     RepoPath,
     decode_repo_path,
     encode_repo_path,
@@ -41,32 +48,6 @@ from .pathcodec import (
 from .zotero import DEFAULT_BASE, ZoteroClient  # DEFAULT_BASE re-exported for the CLI
 
 _OMITTED_BIBLIOGRAPHY = object()
-
-_ANY_VERIFY_MARKER = r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
-# The writer's own shape, both placements: `before + "[marker] " + anchor`
-# after a space-terminated `before`, or `content + " [marker]"`.
-_OWN_MARK = re.compile(rf" {_ANY_VERIFY_MARKER}")
-
-
-def _without_own_marks(text: str) -> str:
-    """An ack scope hashes what the person wrote, never the tool's own marks.
-
-    Every scope leg strips verify's ``[failed-verification:: …]`` marker before
-    hashing, so the scope is invariant under the tool's own stamp and clear
-    (open point 07) — the body-marker counterpart of what
-    ``canonical_content`` already does with ``verified`` events.
-    """
-    return _OWN_MARK.sub("", text)
-
-
-def _read_note_text(path):
-    with Path(path).open("r", encoding="utf-8", newline="") as note:
-        return note.read()
-
-
-def _write_note_text(path, text):
-    with Path(path).open("w", encoding="utf-8", newline="") as note:
-        note.write(text)
 
 
 CLOSING_BY_SURFACE = {
@@ -97,21 +78,6 @@ CLOSING_BY_SURFACE = {
     ),
 }
 CLOSING_CHECKS = frozenset().union(*CLOSING_BY_SURFACE.values())
-
-
-def _safe_relative(vault_root, target, target_kind="identifier"):
-    """Return an exact vault path only for explicit canonical repo-path metadata."""
-    if target_kind != "repo-path" or not isinstance(target, str):
-        return None
-    try:
-        raw = decode_repo_path(target)
-        absolute = gitstate._absolute(Path(vault_root), raw)
-        image = gitstate.live_image(Path(vault_root), raw)
-    except (PathCodecError, gitstate.GitStateError, OSError):
-        return None
-    if image is not None and image.kind in {"symlink", "special"}:
-        return None
-    return Path(os.fsdecode(absolute))
 
 
 def _extra_path(vault_root, outcome, key):
@@ -566,190 +532,6 @@ def _target_hash(
     return None
 
 
-def _origins(outcome):
-    """Yield only the exact claim origins supplied by a checker."""
-    note_path = (
-        outcome.extra.get("note_path")
-        if "note_path" in outcome.path_extra_fields
-        else None
-    )
-    if outcome.check == "citation-key":
-        for claim in outcome.extra.get("claims", []):
-            if isinstance(claim, Mapping):
-                claim_id = claim.get("claim_id")
-                line_no = claim.get("line_no")
-                if isinstance(claim_id, str) or isinstance(line_no, int):
-                    yield note_path, claim_id, line_no
-        return
-    claim_id = outcome.extra.get("claim_id")
-    line_no = outcome.extra.get("line_no")
-    if isinstance(note_path, str) and (
-        isinstance(claim_id, str) or isinstance(line_no, int)
-    ):
-        yield note_path, claim_id, line_no
-
-
-def _mutate_marker(vault_root, outcome, date, *, clear=False):
-    if outcome.check not in CLOSING_CHECKS:
-        return
-    for relative, claim_id, line_no in _origins(outcome):
-        path = _safe_relative(vault_root, relative, "repo-path")
-        if path is None or not path.is_file():
-            continue
-        if path.relative_to(Path(vault_root)).parts[0] == "wiki":
-            # The compiled layer is the tool's write scope (ingest spec §4.4):
-            # verify reads it and never writes into it.
-            continue
-        lines = _read_note_text(path).splitlines(keepends=True)
-        for index, line in enumerate(lines):
-            content, ending = _split_line_ending(line)
-            anchor = _terminal_anchor_match(content, claim_id)
-            anchored = anchor is not None
-            numbered = isinstance(line_no, int) and index == line_no - 1
-            if not anchored and not numbered:
-                continue
-            terminal_claim_id = claim_id if anchored else None
-            pattern = _terminal_marker_pattern(outcome.check, terminal_claim_id)
-            replacement = (
-                pattern.sub(" " if isinstance(terminal_claim_id, str) else "", content)
-                if clear
-                else line
-            )
-            if not clear and pattern.search(content) is None:
-                if anchored:
-                    before = content[: anchor.start()]
-                    terminal_anchor = content[anchor.start() :]
-                    replacement = (
-                        before
-                        + f"[failed-verification:: {outcome.check}/{date}] "
-                        + terminal_anchor
-                    )
-                else:
-                    replacement = (
-                        content + f" [failed-verification:: {outcome.check}/{date}]"
-                    )
-                replacement += ending
-            elif clear:
-                replacement += ending
-            if replacement != line:
-                lines[index] = replacement
-                _write_note_text(path, "".join(lines))
-            break
-
-
-def _cites(content, citation_key):
-    """Whether a line cites exactly ``citation_key`` (never a longer key)."""
-    return any(
-        match.group("key") == citation_key for match in claims.CITE_RE.finditer(content)
-    )
-
-
-def _claim_notes(vault: Path) -> list[Path]:
-    """The notes ``_plan_state`` scans for claim lines, minus the compiled layer.
-
-    ``literature/`` flat, the same rule as every reader of it (decision 08).
-    """
-    return sorted((vault / "projects").rglob("*.md")) + sorted(
-        (vault / "literature").glob("*.md")
-    )
-
-
-def clear_marker_for(vault_root, check: str, target: str) -> bool:
-    """Open point 09: a human acknowledgment stands the marker down.
-
-    Markers live where ``_mutate_marker`` writes them — at each claim's origin
-    — so a ``<citation key>#^<claim id>`` target names every note carrying the
-    anchor, which confines the edit to the claim line; a bare citation-key
-    target of a ``citation-key`` finding (verify's own shape: the claim list
-    rides in the outcome's ``extra`` and the inbox row does not persist it)
-    names every line citing ``[@<key>``, the citation regex keeping
-    ``smith2020`` from matching ``smith2020a``; a ``path-bytes:`` target names
-    the file itself, and every terminal marker for the check in it. The notes
-    are ``projects/**/*.md`` and ``literature/*.md``: ``_plan_state`` scans
-    both for claim lines, and a capture-rendered literature note matches
-    nothing only because it carries none — a hand-authored one does receive
-    markers. Anything under ``wiki/`` is skipped, mirroring the writer's own
-    guard (ingest spec §4.4). Returns whether a marker was removed.
-    """
-    # The root exactly as `gitstate._absolute` builds a `path-bytes:` candidate
-    # from it (abspath, not resolve: no symlink is followed), so the two meet
-    # in the `wiki/` guard when `cmd_ack` was handed `--vault .`.
-    vault = Path(os.fsdecode(gitstate._root_bytes(Path(vault_root))))
-    claim_id: str | None = None
-    citation_key: str | None = None
-    if "#^" in target:
-        claim_id = target.split("#^", 1)[1]
-        candidates = _claim_notes(vault)
-    elif target.startswith("path-bytes:"):
-        candidates = [_safe_relative(vault, target, "repo-path")]
-    elif check == "citation-key":
-        citation_key = target
-        candidates = _claim_notes(vault)
-    else:
-        return False
-    cleared = False
-    for path in candidates:
-        if path is None or not path.is_file():
-            continue
-        if path.relative_to(vault).parts[0] == "wiki":
-            # The compiled layer is the tool's write scope (ingest spec §4.4):
-            # verify never writes a marker there, so there is none to clear.
-            continue
-        lines = _read_note_text(path).splitlines(keepends=True)
-        changed = False
-        for index, line in enumerate(lines):
-            content, ending = _split_line_ending(line)
-            if claim_id is not None:
-                if _terminal_anchor_match(content, claim_id) is None:
-                    continue
-                terminal_claim_id: str | None = claim_id
-            elif citation_key is not None:
-                if not _cites(content, citation_key):
-                    continue
-                # The writer put the marker before the citing line's own
-                # anchor when it has one, after the line otherwise.
-                anchor = claims.ANCHOR_RE.search(content)
-                terminal_claim_id = anchor.group("id") if anchor else None
-            else:
-                terminal_claim_id = None
-            # `_mutate_marker`'s clear substitution: the pattern's lookahead keeps
-            # the anchor, and the single space closes the gap the marker left.
-            pattern = _terminal_marker_pattern(check, terminal_claim_id)
-            replacement = pattern.sub(
-                " " if isinstance(terminal_claim_id, str) else "", content
-            )
-            if replacement != content:
-                lines[index] = replacement + ending
-                changed = True
-        if changed:
-            _write_note_text(path, "".join(lines))
-            cleared = True
-    return cleared
-
-
-def _terminal_marker_pattern(check, claim_id):
-    marker = r"\[failed-verification:: " + re.escape(check) + r"/\d{4}-\d{2}-\d{2}\]"
-    if isinstance(claim_id, str):
-        trailing = rf"(?:{_ANY_VERIFY_MARKER} )*\^{re.escape(claim_id)}[ \t]*$"
-        return re.compile(rf" {marker} (?={trailing})")
-    trailing = rf"(?: {_ANY_VERIFY_MARKER})*[ \t]*$"
-    return re.compile(rf" {marker}(?={trailing})")
-
-
-def _terminal_anchor_match(content, claim_id):
-    if not isinstance(claim_id, str):
-        return None
-    return re.search(rf"\^{re.escape(claim_id)}[ \t]*$", content)
-
-
-def _split_line_ending(line):
-    if line.endswith("\r\n"):
-        return line[:-2], "\r\n"
-    if line.endswith("\n"):
-        return line[:-1], "\n"
-    return line, ""
-
-
 def file_outcomes(vault_root, path, bibliography_universe=None):
     outcomes = quotes.check_all_quotes(vault_root, path) + lints.lint_disputed_claim(
         vault_root, path
@@ -891,6 +673,8 @@ def _apply_state_transitions(vault_root, raw, detection_date, *, stamp):
                 else:
                     if updated != text:
                         _write_note_text(note, updated)
+        if outcome.check not in CLOSING_CHECKS:
+            continue
         if outcome.result is Result.UNMATCHED:
             if id(outcome) in stamp_ids:
                 _mutate_marker(vault_root, outcome, detection_date)

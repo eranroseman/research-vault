@@ -20,17 +20,18 @@ from research_vault import (
     gitstate,
     inbox,
     literature_notes,
+    markers,
+    verify,
     zotero,
 )
 from research_vault.__main__ import cmd_inbox, cmd_verify, main
+from research_vault.markers import _mutate_marker, _safe_relative
 from research_vault.pathcodec import PathCodecError, RepoPath, encode_repo_path
 from research_vault.verify import (
     _apply_state_transitions,
     _citation_key_hash,
     _file_effects,
-    _mutate_marker,
     _note_bytes,
-    _safe_relative,
     _target_hash,
     verify_state,
 )
@@ -2554,7 +2555,7 @@ def test_ack_clears_the_failed_verification_marker(fixture_vault, monkeypatch, c
 def test_clear_marker_for_clears_a_file_target_and_refuses_other_shapes(net_vault):
     """The `path-bytes:` shape names the file itself; a bare identifier of any
     check but `citation-key` is no shape at all and clears nothing."""
-    from research_vault.verify import clear_marker_for
+    from research_vault.markers import clear_marker_for
 
     draft = net_vault / "projects" / "brief" / "draft.md"
     line_no = next(
@@ -2707,7 +2708,7 @@ def test_ack_on_a_bare_key_citation_finding_clears_every_line_citing_that_key(
 def test_clear_marker_for_never_writes_under_wiki(fixture_vault):
     """The compiled layer is the tool's write scope: a marker there was never
     verify's, and an ack leaves it alone, mirroring `_mutate_marker`'s guard."""
-    from research_vault.verify import clear_marker_for
+    from research_vault.markers import clear_marker_for
 
     concept = fixture_vault / "wiki" / "concepts" / "mortality-trends.md"
     # Terminal, the placement a file-target clear would otherwise match.
@@ -3172,7 +3173,6 @@ def test_projection_identity_needs_an_anchored_quote_target_and_a_named_comparis
 
 
 def test_origins_need_a_string_note_path_and_a_claim_id_or_line_number():
-    from research_vault import verify
 
     with_claim = _outcome(
         "quote",
@@ -3182,13 +3182,13 @@ def test_origins_need_a_string_note_path_and_a_claim_id_or_line_number():
         note_path="projects/brief/draft.md",
         claim_id="c-1",
     )
-    assert list(verify._origins(with_claim)) == [
+    assert list(markers._origins(with_claim)) == [
         (encode_repo_path(b"projects/brief/draft.md"), "c-1", None)
     ]
     without_path = _outcome(
         "quote", "smith2020#^c-1", Result.UNMATCHED, "fuzzy-quote — x", claim_id="c-1"
     )
-    assert list(verify._origins(without_path)) == []
+    assert list(markers._origins(without_path)) == []
     without_origin = _outcome(
         "quote",
         "smith2020#^c-1",
@@ -3196,7 +3196,7 @@ def test_origins_need_a_string_note_path_and_a_claim_id_or_line_number():
         "fuzzy-quote — x",
         note_path="projects/brief/draft.md",
     )
-    assert list(verify._origins(without_origin)) == []
+    assert list(markers._origins(without_origin)) == []
 
 
 def test_snapshot_path_hash_of_a_note_absent_from_the_candidate_falls_back_to_base(
@@ -3231,7 +3231,7 @@ def test_a_nested_note_under_literature_is_not_a_literature_note_anywhere(net_va
     nested note's claims were stamped by `_plan_state` and unreachable by
     `clear_marker_for`, and the evidence layer judged a witness capture could
     never have written."""
-    from research_vault import capture, captured, lifecycle, lints, verify
+    from research_vault import capture, captured, lifecycle, lints
 
     nested = net_vault / "literature" / "older" / "nested2020.md"
     nested.parent.mkdir()
@@ -3253,7 +3253,7 @@ def test_a_nested_note_under_literature_is_not_a_literature_note_anywhere(net_va
         p.citation_key for _, p in lifecycle._provenances(net_vault)
     }
     assert "nested2020" not in capture._every_note(net_vault)[0]
-    assert nested not in verify._claim_notes(net_vault)
+    assert nested not in markers._claim_notes(net_vault)
     _report, effective, _hashes, _warnings = verify_state(net_vault, network=False)
     # `structure.check_note_frontmatter` walks the whole vault and still types
     # the file by its folder (OKF rule 2, not a literature/ reader): that row
@@ -3264,3 +3264,91 @@ def test_a_nested_note_under_literature_is_not_a_literature_note_anywhere(net_va
         if "older" in str(o.target) or "older" in str(o.extra.get("note_path", ""))
     ] == [("okf-frontmatter", Result.MATCHED)]
     assert "[failed-verification::" not in nested.read_text()
+
+
+def test_markers_is_its_own_module_and_verify_imports_from_it():
+    """The cut: the marker writer and clearer, the note readers, the origin
+    walk and the path guard live in `markers.py`; `verify` imports them and
+    `markers` never imports `verify` (no cycle)."""
+    from research_vault import markers
+
+    for name in (
+        "_mutate_marker",
+        "clear_marker_for",
+        "_rewrite_marker_lines",
+        "_origins",
+        "_safe_relative",
+        "_read_note_text",
+        "_write_note_text",
+        "_without_own_marks",
+        "_split_line_ending",
+        "_terminal_anchor_match",
+        "_terminal_marker_pattern",
+        "_claim_notes",
+        "_cites",
+    ):
+        assert callable(getattr(markers, name)), name
+    assert verify.CLOSING_CHECKS  # stays in verify
+    source = Path(markers.__file__).read_text(encoding="utf-8")
+    assert "from .verify" not in source
+    assert "import verify" not in source
+    assert not hasattr(markers, "CLOSING_CHECKS")
+
+
+def test_rewrite_marker_lines_is_one_core_for_stamp_and_clear(net_vault):
+    """Row 54: `_mutate_marker` (first matching line, then stop) and
+    `clear_marker_for` (every matching line) share one rewriter. Two claim
+    lines carry the same anchor: the stamp lands on the first only; the clear
+    removes both."""
+    from research_vault import markers
+
+    note = net_vault / "projects" / "brief" / "twice.md"
+    note.write_text(
+        "- (quote) first [@smith2020, p. 1] ^c-1\n- (quote) second [@smith2020, p. 2] ^c-1\n"
+    )
+
+    def matcher(_index, content):
+        anchor = markers._terminal_anchor_match(content, "c-1")
+        return (True, "c-1") if anchor else (False, None)
+
+    assert markers._rewrite_marker_lines(
+        note, "quote", matcher, clear=False, first_only=True, date="2026-09-17"
+    )
+    assert note.read_text() == (
+        "- (quote) first [@smith2020, p. 1] [failed-verification:: quote/2026-09-17] ^c-1\n"
+        "- (quote) second [@smith2020, p. 2] ^c-1\n"
+    )
+    assert markers._rewrite_marker_lines(
+        note, "quote", matcher, clear=False, first_only=False, date="2026-09-17"
+    )
+    assert note.read_text().count("[failed-verification:: quote/2026-09-17]") == 2
+    assert markers._rewrite_marker_lines(
+        note, "quote", matcher, clear=True, first_only=False
+    )
+    assert "[failed-verification" not in note.read_text()
+    assert not markers._rewrite_marker_lines(
+        note, "quote", matcher, clear=True, first_only=False
+    )
+
+
+def test_mutate_marker_never_writes_under_wiki_when_the_vault_is_dot(
+    fixture_vault, monkeypatch
+):
+    """Row 55(b): the `wiki/` guard roots on `gitstate._root_bytes`, as
+    `clear_marker_for` does, so `--vault .` (a relative root) still guards
+    the compiled layer instead of raising on `relative_to`."""
+    from research_vault import markers
+
+    monkeypatch.chdir(fixture_vault)
+    page = fixture_vault / "wiki" / "concepts" / "mortality-trends.md"
+    before = page.read_bytes()
+    outcome = _outcome(
+        "quote",
+        "smith2020#^c-1",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="wiki/concepts/mortality-trends.md",
+        line_no=1,
+    )
+    markers._mutate_marker(".", outcome, "2026-09-17")
+    assert page.read_bytes() == before

@@ -27,14 +27,13 @@ from . import (
 )
 from . import compile as compile_mod
 from .doctor import doctor
+from .markers import _read_note_text, clear_marker_for
 from .pathcodec import (
     PathCodecError,
 )
 from .verify import (
     CLOSING_BY_SURFACE,
     DEFAULT_BASE,
-    _read_note_text,
-    clear_marker_for,
     surface_decision,
     verify_state,
 )

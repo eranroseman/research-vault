@@ -131,7 +131,7 @@ a real nested over-cap is still refused.
 
 Two CI budgets, in this order. (1) --max-mutants N (gate mode only; default:
 no budget). A GitHub job dies at its timeout, and the whole-branch integration
-case -- a diff touching most of the 35 modules, ~17,000 mutants at the
+case -- a diff touching most of the 38 modules, ~17,000 mutants at the
 runner's two children -- does not fit that with headroom: without a budget it
 would time out, and a timed-out check reads as a failure it never measured.
 So before mutating anything the gate counts the mutants the changed set would
