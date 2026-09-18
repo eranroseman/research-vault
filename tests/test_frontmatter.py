@@ -249,7 +249,16 @@ def test_m8_the_boundary_grammar_is_exact_and_shared_with_the_writers(fence):
     text = f'{fence}\ntype: "x"\n---\nbody\n'
     assert frontmatter.parse(text) == ({}, text)  # not an opening
     assert stamp._has_delimiter(text) is False
-    assert events._replace_frontmatter_list(text, "verified", [], "body\n") == text
+    row = {"by": "research_vault/0.1.0", "at": "2026-08-16", "check": "doi"}
+    envelope = frontmatter.serialize({"verified": [row]})
+    if text.splitlines(keepends=True)[0].endswith("\r\n"):
+        envelope = envelope.replace("\n", "\r\n")
+    # A loose fence check would take `----` as an opening and splice the list
+    # inside the fake block; the exact grammar envelopes a fresh block instead.
+    assert (
+        events._replace_frontmatter_list(text, "verified", [row], text)
+        == envelope + text
+    )
     assert literature_notes.rename_frontmatter_key(text, "type", "kind") == text
     unterminated = f'---\ntype: "x"\n{fence}\nbody\n'
     with pytest.raises(frontmatter.FrontmatterError, match="unterminated"):
