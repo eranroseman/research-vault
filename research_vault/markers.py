@@ -17,8 +17,13 @@ from .pathcodec import PathCodecError, decode_repo_path
 
 _ANY_VERIFY_MARKER = r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
 # The writer's own shape, both placements: `before + "[marker] " + anchor`
-# after a space-terminated `before`, or `content + " [marker]"`.
-_OWN_MARK = re.compile(rf" {_ANY_VERIFY_MARKER}")
+# after a space- or tab-terminated `before`, or `content + " [marker]"`. The
+# marker and the writer's own space go; the person's whitespace stays (row
+# 55(a): a tab before the anchor is the claim's own byte).
+_OWN_MARK = re.compile(
+    rf"(?:{_ANY_VERIFY_MARKER} |[ \t]{_ANY_VERIFY_MARKER}(?=(?:[ \t]{_ANY_VERIFY_MARKER})*[ \t]*\r?$))",
+    re.MULTILINE,
+)
 
 
 def _without_own_marks(text: str) -> str:
@@ -110,11 +115,10 @@ def _rewrite_marker_lines(path, check, matcher, *, clear, first_only, date=None)
             continue
         pattern = _terminal_marker_pattern(check, terminal_claim_id)
         if clear:
-            # The pattern's lookahead keeps the anchor; the single space closes
-            # the gap the marker left.
-            replacement = pattern.sub(
-                " " if isinstance(terminal_claim_id, str) else "", content
-            )
+            # The pattern's lookbehind (claim-id form) or leading literal
+            # space (end form) already leaves the person's own separator
+            # untouched, so clearing is a plain removal in both forms.
+            replacement = pattern.sub("", content)
         elif pattern.search(content) is None:
             marker = f"[failed-verification:: {check}/{date}]"
             if isinstance(terminal_claim_id, str):
@@ -232,7 +236,7 @@ def _terminal_marker_pattern(check, claim_id):
     marker = r"\[failed-verification:: " + re.escape(check) + r"/\d{4}-\d{2}-\d{2}\]"
     if isinstance(claim_id, str):
         trailing = rf"(?:{_ANY_VERIFY_MARKER} )*\^{re.escape(claim_id)}[ \t]*$"
-        return re.compile(rf" {marker} (?={trailing})")
+        return re.compile(rf"(?<=[ \t]){marker} (?={trailing})")
     trailing = rf"(?: {_ANY_VERIFY_MARKER})*[ \t]*$"
     return re.compile(rf" {marker}(?={trailing})")
 

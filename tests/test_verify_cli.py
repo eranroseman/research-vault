@@ -1241,6 +1241,38 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
     assert _target_hash(net_vault, outcome) == before
 
 
+def test_marker_readers_accept_a_tab_before_the_marker(net_vault):
+    """Row 55(a): `claims.ANCHOR_RE` needs no whitespace before `^`, so a
+    tab-terminated claim `…\\t^id` is legal and the writer produces
+    `…\\t[marker] ^id`. The readers accept `[ \\t]` before the marker; the
+    writer stays, because normalising its output would move the claim's
+    scope hash under the tool's own stamp."""
+    from research_vault import markers
+
+    note = net_vault / "projects" / "brief" / "tabbed.md"
+    original = b"- (quote) tabbed [@missing]\t^c-1\n"
+    note.write_bytes(original)
+    outcome = _outcome(
+        "quote",
+        "missing#^c-1",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="projects/brief/tabbed.md",
+        claim_id="c-1",
+    )
+    scope = _target_hash(net_vault, outcome)
+    markers._mutate_marker(net_vault, outcome, "2026-09-17")
+    assert (
+        note.read_bytes()
+        == b"- (quote) tabbed [@missing]\t[failed-verification:: quote/2026-09-17] ^c-1\n"
+    )
+    assert _target_hash(net_vault, outcome) == scope  # the stamp is not scope
+    assert markers._without_own_marks(note.read_text()) == original.decode()
+    assert markers.clear_marker_for(net_vault, "quote", "missing#^c-1")
+    assert note.read_bytes() == original
+    assert _target_hash(net_vault, outcome) == scope
+
+
 def test_body_only_literature_ack_survives_verifier_event_envelope(net_vault):
     note = net_vault / "literature" / "bodyonly.md"
     original = "- (quote) body-only [@bodyonly] ^c-1\n"
@@ -1564,6 +1596,7 @@ def _isolate_network_verify(monkeypatch, outcomes):
         "lint_published_drift",
     ):
         monkeypatch.setattr(f"research_vault.lints.{name}", lambda *_args: [])
+    monkeypatch.setattr("research_vault.lifecycle.lint_lifecycle", lambda *_args: [])
 
 
 def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
@@ -1640,13 +1673,7 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     )
     assert cmd_verify(_verify_args(net_vault, offline=False, rw_csv=None)) == 0
     assert "retracted — retraction" not in capsys.readouterr().out
-    # The lifecycle leg files its own outage under the offline suite's socket
-    # guard; the notices are what this test closes.
-    assert not [
-        entry
-        for entry in inbox.open_entries(net_vault)
-        if entry.check == "update-notice"
-    ]
+    assert inbox.open_entries(net_vault) == []  # nothing else open: the whole-set pin
 
 
 def _projecting_failure(check):
@@ -2475,7 +2502,7 @@ def test_as_of_pins_the_instant_a_check_compares_against(fixture_vault, capsys):
     assert "--as-of must be YYYY-MM-DD" in capsys.readouterr().err
 
 
-def test_ack_clears_the_failed_verification_marker(fixture_vault, monkeypatch, capsys):
+def test_ack_clears_the_failed_verification_marker(fixture_vault, capsys):
     import research_vault.__main__ as cli
 
     draft = fixture_vault / "projects" / "brief" / "draft.md"
