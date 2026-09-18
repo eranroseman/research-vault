@@ -7,6 +7,7 @@ from pathlib import Path
 from research_vault import frontmatter
 
 REPO = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = REPO / "research_vault" / "templates"
 
 EXPECTED_PATHS = {
@@ -85,7 +86,7 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/index.md").read_text() == (
         '---\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
-        "- [literatures/](literatures/) — evidence layer: literature notes, one per "
+        "- [literature/](literature/) — evidence layer: literature notes, one per "
         "captured source, named by citation key\n"
         "- [wiki/](wiki/) — compiled layer: per-source pages under `wiki/sources/`, "
         "cross-source pages under `wiki/concepts/`, written by the adopted compile tool\n"
@@ -109,9 +110,9 @@ def test_markdown_templates_match_canonical_content():
     # Constraint on the opening paragraph (the preamble, first two sentences
     # below): it names machine surfaces but must assert no enforcement
     # mechanism — no claim of a session warning, a commit-time gate, or a
-    # guaranteed trace. None holds uniformly across the six it names —
-    # literatures/, log/, log.md, inbox/review-queue.md, fulltext/ and
-    # system/propagations/: an in-format append to log/ or
+    # guaranteed trace. None holds uniformly across the seven it names —
+    # literature/, log/, log.md, inbox/review-queue.md, system/bibliography.json,
+    # fulltext/ and system/propagations/: an in-format append to log/ or
     # inbox/review-queue.md keeps the prior bytes as a prefix, so
     # lint_append_only's startswith check never fires and
     # `verify --surface commit` exits 0 with zero findings. Any future
@@ -122,10 +123,10 @@ def test_markdown_templates_match_canonical_content():
     assert asset("vault/AGENTS.md").read_text() == (
         '---\ntype: "guide"\n---\n\n'
         "# Vault agents guide\n\n"
-        "This is a research-vault vault. `literatures/`, `log/`, `log.md`, "
-        "`inbox/review-queue.md`, `fulltext/`, and `system/propagations/` are "
-        "machine-written — the CLI writes them; don't edit them by hand.\n\n"
-        "Evidence is added to Zotero and projected into `literatures/` — "
+        "This is a research-vault vault. `literature/`, `log/`, `log.md`, "
+        "`inbox/review-queue.md`, `system/bibliography.json`, `fulltext/`, and "
+        "`system/propagations/` are machine-written — the CLI writes them; don't edit them by hand.\n\n"
+        "Evidence is added to Zotero and projected into `literature/` — "
         "evidence notes exist only by projection, never by hand. Read "
         "`wiki/index.md` and recent `log/` entries before editing; review "
         "findings live in `inbox/review-queue.md`.\n\n"
@@ -152,8 +153,8 @@ def test_markdown_templates_match_canonical_content():
         "regenerated away or raise a finding.\n\n"
         "`wiki/` is written only by the adopted compile tool's transaction "
         "engine; never `Write` or `Edit` under it.\n\n"
-        "Better BibTeX is the sole writer of `system/bibliography.json`; users "
-        "and other tools must not write it.\n\n"
+        "`capture` is the sole writer of the CSL file `system/bibliography.json`, "
+        "rendered from Better BibTeX; users and other tools must not write it.\n\n"
         "Formatters are writers too: `.prettierignore` and `.markdownlintignore` "
         "keep them off the machine surfaces; `.editorconfig` disables an "
         "editor's own trim/final-newline defaults there instead.\n\n"
@@ -204,13 +205,13 @@ def test_bases_and_machine_example_match_canonical_shapes():
 
 # Anchored (leading "/") gitignore-style form, as research_vault/lints.py's
 # _is_append_only_path names the append-only three (log/, inbox/review-queue.md,
-# projects/*/search-log.md) plus system/bibliography.json (Better BibTeX's
-# export), literatures/ (the evidence layer), and fulltext/ (capture's
+# projects/*/search-log.md) plus system/bibliography.json (capture's CSL
+# render), literature/ (the evidence layer), and fulltext/ (capture's
 # derived text layer, hash-tracked by the literature note it belongs to).
 # Anchoring matters: an unanchored "log/" also matches a nested
 # projects/<name>/log/, silently widening what a formatter skips.
 _MACHINE_SURFACES = (
-    "/literatures/",
+    "/literature/",
     "/log/",
     "/inbox/review-queue.md",
     "/system/bibliography.json",
@@ -394,3 +395,42 @@ def test_glossary_carries_the_ingest_vocabulary_and_no_retired_terms():
 def test_readme_embeds_the_addon_declaration_verbatim():
     table = asset("zotero-addons.md").read_text()
     assert table.strip() in (REPO / "README.md").read_text()
+
+
+def _guard_constants():
+    """`hooks/pretooluse_guard.py`'s three deny surfaces, imported from the file
+    (the hooks directory is no package)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "pretooluse_guard", ROOT / "hooks" / "pretooluse_guard.py"
+    )
+    guard = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(guard)
+    return guard
+
+
+def test_agents_template_preamble_names_every_guarded_surface_but_wiki():
+    """Line 7's roster is derived from the guard's constants — the directory
+    names, the nested prefixes and the exact files the PreToolUse guard
+    denies — minus `wiki/`, which has its own sentence (line 29). A surface
+    the guard denies and the preamble omits (`system/bibliography.json`, #25)
+    is one an agent is never told about."""
+    guard = _guard_constants()
+    guarded = (
+        {f"{name}/" for name in guard.MACHINE_SURFACE_DIR_NAMES if name != "wiki"}
+        | {f"{prefix.as_posix()}/" for prefix in guard.MACHINE_SURFACE_PREFIXES}
+        | {path.as_posix() for path in guard.MACHINE_SURFACE_FILES}
+    )
+    preamble = asset("vault/AGENTS.md").read_text().splitlines()[6]
+    assert preamble.startswith("This is a research-vault vault. ")
+    assert set(re.findall(r"`([^`]+)`", preamble)) == guarded
+
+
+def test_agents_template_names_capture_as_the_csl_files_writer():
+    text = asset("vault/AGENTS.md").read_text()
+    assert (
+        "`capture` is the sole writer of the CSL file `system/bibliography.json`, "
+        "rendered from Better BibTeX; users and other tools must not write it."
+    ) in text
+    assert "Better BibTeX is the sole writer" not in text

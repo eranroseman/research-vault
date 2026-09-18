@@ -642,7 +642,7 @@ two we would still write are the two where no upstream can carry the doctrine fo
    `io_schema`, `risk_class`, `prompt_version` in skill frontmatter. This is the largest single
    design gap between the two projects, and it is declarative — a frontmatter schema plus a
    validator, not an engine. It also makes several of our prose rules mechanical: "never write
-   `literatures/`" becomes an `allowed_paths` line a lint can check.
+   `literature/`" becomes an `allowed_paths` line a lint can check.
 2. **The `integrity-*` operation family.** Eight of them: `integrity-claim-quote-check`,
    `integrity-quote-anchor-check`, `integrity-evidence-check`, `integrity-contradiction-check`,
    `integrity-link-target-check`, `integrity-provenance-checkpoint`,

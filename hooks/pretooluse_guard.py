@@ -8,7 +8,7 @@ import stat
 import sys
 from pathlib import Path
 
-MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log", "wiki", "fulltext"})
+MACHINE_SURFACE_DIR_NAMES = frozenset({"literature", "log", "wiki", "fulltext"})
 # Nested machine directories, matched as a path prefix: `system/` itself holds
 # hand-edited templates, so only its propagation records are guarded.
 MACHINE_SURFACE_PREFIXES = (Path("system/propagations"),)

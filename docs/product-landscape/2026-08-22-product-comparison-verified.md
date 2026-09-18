@@ -133,7 +133,7 @@ taxonomy. Our own side was measured from source, so its numbers are exact.
 | Claim deprecation     | required fields `status`, `deprecated-at`, `deprecated-by`, `reason` on the claim line (`lints._DEPRECATION_REQUIRED_FIELDS`); `superseded-by` optional; never deletion                                                                                                                                       |
 | Registries called     | doi.org handle API, Crossref `/works`, OpenAlex `/works`, DataCite `/dois`, arXiv, NCBI eutils, Wayback save + availability; optional offline Retraction Watch CSV via `--rw-csv`                                                                                                                             |
 | Zotero bridge         | Better BibTeX JSON-RPC (`localhost:23119/better-bibtex/json-rpc`) plus the Zotero local web API (`/api/users/0/items/top?format=csljson`); 8-method client, read-only by design                                                                                                                               |
-| Vault layout          | `inbox/`, `literatures/`, `synthesis/`, `log/`, `projects/`, `system/templates/`, `system/bases/`, plus `index.md`, `log.md`, `AGENTS.md`, `.research-vault/`                                                                                                                                                 |
+| Vault layout          | `inbox/`, `literature/`, `synthesis/`, `log/`, `projects/`, `system/templates/`, `system/bases/`, plus `index.md`, `log.md`, `AGENTS.md`, `.research-vault/`                                                                                                                                                  |
 | Portability target    | OKF (Open Knowledge Format), spec at `GoogleCloudPlatform/knowledge-catalog` `okf/SPEC.md`, tracked at v0.2; `index.md` declares `okf_version: "0.2"` and `scaffold._okf_probe` enforces conformance                                                                                                          |
 | Provenance unit       | claim line = evidence-boundary tag + `[@citekey, locator]` + `^c-XXXXXXXX`; global address `citekey#^claim-id`; stance links `supports`/`disputes`; quote selectors (prefix/suffix); `fixity-sha256`, `managed-sha256`                                                                                        |
 | Distribution          | MIT, plugin v0.1.0, unpublished                                                                                                                                                                                                                                                                               |
@@ -1207,7 +1207,7 @@ zero removals at pinned SHA `336c4f8`), covering 11 databases with per-API refer
 stdlib scripts. On top of that it adds two things upstream lacks: every completed query
 gets an append-only `search-log` line with the query **as run** and the literal hit count, and every
 candidate a person declines gets a `--not-admitted` line with a reason code. It terminates at
-admission — it never writes `literatures/`, never invents a citekey, and never decides admission.
+admission — it never writes `literature/`, never invents a citekey, and never decides admission.
 
 **Counterparts read.**
 
@@ -1240,7 +1240,7 @@ screening ritual, and no monitoring agent for new literature after the search.
 ### 10.3 `import-source`
 
 **Ours.** The projection step after a human admits an item to Zotero. `import-note` renders
-`literatures/CITEKEY.md` from Zotero into a managed region, leaving free prose below untouched;
+`literature/CITEKEY.md` from Zotero into a managed region, leaving free prose below untouched;
 re-import is a render-first comparison so an unchanged projection prints `NOOP` and writes
 nothing. The catalog "answers to no judgment of yours" — nothing downstream can hold it back. Then
 identifier discovery, registry-first dedup against `synthesis/index.md`, integration into the

@@ -97,7 +97,7 @@ def _build_vault(
 ) -> Path:
     for folder in (
         "inbox",
-        "literatures",
+        "literature",
         "wiki",
         "log",
         "projects",

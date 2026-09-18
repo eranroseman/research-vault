@@ -26,7 +26,7 @@
    "relevance": "ZotLit is the actively maintained Obsidian-Zotero bridge as of 2026 and the natural default for a fresh vault, but it pins you to Zotero 9+ plus its companion plugin."
   },
   {
-   "claim": "ZotLit v2 literature-note conventions: the note filename is the item's citation key by default, notes land in a `literatures` folder, default frontmatter fields are `title`, `related`, `collections`, `citekey` plus reserved identity keys `zotero-key`, `zotero-note-key`, `zotero-lastmod`; ZotLit-controlled content sits inside `%%zt-managed%%` ... `%%/zt-managed%%` markers so user text outside survives updates.",
+   "claim": "ZotLit v2 literature-note conventions: the note filename is the item's citation key by default, notes land in a `literature` folder, default frontmatter fields are `title`, `related`, `collections`, `citekey` plus reserved identity keys `zotero-key`, `zotero-note-key`, `zotero-lastmod`; ZotLit-controlled content sits inside `%%zt-managed%%` ... `%%/zt-managed%%` markers so user text outside survives updates.",
    "source": "https://zotlit.aidenlx.site/docs/tutorial/first-note",
    "maturity": "stable, documented (v2 docs)",
    "relevance": "These are the vault conventions to adopt rather than invent: citekey-named files in a dedicated folder, citekey + zotero-key frontmatter as machine-readable identity, and a managed region separating generated metadata from human/agent synthesis."

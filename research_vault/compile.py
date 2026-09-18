@@ -90,7 +90,7 @@ def tool_script(vault_root) -> Path:
 
 def _selected_notes(vault: Path, keys):
     wanted = set(keys)
-    for path in sorted((vault / "literatures").glob("*.md")):
+    for path in sorted((vault / "literature").glob("*.md")):
         try:
             # bytes.decode()'s default codec already is utf-8, so this carries
             # no literal codec name a mutation gate could flip with no effect.

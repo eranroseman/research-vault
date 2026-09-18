@@ -74,7 +74,7 @@ def eligible_claims(vault_root, draft_path) -> list[ClaimRef]:
             or not claim.claim_id
         ):
             continue
-        note = vault / "literatures" / f"{claim.citation_key}.md"
+        note = vault / "literature" / f"{claim.citation_key}.md"
         if not note.is_file():
             continue
         source = _claim_source_text(lines, claim)
@@ -91,7 +91,7 @@ def eligible_claims(vault_root, draft_path) -> list[ClaimRef]:
 
 def _has_verified_event(vault_root, citation_key: str) -> bool:
     """Verified-evidence-only counting: never assume a note is backed."""
-    note = Path(vault_root) / "literatures" / f"{citation_key}.md"
+    note = Path(vault_root) / "literature" / f"{citation_key}.md"
     if not note.is_file():
         return False
     return bool(events.verified_checks(note.read_text(encoding="utf-8")))

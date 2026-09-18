@@ -90,7 +90,7 @@ def test_append_only_log_pathspec_excludes_reserved_root_log(tmp_vault):
 
 
 def test_claim_immutability_catches_silent_edit_and_records_origin(fixture_vault):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(note.read_text(), "Mortality fell 12%", "Mortality fell 21%")
     )
@@ -101,7 +101,7 @@ def test_claim_immutability_catches_silent_edit_and_records_origin(fixture_vault
         (
             "smith2020#^c-11111111",
             {
-                "note_path": "path-bytes:literatures/smith2020.md",
+                "note_path": "path-bytes:literature/smith2020.md",
                 "claim_id": "c-11111111",
             },
         )
@@ -111,7 +111,7 @@ def test_claim_immutability_catches_silent_edit_and_records_origin(fixture_vault
 def test_claim_immutability_reports_each_claim_when_a_tracked_note_is_deleted(
     fixture_vault,
 ):
-    (fixture_vault / "literatures" / "smith2020.md").unlink()
+    (fixture_vault / "literature" / "smith2020.md").unlink()
 
     outs = lints.lint_claim_immutability(fixture_vault)
 
@@ -148,7 +148,7 @@ def test_claim_immutability_reports_a_deleted_claim_from_a_non_ascii_path(
 
 
 def test_claim_immutability_allows_complete_deprecation_transition(fixture_vault):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -168,7 +168,7 @@ def test_claim_immutability_allows_complete_deprecation_transition_with_a_succes
     """§5: `superseded-by` is optional but load-bearing when present — a
     deprecation transition that names a successor claim link must pass
     exactly like one that doesn't (the "both ways" pair)."""
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -186,7 +186,7 @@ def test_claim_immutability_allows_complete_deprecation_transition_with_a_succes
 def test_claim_immutability_rejects_deprecation_with_empty_superseded_by(
     fixture_vault,
 ):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -204,7 +204,7 @@ def test_claim_immutability_rejects_deprecation_with_empty_superseded_by(
 
 
 def test_claim_immutability_rejects_duplicate_superseded_by(fixture_vault):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -225,7 +225,7 @@ def test_claim_immutability_rejects_duplicate_superseded_by(fixture_vault):
 def test_claim_immutability_rejects_incomplete_deprecation_or_deprecation_with_mutation(
     fixture_vault,
 ):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     text = must_replace(note.read_text(), "Mortality fell 12%", "Mortality rose 12%")
     text = must_replace(
         text,
@@ -244,7 +244,7 @@ def test_claim_immutability_rejects_incomplete_deprecation_or_deprecation_with_m
 
 
 def test_claim_immutability_rejects_duplicate_deprecation_status(fixture_vault):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -262,7 +262,7 @@ def test_claim_immutability_rejects_duplicate_deprecation_status(fixture_vault):
 
 
 def test_claim_immutability_rejects_duplicate_deprecation_reason(fixture_vault):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -282,7 +282,7 @@ def test_claim_immutability_rejects_duplicate_deprecation_reason(fixture_vault):
 def test_claim_immutability_allows_only_one_exact_verify_failed_marker_change(
     fixture_vault,
 ):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -297,7 +297,7 @@ def test_claim_immutability_allows_only_one_exact_verify_failed_marker_change(
 def test_claim_immutability_allows_only_exact_failed_verification_marker_change(
     fixture_vault,
 ):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -312,7 +312,7 @@ def test_claim_immutability_allows_only_exact_failed_verification_marker_change(
 def test_claim_immutability_allows_removing_a_committed_verify_failed_marker(
     fixture_vault,
 ):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -332,7 +332,7 @@ def test_claim_immutability_allows_removing_a_committed_verify_failed_marker(
 
 
 def test_claim_immutability_rejects_verify_failed_marker_replacement(fixture_vault):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -360,7 +360,7 @@ def test_claim_immutability_rejects_verify_failed_marker_replacement(fixture_vau
 def test_claim_immutability_rejects_verify_failed_marker_replacement_with_mutation(
     fixture_vault,
 ):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     text = must_replace(note.read_text(), "Mortality fell 12%", "Mortality rose 12%")
     note.write_text(
         must_replace(
@@ -376,7 +376,7 @@ def test_claim_immutability_rejects_verify_failed_marker_replacement_with_mutati
 def test_claim_immutability_does_not_mask_a_continuation_newline_change(
     fixture_vault,
 ):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_bytes(must_replace(note.read_bytes(), b"\n", b"\r\n", -1))
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -401,7 +401,7 @@ def test_claim_immutability_does_not_mask_a_continuation_newline_change(
 def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
     fixture_vault,
 ):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_bytes(must_replace(note.read_bytes(), b"\n", b"\r\n", -1))
     subprocess.run(["git", "add", note], cwd=fixture_vault, check=True)
     subprocess.run(
@@ -425,7 +425,7 @@ def test_claim_immutability_does_not_mask_header_newline_change_in_deprecation(
 
 
 def test_claim_immutability_detects_distinct_invalid_utf8_bytes(fixture_vault):
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_bytes(
         must_replace(note.read_bytes(), b"  > Mortality fell", b"  > \xffortality fell")
     )
@@ -656,10 +656,10 @@ def test_an_attested_write_to_the_evidence_layer_is_not_drift(fixture_vault, wri
     surface must let those writes through, or every capture blocks the next
     commit (ingest spec §6 amendment of 2026-09-16, Part B Task 1 T4)."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     if write == "add":
         # A new capture: a note carrying a valid witness and a machine-class `generated`.
-        added = fixture_vault / "literatures" / "added.md"
+        added = fixture_vault / "literature" / "added.md"
         added.write_text(
             must_replace(
                 source.read_text(), 'citationKey: "smith2020"', 'citationKey: "added"'
@@ -677,7 +677,7 @@ def test_an_attested_write_to_the_evidence_layer_is_not_drift(fixture_vault, wri
         _refresh_body_witness(source)
     else:
         # Propagate: the note re-keys, is re-rendered at the new path, same Zotero identity.
-        renamed = fixture_vault / "literatures" / "smith2020b.md"
+        renamed = fixture_vault / "literature" / "smith2020b.md"
         renamed.write_text(
             _bump_generated(
                 must_replace(
@@ -701,9 +701,9 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
     a hand edit that refreshed the witness, a bare `mv`, a deletion — each
     surface as exactly the drift row the shape names."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     if write == "add":
-        added = fixture_vault / "literatures" / "added.md"
+        added = fixture_vault / "literature" / "added.md"
         added.write_text(
             must_replace(
                 must_replace(
@@ -717,7 +717,7 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
         )
         _refresh_body_witness(added)
         expected = (
-            "path-bytes:literatures/added.md",
+            "path-bytes:literature/added.md",
             "drift — literature note added without writer attestation",
         )
     elif write == "edit":
@@ -726,19 +726,19 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
         )
         _refresh_body_witness(source)
         expected = (
-            "path-bytes:literatures/smith2020.md",
+            "path-bytes:literature/smith2020.md",
             "drift — literature note body changed without writer attestation",
         )
     elif write == "rename":
-        source.rename(fixture_vault / "literatures" / "renamed.md")
+        source.rename(fixture_vault / "literature" / "renamed.md")
         expected = (
-            "path-bytes:literatures/renamed.md",
+            "path-bytes:literature/renamed.md",
             "drift — literature note renamed without writer attestation",
         )
     else:
         source.unlink()
         expected = (
-            "path-bytes:literatures/smith2020.md",
+            "path-bytes:literature/smith2020.md",
             "drift — literature note deleted",
         )
 
@@ -750,7 +750,7 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
     assert matching[0].result is Result.UNMATCHED
     assert matching[0].target_kind == "repo-path"
     if write == "rename":
-        assert matching[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
+        assert matching[0].extra["prior_path"] == "path-bytes:literature/smith2020.md"
 
 
 def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
@@ -758,8 +758,8 @@ def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
     bare `mv` that also edits a machine-owned key reports the key beside the
     wholesale rename row."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
-    renamed = fixture_vault / "literatures" / "renamed.md"
+    source = fixture_vault / "literature" / "smith2020.md"
+    renamed = fixture_vault / "literature" / "renamed.md"
     renamed.write_text(
         must_replace(
             source.read_text(), "zotero-item-version: 12", "zotero-item-version: 13"
@@ -773,11 +773,11 @@ def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
 
     assert reasons == {
         (
-            "path-bytes:literatures/renamed.md",
+            "path-bytes:literature/renamed.md",
             "drift — literature note renamed without writer attestation",
         ),
         (
-            "path-bytes:literatures/renamed.md",
+            "path-bytes:literature/renamed.md",
             "drift — zotero-item-version changed without writer attestation",
         ),
     }, reasons
@@ -790,8 +790,8 @@ def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
     bump, so the per-key diagnostic that now reaches renamed pairs (#21)
     names that too — the rename row is not the only finding here."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
-    renamed = fixture_vault / "literatures" / "smith2020b.md"
+    source = fixture_vault / "literature" / "smith2020.md"
+    renamed = fixture_vault / "literature" / "smith2020b.md"
     renamed.write_text(
         must_replace(
             source.read_text(), "# Mortality decline", "# Mortality decline, re-keyed"
@@ -806,7 +806,7 @@ def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
         "drift — literature note renamed without writer attestation",
         "drift — managed-sha256 changed without writer attestation",
     ], rows
-    assert rows[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
+    assert rows[0].extra["prior_path"] == "path-bytes:literature/smith2020.md"
 
 
 def test_a_note_without_a_tuple_does_not_stop_identity_pairing(fixture_vault):
@@ -821,11 +821,11 @@ def test_a_note_without_a_tuple_does_not_stop_identity_pairing(fixture_vault):
     hand: with an unchanged body on either note, this test still passes under
     a hand-flipped `break`)."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     # Sorts before the rename below; no Zotero tuple, so `_note_identity`
     # returns None for it — and a body that cannot fallback-pair either, so
     # it never consumes `smith2020.md`'s removed slot on its own.
-    bare = fixture_vault / "literatures" / "aaa-bare.md"
+    bare = fixture_vault / "literature" / "aaa-bare.md"
     bare.write_text(
         must_replace(
             must_replace(
@@ -839,7 +839,7 @@ def test_a_note_without_a_tuple_does_not_stop_identity_pairing(fixture_vault):
     )
     # Sorts after; same Zotero identity as the base note, but a changed body,
     # so only the identity pass -- not the body-bytes fallback -- can pair it.
-    renamed = fixture_vault / "literatures" / "zzz-renamed.md"
+    renamed = fixture_vault / "literature" / "zzz-renamed.md"
     renamed.write_text(
         must_replace(
             source.read_text(), "# Mortality decline", "# Mortality decline, re-keyed"
@@ -861,7 +861,7 @@ def test_prose_appended_below_the_note_is_drift_with_or_without_a_fresh_witness(
     prose is a stale witness when the person did not refresh it, and an
     unattested body change when they did; it is never silent."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     source.write_text(source.read_text() + "hand-written prose\n")
 
     stale = {item.reason for item in _evidence_rows(fixture_vault, base)}
@@ -878,7 +878,7 @@ def test_prose_appended_below_the_note_is_drift_with_or_without_a_fresh_witness(
 def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
     fixture_vault,
 ):
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     source.write_text(
         must_replace(source.read_text(), 'managed-sha256: "', 'managed-sha256: "A')
     )
@@ -929,7 +929,7 @@ def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
         text=True,
         capture_output=True,
     ).stdout.strip()
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     original = source.read_text()
     edited = _hand_edit_machine_owned_key(original, key)
     assert edited != original
@@ -944,7 +944,7 @@ def test_hand_edited_machine_owned_frontmatter_key_is_drift(fixture_vault, key):
     matching = [
         item
         for item in outcomes
-        if item.target == "path-bytes:literatures/smith2020.md"
+        if item.target == "path-bytes:literature/smith2020.md"
         and item.reason == expected_reason
     ]
     assert matching, outcomes
@@ -973,7 +973,7 @@ def test_malformed_generated_does_not_attest_a_machine_owned_key_change(
         text=True,
         capture_output=True,
     ).stdout.strip()
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     edited = must_replace(
         source.read_text(), 'citationKey: "smith2020"', 'citationKey: "smith2020x"'
     )
@@ -1000,7 +1000,7 @@ def test_two_unequal_junk_generated_values_are_not_seen_as_unchanged(fixture_vau
     because both get coerced to "no shape" — the comparison has to see the
     raw value, or a hand-edit could hide behind a same-looking coercion.
     """
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     source.write_text(
         must_replace(
             source.read_text(),
@@ -1044,7 +1044,7 @@ def test_unparseable_base_frontmatter_does_not_skip_the_per_key_check(fixture_va
     check (`validate_managed_witness`, first loop); this loop must not
     short-circuit on the base side going unparseable instead.
     """
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     original = source.read_text()
     malformed = must_replace(
         original,
@@ -1091,7 +1091,7 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
     compare it against — that would let an unreadable base auto-attest any
     machine-owned key change hiding behind it.
     """
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     original = source.read_text()
     malformed = must_replace(
         original,
@@ -1129,7 +1129,7 @@ def test_unparseable_base_frontmatter_does_not_auto_attest_via_a_valid_candidate
         item.reason
         for item in outcomes
         if item.result is Result.UNMATCHED
-        and item.target == "path-bytes:literatures/smith2020.md"
+        and item.target == "path-bytes:literature/smith2020.md"
     }
     # Pinned, not presence-only: a truthiness check survives the loss of any
     # single reason below, because the rest keep the set non-empty. Measured —
@@ -1186,23 +1186,23 @@ _MUTATED = _CLAIM.replace(b"A claim", b"A changed claim")
 
 
 def test_claim_immutability_watches_only_md_notes_under_its_roots(tmp_vault):
-    """A mutated claim in a wiki page or in a non-.md file under literatures/
-    is not this lint's business; the same mutation under literatures/ is."""
+    """A mutated claim in a wiki page or in a non-.md file under literature/
+    is not this lint's business; the same mutation under literature/ is."""
     base = gitstate.Snapshot(
         {
             b"wiki/concepts/a.md": _file(b"wiki/concepts/a.md", _CLAIM),
-            b"literatures/a.txt": _file(b"literatures/a.txt", _CLAIM),
-            b"literatures": gitstate.FileImage(
-                b"literatures", "directory", 0o40000, None
+            b"literature/a.txt": _file(b"literature/a.txt", _CLAIM),
+            b"literature": gitstate.FileImage(
+                b"literature", "directory", 0o40000, None
             ),
-            b"literatures/b.md": _file(b"literatures/b.md", _CLAIM),
+            b"literature/b.md": _file(b"literature/b.md", _CLAIM),
         }
     )
     candidate = gitstate.Snapshot(
         {
             b"wiki/concepts/a.md": _file(b"wiki/concepts/a.md", _MUTATED),
-            b"literatures/a.txt": _file(b"literatures/a.txt", _MUTATED),
-            b"literatures/b.md": _file(b"literatures/b.md", _MUTATED),
+            b"literature/a.txt": _file(b"literature/a.txt", _MUTATED),
+            b"literature/b.md": _file(b"literature/b.md", _MUTATED),
         }
     )
     outs = lints.lint_claim_immutability(tmp_vault, base, candidate)
@@ -1220,11 +1220,11 @@ def test_claim_immutability_walks_past_a_candidate_only_note_to_the_drift_after_
     """A note the base does not carry (new in the candidate) sorts first and
     is passed over, not the end of the walk: the mutated note after it still
     rows its drift."""
-    base = gitstate.Snapshot({b"literatures/b.md": _file(b"literatures/b.md", _CLAIM)})
+    base = gitstate.Snapshot({b"literature/b.md": _file(b"literature/b.md", _CLAIM)})
     candidate = gitstate.Snapshot(
         {
-            b"literatures/a.md": _file(b"literatures/a.md", _CLAIM),
-            b"literatures/b.md": _file(b"literatures/b.md", _MUTATED),
+            b"literature/a.md": _file(b"literature/a.md", _CLAIM),
+            b"literature/b.md": _file(b"literature/b.md", _MUTATED),
         }
     )
     outs = lints.lint_claim_immutability(tmp_vault, base, candidate)
@@ -1235,11 +1235,11 @@ def test_claim_immutability_walks_past_a_candidate_only_note_to_the_drift_after_
 
 def test_claim_target_is_the_claim_link_only_for_a_non_empty_string_key():
     text = '---\ncitationKey: "smith2020"\n---\n'
-    assert lints._claim_target(b"literatures/x.md", text, "c-1") == "smith2020#^c-1"
+    assert lints._claim_target(b"literature/x.md", text, "c-1") == "smith2020#^c-1"
     for key in ('""', "5"):
         text = f"---\ncitationKey: {key}\n---\n"
-        assert lints._claim_target(b"literatures/x.md", text, "c-1") == RepoPath(
-            b"literatures/x.md"
+        assert lints._claim_target(b"literature/x.md", text, "c-1") == RepoPath(
+            b"literature/x.md"
         )
 
 
@@ -1247,21 +1247,21 @@ def test_claim_immutability_rows_a_malformed_candidate_by_its_path(tmp_vault):
     """A candidate whose frontmatter no longer parses is a schema row on the
     note's path (the head still parses); a deleted note whose head never
     parsed is not a schema row, only its vanished claims are drift."""
-    base = gitstate.Snapshot({b"literatures/b.md": _file(b"literatures/b.md", _CLAIM)})
+    base = gitstate.Snapshot({b"literature/b.md": _file(b"literature/b.md", _CLAIM)})
     candidate = gitstate.Snapshot(
-        {b"literatures/b.md": _file(b"literatures/b.md", b"---\nnot a mapping\n---\n")}
+        {b"literature/b.md": _file(b"literature/b.md", b"---\nnot a mapping\n---\n")}
     )
     outs = lints.lint_claim_immutability(tmp_vault, base, candidate)
     assert (outs[0].check, outs[0].target, outs[0].result, outs[0].reason) == (
         "claim-immutability",
-        "path-bytes:literatures/b.md",
+        "path-bytes:literature/b.md",
         Result.UNMATCHED,
         "schema-violation — malformed frontmatter",
     )
     malformed_head = gitstate.Snapshot(
         {
-            b"literatures/c.md": _file(
-                b"literatures/c.md",
+            b"literature/c.md": _file(
+                b"literature/c.md",
                 b"---\nnot a mapping\n---\n- (inference) x [@smith2020, p. 1] ^c-9\n",
             )
         }
@@ -1278,9 +1278,9 @@ def test_claim_immutability_on_a_repository_without_a_head_reads_an_empty_base(
     tmp_path,
 ):
     vault = tmp_path / "vault"
-    (vault / "literatures").mkdir(parents=True)
+    (vault / "literature").mkdir(parents=True)
     subprocess.run(["git", "init", "-q"], cwd=vault, check=True)
-    (vault / "literatures" / "a.md").write_bytes(_CLAIM)
+    (vault / "literature" / "a.md").write_bytes(_CLAIM)
     assert lints.lint_claim_immutability(vault) == []
 
 
@@ -1339,16 +1339,16 @@ def test_origin_targets_the_claim_link_only_with_a_key_and_an_anchor(tmp_vault):
 
 
 def test_body_bytes_and_frontmatter_need_a_file_image():
-    directory = gitstate.FileImage(b"literatures/d", "directory", 0o40000, None)
+    directory = gitstate.FileImage(b"literature/d", "directory", 0o40000, None)
     assert lints._body_bytes(None) is None
     assert lints._body_bytes(directory) is None
     assert lints._frontmatter(None) is None
     assert lints._frontmatter(directory) is None
-    note = _file(b"literatures/a.md", _CLAIM)
+    note = _file(b"literature/a.md", _CLAIM)
     assert lints._body_bytes(note) == b"- (inference) A claim [@smith2020, p. 1] ^c-1\n"
     assert lints._frontmatter(note) == {"citationKey": "smith2020"}
     # An empty file reads as an empty body and no frontmatter, not as junk.
-    empty = _file(b"literatures/a.md", b"")
+    empty = _file(b"literature/a.md", b"")
     assert lints._body_bytes(empty) == b""
     assert lints._frontmatter(empty) == lints._frontmatter(_file(b"x.md", b"body\n"))
 
@@ -1358,11 +1358,11 @@ def test_note_identity_needs_data_and_a_complete_tuple():
     `None`, no non-"file" kind is a call it has to handle — so its only guard
     is `image.data is None`. A note with no complete Zotero tuple also reads
     as no identity."""
-    directory = gitstate.FileImage(b"literatures/d", "directory", 0o40000, None)
+    directory = gitstate.FileImage(b"literature/d", "directory", 0o40000, None)
     assert lints._note_identity(directory) is None
-    assert lints._note_identity(_file(b"literatures/a.md", _CLAIM)) is None
+    assert lints._note_identity(_file(b"literature/a.md", _CLAIM)) is None
     tupled = _file(
-        b"literatures/a.md",
+        b"literature/a.md",
         b'---\nzotero-server-id: "S1"\nzotero-item-key: "ABCDEFG1"\n'
         b'zotero-item-version: 1\ncitationKey: "a2020"\n---\nbody\n',
     )

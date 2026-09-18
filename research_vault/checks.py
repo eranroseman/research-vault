@@ -157,7 +157,7 @@ def check_citation_keys(
         if citation_key not in bibliography_universe:
             result = Result.UNMATCHED
             reason = "mismatch — citation key not in bibliography"
-        elif not (vault / "literatures" / f"{citation_key}.md").is_file():
+        elif not (vault / "literature" / f"{citation_key}.md").is_file():
             # Tier 2: bibliography membership alone is not citability — the
             # cited source needs an imported literature note to verify a
             # quote or paraphrase against.

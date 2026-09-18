@@ -30,7 +30,7 @@ def test_exact_after_normalization_uses_a_different_managed_quote_as_fallback(
 def test_same_address_mismatch_does_not_fall_back_to_a_matching_other_quote(
     fixture_vault,
 ):
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     source.write_text(
         source.read_text().replace(
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
@@ -51,7 +51,7 @@ def test_same_address_mismatch_does_not_fall_back_to_a_matching_other_quote(
 def test_empty_same_address_source_quote_falls_back_to_extractable_quote(
     fixture_vault,
 ):
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     source.write_text(
         source.read_text().replace(
             "- (paraphrase) Retrospective design [@smith2020, p. 3] ^c-22222222",
@@ -187,7 +187,7 @@ def test_an_anchorless_claim_and_a_quoteless_source_row_under_the_quote_check(
         "schema-violation — quote claim has no anchor",
     )
 
-    (fixture_vault / "literatures" / "smith2020.md").write_text(
+    (fixture_vault / "literature" / "smith2020.md").write_text(
         '---\ntype: "literature"\n---\n# Smith\n'
     )
     anchored = Claim("quote", "smith2020", None, "c-66666666", 3, quote_text="x")

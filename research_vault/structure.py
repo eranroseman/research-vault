@@ -26,7 +26,7 @@ from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
 _FOLDER_TYPES = {
-    "literatures": "literature",
+    "literature": "literature",
     "log": "daily",
     "inbox": "fleeting",
 }

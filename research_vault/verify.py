@@ -647,10 +647,10 @@ def _cites(content, citation_key):
 def _claim_notes(vault: Path) -> list[Path]:
     """The notes ``_plan_state`` scans for claim lines, minus the compiled layer.
 
-    ``literatures/`` flat, the same rule as every reader of it (decision 08).
+    ``literature/`` flat, the same rule as every reader of it (decision 08).
     """
     return sorted((vault / "projects").rglob("*.md")) + sorted(
-        (vault / "literatures").glob("*.md")
+        (vault / "literature").glob("*.md")
     )
 
 
@@ -665,7 +665,7 @@ def clear_marker_for(vault_root, check: str, target: str) -> bool:
     names every line citing ``[@<key>``, the citation regex keeping
     ``smith2020`` from matching ``smith2020a``; a ``path-bytes:`` target names
     the file itself, and every terminal marker for the check in it. The notes
-    are ``projects/**/*.md`` and ``literatures/*.md``: ``_plan_state`` scans
+    are ``projects/**/*.md`` and ``literature/*.md``: ``_plan_state`` scans
     both for claim lines, and a capture-rendered literature note matches
     nothing only because it carries none — a hand-authored one does receive
     markers. Anything under ``wiki/`` is skipped, mirroring the writer's own
@@ -1044,10 +1044,10 @@ def _plan_state(
                 reason,
             )
         )
-    # `literatures/` flat, as every reader of it globs (`_claim_notes`, the
+    # `literature/` flat, as every reader of it globs (`_claim_notes`, the
     # captured set, the linter, `--all`): a nested file is a literature note
     # nowhere, so nothing here stamps a claim `clear_marker_for` cannot reach.
-    note_files = sorted((vault / "literatures").glob("*.md")) + [
+    note_files = sorted((vault / "literature").glob("*.md")) + [
         path
         for folder in ("wiki", "projects")
         for path in sorted((vault / folder).rglob("*.md"))

@@ -26,7 +26,7 @@ pmid: "12345"
 
 
 def _write_note(vault, citation_key, text):
-    (vault / "literatures" / f"{citation_key}.md").write_text(text)
+    (vault / "literature" / f"{citation_key}.md").write_text(text)
 
 
 def test_trust_tier_prints_unverified_for_an_unverified_note(tmp_vault, capsys):

@@ -261,7 +261,7 @@ All conformant. Each needs a disposition — adoption or a recorded declination 
 `docs/terminology.md:67` declines `sources`/`resource` because "the citekey is source
 identity" ([ADR 0004](../adr/0004-citekey-is-the-only-identity.md)). ADR 0004's argument is
 about minting a second *identity*; neither field is one. §2 makes the Concept ID the file
-path with `.md` removed — here `literatures/<citekey>` (`notes.py:129`), so the citekey is the
+path with `.md` removed — here `literature/<citekey>` (`notes.py:129`), so the citekey is the
 Concept ID's leaf, not the whole of it — and §5.1's `id` is
 "a stable key used to attribute individual claims", precisely the slot the citekey fills.
 §4.1's `resource` names the underlying asset, i.e. the paper.
@@ -280,7 +280,7 @@ an Obsidian wikilink: `templates/vault/index.md:7-12` and `okf.py:35`. A grep fo
 §8 progressive disclosure — an OKF consumer opening the bundle root gets zero traversable
 entry points.
 
-**Fix (free).** `- [literatures/](literatures/) — …` and
+**Fix (free).** `- [literature/](literature/) — …` and
 `f"- [{day_file.stem}](log/{day_file.stem}.md)"`. Relative links are §6.1's second supported
 form and are natively clickable in Obsidian; nothing is lost.
 
@@ -346,7 +346,7 @@ Worth stating, and worth recording in `docs/terminology.md` §4 where D10 remove
 - **Nested `index.md`** correctly frontmatter-free, and test-pinned.
 - **Rule 2** holds on every non-reserved concept document, mechanically enforced.
 - **The citekey is the leaf of the OKF Concept ID** — §2's "path of the concept's file within
-  the bundle, with the `.md` suffix removed" resolves to `literatures/<citekey>`. The vault
+  the bundle, with the `.md` suffix removed" resolves to `literature/<citekey>`. The vault
   implements OKF identity rather than declining it.
 - **No §10 key or the `Attested Computation` type name is squatted.**
 - **Broken links never fail the probe**, matching §6.1's tolerance requirement.

@@ -14,11 +14,11 @@ def test_stamps_bare_capture_with_folder_type(tmp_path):
 
 
 def test_inserts_type_into_parseable_block(tmp_path):
-    (tmp_path / "literatures").mkdir(parents=True)
-    note = tmp_path / "literatures" / "x.md"
+    (tmp_path / "literature").mkdir(parents=True)
+    note = tmp_path / "literature" / "x.md"
     note.write_text('---\ncitationKey: "x"\n---\nbody\n')
     stamped, _ = stamp.stamp_types(tmp_path)
-    assert stamped == ["literatures/x.md"]
+    assert stamped == ["literature/x.md"]
     data, _ = frontmatter.parse(note.read_text())
     assert data["type"] == "literature"
     assert data["citationKey"] == "x"
@@ -41,13 +41,13 @@ def test_reports_unparseable_and_underived(tmp_path):
 
 
 def test_reports_duplicate_key_frontmatter_instead_of_collapsing(tmp_path):
-    (tmp_path / "literatures").mkdir(parents=True)
-    note = tmp_path / "literatures" / "x.md"
+    (tmp_path / "literature").mkdir(parents=True)
+    note = tmp_path / "literature" / "x.md"
     original = '---\ntags: "a"\ntags: "b"\n---\nbody\n'
     note.write_text(original)
     stamped, reported = stamp.stamp_types(tmp_path)
     assert stamped == []
-    assert reported == [("literatures/x.md", "unparseable")]
+    assert reported == [("literature/x.md", "unparseable")]
     assert note.read_text() == original  # untouched — no data loss
 
 
@@ -80,11 +80,11 @@ def test_preserves_crlf_for_bare_capture(tmp_path):
 
 
 def test_preserves_crlf_for_insert_as_first_key(tmp_path):
-    (tmp_path / "literatures").mkdir(parents=True)
-    note = tmp_path / "literatures" / "x.md"
+    (tmp_path / "literature").mkdir(parents=True)
+    note = tmp_path / "literature" / "x.md"
     note.write_bytes(b'---\r\ncitationKey: "x"\r\n---\r\nbody text\r\n')
     stamped, _ = stamp.stamp_types(tmp_path)
-    assert stamped == ["literatures/x.md"]
+    assert stamped == ["literature/x.md"]
     raw = note.read_bytes()
     assert b"\n" not in raw.replace(b"\r\n", b"")  # every \n is part of \r\n
     data, _ = frontmatter.parse(raw.decode("utf-8"))
@@ -117,8 +117,8 @@ def test_every_skip_is_a_pass_over_not_the_end_of_the_walk(tmp_path):
     (inbox / "a-dir.md").mkdir()
     (inbox / "b-link.md").symlink_to(tmp_path / "nowhere.md")
     (inbox / "c-bad.md").write_text("---\n  bad: nested\n---\ntext\n")
-    (tmp_path / "literatures").mkdir()
-    (tmp_path / "literatures" / "dup.md").write_text(
+    (tmp_path / "literature").mkdir()
+    (tmp_path / "literature" / "dup.md").write_text(
         '---\ntags: "a"\ntags: "b"\n---\ntext\n'
     )
     (inbox / "d-typed.md").write_text('---\ntype: "fleeting"\n---\ntext\n')
@@ -136,7 +136,7 @@ def test_every_skip_is_a_pass_over_not_the_end_of_the_walk(tmp_path):
         ("a-loose/e-notype.md", "no-type"),
         ("inbox/b-link.md", "symlink"),
         ("inbox/c-bad.md", "unparseable"),
-        ("literatures/dup.md", "unparseable"),
+        ("literature/dup.md", "unparseable"),
     ]
     assert (tmp_path / "index.md").read_text() == "root index\n"
     assert (tmp_path / "log.md").read_text() == "log\n"

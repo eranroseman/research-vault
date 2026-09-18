@@ -98,8 +98,8 @@ def test_snapshot_resolution_separates_base_expected_head_index_and_live(tmp_vau
 
 
 def test_unborn_defaults_to_stored_empty_tree_and_index_candidate(tmp_vault):
-    (tmp_vault / "literatures" / "first.md").write_bytes(b"first\n")
-    _git(tmp_vault, "add", "literatures/first.md")
+    (tmp_vault / "literature" / "first.md").write_bytes(b"first\n")
+    _git(tmp_vault, "add", "literature/first.md")
     index_before = (tmp_vault / ".git" / "index").read_bytes()
 
     snapshots = gitstate.resolve_snapshots(tmp_vault, candidate="index")
@@ -111,7 +111,7 @@ def test_unborn_defaults_to_stored_empty_tree_and_index_candidate(tmp_vault):
         ).returncode
         == 0
     )
-    assert snapshots.candidate.image(b"literatures/first.md").data == b"first\n"
+    assert snapshots.candidate.image(b"literature/first.md").data == b"first\n"
     assert (tmp_vault / ".git" / "index").read_bytes() == index_before
 
 
@@ -486,26 +486,24 @@ def test_projection_reports_both_primary_and_rollback_conflicts(tmp_vault, monke
 
 def test_manifest_is_raw_sorted_exact_and_rejects_out_of_allowlist(tmp_vault, tmp_path):
     before = gitstate.snapshot_worktree(tmp_vault)
-    high = os.path.join(os.fsencode(tmp_vault), b"literatures/\xff.md")
-    low = os.path.join(os.fsencode(tmp_vault), b"literatures/\x80.md")
+    high = os.path.join(os.fsencode(tmp_vault), b"literature/\xff.md")
+    low = os.path.join(os.fsencode(tmp_vault), b"literature/\x80.md")
     with open(high, "wb") as stream:
         stream.write(b"high\n")
     with open(low, "wb") as stream:
         stream.write(b"low\n")
     outputs = [
-        gitstate.CapturedOutput(
-            b"literatures/\xff.md", stat.S_IFREG | 0o644, b"high\n"
-        ),
-        gitstate.CapturedOutput(b"literatures/\x80.md", stat.S_IFREG | 0o644, b"low\n"),
+        gitstate.CapturedOutput(b"literature/\xff.md", stat.S_IFREG | 0o644, b"high\n"),
+        gitstate.CapturedOutput(b"literature/\x80.md", stat.S_IFREG | 0o644, b"low\n"),
     ]
     manifest = tmp_path.parent / f"{tmp_path.name}-manifest"
 
     captured = gitstate.audit_and_write_manifest(tmp_vault, before, outputs, manifest)
 
-    assert manifest.read_bytes() == b"literatures/\x80.md\0literatures/\xff.md\0"
+    assert manifest.read_bytes() == b"literature/\x80.md\0literature/\xff.md\0"
     assert [item.raw_path for item in captured] == [
-        b"literatures/\x80.md",
-        b"literatures/\xff.md",
+        b"literature/\x80.md",
+        b"literature/\xff.md",
     ]
 
     bad_before = gitstate.snapshot_worktree(tmp_vault)
@@ -551,11 +549,11 @@ def test_manifest_destination_preflight_rejects_unusable_targets(
 def test_manifest_rejects_same_path_rewrite_and_never_recaptures_raced_bytes(
     tmp_vault, tmp_path
 ):
-    path = tmp_vault / "literatures" / "out.md"
+    path = tmp_vault / "literature" / "out.md"
     path.write_bytes(b"before\n")
     before = gitstate.snapshot_worktree(tmp_vault)
     planned = gitstate.CapturedOutput(
-        b"literatures/out.md", stat.S_IFREG | 0o644, b"planned\n"
+        b"literature/out.md", stat.S_IFREG | 0o644, b"planned\n"
     )
     path.write_bytes(b"concurrent rewrite\n")
     manifest = tmp_path.parent / f"{tmp_path.name}-manifest-race"
@@ -639,7 +637,7 @@ def test_invalid_utf8_publication_failure_has_canonical_ascii_diagnostic(
     (tmp_vault / "index.md").write_bytes(b"base\n")
     _commit(tmp_vault)
     snapshots = gitstate.resolve_snapshots(tmp_vault, candidate="worktree")
-    output = gitstate.CapturedOutput(b"literatures/\xff.md", 0o100644, b"planned\n")
+    output = gitstate.CapturedOutput(b"literature/\xff.md", 0o100644, b"planned\n")
     real_run = gitstate.subprocess.run
 
     def fail_update(command, **kwargs):
@@ -648,7 +646,7 @@ def test_invalid_utf8_publication_failure_has_canonical_ascii_diagnostic(
                 command,
                 1,
                 b"",
-                b"fatal: b'literatures/\\xff.md' \xff",
+                b"fatal: b'literature/\\xff.md' \xff",
             )
         return real_run(command, **kwargs)
 
@@ -658,7 +656,7 @@ def test_invalid_utf8_publication_failure_has_canonical_ascii_diagnostic(
 
     message = str(caught.value)
     message.encode("utf-8", "strict")
-    assert "path-bytes:literatures/%FF.md" in message
+    assert "path-bytes:literature/%FF.md" in message
     assert "b'" not in message
     assert "\\xff" not in message.lower()
     assert "\ufffd" not in message
@@ -768,16 +766,16 @@ def test_rollback_refuses_a_directory_preimage_and_names_the_path(tmp_vault):
 
 def test_allowed_manifest_path_needs_a_file_image_an_md_suffix_and_an_owned_root():
     """The verifier's output allowlist: a regular file image, a `.md` path,
-    under literatures/ or projects/ or exactly the review queue -- each of
+    under literature/ or projects/ or exactly the review queue -- each of
     the three guards refuses on its own."""
-    file_image = gitstate.FileImage(b"literatures/x.md", "file", 0o100644, b"")
-    directory = gitstate.FileImage(b"literatures/x.md", "directory", 0o40000, None)
+    file_image = gitstate.FileImage(b"literature/x.md", "file", 0o100644, b"")
+    directory = gitstate.FileImage(b"literature/x.md", "directory", 0o40000, None)
     allowed = gitstate._allowed_manifest_path
-    assert allowed(b"literatures/x.md", file_image) is True
+    assert allowed(b"literature/x.md", file_image) is True
     assert allowed(b"projects/brief/draft.md", file_image) is True
     assert allowed(b"inbox/review-queue.md", file_image) is True
-    assert allowed(b"literatures/x.md", None) is False
-    assert allowed(b"literatures/x.md", directory) is False
-    assert allowed(b"literatures/x.txt", file_image) is False
+    assert allowed(b"literature/x.md", None) is False
+    assert allowed(b"literature/x.md", directory) is False
+    assert allowed(b"literature/x.txt", file_image) is False
     assert allowed(b"system/x.md", file_image) is False
     assert allowed(b"inbox/other.md", file_image) is False

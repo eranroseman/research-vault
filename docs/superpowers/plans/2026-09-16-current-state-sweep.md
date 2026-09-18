@@ -50,7 +50,7 @@ Only rows where the text asserts something the tree contradicts. True dated narr
 
 - `README.md:3` "question → literature → synthesis → draft → submit" (the stage is compile into `wiki/`); `:15` "Admission is a human act" (selection, before capture; admission is retired in CONTEXT.md); `:72` "not a synthesis"; `:76` `disputes` stance links described as live (frozen per CONTEXT.md:76); `:29` claim links `[[citation-key#^claim-id]]` described as live (frozen). `:19` "claims are written in project drafts — never in the machine-written literature note" contradicts `skills/evidence-conventions/SKILL.md:111` "the single verified quote lives once, in the literature note" — one of the two is current; settle which (Part B Task 3 touched the skill).
 - `CONTEXT.md:24` "never an admission path" — retired term.
-- `AGENTS.md:12` `litrature/` — the directory is `literatures/`.
+- `AGENTS.md:12` `litrature/` — the directory is `literature/`.
 - `docs/agents/terminology.md:69` the literature-screening-states row points at a CONTEXT.md section that no longer defines them; `:78` `fixity-sha256` (retired; `managed-sha256` is the witness); `:136` `synthesis-conventions` as a governed skill name — whatever Part B Task 3 ships; `:194–196` the stale-name list (`knowledge-harness`, `.harness/`, `HARNESS_*`, `hk-`) describes an "unfinished rename" that is finished.
 - `docs/agents/testing.md:30` "admission is a human act".
 - `docs/agents/triage-labels.md:5` a "mattpocock/skills" column and `:15` unedited template boilerplate. (`/grill-with-docs`, `/improve-codebase-architecture`, `/triage` and `/wayfinder` are user-invoked skills that exist; the survey could not see them. Not findings.)

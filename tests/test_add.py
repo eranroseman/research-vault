@@ -53,7 +53,7 @@ def test_add_authorizes_once_stores_the_key_creates_and_captures(
     ]
     outcomes = capture.add(tmp_vault, client, items, collection="IQZW5UVX")
     assert outcomes[0].reason == "matched — created E352DFS8"
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").is_file()
     store = tmp_vault / ".research-vault" / "zotero-keys.json"
     assert json.loads(store.read_text()) == {"6LpvURP2E933": "k" * 32}
     assert oct(store.stat().st_mode & 0o777) == "0o600"
@@ -82,7 +82,7 @@ def test_add_refuses_unknown_fields_before_any_network(tmp_vault, monkeypatch):
 
 def test_add_uses_the_recorded_server_id_when_notes_exist(tmp_vault, monkeypatch):
     fake, client = _fake_for_add(monkeypatch)
-    (tmp_vault / "literatures" / "x.md").write_text(
+    (tmp_vault / "literature" / "x.md").write_text(
         '---\ntype: "literature"\nzotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "AAAA0000"\n'
         'zotero-item-version: 1\ncitationKey: "x"\nattachments:\nfulltext:\n---\n'
     )
@@ -248,7 +248,7 @@ def test_add_routes_every_write_error_through_blocked(
     assert outcome.target == "add"
     assert outcome.result is (Result.UNREACHABLE if status == 500 else Result.UNMATCHED)
     assert outcome.reason.startswith(expected)
-    assert not (tmp_vault / "literatures" / "jakesch.etal2023a.md").exists()
+    assert not (tmp_vault / "literature" / "jakesch.etal2023a.md").exists()
 
 
 @pytest.mark.parametrize("successful", [None, [], "E352DFS8"])
@@ -299,7 +299,7 @@ def test_cli_add_creates_captures_and_prints_every_row(tmp_vault, monkeypatch, c
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == "MATCHED add — matched — created E352DFS8"
     assert lines[1] == "MATCHED jakesch.etal2023a — matched"
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").is_file()
     assert json.loads(fake._last_post_body)[0]["collections"] == ["IQZW5UVX"]
     assert not [f for f in inbox.load(tmp_vault) if f.check == "capture"]
 
@@ -398,7 +398,7 @@ def test_add_rows_an_invalid_batch_and_a_failed_server_read_on_add(
 
 def test_add_names_the_add_target_on_a_recorded_server_mismatch(tmp_vault, monkeypatch):
     _fake, client = _fake_for_add(monkeypatch)
-    (tmp_vault / "literatures" / "x.md").write_text(
+    (tmp_vault / "literature" / "x.md").write_text(
         '---\ntype: "literature"\nzotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "AAAA0000"\n'
         'zotero-item-version: 1\ncitationKey: "x"\nattachments:\nfulltext:\n---\n'
     )
@@ -485,7 +485,7 @@ def test_add_posts_each_item_whole_names_every_created_key_and_captures_at_now(
         },
     ]
     data, _body = frontmatter.parse(
-        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     )
     assert data["accessed"] == "2026-09-07"
     assert data["generated"]["at"] == "2026-09-07T10:00:00Z"

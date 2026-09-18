@@ -280,7 +280,7 @@ def lint_claim_immutability(
     """Require committed claims to stay byte-identical absent a real transition."""
     vault = Path(vault_root)
     outcomes = []
-    roots = (b"literatures/", b"projects/")
+    roots = (b"literature/", b"projects/")
     if base_snapshot is None:
         try:
             base_snapshot = gitstate.snapshot_tree(vault, "HEAD")
@@ -536,18 +536,18 @@ def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
 
 
 def _literature_files(snapshot: gitstate.Snapshot) -> dict[bytes, gitstate.FileImage]:
-    """Every literature note in the snapshot: `literatures/<key>.md`, flat.
+    """Every literature note in the snapshot: `literature/<key>.md`, flat.
 
     The one shape capture writes (`notes.note_path` refuses a `/` in the key)
-    and the captured set's own definition (decision 08: `literatures/*.md`);
+    and the captured set's own definition (decision 08: `literature/*.md`);
     every reader of the directory globs flat so a nested file is a literature
     note nowhere rather than somewhere.
     """
     return {
         raw_path: image
         for raw_path, image in snapshot.images.items()
-        if raw_path.startswith(b"literatures/")
-        and b"/" not in raw_path[len(b"literatures/") :]
+        if raw_path.startswith(b"literature/")
+        and b"/" not in raw_path[len(b"literature/") :]
         and raw_path.endswith(b".md")
         and image.kind == "file"
     }
@@ -683,7 +683,7 @@ def lint_evidence_layer(
     """Validate witnesses; report a deleted note and any write without attestation.
 
     Capture, the compile refresh and propagate are the only writers of
-    `literatures/` (ingest spec §3; §6 amended 2026-09-16), and each of their
+    `literature/` (ingest spec §3; §6 amended 2026-09-16), and each of their
     writes bumps `generated` under the machine actor (`notes.render_note`).
     So an added note, a changed body and a renamed note are findings only
     when that attestation is absent — `_write_attested`, the rule the

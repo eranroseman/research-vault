@@ -94,7 +94,7 @@ def _handle(payload: object) -> None:
         return
     if not relative.parts:
         return
-    if relative.parts[0] == "literatures":
+    if relative.parts[0] == "literature":
         _warning(
             "UNMATCHED evidence-layer "
             f"{_encode_repo_path(os.fsencode(relative))} — "

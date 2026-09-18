@@ -24,7 +24,7 @@ def test_note_path(tmp_vault):
     assert (
         notes.note_path(tmp_vault, "smith2020")
         .as_posix()
-        .endswith("literatures/smith2020.md")
+        .endswith("literature/smith2020.md")
     )
 
 

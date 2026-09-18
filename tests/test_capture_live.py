@@ -25,7 +25,7 @@ def test_capture_round_trip_on_a_live_item(tmp_vault):
     key = keyed["data"]["citationKey"]
     outcomes = capture.capture(tmp_vault, client, [key])
     assert outcomes[0].result is Result.MATCHED
-    text = (tmp_vault / "literatures" / f"{key}.md").read_text()
+    text = (tmp_vault / "literature" / f"{key}.md").read_text()
     provenance = notes.read_provenance(text)
     assert provenance.server_id == client.server_info()["server_id"]
     assert provenance.item_version == keyed["version"]
@@ -64,7 +64,7 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
     )
     assert outcomes[0].reason.startswith("matched — created "), outcomes
     item_key = outcomes[0].reason.split("created ")[1].split(",")[0]
-    note = next((tmp_vault / "literatures").glob("*.md"))
+    note = next((tmp_vault / "literature").glob("*.md"))
     provenance = notes.read_provenance(note.read_text())
     assert provenance.item_key == item_key
 

@@ -304,15 +304,15 @@ def _captured_keys(vault: Path) -> set[str]:
 
 
 def _every_note(vault: Path) -> tuple[list[str], list[Outcome]]:
-    """--all: every note under literatures/, by its recorded citationKey — tuple or not.
+    """--all: every note under literature/, by its recorded citationKey — tuple or not.
 
     A note without a tuple is an older vault's, captured once to acquire one; a note
     that cannot even be named is a row, never a silent omission.
     """
     keys: list[str] = []
     outcomes: list[Outcome] = []
-    for path in sorted((vault / "literatures").glob("*.md")):
-        target = RepoPath(os.fsencode(f"literatures/{path.name}"))
+    for path in sorted((vault / "literature").glob("*.md")):
+        target = RepoPath(os.fsencode(f"literature/{path.name}"))
         try:
             data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))
         except OSError as error:
@@ -376,7 +376,7 @@ def _refused(vault: Path, prior: Outcome | None, requested_key: str) -> Outcome 
     """The linter's standing this item is not written over, or None to proceed.
 
     A ``_REFUSED`` transition is refused outright. ``re-keyed`` is refused only
-    while ``literatures/<old>.md`` still exists: rendering under the live key
+    while ``literature/<old>.md`` still exists: rendering under the live key
     would leave a second note beside it, and ``propagate.plan`` refuses to
     rename over an existing file — the file renames only on a re-key, and the
     propagation task set performs it (spec §3.1). ``propagate.apply`` renames
@@ -416,7 +416,7 @@ def capture(
     render per requested item, then the CSL file whole.
 
     ``keys`` are item keys or citation keys (``resolve_keys``); ``refresh_all``
-    adds every note under ``literatures/`` by its recorded ``citationKey``.
+    adds every note under ``literature/`` by its recorded ``citationKey``.
     Returns one ``Outcome`` per requested item — plus a ``vault`` row when a
     vault-level read or refusal ends the run, and the CSL file's row when the
     run reached it. Nothing is written for a refused, unkeyed or unreadable

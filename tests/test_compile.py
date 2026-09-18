@@ -26,7 +26,7 @@ def test_stable_source_id_matches_the_tools_own_function():
 
 
 def _note(vault, key="jakesch.etal2023a", sha="f" * 64):
-    (vault / "literatures" / f"{key}.md").write_text(
+    (vault / "literature" / f"{key}.md").write_text(
         f'---\ntype: "literature"\ntitle: "Co-writing"\naliases:\n  - "Co-writing"\n'
         f'zotero-server-id: "S"\nzotero-item-key: "E352DFS8"\nzotero-item-version: 544\ncitationKey: "{key}"\n'
         f'attachments:\n  - {{key: "D7EJ9FTG", version: 551, md5: "m", contentType: "application/pdf", filename: "a.pdf"}}\n'
@@ -62,7 +62,7 @@ def test_ledger_record_and_bundle_shape(tmp_vault, monkeypatch):
 
 def test_records_skip_notes_without_a_compile_input(tmp_vault):
     _note(tmp_vault)
-    path = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    path = tmp_vault / "literature" / "jakesch.etal2023a.md"
     text = must_replace(
         path.read_text(), 'compile-input-sha256: "' + "f" * 64 + '"\n', ""
     )
@@ -81,7 +81,7 @@ def test_ledger_record_skips_when_no_fulltext_entry_matches_the_compile_input(
     leaves the generator exhausted, and without the default that raises
     ``StopIteration`` instead of a graceful skip."""
     _note(tmp_vault)
-    path = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    path = tmp_vault / "literature" / "jakesch.etal2023a.md"
     text = must_replace(
         path.read_text(),
         'compile-input-sha256: "' + "f" * 64 + '"',
@@ -162,7 +162,7 @@ def test_ledger_record_falls_back_to_the_citation_key_when_the_note_has_no_title
 ):
     key = "nokish2026"
     sha = "e" * 64
-    (tmp_vault / "literatures" / f"{key}.md").write_text(
+    (tmp_vault / "literature" / f"{key}.md").write_text(
         f'---\ntype: "literature"\nzotero-server-id: "S"\nzotero-item-key: "E352DFS9"\n'
         f'zotero-item-version: 1\ncitationKey: "{key}"\n'
         f'attachments:\n  - {{key: "ABCDEFGH", version: 1, md5: "m", contentType: "application/pdf", filename: "a.pdf"}}\n'
@@ -195,7 +195,7 @@ def test_selected_notes_continues_past_an_excluded_note_to_a_later_wanted_one(
     tmp_vault,
 ):
     """continue, not break: an excluded note that sorts before the wanted one
-    must not stop the walk (literatures/*.md is read in filename order)."""
+    must not stop the walk (literature/*.md is read in filename order)."""
     _note(tmp_vault, key="aaa-excluded")
     _note(tmp_vault, key="zzz-wanted", sha="a" * 64)
     records = compile_mod.records_for(tmp_vault, ["zzz-wanted"], today="2026-09-07")
@@ -206,7 +206,7 @@ def test_selected_notes_skips_a_note_with_no_provenance_without_raising(tmp_vaul
     """``provenance is None or ...`` short-circuits before touching
     ``.citation_key``; an ``and`` here would evaluate ``None.citation_key``
     and raise instead of skipping the unparseable note."""
-    (tmp_vault / "literatures" / "broken.md").write_text("not frontmatter at all\n")
+    (tmp_vault / "literature" / "broken.md").write_text("not frontmatter at all\n")
     _note(tmp_vault)
     records = compile_mod.records_for(
         tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
@@ -215,11 +215,11 @@ def test_selected_notes_skips_a_note_with_no_provenance_without_raising(tmp_vaul
 
 
 def test_selected_notes_skips_a_non_utf8_note_without_crashing(tmp_vault):
-    """A corrupted note anywhere in ``literatures/`` must not crash the whole
+    """A corrupted note anywhere in ``literature/`` must not crash the whole
     ``compile`` operation (Task 2 review, R24) -- ``broken.md`` sorts before
     ``jakesch.etal2023a.md`` so this also kills a ``continue`` -> ``break``
     mutant: the wanted note, read later in the same walk, must still yield."""
-    (tmp_vault / "literatures" / "broken.md").write_bytes(b"\xff\xfe")
+    (tmp_vault / "literature" / "broken.md").write_bytes(b"\xff\xfe")
     _note(tmp_vault)
     records = compile_mod.records_for(
         tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
@@ -233,7 +233,7 @@ def test_selected_notes_skips_an_unreadable_note_without_crashing(tmp_vault):
     the same way a bad-encoding note is -- proving the ``except`` tuple
     really catches ``OSError``, not only ``UnicodeError``. ``dir.md`` sorts
     before ``jakesch.etal2023a.md``."""
-    (tmp_vault / "literatures" / "dir.md").mkdir()
+    (tmp_vault / "literature" / "dir.md").mkdir()
     _note(tmp_vault)
     records = compile_mod.records_for(
         tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
@@ -263,7 +263,7 @@ def test_select_reports_a_captured_note_without_text_as_skipped(tmp_vault):
     an item with no attachment to read), never a finding — but a row, so an
     empty selection cannot read as a pass."""
     _note(tmp_vault)
-    path = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    path = tmp_vault / "literature" / "jakesch.etal2023a.md"
     path.write_text(
         must_replace(path.read_text(), 'compile-input-sha256: "' + "f" * 64 + '"\n', "")
     )
@@ -1223,7 +1223,7 @@ def test_cmd_compile_reports_a_captured_key_without_text_and_plans_nothing(
     """SKIPPED is never held, but a selection of only SKIPPED rows registered
     nothing — the one place a SKIPPED row moves the exit."""
     _note(tmp_vault)
-    path = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    path = tmp_vault / "literature" / "jakesch.etal2023a.md"
     path.write_text(
         must_replace(path.read_text(), 'compile-input-sha256: "' + "f" * 64 + '"\n', "")
     )
@@ -1277,7 +1277,7 @@ def test_cmd_compile_a_skipped_row_beside_a_valid_plan_exits_zero(
 ):
     _note(tmp_vault)
     _note(tmp_vault, key="notext", sha="a" * 64)
-    path = tmp_vault / "literatures" / "notext.md"
+    path = tmp_vault / "literature" / "notext.md"
     path.write_text(
         must_replace(path.read_text(), 'compile-input-sha256: "' + "a" * 64 + '"\n', "")
     )

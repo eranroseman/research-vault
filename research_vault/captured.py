@@ -24,7 +24,7 @@ _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
 def _read_notes(
     vault: Path,
 ) -> tuple[list[tuple[dict, notes.Provenance]], list[Outcome]]:
-    """Every note under literatures/ with its tuple — and a row for every note the reader cannot take.
+    """Every note under literature/ with its tuple — and a row for every note the reader cannot take.
 
     lifecycle._provenances skips such a note silently, and capture reports it only when its key is
     requested; decision 08 then drops the key from the captured set and so from the CSL file. This
@@ -32,8 +32,8 @@ def _read_notes(
     """
     entries: list[tuple[dict, notes.Provenance]] = []
     outcomes: list[Outcome] = []
-    for path in sorted((vault / "literatures").glob("*.md")):
-        target = RepoPath(os.fsencode(f"literatures/{path.name}"))
+    for path in sorted((vault / "literature").glob("*.md")):
+        target = RepoPath(os.fsencode(f"literature/{path.name}"))
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as error:
@@ -100,9 +100,9 @@ def _page_names(vault: Path) -> set[str]:
             continue
         relative = path.relative_to(vault)
         # The directory check reads the unstripped parts: with_suffix("") turns a
-        # root-level `literatures.md` into `literatures`, and the guard would take
+        # root-level `literature.md` into `literature`, and the guard would take
         # a page for the evidence folder and drop its name.
-        if relative.parts[0] == "literatures":
+        if relative.parts[0] == "literature":
             continue
         parts = relative.with_suffix("").parts
         names.update("/".join(parts[k:]) for k in range(len(parts)))

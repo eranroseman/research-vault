@@ -9,7 +9,7 @@ def _write(tmp_path, relative, text):
 
 
 def test_expected_type_is_the_folder():
-    assert structure.expected_type("literatures/smith2020.md") == "literature"
+    assert structure.expected_type("literature/smith2020.md") == "literature"
     assert structure.expected_type("projects/brief/draft.md") == "project"
     assert structure.expected_type("log/2026-08-20.md") == "daily"
     assert structure.expected_type("inbox/review-queue.md") == "review-queue"
@@ -37,11 +37,11 @@ def test_expected_type_project_note_is_narrow():
 def test_fleeting_paths_are_named_not_typed():
     assert structure.is_fleeting("inbox/half-thought.md")
     assert not structure.is_fleeting("inbox/review-queue.md")
-    assert not structure.is_fleeting("literatures/smith2020.md")
+    assert not structure.is_fleeting("literature/smith2020.md")
 
 
 def test_check_flags_missing_frontmatter_and_wrong_folder_type(tmp_path):
-    path = _write(tmp_path, "literatures/untyped.md", "# no frontmatter\n")
+    path = _write(tmp_path, "literature/untyped.md", "# no frontmatter\n")
     (outcome,) = structure.check_note_frontmatter(tmp_path, path)
     assert outcome.check == "okf-frontmatter"
     assert outcome.result is Result.UNMATCHED
@@ -79,7 +79,7 @@ def test_check_skips_fleeting_notes(tmp_path):
 
 
 def _scaffold_min(tmp_path):
-    for d in ("literatures", "wiki", "projects", "log", "inbox", "system"):
+    for d in ("literature", "wiki", "projects", "log", "inbox", "system"):
         (tmp_path / d).mkdir(parents=True, exist_ok=True)
     _write(tmp_path, "index.md", '---\nokf_version: "0.2"\n---\n# Vault index\n')
 
@@ -145,7 +145,7 @@ def test_commit_surface_closes_on_structure_violation(tmp_path):
     from research_vault import scaffold, verify
 
     scaffold.scaffold_vault(tmp_path)
-    (tmp_path / "literatures" / "untyped.md").write_text("# no frontmatter\n")
+    (tmp_path / "literature" / "untyped.md").write_text("# no frontmatter\n")
     _report, effective, _hashes, warning = verify.verify_state(
         tmp_path, network=False, git_candidate="worktree"
     )

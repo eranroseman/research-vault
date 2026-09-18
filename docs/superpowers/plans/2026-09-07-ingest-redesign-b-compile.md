@@ -123,10 +123,10 @@ Expected: `mode get` reports `sources_folder: wiki/sources/`, `concepts_folder: 
 
 - [ ] **Step 4: T3 — a compile run over three captured sources writes only under `wiki/`**
 
-Capture three sources into the scratch vault (`capture A B C --base http://localhost:23129`), snapshot `literatures/` and `fulltext/` (`find "$scratch/literatures" "$scratch/fulltext" -type f -exec sha256sum {} + | sort > /tmp/before.txt`). In the session, invoke the tool's `wiki-ingest` skill on the three `fulltext/<key>.md` files (hand it the paths; Task 2's wrapper is not built yet). Approve its bundle by hash, apply. Then: Run every `python -m research_vault` command of this task from the worktree root with `PYTHONPATH=.`, and open with the import-path canary (`python -c "import research_vault; print(research_vault.__file__)"`), or the shared venv imports main's package and doctor reads the pin main carries.
+Capture three sources into the scratch vault (`capture A B C --base http://localhost:23129`), snapshot `literature/` and `fulltext/` (`find "$scratch/literature" "$scratch/fulltext" -type f -exec sha256sum {} + | sort > /tmp/before.txt`). In the session, invoke the tool's `wiki-ingest` skill on the three `fulltext/<key>.md` files (hand it the paths; Task 2's wrapper is not built yet). Approve its bundle by hash, apply. Then: Run every `python -m research_vault` command of this task from the worktree root with `PYTHONPATH=.`, and open with the import-path canary (`python -c "import research_vault; print(research_vault.__file__)"`), or the shared venv imports main's package and doctor reads the pin main carries.
 
 ```bash
-find "$scratch/literatures" "$scratch/fulltext" -type f -exec sha256sum {} + | sort | diff - /tmp/before.txt && echo "literatures and fulltext byte-identical"
+find "$scratch/literature" "$scratch/fulltext" -type f -exec sha256sum {} + | sort | diff - /tmp/before.txt && echo "literature and fulltext byte-identical"
 git -C "$scratch" status --porcelain | grep -v '^?? wiki/\|^ M wiki/\|^?? \.raw/\|^?? \.claude-obsidian\.json\|^?? \.obsidian/' ; echo "(nothing above this line means only wiki/ changed)"
 ```
 
@@ -172,9 +172,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs/superpowers/pl
 
 - 2026-09-16 T1: pass — a Claude Code session started in the scratch vault with `claude --plugin-dir <worktree>` (research-vault) and the installed claude-obsidian; `/context` listed both plugins (`research-vault:synthesis-conventions`, `research-vault:evidence-conventions` — the two skills without `disable-model-invocation`; the seven entry skills are user-invocable only, so they do not appear — and the fifteen `claude-obsidian:*` skills); `capture west.michie2020` printed `MATCHED west.michie2020 — matched — NOOP` (exit 0; the key was captured and refreshed by T3); doctor completed with `MATCHED compile-tool — claude-obsidian@agricidaniel-claude-obsidian at 32ac5a0` (exit 1 on the scratch vault's own unconfigured `machine-config` mailto); context after both runs 33.5k/1m (3%), skills 8.6k tokens, no compaction. Key substitution: the plan's `jakesch.etal2023a` has no child items on 23129 (no PDF, no full text), so T1 ran on `west.michie2020`, the first of T3's three keys.
 - 2026-09-14 T2: pass — `mode set generic` wrote `.vault-meta/mode.json` and `mode get` read back `sources_folder: wiki/sources/`, `concepts_folder: wiki/concepts/` (+ entities, sessions, questions); `adopt` created the 13 files and left `.gitignore` byte-identical (silently skipped, not refused); `.mcp.json` and `.trash/` appended by hand. Observed 2026-09-14: `scaffold` seeds no `.obsidian/` at this worktree (spec §4.3's decision-17 wording), so `adopt` installed the tool's four `.obsidian/*` files unopposed — the assembly spec's known packaging block (§6.2, §15 item 17), not a Part B finding.
-- 2026-09-14 T3: pass — ingest bundle (3 source pages + 1 concept page, ledgers, index/log/hot) inspected `valid: true` and applied `complete` first time with `fulltext/<key>.md` locators; `literatures/` and `fulltext/` byte-identical; `git status` shows only `wiki/`; `wiki/log.md` has no `## ` heading; refresh gave `## Compiled` + one embed per `pages[]` entry; third capture `matched — NOOP` for all three. Keys: `west.michie2020`, `rosenstock.etal1988`, `arlinghaus.johnston2018`. Observed 2026-09-14: `pages[]` as the tool's skill fills it lists the concept page each source feeds plus its own source page, so the refresh embeds two pages per note — design as printed; a spec observation on whether concept pages belong inside literature notes.
-- 2026-09-14 T4: pass — with the tool's `wiki/` writes alone on the commit surface, `verify --offline --surface commit` exits 0, `{"MATCHED": 20, "SKIPPED": 23}`; no `okf-frontmatter`/`okf-structure`/`captured-set` finding on any `wiki/` path; `wiki/index.md` exempt; `.raw/`, `.vault-meta/` unwalked. Run literally as printed, with the refresh capture's rewrite of `literatures/` also uncommitted, it exits 1 on three `evidence-layer … drift — literature note body changed` rows — capture's own designed surfacing, not the tool's pages; decided 2026-09-16 (option 1) as Task 2b.
-- 2026-09-16 T5: title link opened `wiki/sources/A brief introduction to the COM-B model of behaviour and the PRIME theory of motivation.md`; key link opened `literatures/west.michie2020.md` (Obsidian 1.13.7, measured through `obsidian eval` — `getFirstLinkpathDest` and `openLinkText` from `inbox/t5-scratch.md`; exact filename beats the literature note's `aliases:`). Both `![[wiki/…]]` embeds under `## Compiled` render inline in reading view. Observed 2026-09-14: the tool's own `lint` calls all 13 `[[Title]]` links ambiguous between `literatures/<key>.md` (alias/title) and `wiki/sources/<Title>.md` (filename) — 3 orphans + 3 stale index entries, exit 0; `checkpoint` would block on them per §4.3.1 (not exercised). Obsidian resolves the pair unambiguously, so this is a tool-lint observation for the results file, not the fifth conflict.
+- 2026-09-14 T3: pass — ingest bundle (3 source pages + 1 concept page, ledgers, index/log/hot) inspected `valid: true` and applied `complete` first time with `fulltext/<key>.md` locators; `literature/` and `fulltext/` byte-identical; `git status` shows only `wiki/`; `wiki/log.md` has no `## ` heading; refresh gave `## Compiled` + one embed per `pages[]` entry; third capture `matched — NOOP` for all three. Keys: `west.michie2020`, `rosenstock.etal1988`, `arlinghaus.johnston2018`. Observed 2026-09-14: `pages[]` as the tool's skill fills it lists the concept page each source feeds plus its own source page, so the refresh embeds two pages per note — design as printed; a spec observation on whether concept pages belong inside literature notes.
+- 2026-09-14 T4: pass — with the tool's `wiki/` writes alone on the commit surface, `verify --offline --surface commit` exits 0, `{"MATCHED": 20, "SKIPPED": 23}`; no `okf-frontmatter`/`okf-structure`/`captured-set` finding on any `wiki/` path; `wiki/index.md` exempt; `.raw/`, `.vault-meta/` unwalked. Run literally as printed, with the refresh capture's rewrite of `literature/` also uncommitted, it exits 1 on three `evidence-layer … drift — literature note body changed` rows — capture's own designed surfacing, not the tool's pages; decided 2026-09-16 (option 1) as Task 2b.
+- 2026-09-16 T5: title link opened `wiki/sources/A brief introduction to the COM-B model of behaviour and the PRIME theory of motivation.md`; key link opened `literature/west.michie2020.md` (Obsidian 1.13.7, measured through `obsidian eval` — `getFirstLinkpathDest` and `openLinkText` from `inbox/t5-scratch.md`; exact filename beats the literature note's `aliases:`). Both `![[wiki/…]]` embeds under `## Compiled` render inline in reading view. Observed 2026-09-14: the tool's own `lint` calls all 13 `[[Title]]` links ambiguous between `literature/<key>.md` (alias/title) and `wiki/sources/<Title>.md` (filename) — 3 orphans + 3 stale index entries, exit 0; `checkpoint` would block on them per §4.3.1 (not exercised). Obsidian resolves the pair unambiguously, so this is a tool-lint observation for the results file, not the fifth conflict.
 
 ### Task 2: The compile wrapper (spec §4.3, §4.4, §4.5)
 
@@ -229,7 +229,7 @@ def test_stable_source_id_matches_the_tools_own_function():
 
 
 def _note(vault, key="jakesch.etal2023a", sha="f" * 64):
-    (vault / "literatures" / f"{key}.md").write_text(
+    (vault / "literature" / f"{key}.md").write_text(
         f'---\ntype: "literature"\ntitle: "Co-writing"\naliases:\n  - "Co-writing"\n'
         f'zotero-server-id: "S"\nzotero-item-key: "E352DFS8"\nzotero-item-version: 544\ncitationKey: "{key}"\n'
         f'attachments:\n  - {{key: "D7EJ9FTG", version: 551, md5: "m", contentType: "application/pdf", filename: "a.pdf"}}\n'
@@ -259,8 +259,8 @@ def test_ledger_record_and_bundle_shape(tmp_vault, monkeypatch):
 
 def test_records_skip_notes_without_a_compile_input(tmp_vault):
     _note(tmp_vault)
-    text = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text().replace('compile-input-sha256: "' + "f" * 64 + '"\n', "")
-    (tmp_vault / "literatures" / "jakesch.etal2023a.md").write_text(text)
+    text = (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text().replace('compile-input-sha256: "' + "f" * 64 + '"\n', "")
+    (tmp_vault / "literature" / "jakesch.etal2023a.md").write_text(text)
     assert compile_mod.records_for(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07") == {}
 
 
@@ -282,11 +282,11 @@ def _fake_tool(tmp_path, monkeypatch, *, inspect_ok=True, apply_code=0):
 
 
 def test_selected_notes_skips_a_non_utf8_note_without_crashing(tmp_vault):
-    """A corrupted note anywhere in ``literatures/`` must not crash the whole
+    """A corrupted note anywhere in ``literature/`` must not crash the whole
     ``compile`` operation -- ``broken.md`` sorts before ``jakesch.etal2023a.md``
     so this also kills a ``continue`` -> ``break`` mutant: the wanted note, read
     later in the same walk, must still yield."""
-    (tmp_vault / "literatures" / "broken.md").write_bytes(b"\xff\xfe")
+    (tmp_vault / "literature" / "broken.md").write_bytes(b"\xff\xfe")
     _note(tmp_vault)
     records = compile_mod.records_for(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
     assert len(records) == 1
@@ -297,7 +297,7 @@ def test_selected_notes_skips_an_unreadable_note_without_crashing(tmp_vault):
     ``read_bytes()`` raises ``IsADirectoryError``) is skipped the same way a
     bad-encoding note is -- the ``except`` tuple really catches ``OSError``.
     ``dir.md`` sorts before ``jakesch.etal2023a.md``."""
-    (tmp_vault / "literatures" / "dir.md").mkdir()
+    (tmp_vault / "literature" / "dir.md").mkdir()
     _note(tmp_vault)
     records = compile_mod.records_for(tmp_vault, ["jakesch.etal2023a"], today="2026-09-07")
     assert len(records) == 1
@@ -453,7 +453,7 @@ def tool_script(vault_root) -> Path:
 
 def _selected_notes(vault: Path, keys):
     wanted = set(keys)
-    for path in sorted((vault / "literatures").glob("*.md")):
+    for path in sorted((vault / "literature").glob("*.md")):
         try:
             # bytes.decode()'s default codec already is utf-8, so this carries
             # no literal codec name a mutation gate could flip with no effect.
@@ -845,7 +845,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 Independent of Tasks 1–3 (no compile dependency); runs at once, in parallel with Task 2. Operator decision of 2026-09-16 (option 1 of three: this; ack per note; defer to the audit).
 
-**Why.** `lint_evidence_layer` reports every base→candidate change under `literatures/` — added, body changed, renamed, deleted — as UNMATCHED, the check sits in the commit and publish closing sets, and the vault template's pre-commit hook runs the commit surface. Measured by Task 1 T4 on 2026-09-14: a capture, a compile refresh (`## Compiled` inserted) or a propagate blocks the next commit until every note is acknowledged. The legs were the foundation design's human gate on a human-written evidence layer; the ingest spec made the whole note body capture's (§3: "capture writes literature notes … and touches nothing a person wrote") and retired admission (§1.1). The same function already carries the right mechanism for its frontmatter leg: a machine-owned key may change iff `generated` changed in the same diff with a machine-class `by` (`_frontmatter_attestation_outcomes`, "writer attestation"), and `notes.render_note` bumps `generated` on every content change (`notes.py:503-504`). This task puts the body, added and renamed legs under that one rule. A hand edit that refreshes `managed-sha256` but not `generated` is still drift; a forged attestation is the stated boundary the frontmatter leg already declares. A deletion stays a finding: no verb deletes a literature note (ADR 0003).
+**Why.** `lint_evidence_layer` reports every base→candidate change under `literature/` — added, body changed, renamed, deleted — as UNMATCHED, the check sits in the commit and publish closing sets, and the vault template's pre-commit hook runs the commit surface. Measured by Task 1 T4 on 2026-09-14: a capture, a compile refresh (`## Compiled` inserted) or a propagate blocks the next commit until every note is acknowledged. The legs were the foundation design's human gate on a human-written evidence layer; the ingest spec made the whole note body capture's (§3: "capture writes literature notes … and touches nothing a person wrote") and retired admission (§1.1). The same function already carries the right mechanism for its frontmatter leg: a machine-owned key may change iff `generated` changed in the same diff with a machine-class `by` (`_frontmatter_attestation_outcomes`, "writer attestation"), and `notes.render_note` bumps `generated` on every content change (`notes.py:503-504`). This task puts the body, added and renamed legs under that one rule. A hand edit that refreshes `managed-sha256` but not `generated` is still drift; a forged attestation is the stated boundary the frontmatter leg already declares. A deletion stays a finding: no verb deletes a literature note (ADR 0003).
 
 **Files:**
 
@@ -899,10 +899,10 @@ def test_an_attested_write_to_the_evidence_layer_is_not_drift(fixture_vault, wri
     surface must let those writes through, or every capture blocks the next
     commit (ingest spec §6 amendment of 2026-09-16, Part B Task 1 T4)."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     if write == "add":
         # A new capture: a note carrying a valid witness and a machine-class `generated`.
-        added = fixture_vault / "literatures" / "added.md"
+        added = fixture_vault / "literature" / "added.md"
         added.write_text(
             must_replace(source.read_text(), 'citationKey: "smith2020"', 'citationKey: "added"')
         )
@@ -917,7 +917,7 @@ def test_an_attested_write_to_the_evidence_layer_is_not_drift(fixture_vault, wri
         _refresh_body_witness(source)
     else:
         # Propagate: the note re-keys, is re-rendered at the new path, same Zotero identity.
-        renamed = fixture_vault / "literatures" / "smith2020b.md"
+        renamed = fixture_vault / "literature" / "smith2020b.md"
         renamed.write_text(
             _bump_generated(
                 must_replace(source.read_text(), 'citationKey: "smith2020"', 'citationKey: "smith2020b"')
@@ -937,9 +937,9 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
     a hand edit that refreshed the witness, a bare `mv`, a deletion — each
     surface as exactly the drift row the shape names."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     if write == "add":
-        added = fixture_vault / "literatures" / "added.md"
+        added = fixture_vault / "literature" / "added.md"
         added.write_text(
             must_replace(
                 must_replace(source.read_text(), 'citationKey: "smith2020"', 'citationKey: "added"'),
@@ -948,17 +948,17 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
             )
         )
         _refresh_body_witness(added)
-        expected = ("path-bytes:literatures/added.md", "drift — literature note added without writer attestation")
+        expected = ("path-bytes:literature/added.md", "drift — literature note added without writer attestation")
     elif write == "edit":
         source.write_text(must_replace(source.read_text(), "# Mortality decline", "# Changed"))
         _refresh_body_witness(source)
-        expected = ("path-bytes:literatures/smith2020.md", "drift — literature note body changed without writer attestation")
+        expected = ("path-bytes:literature/smith2020.md", "drift — literature note body changed without writer attestation")
     elif write == "rename":
-        source.rename(fixture_vault / "literatures" / "renamed.md")
-        expected = ("path-bytes:literatures/renamed.md", "drift — literature note renamed without writer attestation")
+        source.rename(fixture_vault / "literature" / "renamed.md")
+        expected = ("path-bytes:literature/renamed.md", "drift — literature note renamed without writer attestation")
     else:
         source.unlink()
-        expected = ("path-bytes:literatures/smith2020.md", "drift — literature note deleted")
+        expected = ("path-bytes:literature/smith2020.md", "drift — literature note deleted")
 
     rows = _evidence_rows(fixture_vault, base)
 
@@ -968,7 +968,7 @@ def test_an_unattested_write_to_the_evidence_layer_is_drift(fixture_vault, write
     assert matching[0].target_kind == "repo-path"
     if write == "rename":
         # Outcome.__post_init__ encodes a RepoPath in extra to its path-bytes string.
-        assert matching[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
+        assert matching[0].extra["prior_path"] == "path-bytes:literature/smith2020.md"
 
 
 def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
@@ -976,8 +976,8 @@ def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
     bare `mv` that also edits a machine-owned key reports the key beside the
     wholesale rename row."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
-    renamed = fixture_vault / "literatures" / "renamed.md"
+    source = fixture_vault / "literature" / "smith2020.md"
+    renamed = fixture_vault / "literature" / "renamed.md"
     renamed.write_text(
         must_replace(source.read_text(), "zotero-item-version: 12", "zotero-item-version: 13")
     )
@@ -986,8 +986,8 @@ def test_a_renamed_note_with_a_hand_edited_key_names_the_key(fixture_vault):
     reasons = {(item.target, item.reason) for item in _evidence_rows(fixture_vault, base)}
 
     assert reasons == {
-        ("path-bytes:literatures/renamed.md", "drift — literature note renamed without writer attestation"),
-        ("path-bytes:literatures/renamed.md", "drift — zotero-item-version changed without writer attestation"),
+        ("path-bytes:literature/renamed.md", "drift — literature note renamed without writer attestation"),
+        ("path-bytes:literature/renamed.md", "drift — zotero-item-version changed without writer attestation"),
     }, reasons
 
 
@@ -995,8 +995,8 @@ def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
     """Propagate re-keys and re-renders, so the bytes differ; the pairing is
     decision 08's identity. A note with no tuple still pairs by body bytes."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
-    renamed = fixture_vault / "literatures" / "smith2020b.md"
+    source = fixture_vault / "literature" / "smith2020.md"
+    renamed = fixture_vault / "literature" / "smith2020b.md"
     renamed.write_text(
         must_replace(source.read_text(), "# Mortality decline", "# Mortality decline, re-keyed")
     )
@@ -1010,7 +1010,7 @@ def test_rename_pairs_by_zotero_identity_before_body_bytes(fixture_vault):
     assert [item.reason for item in rows] == [
         "drift — literature note renamed without writer attestation"
     ], rows
-    assert rows[0].extra["prior_path"] == "path-bytes:literatures/smith2020.md"
+    assert rows[0].extra["prior_path"] == "path-bytes:literature/smith2020.md"
 ```
 
 Rewrite `test_prose_appended_below_the_note_is_a_body_change` to:
@@ -1023,7 +1023,7 @@ def test_prose_appended_below_the_note_is_drift_with_or_without_a_fresh_witness(
     prose is a stale witness when the person did not refresh it, and an
     unattested body change when they did; it is never silent."""
     base = _base_tree(fixture_vault)
-    source = fixture_vault / "literatures" / "smith2020.md"
+    source = fixture_vault / "literature" / "smith2020.md"
     source.write_text(source.read_text() + "hand-written prose\n")
 
     stale = {item.reason for item in _evidence_rows(fixture_vault, base)}
@@ -1092,7 +1092,7 @@ def lint_evidence_layer(
     """Validate witnesses; report a deleted note and any write without attestation.
 
     Capture, the compile refresh and propagate are the only writers of
-    `literatures/` (ingest spec §3; §6 amended 2026-09-16), and each of their
+    `literature/` (ingest spec §3; §6 amended 2026-09-16), and each of their
     writes bumps `generated` under the machine actor (`notes.render_note`).
     So an added note, a changed body and a renamed note are findings only
     when that attestation is absent — `_write_attested`, the rule the
@@ -1287,7 +1287,7 @@ description: Use when creating or editing pages of the compiled layer under wiki
 
 # Conventions for the compiled layer
 
-The compiled layer lives under `wiki/` — per-source pages under `wiki/sources/`, cross-source pages under `wiki/concepts/` — and is written by the adopted compile tool (claude-obsidian) through its transaction engine. It asserts arrangement, not evidence: nothing under `wiki/` passes an evidence gate, which is why the folder is the boundary. The evidence underneath it never moves: every page cites its source as `[[<citation key>]]`, which resolves to `literatures/<citation key>.md`, and a page may cite only a source capture wrote — the `captured-set` check fails a commit otherwise.
+The compiled layer lives under `wiki/` — per-source pages under `wiki/sources/`, cross-source pages under `wiki/concepts/` — and is written by the adopted compile tool (claude-obsidian) through its transaction engine. It asserts arrangement, not evidence: nothing under `wiki/` passes an evidence gate, which is why the folder is the boundary. The evidence underneath it never moves: every page cites its source as `[[<citation key>]]`, which resolves to `literature/<citation key>.md`, and a page may cite only a source capture wrote — the `captured-set` check fails a commit otherwise.
 
 ## Never write the layer by hand
 
@@ -1468,7 +1468,7 @@ def test_capture_round_trip_on_a_live_item(tmp_vault):
     key = keyed["data"]["citationKey"]
     outcomes = capture.capture(tmp_vault, client, [key])
     assert outcomes[0].result is Result.MATCHED
-    text = (tmp_vault / "literatures" / f"{key}.md").read_text()
+    text = (tmp_vault / "literature" / f"{key}.md").read_text()
     provenance = notes.read_provenance(text)
     assert provenance.server_id == client.server_info()["server_id"]
     assert provenance.item_version == keyed["version"]
@@ -1489,7 +1489,7 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
                                                  "creators": [{"creatorType": "author", "lastName": "Sitting", "firstName": "Live"}], "date": "2026"}])
     assert outcomes[0].reason.startswith("matched — created "), outcomes
     item_key = outcomes[0].reason.split("created ")[1].split(",")[0]
-    note = next((tmp_vault / "literatures").glob("*.md"))
+    note = next((tmp_vault / "literature").glob("*.md"))
     provenance = notes.read_provenance(note.read_text())
     assert provenance.item_key == item_key
 

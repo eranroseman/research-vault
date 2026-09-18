@@ -98,7 +98,7 @@ def test_cited_citation_key_requires_literature_note(tmp_vault):
 
 def test_cited_citation_key_with_note_passes(tmp_vault):
     """A bibliography entry backed by a literature note still MATCHES."""
-    (tmp_vault / "literatures" / "smith2020.md").write_text(
+    (tmp_vault / "literature" / "smith2020.md").write_text(
         '---\ncitationKey: "smith2020"\n---\n'
     )
     note = tmp_vault / "projects" / "draft.md"
@@ -155,7 +155,7 @@ def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
         "mismatch — quote",
         extra={
             "note_path": RepoPath(b"projects/a b.md"),
-            "origin": RepoPath(b"literatures/\xff.md"),
+            "origin": RepoPath(b"literature/\xff.md"),
             "identifier": "path-bytes:looks/like/a/path",
         },
     )
@@ -164,7 +164,7 @@ def test_outcome_assigns_typed_paths_once_and_is_frozen_unhashable():
     assert outcome.target_kind == "repo-path"
     assert outcome.path_extra_fields == ("note_path", "origin")
     assert outcome.extra["note_path"] == "path-bytes:projects/a%20b.md"
-    assert outcome.extra["origin"] == "path-bytes:literatures/%FF.md"
+    assert outcome.extra["origin"] == "path-bytes:literature/%FF.md"
     assert outcome.extra["identifier"] == "path-bytes:looks/like/a/path"
     for name in ("target", "target_kind", "path_extra_fields"):
         with pytest.raises(dataclasses.FrozenInstanceError):
@@ -1595,20 +1595,20 @@ def test_reduce_update_notice_outcomes_keeps_the_winner_identity():
 def test_notice_reducer_rebuilds_through_typed_records_without_mutating_sources():
     live = checks.Outcome(
         "update-notice",
-        RepoPath(b"literatures/\xff.md"),
+        RepoPath(b"literature/\xff.md"),
         Result.MATCHED,
         "matched",
         {
-            "note_path": RepoPath(b"literatures/\xff.md"),
+            "note_path": RepoPath(b"literature/\xff.md"),
             "warn_notices": [{"type": "correction", "notice_date": "2026-01-01"}],
         },
     )
     rw = checks.Outcome(
         "update-notice",
-        RepoPath(b"literatures/\xff.md"),
+        RepoPath(b"literature/\xff.md"),
         Result.UNREACHABLE,
         "outage — RW unavailable",
-        {"note_path": RepoPath(b"literatures/\xff.md")},
+        {"note_path": RepoPath(b"literature/\xff.md")},
     )
     live_record = checks.outcome_to_record(live)
     rw_record = checks.outcome_to_record(rw)

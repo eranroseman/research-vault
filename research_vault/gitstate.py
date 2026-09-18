@@ -639,9 +639,7 @@ def _allowed_manifest_path(raw_path: bytes, image: FileImage | None) -> bool:
         return False
     if raw_path == b"inbox/review-queue.md":
         return True
-    return any(
-        raw_path.startswith(prefix) for prefix in (b"literatures/", b"projects/")
-    )
+    return any(raw_path.startswith(prefix) for prefix in (b"literature/", b"projects/"))
 
 
 def validate_planned_outputs(outputs) -> tuple[CapturedOutput, ...]:

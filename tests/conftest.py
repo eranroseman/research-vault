@@ -230,7 +230,7 @@ def _populate_fixture_vault(tmp_vault: Path, env: dict[str, str]) -> None:
         '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
     )
     (tmp_vault / "log.md").write_text("# Log\n")
-    literature = tmp_vault / "literatures"
+    literature = tmp_vault / "literature"
     (literature / "smith2020.md").write_text(
         _with_body_witness("""---
 type: "literature"

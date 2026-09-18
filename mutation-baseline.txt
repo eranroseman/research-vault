@@ -1313,7 +1313,7 @@ research_vault/propagate.py::func/_canonical::-    return json.dumps(document, s
 research_vault/propagate.py::func/_mapping_from_linter::-            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", 1)\n+            old, new = outcome.reason[len("re-keyed — ") :].rsplit(" → ", 1)
 research_vault/propagate.py::func/_mapping_from_linter::-            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", 1)\n+            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", )
 research_vault/propagate.py::func/_mapping_from_linter::-            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", 1)\n+            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", 2)
-research_vault/propagate.py::func/_sources::-                _refusal(old, f"no note under literatures/ records citationKey {old}")\n+                _refusal(old, None)
+research_vault/propagate.py::func/_sources::-                _refusal(old, f"no note under literature/ records citationKey {old}")\n+                _refusal(old, None)
 research_vault/propagate.py::func/apply::-                "computed; run propagate again",\n+                "COMPUTED; RUN PROPAGATE AGAIN",
 research_vault/propagate.py::func/apply::-                "computed; run propagate again",\n+                "XXcomputed; run propagate againXX",
 research_vault/propagate.py::func/apply::-    current, outcomes = plan(vault, client, approved.mapping, now=now)\n+    current, outcomes = plan(vault, client, approved.mapping, )
@@ -2112,10 +2112,10 @@ research_vault/verify.py::func/_plan_state::-        lints.lint_claim_immutabili
 research_vault/verify.py::func/_plan_state::-        lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)\n+        lints.lint_claim_immutability(repository, candidate_snapshot)
 research_vault/verify.py::func/_plan_state::-    _file_effects(vault, effective, hashes, warning_effective, detection_date)\n+    _file_effects(vault, effective, hashes, warning_effective, None)
 research_vault/verify.py::func/_plan_state::-    network=True,\n+    network=False,
-research_vault/verify.py::func/_plan_state::-    note_files = sorted((vault / "literatures").glob("*.md")) + [\n+    note_files = sorted((vault / "LITERATURES").glob("*.md")) + [
-research_vault/verify.py::func/_plan_state::-    note_files = sorted((vault / "literatures").glob("*.md")) + [\n+    note_files = sorted((vault / "XXliteraturesXX").glob("*.md")) + [
-research_vault/verify.py::func/_plan_state::-    note_files = sorted((vault / "literatures").glob("*.md")) + [\n+    note_files = sorted((vault / "literatures").glob("*.MD")) + [
-research_vault/verify.py::func/_plan_state::-    note_files = sorted((vault / "literatures").glob("*.md")) + [\n+    note_files = sorted((vault / "literatures").glob("XX*.mdXX")) + [
+research_vault/verify.py::func/_plan_state::-    note_files = sorted((vault / "literature").glob("*.md")) + [\n+    note_files = sorted((vault / "LITERATURES").glob("*.md")) + [
+research_vault/verify.py::func/_plan_state::-    note_files = sorted((vault / "literature").glob("*.md")) + [\n+    note_files = sorted((vault / "XXliteratureXX").glob("*.md")) + [
+research_vault/verify.py::func/_plan_state::-    note_files = sorted((vault / "literature").glob("*.md")) + [\n+    note_files = sorted((vault / "literature").glob("*.MD")) + [
+research_vault/verify.py::func/_plan_state::-    note_files = sorted((vault / "literature").glob("*.md")) + [\n+    note_files = sorted((vault / "literature").glob("XX*.mdXX")) + [
 research_vault/verify.py::func/_plan_state::-    raw.extend(captured.lint_captured_set(vault, as_of=detection_date))\n+    raw.extend(captured.lint_captured_set(vault, ))
 research_vault/verify.py::func/_plan_state::-    raw.extend(captured.lint_captured_set(vault, as_of=detection_date))\n+    raw.extend(captured.lint_captured_set(vault, as_of=None))
 research_vault/verify.py::func/_plan_state::-    raw.extend(lints.lint_append_only(repository, base_snapshot, candidate_snapshot))\n+    raw.extend(lints.lint_append_only(repository, None, candidate_snapshot))

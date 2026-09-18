@@ -43,17 +43,17 @@ returns the figure to 27/4, which is N/0 for the coverable set.
 
 Every claim relayed at the boundary was checked, not accepted.
 
-| Claim                                     | Verdict                                                                                                                                                                                                   |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Merge at `f51990c`, backfill at `8ed31c5` | Both resolve. Merge 13:10:43, backfill 13:12:11.                                                                                                                                                          |
-| "38 boxes across the twelve tasks"        | **Exact.** `8ed31c5` flips 38 `- [ ]` to `- [x]`; 38 insertions / 38 deletions, one file.                                                                                                                 |
-| "72 remain"                               | **71.** Off by one. Tip reads 71 unchecked / 41 checked (38 flipped + Task 8b's 3 pre-existing = 41). The §3.2 finding is closed either way.                                                              |
-| XML clause corrected                      | **Closed.** `skills/find-sources/SKILL.md:23` now reads "no *external* entity expansion — internal entities do expand, which is the class the next clause hedges". The Important is discharged.           |
-| Task 1's rename survived the merge        | **Confirmed.** `docs/terminology.md:125` carries `project-flow`; no bare `project` skill reference remains. The wholesale-theirs hazard was real and was avoided.                                         |
-| Task 2d's confirmed Important closed      | **Confirmed.** All three ignore files now carry `/projects/*/search-log.md`, and prettier/markdownlint patterns are anchored (`/literatures/`, `/log/`). This was the headline finding of the first pass. |
+| Claim                                     | Verdict                                                                                                                                                                                                  |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Merge at `f51990c`, backfill at `8ed31c5` | Both resolve. Merge 13:10:43, backfill 13:12:11.                                                                                                                                                         |
+| "38 boxes across the twelve tasks"        | **Exact.** `8ed31c5` flips 38 `- [ ]` to `- [x]`; 38 insertions / 38 deletions, one file.                                                                                                                |
+| "72 remain"                               | **71.** Off by one. Tip reads 71 unchecked / 41 checked (38 flipped + Task 8b's 3 pre-existing = 41). The §3.2 finding is closed either way.                                                             |
+| XML clause corrected                      | **Closed.** `skills/find-sources/SKILL.md:23` now reads "no *external* entity expansion — internal entities do expand, which is the class the next clause hedges". The Important is discharged.          |
+| Task 1's rename survived the merge        | **Confirmed.** `docs/terminology.md:125` carries `project-flow`; no bare `project` skill reference remains. The wholesale-theirs hazard was real and was avoided.                                        |
+| Task 2d's confirmed Important closed      | **Confirmed.** All three ignore files now carry `/projects/*/search-log.md`, and prettier/markdownlint patterns are anchored (`/literature/`, `/log/`). This was the headline finding of the first pass. |
 
 **Residual, disclosed by the implementer and not independently re-run here:** `.editorconfig`
-still uses `[literatures/**]` and `[log/**]` rather than an anchored form. EditorConfig matches
+still uses `[literature/**]` and `[log/**]` rather than an anchored form. EditorConfig matches
 any section pattern containing a `/` against the path relative to the config file, so these are
 already root-relative and the three files may well agree in meaning — but that is reasoning, not
 measurement, and the first pass's whole point was that an unhonoured pattern matches nothing

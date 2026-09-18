@@ -16,10 +16,10 @@ SAFE = set((string.ascii_letters + string.digits + "._~-/").encode())
 def test_exact_examples_and_byte_identity():
     assert PATH_BYTES_PREFIX == "path-bytes:"
     assert (
-        encode_repo_path(b"literatures/a b%2F.md")
-        == "path-bytes:literatures/a%20b%252F.md"
+        encode_repo_path(b"literature/a b%2F.md")
+        == "path-bytes:literature/a%20b%252F.md"
     )
-    assert encode_repo_path(b"literatures/\xff.md") == "path-bytes:literatures/%FF.md"
+    assert encode_repo_path(b"literature/\xff.md") == "path-bytes:literature/%FF.md"
     assert encode_repo_path(b"a/b-A_z.~9") == "path-bytes:a/b-A_z.~9"
     assert encode_repo_path(b"a/\xe9") != encode_repo_path(b"a/\xc3\xa9")
     assert encode_repo_path(b"a/%2F") != "path-bytes:a//"

@@ -110,7 +110,7 @@ Report results the way the retrieval can be repeated — per candidate: title, a
 
 That report is the entire deliverable. This skill **terminates at the person's selection**:
 
-- It never writes `literatures/`, never creates a literature note, and never invents a citation key — that projection exists only after `capture-source` runs against an item the person selected and added to Zotero.
+- It never writes `literature/`, never creates a literature note, and never invents a citation key — that projection exists only after `capture-source` runs against an item the person selected and added to Zotero.
 - It never selects on the person's behalf. Present candidates; the person chooses what goes into Zotero.
 - Once something is selected, route to `capture-source` to add and capture it — this skill's job ends at the search log and the report.
 

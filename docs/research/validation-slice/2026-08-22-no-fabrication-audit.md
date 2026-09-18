@@ -73,7 +73,7 @@ Cross-lane duplicates: checks.py:522 (date padding) found independently by two l
 
 **Claim:** Tier-2 citability (spec L45: a citekey is citable only if its literature note exists) is enforced nowhere — the closing citekey check validates only tier-1 whole-library bibliography membership, so a never-imported cross-project citation reports MATCHED and publishes cleanly where the spec requires loud failure.
 
-**Verifier:** CONFIRMED. checks.py:150-153 is tier-1 only (`citekey in bibliography_universe`, universe = whole-library bibliography.load — verify.py:832/867), while foundation-spec L45 (ruled 2026-08-22, commit 590f535) makes the citekey check's contract tier-2: citable only if literatures/<citekey>.md exists, with accidental cross-project citation required to "fail loudly". Every backstop is confirmed absent for paraphrase/inference claims: lints.py:479-481 \_note_status returns (None,None,True) for a missing note so lint_screening_state emits nothing; factcheck.py:104-106 silently drops the claim (deferri …[trimmed; full verdict in the workflow journal]
+**Verifier:** CONFIRMED. checks.py:150-153 is tier-1 only (`citekey in bibliography_universe`, universe = whole-library bibliography.load — verify.py:832/867), while foundation-spec L45 (ruled 2026-08-22, commit 590f535) makes the citekey check's contract tier-2: citable only if literature/<citekey>.md exists, with accidental cross-project citation required to "fail loudly". Every backstop is confirmed absent for paraphrase/inference claims: lints.py:479-481 \_note_status returns (None,None,True) for a missing note so lint_screening_state emits nothing; factcheck.py:104-106 silently drops the claim (deferri …[trimmed; full verdict in the workflow journal]
 
 ### research_vault/checks.py:522 — HIGH, class A (verification lane)
 
@@ -107,7 +107,7 @@ Cross-lane duplicates: checks.py:522 (date padding) found independently by two l
 
 ### research_vault/notes.py:151 — HIGH, class F (render lane)
 
-**Claim:** If an existing note at literatures/<citekey>.md lacks the exact %%/rv-managed%% marker line (hand-written note, or a note whose marker was edited), \_split_free discards its entire body and render_note replaces it with the pristine SEED_FREE scaffold, so import-note silently destroys the free region and the resulting empty '## Notes' section reads as if no notes were ever taken while the CLI prints the path as success.
+**Claim:** If an existing note at literature/<citekey>.md lacks the exact %%/rv-managed%% marker line (hand-written note, or a note whose marker was edited), \_split_free discards its entire body and render_note replaces it with the pristine SEED_FREE scaffold, so import-note silently destroys the free region and the resulting empty '## Notes' section reads as if no notes were ever taken while the CLI prints the path as success.
 
 **Verifier:** CONFIRMED. notes.py:145-151 matches only the three exact standalone spellings of %%/rv-managed%%; any existing note without that exact line hits `return SEED_FREE` (line 151), and render_note:257 emits frontmatter + fresh managed body + SEED_FREE, dropping the whole prior body. Reachable in production: __main__.py cmd_import_note (lines 223, 271, 301-303) overwrites via \_write_note_text and prints the path with exit 0; the guarded FrontmatterError never fires because frontmatter.parse returns ({}, text) for a no-frontmatter body (frontmatter.py:134-137), so hand-written notes and notes with a …[trimmed; full verdict in the workflow journal]
 
@@ -127,7 +127,7 @@ Cross-lane duplicates: checks.py:522 (date padding) found independently by two l
 
 **Claim:** When the Zotero item has no title, the citekey is silently substituted into the title's slots — the managed H1 heading and the aliases frontmatter entry — with no record of the substitution; a present-but-empty title instead renders a bare '# ' heading and aliases: [""] (empty string as a value).
 
-**Verifier:** CONFIRMED, reproduced end to end. Missing-key half: notes.py:133 (`heading = display_text(item.get("title", item["id"]))`) and notes.py:229 (`fm["aliases"] = [display_text(item.get("title", item["id"]))]`) write the citekey into the title's two slots of the durable note `literatures/<citekey>.md`; a live run of render_note with a title-less item emits `# smith2020` and `aliases: - "smith2020"` with no record of the substitution — classic class C. Reachable: zotero.py `_validate_object_list` imposes no title requirement on `item.search` results, and `__main__.py:207-208,271` passes the match st …[trimmed; full verdict in the workflow journal]
+**Verifier:** CONFIRMED, reproduced end to end. Missing-key half: notes.py:133 (`heading = display_text(item.get("title", item["id"]))`) and notes.py:229 (`fm["aliases"] = [display_text(item.get("title", item["id"]))]`) write the citekey into the title's two slots of the durable note `literature/<citekey>.md`; a live run of render_note with a title-less item emits `# smith2020` and `aliases: - "smith2020"` with no record of the substitution — classic class C. Reachable: zotero.py `_validate_object_list` imposes no title requirement on `item.search` results, and `__main__.py:207-208,271` passes the match st …[trimmed; full verdict in the workflow journal]
 
 ### research_vault/templates/git/pre-commit:12 — MEDIUM, class E (spec lane)
 

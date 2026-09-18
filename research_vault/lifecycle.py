@@ -140,7 +140,7 @@ def _drift_detail(
 
 def _provenances(vault: Path) -> list[tuple[Path, notes.Provenance]]:
     found: list[tuple[Path, notes.Provenance]] = []
-    for path in sorted((vault / "literatures").glob("*.md")):
+    for path in sorted((vault / "literature").glob("*.md")):
         try:
             provenance = notes.read_provenance(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError):

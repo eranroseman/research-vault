@@ -930,3 +930,38 @@ def test_compile_tool_probe_names_the_seven_char_sha_and_reads_an_empty_record_l
         Result.SKIPPED,
         f"{COMPILE_PLUGIN} not installed",
     )
+
+
+def test_doctor_tree_refuses_a_stray_literatures_directory_without_creating_the_new_root(
+    tmp_vault, monkeypatch
+):
+    """An old vault (`literatures/`, before the 2026-09-17 rename): the tree
+    probe would otherwise scaffold an empty `literature/` beside the populated
+    old root and report MATCHED. It reports the stray root instead, and the
+    scaffold-inside-doctor does not run while it exists."""
+    import shutil
+
+    vault = _doctor_vault(tmp_vault)
+    shutil.move(vault / "literature", vault / "literatures")
+    (vault / "literatures" / "smith2020.md").write_text(
+        '---\ntype: "literature"\n---\n'
+    )
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+
+    assert by["tree"].result is Result.UNMATCHED
+    assert by["tree"].reason == (
+        "stray literatures/: rename to literature/ by hand, then run capture --all"
+    )
+    assert not (vault / "literature").exists()
+    assert (vault / "literatures" / "smith2020.md").is_file()
+
+
+def test_doctor_tree_refuses_when_both_roots_exist(tmp_vault, monkeypatch):
+    vault = _doctor_vault(tmp_vault)
+    (vault / "literatures").mkdir()
+
+    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+
+    assert by["tree"].result is Result.UNMATCHED
+    assert by["tree"].reason.startswith("stray literatures/: ")

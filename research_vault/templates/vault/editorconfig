@@ -1,4 +1,4 @@
-# Defends the machine-owned surfaces (literatures/, log/,
+# Defends the machine-owned surfaces (literature/, log/,
 # inbox/review-queue.md, system/bibliography.json, projects/*/search-log.md,
 # fulltext/, system/propagations/) against ANY editor's defaults, including
 # the user's own -- not against this file's, which imposes none. An editor that trims trailing
@@ -30,7 +30,7 @@
 # (not sourced from EditorConfig) can still touch these seven surfaces.
 root = true
 
-[literatures/**]
+[literature/**]
 insert_final_newline = false
 trim_trailing_whitespace = false
 

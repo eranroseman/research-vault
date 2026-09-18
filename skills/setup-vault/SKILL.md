@@ -35,6 +35,10 @@ Report every doctor probe, not only failures — thirteen rows — plus the inbo
 
 `doctor` always requires `--vault`; it has no vault-less mode. To check Zotero/BBT reachability before a vault exists, or independent of one, run `python3 -m research_vault probe [--base URL]` instead — it is the vault-less reachability instrument and takes no `--vault` flag.
 
+## Rename by hand
+
+A vault scaffolded before 2026-09-17 keeps its evidence layer under one of the stale names: `literatures/`. Doctor's `tree` row reports it (`UNMATCHED tree — stray literatures/: rename to literature/ by hand, then run capture --all`) and creates nothing while the old root stands; no verb renames a machine surface. The person runs `git mv literatures literature` in the vault, commits, then `python3 -m research_vault capture --all --vault PATH` — the notes re-render under the new root and `system/bibliography.json` regenerates. Every `[[<citation key>]]` link resolves as before; nothing else in the vault names the directory.
+
 ## Provision companions
 
 For each candidate in `PROVISION_COMPANIONS`, use this order: **Detect** → **Report** → obtain **per-item consent** → **Install or guide** → **Verify**. Detection and reporting never authorize installation. Do not propose or install unrelated packages.

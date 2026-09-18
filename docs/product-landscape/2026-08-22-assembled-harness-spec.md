@@ -244,11 +244,11 @@ The standards in §2.12 provide the model; the implementation is yours.
 ```
 Zotero + BBT ──auto-export──► bibliography.json        (citekey universe)
      │
-     └── zotero-mcp / pyzotero ──► projection ──► vault/literatures/*.md
+     └── zotero-mcp / pyzotero ──► projection ──► vault/literature/*.md
                                    (lit-sync shape)
 
 vault/ (Obsidian conventions, OKF-conformant, git)
-     ├── literatures/   projected, never free-written
+     ├── literature/   projected, never free-written
      ├── synthesis/     hermes thresholds + lint rules
      └── projects/      drafts carrying claim addresses
 

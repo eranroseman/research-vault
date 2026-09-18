@@ -9,7 +9,7 @@ from tests.fakes import ITEM, FakeZotero, canned_item
 
 
 def _seed(vault):
-    (vault / "literatures" / "old2020.md").write_text(
+    (vault / "literature" / "old2020.md").write_text(
         '---\ntype: "literature"\nzotero-server-id: "S"\nzotero-item-key: "E352DFS8"\n'
         'zotero-item-version: 1\ncitationKey: "old2020"\nattachments:\nfulltext:\n---\n'
     )
@@ -62,7 +62,7 @@ def test_plan_refuses_a_mapping_zotero_does_not_carry(tmp_vault, monkeypatch):
         "mismatch — item E352DFS8 carries citation key 'jakesch.etal2023a', "
         "not 'wrong2020'"
     )
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
 
 
 def test_apply_verifies_again_and_renames_nothing_on_an_outage(tmp_vault, monkeypatch):
@@ -71,7 +71,7 @@ def test_apply_verifies_again_and_renames_nothing_on_an_outage(tmp_vault, monkey
     # A fresh client, not backed by the fake: the socket guard makes it an outage.
     (refused,) = propagate.apply(tmp_vault, zotero.ZoteroClient(), path, digest)
     assert refused.result is Result.UNREACHABLE
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
     assert (
         "[@old2020, p. 3]"
         in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
@@ -93,7 +93,7 @@ def test_apply_refuses_a_key_that_moved_again_between_plan_and_apply(
     assert refused.reason == (
         "mismatch — item E352DFS8 carries citation key 'newer2020', not 'new2020'"
     )
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
     assert (
         (tmp_vault / "projects" / "brief" / "draft.md")
         .read_text()
@@ -116,7 +116,7 @@ def test_plan_refuses_without_a_client_and_writes_nothing(tmp_vault):
         )
     assert not (tmp_vault / ".research-vault").exists()
     assert not (tmp_vault / "system" / "propagations").exists()
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
 
 
 def test_plan_refuses_the_wrong_database_before_any_rename(tmp_vault, monkeypatch):
@@ -131,7 +131,7 @@ def test_plan_refuses_the_wrong_database_before_any_rename(tmp_vault, monkeypatc
     assert refused.result is Result.UNMATCHED
     assert refused.target == "old2020"
     assert refused.reason.startswith("database-changed — ")
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
 
 
 def test_plan_lists_the_mapping_the_item_key_and_the_hashed_surfaces(
@@ -202,7 +202,7 @@ def test_apply_refuses_when_the_vault_moved_since_planning(tmp_vault, monkeypatc
     (refused,) = propagate.apply(tmp_vault, client, path, digest)
     assert refused.result is Result.UNMATCHED
     assert refused.reason.startswith("mismatch — plan changed")
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
     assert not (tmp_vault / "system" / "propagations").exists()
     (wrong,) = propagate.apply(tmp_vault, client, path, "0" * 64)
     assert wrong.result is Result.UNMATCHED
@@ -223,8 +223,8 @@ def test_apply_renames_rewrites_recaptures_and_records_the_plan(tmp_vault, monke
     assert outcomes[0].check == "propagation"
     assert outcomes[0].result is Result.MATCHED
     assert "projects/brief/draft.md" in outcomes[0].reason
-    assert (tmp_vault / "literatures" / "new2020.md").is_file()
-    assert not (tmp_vault / "literatures" / "old2020.md").exists()
+    assert (tmp_vault / "literature" / "new2020.md").is_file()
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
     assert calls == [["E352DFS8"]]
     record = json.loads(
         (
@@ -253,13 +253,13 @@ def test_lint_reports_residue_and_is_quiet_when_clean(tmp_vault, monkeypatch):
     (tmp_vault / "projects" / "brief" / "late.md").write_text(
         '---\ntype: "project"\n---\n[@old2020]\n'
     )
-    (tmp_vault / "literatures" / "old2020.md").write_text(
+    (tmp_vault / "literature" / "old2020.md").write_text(
         '---\ntype: "literature"\n---\n'
     )
     stale = propagate.lint_propagation(tmp_vault)
     assert {o.target for o in stale} == {
         "path-bytes:projects/brief/late.md",
-        "path-bytes:literatures/old2020.md",
+        "path-bytes:literature/old2020.md",
     }
     assert all(
         o.reason.startswith(
@@ -310,7 +310,7 @@ def test_cli_plans_then_applies_only_against_the_printed_hash(
         )
         == 1
     )
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
     assert (
         cli.main(
             [
@@ -325,7 +325,7 @@ def test_cli_plans_then_applies_only_against_the_printed_hash(
         )
         == 0
     )
-    assert (tmp_vault / "literatures" / "new2020.md").is_file()
+    assert (tmp_vault / "literature" / "new2020.md").is_file()
 
 
 # --- deviations from the printed module, each pinned --------------------------
@@ -348,7 +348,7 @@ def test_lint_follows_a_key_renamed_back_and_reports_only_the_latest_mapping(
     propagate.apply(tmp_vault, forward, path, digest)
     # The recapture is monkeypatched away; stand in for the one that re-renders
     # the note under its new key, which is what the second plan resolves by.
-    (tmp_vault / "literatures" / "new2020.md").write_text(_note("E352DFS8", "new2020"))
+    (tmp_vault / "literature" / "new2020.md").write_text(_note("E352DFS8", "new2020"))
     backward = _zotero(monkeypatch, "old2020")  # Zotero re-keyed the item back
     back, back_path, back_digest = _planned(
         tmp_vault,
@@ -357,7 +357,7 @@ def test_lint_follows_a_key_renamed_back_and_reports_only_the_latest_mapping(
         now=first + datetime.timedelta(seconds=1),
     )
     propagate.apply(tmp_vault, backward, back_path, back_digest)
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
     assert (
         "[@old2020, p. 3]"
         in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
@@ -378,7 +378,7 @@ def test_plan_refuses_to_rename_over_an_existing_note(tmp_vault, monkeypatch):
     """ADR 0003: no transition deletes a literature note, and a POSIX rename
     over an existing file replaces it silently."""
     _seed(tmp_vault)
-    (tmp_vault / "literatures" / "new2020.md").write_text(
+    (tmp_vault / "literature" / "new2020.md").write_text(
         '---\ntype: "literature"\n---\n'
     )
     planned, (refused,) = propagate.plan(
@@ -387,7 +387,7 @@ def test_plan_refuses_to_rename_over_an_existing_note(tmp_vault, monkeypatch):
     assert planned is None
     assert refused.result is Result.UNMATCHED
     assert refused.reason == (
-        "schema-violation — literatures/new2020.md already exists; nothing is renamed over it"
+        "schema-violation — literature/new2020.md already exists; nothing is renamed over it"
     )
 
 
@@ -398,7 +398,7 @@ def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_record
     tmp_vault, monkeypatch
 ):
     """After an outage during the recapture the note sits at
-    literatures/new2020.md still recording citationKey: old2020. The captured
+    literature/new2020.md still recording citationKey: old2020. The captured
     set is the recorded key, not the filename (decision 08), so a re-run plans,
     treats the note as already at its target, and still rewrites, recaptures
     and records."""
@@ -412,16 +412,16 @@ def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_record
         "capture",
         lambda vault, client, keys, **kw: calls.append(list(keys)) or [],
     )
-    (tmp_vault / "literatures" / "old2020.md").rename(
-        tmp_vault / "literatures" / "new2020.md"
+    (tmp_vault / "literature" / "old2020.md").rename(
+        tmp_vault / "literature" / "new2020.md"
     )
     planned, path, digest = _planned(tmp_vault, client)
     assert planned.item_keys == {"old2020": "E352DFS8"}
     (matched,) = propagate.apply(tmp_vault, client, path, digest)
     assert matched.result is Result.MATCHED
     assert calls == [["E352DFS8"]]
-    assert (tmp_vault / "literatures" / "new2020.md").is_file()
-    assert not (tmp_vault / "literatures" / "old2020.md").exists()
+    assert (tmp_vault / "literature" / "new2020.md").is_file()
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
     assert (
         "[@new2020, p. 3]"
         in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
@@ -437,22 +437,22 @@ def test_plan_resolves_the_note_wherever_its_recorded_key_puts_it_and_refuses_tw
     monkeypatch.setattr(
         propagate.capture, "capture", lambda vault, client, keys, **kw: []
     )
-    literatures = tmp_vault / "literatures"
-    (literatures / "old2020.md").rename(literatures / "moved.md")
+    literature = tmp_vault / "literature"
+    (literature / "old2020.md").rename(literature / "moved.md")
     _, path, digest = _planned(tmp_vault, client)
     propagate.apply(tmp_vault, client, path, digest)
-    assert (literatures / "new2020.md").is_file()
-    assert not (literatures / "moved.md").exists()
+    assert (literature / "new2020.md").is_file()
+    assert not (literature / "moved.md").exists()
     # Two notes recording one key is a refusal, never a guess.
-    (literatures / "a.md").write_text(_note("E352DFS8", "twice2020"))
-    (literatures / "b.md").write_text(_note("E352DFS8", "twice2020"))
+    (literature / "a.md").write_text(_note("E352DFS8", "twice2020"))
+    (literature / "b.md").write_text(_note("E352DFS8", "twice2020"))
     planned, (refused,) = propagate.plan(tmp_vault, client, {"twice2020": "x2020"})
     assert planned is None
     assert refused.reason == (
         "schema-violation — 2 notes record citationKey twice2020: a.md, b.md"
     )
     # A note at the old name with no tuple keeps the brief's own refusal.
-    (literatures / "bare2020.md").write_text('---\ntype: "literature"\n---\n')
+    (literature / "bare2020.md").write_text('---\ntype: "literature"\n---\n')
     planned, (refused,) = propagate.plan(tmp_vault, client, {"bare2020": "x2020"})
     assert planned is None
     assert refused.reason == "schema-violation — note carries no provenance tuple"
@@ -462,7 +462,7 @@ def test_plan_resolves_the_note_wherever_its_recorded_key_puts_it_and_refuses_tw
     planned, (refused,) = propagate.plan(tmp_vault, client, {"new2020": "y2020"})
     assert planned is None
     assert refused.reason == (
-        "schema-violation — literatures/new2020.md records citationKey old2020, "
+        "schema-violation — literature/new2020.md records citationKey old2020, "
         "not new2020"
     )
 
@@ -471,7 +471,7 @@ def test_lint_lets_a_freed_name_go_when_a_different_item_now_holds_it(
     tmp_vault, monkeypatch
 ):
     """Finding 2: after old2020→new2020, a fresh Zotero item minted under the
-    freed key and captured normally makes literatures/old2020.md and every
+    freed key and captured normally makes literature/old2020.md and every
     [@old2020] current again — the item key is identity, the name only a name.
     The same item back under the retired name is still residue."""
     _seed(tmp_vault)
@@ -484,13 +484,13 @@ def test_lint_lets_a_freed_name_go_when_a_different_item_now_holds_it(
     (tmp_vault / "projects" / "brief" / "late.md").write_text(
         '---\ntype: "project"\n---\n[@old2020]\n'
     )
-    (tmp_vault / "literatures" / "old2020.md").write_text(_note("FRESH001", "old2020"))
+    (tmp_vault / "literature" / "old2020.md").write_text(_note("FRESH001", "old2020"))
     (clean,) = propagate.lint_propagation(tmp_vault)
     assert clean.result is Result.MATCHED, clean
-    (tmp_vault / "literatures" / "old2020.md").write_text(_note("E352DFS8", "old2020"))
+    (tmp_vault / "literature" / "old2020.md").write_text(_note("E352DFS8", "old2020"))
     stale = propagate.lint_propagation(tmp_vault)
     assert {o.target for o in stale} == {
-        "path-bytes:literatures/old2020.md",
+        "path-bytes:literature/old2020.md",
         "path-bytes:projects/brief/late.md",
     }
 
@@ -507,7 +507,7 @@ def test_canonical_json_is_sorted_two_space_indented_and_keeps_non_ascii():
 
 
 def test_surfaces_are_every_note_outside_the_skipped_places(tmp_vault):
-    """literatures/, fulltext/, log/, log.md, the review queue, the
+    """literature/, fulltext/, log/, log.md, the review queue, the
     propagation records, excluded directories and symlinks are not surfaces;
     a project note and a wiki page are."""
     _seed(tmp_vault)
@@ -543,10 +543,8 @@ def test_mapping_from_linter_takes_re_keys_and_blocks_only_on_vault_rows(
     mapping nor a block; a vault row blocks only when it is UNMATCHED
     (database-changed) or an outage -- the fresh vault's SKIPPED row does not."""
     assert propagate._mapping_from_linter(tmp_vault, _zotero(monkeypatch)) == ({}, [])
-    (tmp_vault / "literatures" / "old2020.md").write_text(_note("E352DFS8", "old2020"))
-    (tmp_vault / "literatures" / "gone2020.md").write_text(
-        _note("TRASHED1", "gone2020")
-    )
+    (tmp_vault / "literature" / "old2020.md").write_text(_note("E352DFS8", "old2020"))
+    (tmp_vault / "literature" / "gone2020.md").write_text(_note("TRASHED1", "gone2020"))
     client = _lint_fake(
         monkeypatch,
         versions={"E352DFS8": 1},
@@ -580,10 +578,10 @@ def test_plan_reports_every_refusal_in_a_mapping_not_only_the_first(
     name already taken and a key the item does not carry are all reported,
     whichever comes first."""
     _seed(tmp_vault)
-    (tmp_vault / "literatures" / "other2020.md").write_text(
+    (tmp_vault / "literature" / "other2020.md").write_text(
         _note("F441KKD2", "other2020")
     )
-    (tmp_vault / "literatures" / "taken2020.md").write_text(
+    (tmp_vault / "literature" / "taken2020.md").write_text(
         _note("TAKEN001", "taken2020")
     )
     fake = FakeZotero(server_id="S")
@@ -812,7 +810,7 @@ def test_plan_skips_a_quiet_surface_and_keeps_hashing_the_ones_after_it(
 def test_apply_reports_rewrote_nothing_when_no_surface_names_the_key(
     tmp_vault, monkeypatch
 ):
-    (tmp_vault / "literatures" / "old2020.md").write_text(_note("E352DFS8", "old2020"))
+    (tmp_vault / "literature" / "old2020.md").write_text(_note("E352DFS8", "old2020"))
     client = _zotero(monkeypatch)
     _planned_plan, path, digest = _planned(tmp_vault, client)
     monkeypatch.setattr(
@@ -923,7 +921,7 @@ def test_lint_rows_an_unreadable_record_and_reads_surfaces_byte_tolerantly(
         tmp_vault, client, now=datetime.datetime(2026, 9, 7, tzinfo=datetime.UTC)
     )
     propagate.apply(tmp_vault, client, path, digest)
-    (tmp_vault / "literatures" / "other2020.md").write_text(
+    (tmp_vault / "literature" / "other2020.md").write_text(
         _note("F441KKD2", "other2020")
     )
     fake = FakeZotero(server_id="S")
@@ -938,7 +936,7 @@ def test_lint_rows_an_unreadable_record_and_reads_surfaces_byte_tolerantly(
     propagate.apply(tmp_vault, client, path, digest)
     # old2020 is now held by a different item (a freed name, passed over);
     # other2020 is residue in a page carrying a stray byte.
-    (tmp_vault / "literatures" / "old2020.md").write_text(_note("FRESH001", "old2020"))
+    (tmp_vault / "literature" / "old2020.md").write_text(_note("FRESH001", "old2020"))
     (tmp_vault / "wiki" / "sources" / "C.md").write_bytes(
         b"---\ntype: source\n---\n[@old2020] and [@other2020] \xff\n"
     )

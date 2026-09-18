@@ -4,9 +4,9 @@ type: "guide"
 
 # Vault agents guide
 
-This is a research-vault vault. `literatures/`, `log/`, `log.md`, `inbox/review-queue.md`, `fulltext/`, and `system/propagations/` are machine-written — the CLI writes them; don't edit them by hand.
+This is a research-vault vault. `literature/`, `log/`, `log.md`, `inbox/review-queue.md`, `system/bibliography.json`, `fulltext/`, and `system/propagations/` are machine-written — the CLI writes them; don't edit them by hand.
 
-Evidence is added to Zotero and projected into `literatures/` — evidence notes exist only by projection, never by hand. Read `wiki/index.md` and recent `log/` entries before editing; review findings live in `inbox/review-queue.md`.
+Evidence is added to Zotero and projected into `literature/` — evidence notes exist only by projection, never by hand. Read `wiki/index.md` and recent `log/` entries before editing; review findings live in `inbox/review-queue.md`.
 
 Prefer the two model-invocable research-vault skills over generic drafting, even for free-form requests: run `evidence-conventions` for claim syntax and `synthesis-conventions` for the rules of the compiled layer.
 
@@ -28,7 +28,7 @@ Machine surfaces are owner-written: hand or tool edits are regenerated away or r
 
 `wiki/` is written only by the adopted compile tool's transaction engine; never `Write` or `Edit` under it.
 
-Better BibTeX is the sole writer of `system/bibliography.json`; users and other tools must not write it.
+`capture` is the sole writer of the CSL file `system/bibliography.json`, rendered from Better BibTeX; users and other tools must not write it.
 
 Formatters are writers too: `.prettierignore` and `.markdownlintignore` keep them off the machine surfaces; `.editorconfig` disables an editor's own trim/final-newline defaults there instead.
 

@@ -18,7 +18,7 @@ Disposition: historical (2026-09-06)
 - Every `Outcome.reason` must start with a code from `research_vault/inbox.py` `REASON_CODES` (line 25). Use `schema-violation` for structure violations. No new reason codes.
 - New check ids are governed coinages (terminology §4.4): this plan mints `okf-frontmatter`, `okf-structure`, `tree` (verify-side), and the verb `stamp-type`. **Naming cell:** the grill ruled `stamp-fleeting` before the folder-derives-type generalization; `stamp-type` is the generalized name. If the user objects at plan review, rename mechanically — nothing else changes.
 - The fleeting exemption (ruled 2026-09-02): human captures in `inbox/` (all `.md` except `inbox/review-queue.md`) are **out of scope for closing checks**. The stamp converges them at chokepoints; they are never a red build, never a blocking finding.
-- Vault rule (ruled 2026-09-02): **a note's `type` is determined by its folder.** Map: `literatures/**` → `literature`, `synthesis/**` → `synthesis`, `projects/<name>/draft.md` → `project` (narrowed 2026-09-02 per knowledge-harness#105: only the project's one canonical `type: "project"` note derives — every other `.md` under `projects/**`, including a flat `projects/<name>.md` and any sibling file beside `draft.md`, derives nothing), `log/*` → `daily`, `inbox/*` → `fleeting` (`inbox/review-queue.md` → `review-queue`). `system/**` and root-level concept files: any non-empty `type` (no derivation).
+- Vault rule (ruled 2026-09-02): **a note's `type` is determined by its folder.** Map: `literature/**` → `literature`, `synthesis/**` → `synthesis`, `projects/<name>/draft.md` → `project` (narrowed 2026-09-02 per knowledge-harness#105: only the project's one canonical `type: "project"` note derives — every other `.md` under `projects/**`, including a flat `projects/<name>.md` and any sibling file beside `draft.md`, derives nothing), `log/*` → `daily`, `inbox/*` → `fleeting` (`inbox/review-queue.md` → `review-queue`). `system/**` and root-level concept files: any non-empty `type` (no derivation).
 - Doctor stays report-only and keeps its own `tree` probe (repair-at-setup via `scaffold_vault` is doctor's job; verify's `tree` check is attestation — different jobs, both stay).
 - OKF spec pin: `open-knowledge-format@ad30107`, `SPEC.md` sha256 `26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101`.
 - Out of scope (ruled): Tier 4 adoption (`resource`/`sources`/`title`/`description`), Alternative A′/B, the §2.1 `status` rename, inbox adjudication machinery, #102 (rides #91).
@@ -61,7 +61,7 @@ def _write(tmp_path, relative, text):
 
 
 def test_expected_type_is_the_folder():
-    assert structure.expected_type("literatures/smith2020.md") == "literature"
+    assert structure.expected_type("literature/smith2020.md") == "literature"
     assert structure.expected_type("synthesis/topic.md") == "synthesis"
     assert structure.expected_type("projects/brief.md") == "project"
     assert structure.expected_type("log/2026-08-20.md") == "daily"
@@ -73,11 +73,11 @@ def test_expected_type_is_the_folder():
 def test_fleeting_paths_are_named_not_typed():
     assert structure.is_fleeting("inbox/half-thought.md")
     assert not structure.is_fleeting("inbox/review-queue.md")
-    assert not structure.is_fleeting("literatures/smith2020.md")
+    assert not structure.is_fleeting("literature/smith2020.md")
 
 
 def test_check_flags_missing_frontmatter_and_wrong_folder_type(tmp_path):
-    path = _write(tmp_path, "literatures/untyped.md", "# no frontmatter\n")
+    path = _write(tmp_path, "literature/untyped.md", "# no frontmatter\n")
     (outcome,) = structure.check_note_frontmatter(tmp_path, path)
     assert outcome.check == "okf-frontmatter"
     assert outcome.result is Result.UNMATCHED
@@ -127,7 +127,7 @@ from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
 _FOLDER_TYPES = {
-    "literatures": "literature",
+    "literature": "literature",
     "synthesis": "synthesis",
     "projects": "project",
     "log": "daily",
@@ -221,7 +221,7 @@ import re
 
 
 def _scaffold_min(tmp_path):
-    for d in ("literatures", "synthesis", "projects", "log", "inbox", "system"):
+    for d in ("literature", "synthesis", "projects", "log", "inbox", "system"):
         (tmp_path / d).mkdir(parents=True, exist_ok=True)
     _write(tmp_path, "index.md", '---\nokf_version: "0.2"\n---\n# Vault index\n')
 
@@ -378,7 +378,7 @@ def test_commit_surface_closes_on_structure_violation(tmp_path):
     from research_vault import scaffold, verify
 
     scaffold.scaffold_vault(tmp_path)
-    (tmp_path / "literatures" / "untyped.md").write_text("# no frontmatter\n")
+    (tmp_path / "literature" / "untyped.md").write_text("# no frontmatter\n")
     report, effective, hashes, warning = verify.verify_state(
         tmp_path, network=False, git_candidate="worktree"
     )
@@ -483,7 +483,7 @@ def test_doctor_is_substrate_and_posture_only(tmp_path):
     assert root_data == {"okf_version": "0.2"}
 ```
 
-and the canonical-content assertion to the new body (markdown links, e.g. `- [literatures/](literatures/) — evidence layer: citekey-keyed literature notes`). Add to `tests/test_okf.py`:
+and the canonical-content assertion to the new body (markdown links, e.g. `- [literature/](literature/) — evidence layer: citekey-keyed literature notes`). Add to `tests/test_okf.py`:
 
 ```python
 def test_regenerated_log_is_date_grouped_newest_first(tmp_path):
@@ -565,11 +565,11 @@ def test_stamps_bare_capture_with_folder_type(tmp_path):
 
 
 def test_inserts_type_into_parseable_block(tmp_path):
-    (tmp_path / "literatures").mkdir(parents=True)
-    note = tmp_path / "literatures" / "x.md"
+    (tmp_path / "literature").mkdir(parents=True)
+    note = tmp_path / "literature" / "x.md"
     note.write_text('---\ncitekey: "x"\n---\nbody\n')
     stamped, _ = stamp.stamp_types(tmp_path)
-    assert stamped == ["literatures/x.md"]
+    assert stamped == ["literature/x.md"]
     data, _ = frontmatter.parse(note.read_text())
     assert data["type"] == "literature" and data["citekey"] == "x"
 

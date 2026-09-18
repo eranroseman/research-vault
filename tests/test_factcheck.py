@@ -39,9 +39,9 @@ def _draft(claims_text):
 
 
 def _write_vault(tmp_vault, notes: dict[str, str], draft_claims: str):
-    literatures = tmp_vault / "literatures"
+    literature = tmp_vault / "literature"
     for citation_key, text in notes.items():
-        (literatures / f"{citation_key}.md").write_text(text)
+        (literature / f"{citation_key}.md").write_text(text)
     project = tmp_vault / "projects" / "brief"
     project.mkdir(parents=True, exist_ok=True)
     draft_path = project / "draft.md"
@@ -183,8 +183,8 @@ def test_contested_adjacent_links_skips_unlinkable_claims_and_keeps_walking(
     """A claim without a citation key, and one without an anchor, cannot be
     contested-adjacent even when they support disputed evidence -- and they
     do not stop the claim after them from being found."""
-    (tmp_vault / "literatures" / "smith2020.md").write_text(_note("smith2020", "# N\n"))
-    (tmp_vault / "literatures" / "gone2019.md").write_text(_note("gone2019", "# N\n"))
+    (tmp_vault / "literature" / "smith2020.md").write_text(_note("smith2020", "# N\n"))
+    (tmp_vault / "literature" / "gone2019.md").write_text(_note("gone2019", "# N\n"))
     (tmp_vault / "wiki" / "concepts" / "mortality.md").write_text(
         '---\ntitle: "Mortality"\ntype: "concept"\nstatus: "draft"\n'
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
@@ -216,8 +216,8 @@ def test_select_claims_rejects_a_negative_cap(tmp_vault):
 
 
 def test_contested_adjacent_links_reuses_the_disputed_claim_lint(tmp_vault):
-    (tmp_vault / "literatures" / "smith2020.md").write_text(_note("smith2020", "# N\n"))
-    (tmp_vault / "literatures" / "gone2019.md").write_text(_note("gone2019", "# N\n"))
+    (tmp_vault / "literature" / "smith2020.md").write_text(_note("smith2020", "# N\n"))
+    (tmp_vault / "literature" / "gone2019.md").write_text(_note("gone2019", "# N\n"))
     (tmp_vault / "wiki" / "concepts" / "mortality.md").write_text(
         '---\ntitle: "Mortality"\ntype: "concept"\nstatus: "draft"\n'
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
@@ -276,12 +276,10 @@ def test_run_wires_contested_adjacency_into_the_ordering_end_to_end(tmp_vault):
     this one exercises ``run()`` alone, with a quote claim (bucket 3 by
     default) boosted past an ordinary quote claim (also bucket 3) purely by
     disputed-claim adjacency."""
-    (tmp_vault / "literatures" / "smith2020.md").write_text(
+    (tmp_vault / "literature" / "smith2020.md").write_text(
         _note("smith2020", "# Note\n")
     )
-    (tmp_vault / "literatures" / "gone2019.md").write_text(
-        _note("gone2019", "# Note\n")
-    )
+    (tmp_vault / "literature" / "gone2019.md").write_text(_note("gone2019", "# Note\n"))
     (tmp_vault / "wiki" / "concepts" / "mortality.md").write_text(
         '---\ntitle: "Mortality"\ntype: "concept"\nstatus: "draft"\n'
         'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'

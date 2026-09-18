@@ -58,7 +58,7 @@ def _write_note(vault, provenance):
         ),
         "---",
     ]
-    (vault / "literatures" / f"{provenance.citation_key}.md").write_text(
+    (vault / "literature" / f"{provenance.citation_key}.md").write_text(
         "\n".join(lines) + "\n"
     )
 
@@ -189,7 +189,7 @@ def test_lint_reads_three_routes_with_the_recorded_server_id(tmp_vault, monkeypa
             }
         ],
     )
-    note = tmp_vault / "literatures" / "alkt2026.md"
+    note = tmp_vault / "literature" / "alkt2026.md"
     note.write_text(
         '---\ntype: "literature"\nzotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "ALKT2NF7"\n'
         'zotero-item-version: 0\ncitationKey: "alkt2026"\nattachments:\nfulltext:\n'
@@ -213,7 +213,7 @@ def test_lint_reads_three_routes_with_the_recorded_server_id(tmp_vault, monkeypa
 def test_database_changed_stops_and_reports_once(tmp_vault, monkeypatch):
     # production answers, the tuple says test
     fake = FakeZotero(server_id="6LpvURP2E933")
-    note = tmp_vault / "literatures" / "alkt2026.md"
+    note = tmp_vault / "literature" / "alkt2026.md"
     note.write_text(
         '---\ntype: "literature"\nzotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "ALKT2NF7"\n'
         'zotero-item-version: 0\ncitationKey: "alkt2026"\nattachments:\nfulltext:\n---\n'
@@ -230,7 +230,7 @@ def test_database_changed_stops_and_reports_once(tmp_vault, monkeypatch):
 
 def test_outage_never_reads_as_a_classification(tmp_vault, monkeypatch):
     fake = FakeZotero()
-    note = tmp_vault / "literatures" / "alkt2026.md"
+    note = tmp_vault / "literature" / "alkt2026.md"
     note.write_text(
         '---\ntype: "literature"\nzotero-server-id: "6LpvURP2E933"\nzotero-item-key: "ALKT2NF7"\n'
         'zotero-item-version: 0\ncitationKey: "alkt2026"\nattachments:\nfulltext:\n---\n'
@@ -582,8 +582,8 @@ def test_the_vault_rows_name_the_vault_target(tmp_vault, monkeypatch):
 
 
 def test_provenances_skip_an_unreadable_note_and_keep_reading(tmp_vault):
-    (tmp_vault / "literatures" / "a-dir.md").mkdir()
-    (tmp_vault / "literatures" / "b-latin1.md").write_bytes(b"---\ntitle: \xe9\n---\n")
+    (tmp_vault / "literature" / "a-dir.md").mkdir()
+    (tmp_vault / "literature" / "b-latin1.md").write_bytes(b"---\ntitle: \xe9\n---\n")
     _write_note(tmp_vault, _prov())
     found = lifecycle._provenances(tmp_vault)
     assert [(p.name, prov.citation_key) for p, prov in found] == [

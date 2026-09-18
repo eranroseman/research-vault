@@ -14,7 +14,7 @@ from .zotero import LocalApiDisabledError, ZoteroClient, ZoteroError
 
 VAULT_DIRS = [
     "inbox",
-    "literatures",
+    "literature",
     "log",
     "projects",
     "system/templates",
@@ -24,7 +24,7 @@ PROVISION_COMPANIONS = [
     "kepano/obsidian-skills",
     "claude-obsidian@agricidaniel-claude-obsidian",
 ]
-_EMPTY_ROOTS = ("literatures", "log", "projects")
+_EMPTY_ROOTS = ("literature", "log", "projects")
 _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".research-vault/machine.json"}
 GLOSSARY_PATH = "system/glossary.md"
 GLOSSARY_ENVELOPE = b'---\ntype: "guide"\n---\n\n'
@@ -348,7 +348,21 @@ class _ProfileFacts(NamedTuple):
     prefs: dict[str, str | bool | int]
 
 
+_OLD_LITERATURE_ROOT = "literatures"
+
+
 def _tree_probe(vault: Path) -> Probe:
+    if (vault / _OLD_LITERATURE_ROOT).exists():
+        # A vault from before the 2026-09-17 rename: scaffolding here would
+        # create an empty literature/ beside the populated old root and report
+        # the tree complete. The rename is the person's act (a machine surface
+        # is never renamed by doctor); nothing is created while it stands.
+        return Probe(
+            "tree",
+            Result.UNMATCHED,
+            f"stray {_OLD_LITERATURE_ROOT}/: rename to literature/ by hand, "
+            "then run capture --all",
+        )
     try:
         scaffold_vault(vault)
         tree_complete = all((vault / relative).is_dir() for relative in VAULT_DIRS)

@@ -4,7 +4,7 @@
 
 **Goal:** Replace the vault's import path with the capture side of the ingest design: retire the auto-export, archive, screening-state and managed-region machinery; rename `citekey` to `citationKey`; build the capture verb, the gitignored `fulltext/` layer, the lifecycle linter, re-key propagation and the captured-set lint; rewrite doctor; add the Path A `add` verb; close open points 07–09; rewrite the capture-source and setup-vault skills. The compile wrapper, its tracers, the write-capable live legs and the closing docs are Part B (`docs/superpowers/plans/2026-09-07-ingest-redesign-b-compile.md`), which starts after this part merges to `main`.
 
-**Architecture:** Zotero is the source of truth and capture is the sole writer of the literature note (`literatures/<citationKey>.md`), the text layer (`fulltext/<attachment key>.md`) and the CSL file (`system/bibliography.json`). Identity is the Zotero item key qualified by the server id; the citation key is the name. One lifecycle linter (`research_vault/lifecycle.py`) classifies every note from three local-API reads and runs at capture and at verify through one code path; the pre-commit leg is held. Propagation (`research_vault/propagate.py`) is the one vault-wide mutation and ships in the same plan. Compile is adopted unmodified and wrapped in Part B; this part leaves `wiki/` a guarded machine surface that nothing writes into yet.
+**Architecture:** Zotero is the source of truth and capture is the sole writer of the literature note (`literature/<citationKey>.md`), the text layer (`fulltext/<attachment key>.md`) and the CSL file (`system/bibliography.json`). Identity is the Zotero item key qualified by the server id; the citation key is the name. One lifecycle linter (`research_vault/lifecycle.py`) classifies every note from three local-API reads and runs at capture and at verify through one code path; the pre-commit leg is held. Propagation (`research_vault/propagate.py`) is the one vault-wide mutation and ships in the same plan. Compile is adopted unmodified and wrapped in Part B; this part leaves `wiki/` a guarded machine surface that nothing writes into yet.
 
 **Tech Stack:** Python 3.11+ stdlib only (`urllib`, `json`, `hashlib`, `html.parser`, `subprocess`, `pathlib`). pytest with `monkeypatch` fakes; two live Zotero 10.0.1 instances (production `localhost:23119`, test `localhost:23129`). No new dependency.
 
@@ -77,7 +77,7 @@ Each is a plan-level cell the spec left open, or a measurement made on 2026-09-0
 05. **Reason codes**: added `re-keyed`, `merged`, `trashed`, `deleted`, `database-changed` (spec §6), plus the three §6 asks the plan to assign — `stale-key` (a surface still names a key an applied propagation plan mapped away), `no-fulltext` (capture wrote no compile input: absent, partial or empty index — `UNMATCHED` when an attachment exists and has no usable text, `SKIPPED` and never filed when the item has no stored attachment at all, spec §0 at `b555d77`), `recompile-needed` (the ledger's `content_sha256` for a text file differs from the `sha256` the note's `fulltext` list records for that attachment). `unkeyed` (an added item still has no citation key after the ten-second ceiling, §2). Renamed: `not-imported` → `not-captured`. Retired: `superseded-note`, `missing-archive`, `stale`.
 06. **Doctor probe ids**: `tree`, `machine-config`, `zotero`, `write-guard`, `fulltext-sync`, `bbt`, `bbt-git`, `plugins`, `path-shim`, `translator-formats`, `compile-tool`, `remote`, `backup`. Retired: `autoexport`, `staleness`.
 07. **The CSL file keeps its path**, `system/bibliography.json`; the glossary retires *Bibliography export* as a concept (the whole admitted library), not the file. `bibliography.py` keeps `BIB_PATH`, `BibliographyError`, `load` and gains `write`.
-08. **The captured set** (§1.1, §4.4): the citation keys read from the `citationKey` field of every parseable note under `literatures/*.md` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation and the linter reports it; a hand-deleted note leaves the set at once, which is when the captured-set lint should fire.
+08. **The captured set** (§1.1, §4.4): the citation keys read from the `citationKey` field of every parseable note under `literature/*.md` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation and the linter reports it; a hand-deleted note leaves the set at once, which is when the captured-set lint should fire.
 09. **Multi-line strings in frontmatter** (`abstractNote`, `extra`, any snapshot value with a line break): rendered as a list of their `splitlines()` lines; a reader joins with `\n`. A trailing newline is lost; nothing else is. The codec stays flat (foundation §5); no block scalars are added. Single-line values pass through `display_text`.
 10. **Attachment links in the note body** are `zotero://open-pdf/library/items/<attachment key>` plus filename, content type and md5. The `file://` URL from `/file/view/url` is a Windows absolute path and §3.6 forbids absolute paths in the repository; the path shim resolves it at use time (doctor's `path-shim` probe, and any future consumer that needs bytes).
 11. **Full-text floor** (§3.3 step 3): `FULLTEXT_MIN_CHARS = 500` — four times the largest masthead §9 measured (126 characters) and an order of magnitude below one page of body text.
@@ -1028,13 +1028,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 **Files:**
 
-- Modify: `research_vault/scaffold.py:14-22` (`VAULT_DIRS` drops `"synthesis"`), `research_vault/structure.py` (`_FOLDER_TYPES` drops `synthesis`; add `EXCLUDED_DIRS`; `check_reserved` skips excluded dirs and exempts `wiki/index.md`), `research_vault/stamp.py:42-48` (`_candidate_paths` skips `EXCLUDED_DIRS | {"fulltext"}`), `research_vault/verify.py` (`_plan_state` :997-1004: folders `("literatures", "wiki", "projects")`; the frontmatter walk skips `structure.EXCLUDED_DIRS`; `_mutate_marker` never writes under `wiki/`), `research_vault/lints.py:278` (`roots = (b"literatures/", b"projects/")`) and `:529-534` (`disputed_claim_links` walks `wiki/`), `research_vault/gitstate.py:644` (`(b"literatures/", b"projects/")`), `hooks/posttooluse_lint.py:13` (`CONCEPT_ROOTS = frozenset({"wiki", "projects"})`), `hooks/pretooluse_guard.py:11` (`MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log", "wiki"})` — decision 18), `research_vault/templates/vault/index.md`, `research_vault/templates/vault/AGENTS.md` (every `synthesis/` mention), `research_vault/templates/vault/system/bases/open-questions.base` (`'type == "concept"'`), `research_vault/templates/vault/gitignore` (add `.raw/` and `.vault-meta/`), `tests/conftest.py` (`fixture_vault`: the synthesis note moves to `wiki/concepts/mortality-trends.md` with `type: "concept"`; no `synthesis/index.md`; `tmp_vault` also creates `wiki/concepts`)
+- Modify: `research_vault/scaffold.py:14-22` (`VAULT_DIRS` drops `"synthesis"`), `research_vault/structure.py` (`_FOLDER_TYPES` drops `synthesis`; add `EXCLUDED_DIRS`; `check_reserved` skips excluded dirs and exempts `wiki/index.md`), `research_vault/stamp.py:42-48` (`_candidate_paths` skips `EXCLUDED_DIRS | {"fulltext"}`), `research_vault/verify.py` (`_plan_state` :997-1004: folders `("literature", "wiki", "projects")`; the frontmatter walk skips `structure.EXCLUDED_DIRS`; `_mutate_marker` never writes under `wiki/`), `research_vault/lints.py:278` (`roots = (b"literature/", b"projects/")`) and `:529-534` (`disputed_claim_links` walks `wiki/`), `research_vault/gitstate.py:644` (`(b"literature/", b"projects/")`), `hooks/posttooluse_lint.py:13` (`CONCEPT_ROOTS = frozenset({"wiki", "projects"})`), `hooks/pretooluse_guard.py:11` (`MACHINE_SURFACE_DIR_NAMES = frozenset({"literature", "log", "wiki"})` — decision 18), `research_vault/templates/vault/index.md`, `research_vault/templates/vault/AGENTS.md` (every `synthesis/` mention), `research_vault/templates/vault/system/bases/open-questions.base` (`'type == "concept"'`), `research_vault/templates/vault/gitignore` (add `.raw/` and `.vault-meta/`), `tests/conftest.py` (`fixture_vault`: the synthesis note moves to `wiki/concepts/mortality-trends.md` with `type: "concept"`; no `synthesis/index.md`; `tmp_vault` also creates `wiki/concepts`)
 - Delete: `research_vault/templates/vault/synthesis/index.md`, `research_vault/templates/vault/system/templates/synthesis.md`
 - Tests: `tests/test_structure.py` (:13, :46-50, :79, :97-102), `tests/test_templates.py` (:17, :20, :91, :128, :132, :160, :168, :182), `tests/test_scaffold.py` (:15, :35, :42, :101, :133, :137), `tests/test_hooks.py:212` (`wiki/concepts/...` path), `grep -ln 'synthesis' tests/*.py` for the rest — each `synthesis/` path becomes `wiki/concepts/` and each `type: "synthesis"` becomes `type: "concept"`.
 
 **Interfaces:**
 
-- Produces: `structure.EXCLUDED_DIRS = frozenset({".git", ".raw", ".vault-meta"})`; `structure.is_excluded(path: Path, vault: Path) -> bool`; `structure.expected_type("wiki/concepts/x.md") is None`; `structure.check_reserved` passes a frontmatter-bearing `wiki/index.md` and still fails a frontmatter-bearing `wiki/concepts/index.md`; `scaffold.VAULT_DIRS == ["inbox", "literatures", "log", "projects", "system/templates", "system/bases"]`.
+- Produces: `structure.EXCLUDED_DIRS = frozenset({".git", ".raw", ".vault-meta"})`; `structure.is_excluded(path: Path, vault: Path) -> bool`; `structure.expected_type("wiki/concepts/x.md") is None`; `structure.check_reserved` passes a frontmatter-bearing `wiki/index.md` and still fails a frontmatter-bearing `wiki/concepts/index.md`; `scaffold.VAULT_DIRS == ["inbox", "literature", "log", "projects", "system/templates", "system/bases"]`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1102,7 +1102,7 @@ Expected: FAIL — `wiki/index.md` reported "nested index.md must be frontmatter
 
 ```python
 _FOLDER_TYPES = {
-    "literatures": "literature",
+    "literature": "literature",
     "log": "daily",
     "inbox": "fleeting",
 }
@@ -1153,7 +1153,7 @@ def _candidate_paths(vault: Path, paths):
 ```python
     note_files = [
         path
-        for folder in ("literatures", "wiki", "projects")
+        for folder in ("literature", "wiki", "projects")
         for path in sorted((vault / folder).rglob("*.md"))
     ]
     for path in note_files:
@@ -1177,7 +1177,7 @@ and in `_mutate_marker`, after `path = _safe_relative(...)`:
 
 (`relative` here is the encoded repo path string; check `_origins` returns it as `str` — if it is a `RepoPath`, test `relative.raw.startswith(b"wiki/")`.)
 
-`research_vault/lints.py:278`: `roots = (b"literatures/", b"projects/")`; `disputed_claim_links` walks `(vault_root / "wiki").rglob("*.md")` when `wiki` exists. `research_vault/gitstate.py:644`: `(b"literatures/", b"projects/")`. Hooks as listed. Templates:
+`research_vault/lints.py:278`: `roots = (b"literature/", b"projects/")`; `disputed_claim_links` walks `(vault_root / "wiki").rglob("*.md")` when `wiki` exists. `research_vault/gitstate.py:644`: `(b"literature/", b"projects/")`. Hooks as listed. Templates:
 
 `research_vault/templates/vault/index.md`:
 
@@ -1187,7 +1187,7 @@ okf_version: "0.2"
 ---
 # Vault index
 
-- [literatures/](literatures/) — evidence layer: literature notes, one per captured source, named by citation key
+- [literature/](literature/) — evidence layer: literature notes, one per captured source, named by citation key
 - [wiki/](wiki/) — compiled layer: per-source pages under `wiki/sources/`, cross-source pages under `wiki/concepts/`, written by the adopted compile tool
 - [projects/](projects/) — manuscripts and deliverables
 - [log/](log/) — daily activity log (summary: [[log]])
@@ -1275,7 +1275,7 @@ Expected: FAIL — `rename_frontmatter_key` and `InvalidCitationKeyError` undefi
 
 ```python
 class InvalidCitationKeyError(ValueError):
-    """A citation key that cannot safely name one file in ``literatures``."""
+    """A citation key that cannot safely name one file in ``literature``."""
 
 
 def rename_frontmatter_key(text: str, old: str, new: str) -> str:
@@ -1336,7 +1336,7 @@ Migration of existing notes (zero today, spec §0):
 python3 - <<'PY'
 from pathlib import Path
 from research_vault import notes
-for path in sorted(Path("literatures").glob("*.md")):
+for path in sorted(Path("literature").glob("*.md")):
     text = path.read_text(encoding="utf-8", newline="")
     renamed = notes.rename_frontmatter_key(text, "citekey", "citationKey")
     if renamed != text:
@@ -1417,16 +1417,16 @@ Trust-first academic research on a personal knowledge vault: every claim traceab
 
 **Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, built to outlive its tools (ADR 0001) as an OKF bundle.
 
-**Type (OKF)**: A note's kind, derived from its folder — `literatures/` → literature, `log/` → daily, `inbox/` → fleeting, and only `projects/<name>/draft.md` → project. `wiki/` derives none: the compile tool writes its own `type` values (source, concept, entity, meta). `fulltext/` notes carry `type: fulltext` by construction. Notes under `system/` and at the vault root carry any non-empty type, freely chosen.
+**Type (OKF)**: A note's kind, derived from its folder — `literature/` → literature, `log/` → daily, `inbox/` → fleeting, and only `projects/<name>/draft.md` → project. `wiki/` derives none: the compile tool writes its own `type` values (source, concept, entity, meta). `fulltext/` notes carry `type: fulltext` by construction. Notes under `system/` and at the vault root carry any non-empty type, freely chosen.
 
-**Evidence layer**: The vault's machine-projected record of captured sources (`literatures/`); never free-written.
+**Evidence layer**: The vault's machine-projected record of captured sources (`literature/`); never free-written.
 
 **Text layer**: The extracted full text of every indexed attachment, one file per attachment at `fulltext/<attachment key>.md`, gitignored and regenerable from Zotero. Obsidian indexes it; git never carries it. Its sha256 is machine-local: two machines indexing one PDF do not produce identical text.
 
 **Compiled layer**: The adopted compile tool's pages under `wiki/`: one per-source page under `wiki/sources/` and cross-source pages under `wiki/concepts/`. Nothing under `wiki/` passes an evidence gate; it asserts arrangement, not evidence, and is written only by the tool's transaction engine.
 _Avoid_: synthesis layer, synthesis note (the layer moved under `wiki/` and took the tool's page names)
 
-**Literature note**: The vault's record of one captured source, `literatures/<citation key>.md`, wholly machine-written by capture: a metadata snapshot, a provenance tuple, and a body carrying only what frontmatter cannot — the attachment list and the item's Zotero child notes. Per-source prose belongs in a Zotero child note, which capture renders.
+**Literature note**: The vault's record of one captured source, `literature/<citation key>.md`, wholly machine-written by capture: a metadata snapshot, a provenance tuple, and a body carrying only what frontmatter cannot — the attachment list and the item's Zotero child notes. Per-source prose belongs in a Zotero child note, which capture renders.
 
 **Project**: A manuscript or deliverable in progress (`projects/<name>/`), with a publication lifecycle.
 
@@ -1459,7 +1459,7 @@ _Avoid_: citekey (a Better BibTeX synonym for a field Better BibTeX no longer ow
 
 **Standing**: A source's state after it was added, in the lifecycle linter's words: current, drifted, re-keyed, **merged**, **trashed**, **deleted** (Zotero's words); **retracted**, **corrected** (Retraction Watch, Cochrane). A transition never deletes a note; it files a finding.
 
-**Captured set**: The citation keys read from the `citationKey` field of every parseable note under `literatures/` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation. The CSL file's scope, the compile wrapper's selection and the captured-set lint all read this set.
+**Captured set**: The citation keys read from the `citationKey` field of every parseable note under `literature/` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation. The CSL file's scope, the compile wrapper's selection and the captured-set lint all read this set.
 
 **Provenance tuple**: The frontmatter fields that record what a literature note depends on: `zotero-server-id`, `zotero-item-key`, `zotero-item-version`, `citationKey`, `attachments` (key, version, md5, content type, filename), `fulltext` (attachment key, sha256), `compile-input-sha256`, `generated`. Versions and keys are meaningful only within one server id.
 
@@ -2362,7 +2362,7 @@ insert_final_newline = false
 trim_trailing_whitespace = false
 ```
 
-`hooks/pretooluse_guard.py:11`: `MACHINE_SURFACE_DIR_NAMES = frozenset({"literatures", "log", "wiki", "fulltext"})`. Update `tests/test_templates.py:208-216` expected lists and add `Path("fulltext") / "D7EJ9FTG.md"` to the `relative` list of `tests/test_hooks.py::test_pretooluse_denies_edit_into_every_machine_surface` (and the same path to Task 6's `test_pretooluse_denies_write_under_wiki` list, renamed `test_pretooluse_denies_write_under_machine_layers` if the name now reads wrong).
+`hooks/pretooluse_guard.py:11`: `MACHINE_SURFACE_DIR_NAMES = frozenset({"literature", "log", "wiki", "fulltext"})`. Update `tests/test_templates.py:208-216` expected lists and add `Path("fulltext") / "D7EJ9FTG.md"` to the `relative` list of `tests/test_hooks.py::test_pretooluse_denies_edit_into_every_machine_surface` (and the same path to Task 6's `test_pretooluse_denies_write_under_wiki` list, renamed `test_pretooluse_denies_write_under_machine_layers` if the name now reads wrong).
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
@@ -2821,7 +2821,7 @@ with `ITEM_KEY_RE = re.compile(r"^[A-Z0-9]{8}$")` (duplicated here rather than i
 `README.md`, which this task's record makes describable. The sentence at `:7` beginning "No skill hand-edits a managed region or machine surface" becomes:
 
 ```markdown
-No skill hand-edits a machine surface — `literatures/`, `fulltext/`, `wiki/`, `log/`, `system/`, the review queue — mints a verification event, or files a review record: those are verbs, and only the CLI runs them (under `wiki/`, the adopted compile tool's transaction engine). Prose is composed by hand where it belongs: project drafts, and per-source notes written in Zotero, which capture renders into the literature note.
+No skill hand-edits a machine surface — `literature/`, `fulltext/`, `wiki/`, `log/`, `system/`, the review queue — mints a verification event, or files a review record: those are verbs, and only the CLI runs them (under `wiki/`, the adopted compile tool's transaction engine). Prose is composed by hand where it belongs: project drafts, and per-source notes written in Zotero, which capture renders into the literature note.
 ```
 
 `## The layers` becomes, whole:
@@ -2829,7 +2829,7 @@ No skill hand-edits a machine surface — `literatures/`, `fulltext/`, `wiki/`, 
 ```markdown
 ## The layers
 
-- **`literatures/`** — one note per captured source, wholly machine-written: `capture` regenerates the whole note from Zotero on every run — frontmatter carrying Zotero's own fields and the provenance tuple (server id, item key, item version, citation key, attachments, text files); a body carrying the embed of the compiled page once one exists, the item and attachment links into Zotero, and the item's Zotero child notes. Per-source prose is written in Zotero as a child note, and capture renders it.
+- **`literature/`** — one note per captured source, wholly machine-written: `capture` regenerates the whole note from Zotero on every run — frontmatter carrying Zotero's own fields and the provenance tuple (server id, item key, item version, citation key, attachments, text files); a body carrying the embed of the compiled page once one exists, the item and attachment links into Zotero, and the item's Zotero child notes. Per-source prose is written in Zotero as a child note, and capture renders it.
 - **`fulltext/`** — the text layer, gitignored: one `<attachment key>.md` per attachment with usable extracted text, regenerated by capture; the compile input.
 - **`wiki/`** — the compiled layer, arrangement not evidence, written only by the adopted compile tool (claude-obsidian) through its transaction gate: per-source pages under `wiki/sources/`, concept pages under `wiki/concepts/`, each citing its source as `[[<citation key>]]`. A page earns its existence at two or more captured sources on the same topic, and that threshold *permits* a page without obligating one — sources set side by side with nothing said about how they relate are a compilation, not a synthesis.
 - **`projects/`** — the framed question, the search log, the draft. One project note carries the disposition frontmatter.
@@ -2981,7 +2981,7 @@ def test_lint_reads_three_routes_with_the_recorded_server_id(tmp_vault, monkeypa
     fake.get("/api/users/0/items?since=0&format=versions", body={"ALKT2NF7": 0}, headers={"Last-Modified-Version": "1707"})
     fake.get("/api/users/0/items/trash?format=versions", body={})
     fake.get("/api/users/0/items/top?format=json", body=[{"key": "ALKT2NF7", "version": 0, "data": {"citationKey": "alkt2026", "relations": {}}}])
-    note = tmp_vault / "literatures" / "alkt2026.md"
+    note = tmp_vault / "literature" / "alkt2026.md"
     note.write_text(
         '---\ntype: "literature"\nzotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "ALKT2NF7"\n'
         'zotero-item-version: 0\ncitationKey: "alkt2026"\nattachments:\nfulltext:\n'
@@ -3000,7 +3000,7 @@ def test_lint_reads_three_routes_with_the_recorded_server_id(tmp_vault, monkeypa
 
 def test_database_changed_stops_and_reports_once(tmp_vault, monkeypatch):
     fake = FakeZotero(server_id="6LpvURP2E933")  # production answers, the tuple says test
-    note = tmp_vault / "literatures" / "alkt2026.md"
+    note = tmp_vault / "literature" / "alkt2026.md"
     note.write_text(
         '---\ntype: "literature"\nzotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "ALKT2NF7"\n'
         'zotero-item-version: 0\ncitationKey: "alkt2026"\nattachments:\nfulltext:\n---\n'
@@ -3013,7 +3013,7 @@ def test_database_changed_stops_and_reports_once(tmp_vault, monkeypatch):
 
 def test_outage_never_reads_as_a_classification(tmp_vault, monkeypatch):
     fake = FakeZotero()
-    note = tmp_vault / "literatures" / "alkt2026.md"
+    note = tmp_vault / "literature" / "alkt2026.md"
     note.write_text(
         '---\ntype: "literature"\nzotero-server-id: "6LpvURP2E933"\nzotero-item-key: "ALKT2NF7"\n'
         'zotero-item-version: 0\ncitationKey: "alkt2026"\nattachments:\nfulltext:\n---\n'
@@ -3183,7 +3183,7 @@ def _drift_detail(client: ZoteroClient, vault: Path, provenance: notes.Provenanc
 
 def _provenances(vault: Path) -> list[tuple[Path, notes.Provenance]]:
     found = []
-    for path in sorted((vault / "literatures").glob("*.md")):
+    for path in sorted((vault / "literature").glob("*.md")):
         try:
             provenance = notes.read_provenance(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError):
@@ -3324,7 +3324,7 @@ def test_capture_writes_note_text_layer_and_csl_file(tmp_vault, monkeypatch):
         ("jakesch.etal2023a", Result.MATCHED, "matched"),
         ("system/bibliography.json", Result.MATCHED, "matched"),
     ]
-    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
     data, body = frontmatter.parse(note.read_text())
     assert data["zotero-server-id"] == "6LpvURP2E933"
     assert data["zotero-item-version"] == 544
@@ -3350,10 +3350,10 @@ def test_second_run_is_a_noop_and_keeps_generated(tmp_vault, monkeypatch):
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"], now=_at("2026-09-07T10:00:00Z"))
-    first = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    first = (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"], now=_at("2026-09-08T10:00:00Z"))
     assert outcomes[0].reason == "matched — NOOP"
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text() == first
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text() == first
 
 
 def _at(text):
@@ -3365,7 +3365,7 @@ def test_refresh_after_compile_embeds_the_page_and_completes_the_note(tmp_vault,
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
-    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
     assert "## Compiled" not in note.read_text()  # capture runs before compile (§3.3 step 5)
     ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
     ledger.parent.mkdir(parents=True, exist_ok=True)
@@ -3382,7 +3382,7 @@ def test_an_unreadable_ledger_holds_the_item_and_leaves_the_note_alone(tmp_vault
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
-    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
     before = note.read_text()
     ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
     ledger.parent.mkdir(parents=True, exist_ok=True)
@@ -3420,7 +3420,7 @@ def test_no_usable_text_writes_the_note_and_files_no_fulltext(tmp_vault, monkeyp
         (Result.MATCHED, "matched"),
         (Result.UNMATCHED, "no-fulltext — D7EJ9FTG partial — indexedPages 100 of 143"),
     ]
-    data, _ = frontmatter.parse((tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text())
+    data, _ = frontmatter.parse((tmp_vault / "literature" / "jakesch.etal2023a.md").read_text())
     assert "compile-input-sha256" not in data and data["fulltext"] == []
     assert not (tmp_vault / "fulltext").exists()
 
@@ -3439,7 +3439,7 @@ def test_url_only_item_without_attachment_is_skipped_not_a_finding(tmp_vault, mo
         (Result.MATCHED, "matched"),
         (Result.SKIPPED, "no-fulltext — no attachment to read (webpage); text checks do not apply"),
     ]
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").is_file()
     monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
     assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 0
     assert "SKIPPED jakesch.etal2023a — no-fulltext" in capsys.readouterr().out
@@ -3469,7 +3469,7 @@ def test_unkeyed_item_is_reported_not_written(tmp_vault, monkeypatch):
     client = _client(monkeypatch, fake)
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"], key_wait_seconds=0)
     assert outcomes[0].result is Result.UNMATCHED and outcomes[0].reason.startswith("unkeyed")
-    assert not list((tmp_vault / "literatures").glob("*.md"))
+    assert not list((tmp_vault / "literature").glob("*.md"))
 
 
 def test_capture_runs_the_linter_first_and_refuses_a_trashed_item(tmp_vault, monkeypatch):
@@ -3478,10 +3478,10 @@ def test_capture_runs_the_linter_first_and_refuses_a_trashed_item(tmp_vault, mon
     capture.capture(tmp_vault, client, ["E352DFS8"])
     fake.get("/api/users/0/items?since=0&format=versions", body={"D7EJ9FTG": 551}, headers={"Last-Modified-Version": "566"})
     fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
-    before = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    before = (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     assert outcomes[0].reason.startswith("trashed — ")
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text() == before
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text() == before
 
 
 def test_database_changed_aborts_before_any_write(tmp_vault, monkeypatch):
@@ -3840,7 +3840,7 @@ def _refused(vault: Path, prior: Outcome | None, requested_key: str) -> Outcome 
     """The linter's standing this item is not written over, or None to proceed.
 
     A ``_REFUSED`` transition is refused outright. ``re-keyed`` is refused only
-    while ``literatures/<old>.md`` still exists: rendering under the live key
+    while ``literature/<old>.md`` still exists: rendering under the live key
     would leave a second note beside it, and ``propagate.plan`` refuses to
     rename over an existing file — the file renames only on a re-key, and the
     propagation task set performs it (spec §3.1). ``propagate.apply`` renames
@@ -3880,7 +3880,7 @@ def capture(
     render per requested item, then the CSL file whole.
 
     ``keys`` are item keys or citation keys (``resolve_keys``); ``refresh_all``
-    adds every note under ``literatures/`` by its recorded ``citationKey``.
+    adds every note under ``literature/`` by its recorded ``citationKey``.
     Returns one ``Outcome`` per requested item — plus a ``vault`` row when a
     vault-level read or refusal ends the run, and the CSL file's row when the
     run reached it. Nothing is written for a refused, unkeyed or unreadable
@@ -4116,7 +4116,7 @@ Expected: PASS, clean. Live, against the test instance in a scratch vault:
 ```bash
 scratch=$(mktemp -d) && .venv/bin/python -m research_vault scaffold --vault "$scratch" >/dev/null
 .venv/bin/python -m research_vault capture IXBH3GC4 --vault "$scratch" --base http://localhost:23129
-head -30 "$scratch"/literatures/*.md; ls "$scratch/fulltext"; python3 -c "import json;print(len(json.load(open('$scratch/system/bibliography.json'))))"
+head -30 "$scratch"/literature/*.md; ls "$scratch/fulltext"; python3 -c "import json;print(len(json.load(open('$scratch/system/bibliography.json'))))"
 ```
 
 Expected: one `MATCHED <citation key> — matched`, `MATCHED system/bibliography.json — matched`, one `fulltext/<attachment key>.md`, a one-entry CSL file, and `zotero-server-id: "Tdoqsn2J4q4h"` in the note. The item is one the **test instance** holds with a stored PDF: measured 2026-09-08, `IXBH3GC4` and `568BWIT7` have one; the offline fake's `E352DFS8` has no children there, so it cannot demonstrate the text-layer path (Part B's tracer picks its three sources the same way). The first live read of the Better BibTeX library route after a Zotero start takes ~4.8 s (decision 13); if the CSL step reports an outage on a cold instance, run the capture again before treating it as a defect.
@@ -4145,7 +4145,7 @@ Propagation is the one mutation in this design that touches human content, so it
 
 - Consumes: `lifecycle.lint_lifecycle`, `lifecycle.blocked`, `capture.capture`, `notes.note_path`, `notes.read_provenance`, `structure.is_excluded` (Task 6), `ZoteroClient.item` (the verification read below).
 
-- Produces: the Interface index `research_vault/propagate.py` block. The plan file (`.research-vault/propagate/<operation id>.json`, canonical JSON: sorted keys, two-space indent, trailing newline): `{"schema": "research-vault.propagation.v1", "operation_id": "propagate-20260907T101500Z", "date": "2026-09-07", "mapping": {"old2020": "new2020"}, "item_keys": {"old2020": "E352DFS8"}, "surfaces": [{"path": "projects/brief/draft.md", "sha256": "…"}, …]}`; `plan_sha256` is the sha256 of exactly those bytes. The applied record (`system/propagations/<operation id>.json`) is the same object plus `"applied_at"` and `"approved_plan_sha256"`. Surfaces: every `*.md` under the vault except `literatures/` (renamed, then re-captured), `fulltext/`, `log/`, `log.md`, `inbox/review-queue.md`, `system/propagations/` and `structure.EXCLUDED_DIRS`, that names an old key; patterns `[@old` → `[@new` (followed by `]`, `,` or space), `[[old]]`/`[[old#`/`[[old|` → the same with `new`. `apply` recomputes the plan from the vault as it stands, with the approved plan's `operation_id` and `date`, and refuses with `Outcome("propagation", <operation id>, UNMATCHED, "mismatch — plan changed: …")` when the recomputed hash differs from `--approved-plan-sha256`; nothing is written on refusal. The residue lint reports `Outcome("propagation", <repo path>, UNMATCHED, "stale-key — names <old>, mapped to <new> by <operation id>")` per surface still naming a key an applied record mapped away, or one `MATCHED "matched"` on target `system/propagations` (SKIPPED `no-identifier — no applied propagation plan` when the directory is empty or absent; UNMATCHED `schema-violation — …` on an unreadable record).
+- Produces: the Interface index `research_vault/propagate.py` block. The plan file (`.research-vault/propagate/<operation id>.json`, canonical JSON: sorted keys, two-space indent, trailing newline): `{"schema": "research-vault.propagation.v1", "operation_id": "propagate-20260907T101500Z", "date": "2026-09-07", "mapping": {"old2020": "new2020"}, "item_keys": {"old2020": "E352DFS8"}, "surfaces": [{"path": "projects/brief/draft.md", "sha256": "…"}, …]}`; `plan_sha256` is the sha256 of exactly those bytes. The applied record (`system/propagations/<operation id>.json`) is the same object plus `"applied_at"` and `"approved_plan_sha256"`. Surfaces: every `*.md` under the vault except `literature/` (renamed, then re-captured), `fulltext/`, `log/`, `log.md`, `inbox/review-queue.md`, `system/propagations/` and `structure.EXCLUDED_DIRS`, that names an old key; patterns `[@old` → `[@new` (followed by `]`, `,` or space), `[[old]]`/`[[old#`/`[[old|` → the same with `new`. `apply` recomputes the plan from the vault as it stands, with the approved plan's `operation_id` and `date`, and refuses with `Outcome("propagation", <operation id>, UNMATCHED, "mismatch — plan changed: …")` when the recomputed hash differs from `--approved-plan-sha256`; nothing is written on refusal. The residue lint reports `Outcome("propagation", <repo path>, UNMATCHED, "stale-key — names <old>, mapped to <new> by <operation id>")` per surface still naming a key an applied record mapped away, or one `MATCHED "matched"` on target `system/propagations` (SKIPPED `no-identifier — no applied propagation plan` when the directory is empty or absent; UNMATCHED `schema-violation — …` on an unreadable record).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4161,7 +4161,7 @@ from tests.fakes import ITEM, FakeZotero, canned_item
 
 
 def _seed(vault):
-    (vault / "literatures" / "old2020.md").write_text(
+    (vault / "literature" / "old2020.md").write_text(
         '---\ntype: "literature"\nzotero-server-id: "S"\nzotero-item-key: "E352DFS8"\n'
         'zotero-item-version: 1\ncitationKey: "old2020"\nattachments:\nfulltext:\n---\n'
     )
@@ -4193,7 +4193,7 @@ def test_plan_refuses_a_mapping_zotero_does_not_carry(tmp_vault, monkeypatch):
     planned, outcomes = propagate.plan(tmp_vault, _zotero(monkeypatch, "jakesch.etal2023a"), {"old2020": "wrong2020"})
     assert planned is None
     assert outcomes[0].reason == "mismatch — item E352DFS8 carries citation key 'jakesch.etal2023a', not 'wrong2020'"
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
 
 
 def test_apply_verifies_again_and_renames_nothing_on_an_outage(tmp_vault, monkeypatch):
@@ -4201,18 +4201,18 @@ def test_apply_verifies_again_and_renames_nothing_on_an_outage(tmp_vault, monkey
     planned, path, digest = _planned(tmp_vault, _zotero(monkeypatch))
     (refused,) = propagate.apply(tmp_vault, zotero.ZoteroClient(), path, digest)  # the socket guard: an outage
     assert refused.result is Result.UNREACHABLE
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
     assert "[@old2020, p. 3]" in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
 
 
 def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_recorded_key(tmp_vault, monkeypatch):
-    """After an outage during the recapture the note sits at literatures/new2020.md
+    """After an outage during the recapture the note sits at literature/new2020.md
     still recording citationKey: old2020. The captured set is the recorded key, not
     the filename (decision 08), so a re-run plans, treats the note as already at its
     target, and still rewrites, recaptures and records."""
     _seed(tmp_vault)
     client = _zotero(monkeypatch)
-    (tmp_vault / "literatures" / "old2020.md").rename(tmp_vault / "literatures" / "new2020.md")
+    (tmp_vault / "literature" / "old2020.md").rename(tmp_vault / "literature" / "new2020.md")
     calls = []
     monkeypatch.setattr(propagate.capture, "capture", lambda vault, client, keys, **kw: calls.append(list(keys)) or [])
     planned, path, digest = _planned(tmp_vault, client)
@@ -4220,8 +4220,8 @@ def test_a_partial_apply_can_be_re_run_because_plan_finds_the_note_by_its_record
     (matched,) = propagate.apply(tmp_vault, client, path, digest)
     assert matched.result is Result.MATCHED
     assert calls == [["E352DFS8"]]  # the recapture is what rewrites the note's recorded key; it is asserted by its call
-    assert (tmp_vault / "literatures" / "new2020.md").is_file()
-    assert not (tmp_vault / "literatures" / "old2020.md").exists()
+    assert (tmp_vault / "literature" / "new2020.md").is_file()
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
     assert "[@new2020, p. 3]" in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
     assert propagate.read_records(tmp_vault)[0].mapping == {"old2020": "new2020"}
 
@@ -4266,7 +4266,7 @@ def test_apply_refuses_when_the_vault_moved_since_planning(tmp_vault, monkeypatc
     (tmp_vault / "wiki" / "sources" / "B.md").write_text("---\ntype: source\n---\n[[old2020]] now\n")
     (refused,) = propagate.apply(tmp_vault, client, path, digest)
     assert refused.result is Result.UNMATCHED and refused.reason.startswith("mismatch — plan changed")
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
     assert not (tmp_vault / "system" / "propagations").exists()
     (wrong,) = propagate.apply(tmp_vault, client, path, "0" * 64)
     assert wrong.result is Result.UNMATCHED and wrong.reason.startswith("mismatch — approved hash")
@@ -4281,8 +4281,8 @@ def test_apply_renames_rewrites_recaptures_and_records_the_plan(tmp_vault, monke
     outcomes = propagate.apply(tmp_vault, client, path, digest)
     assert outcomes[0].check == "propagation" and outcomes[0].result is Result.MATCHED
     assert "projects/brief/draft.md" in outcomes[0].reason
-    assert (tmp_vault / "literatures" / "new2020.md").is_file()
-    assert not (tmp_vault / "literatures" / "old2020.md").exists()
+    assert (tmp_vault / "literature" / "new2020.md").is_file()
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
     assert calls == [["E352DFS8"]]
     record = json.loads((tmp_vault / "system" / "propagations" / f"{planned.operation_id}.json").read_text())
     assert record["mapping"] == {"old2020": "new2020"} and record["approved_plan_sha256"] == digest
@@ -4301,9 +4301,9 @@ def test_lint_reports_residue_and_is_quiet_when_clean(tmp_vault, monkeypatch):
     (clean,) = propagate.lint_propagation(tmp_vault)
     assert clean.result is Result.MATCHED
     (tmp_vault / "projects" / "brief" / "late.md").write_text("---\ntype: \"project\"\n---\n[@old2020]\n")
-    (tmp_vault / "literatures" / "old2020.md").write_text("---\ntype: \"literature\"\n---\n")
+    (tmp_vault / "literature" / "old2020.md").write_text("---\ntype: \"literature\"\n---\n")
     stale = propagate.lint_propagation(tmp_vault)
-    assert {o.target for o in stale} == {"path-bytes:projects/brief/late.md", "path-bytes:literatures/old2020.md"}
+    assert {o.target for o in stale} == {"path-bytes:projects/brief/late.md", "path-bytes:literature/old2020.md"}
     assert all(o.reason.startswith("stale-key — names old2020, mapped to new2020 by propagate-") for o in stale)
 
 
@@ -4319,9 +4319,9 @@ def test_cli_plans_then_applies_only_against_the_printed_hash(tmp_vault, monkeyp
     words = line.split()
     path, digest = words[words.index("--plan") + 1], words[words.index("--approved-plan-sha256") + 1]
     assert cli.main(["propagate", "--vault", str(tmp_vault), "--plan", path, "--approved-plan-sha256", "0" * 64]) == 1
-    assert (tmp_vault / "literatures" / "old2020.md").is_file()
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
     assert cli.main(["propagate", "--vault", str(tmp_vault), "--plan", path, "--approved-plan-sha256", digest]) == 0
-    assert (tmp_vault / "literatures" / "new2020.md").is_file()
+    assert (tmp_vault / "literature" / "new2020.md").is_file()
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -4360,7 +4360,7 @@ RECORD_DIR = "system/propagations"
 CHECK = "propagation"
 SCHEMA = "research-vault.propagation.v1"
 _SKIP_FILES = {"log.md", "inbox/review-queue.md"}
-_SKIP_DIRS = {"literatures", "fulltext", "log"}
+_SKIP_DIRS = {"literature", "fulltext", "log"}
 
 
 class Surface(NamedTuple):
@@ -4423,8 +4423,8 @@ def _sources(vault: Path, mapping: dict[str, str]) -> tuple[dict[str, tuple[Path
 
     Decision 08's identity, not the filename: after a partial apply — an outage
     during the recapture is the realistic route — the note sits at
-    ``literatures/<new>.md`` still recording ``<old>``, and a plan that opened
-    ``literatures/<old>.md`` would refuse the very state it produced. Found by
+    ``literature/<new>.md`` still recording ``<old>``, and a plan that opened
+    ``literature/<old>.md`` would refuse the very state it produced. Found by
     the recorded key, a re-run treats that note as already at its target.
     """
     by_key: dict[str, list[tuple[Path, notes.Provenance]]] = {}
@@ -4443,11 +4443,11 @@ def _sources(vault: Path, mapping: dict[str, str]) -> tuple[dict[str, tuple[Path
             names = ", ".join(sorted(path.name for path, _ in candidates))
             outcomes.append(_refusal(old, f"{len(candidates)} notes record citationKey {old}: {names}"))
         elif named in by_name:
-            outcomes.append(_refusal(old, f"literatures/{named} records citationKey {by_name[named].citation_key}, not {old}"))
-        elif (vault / "literatures" / named).is_file():
+            outcomes.append(_refusal(old, f"literature/{named} records citationKey {by_name[named].citation_key}, not {old}"))
+        elif (vault / "literature" / named).is_file():
             outcomes.append(_refusal(old, "note carries no provenance tuple"))
         else:
-            outcomes.append(_refusal(old, f"no note under literatures/ records citationKey {old}"))
+            outcomes.append(_refusal(old, f"no note under literature/ records citationKey {old}"))
     return found, outcomes
 
 
@@ -4479,7 +4479,7 @@ def plan(vault_root, client, mapping: dict[str, str] | None, *, now=None) -> tup
             # over an existing file replaces it silently — a dangling symlink too,
             # which exists() would not see. The note already sitting at its target
             # (a re-run after a partial apply) is the one exception: no rename.
-            outcomes.append(_refusal(old, f"literatures/{new}.md already exists; nothing is renamed over it"))
+            outcomes.append(_refusal(old, f"literature/{new}.md already exists; nothing is renamed over it"))
             continue
         # The mapping is verified against Zotero whatever its source: the note's
         # item must carry the new name live. A name nobody in the library holds
@@ -4623,8 +4623,8 @@ def lint_propagation(vault_root) -> list[Outcome]:
     outcomes = []
     for record in records:
         for old, new in record.mapping.items():
-            if (vault / "literatures" / f"{old}.md").is_file():
-                outcomes.append(_stale(f"literatures/{old}.md", old, new, record.operation_id))
+            if (vault / "literature" / f"{old}.md").is_file():
+                outcomes.append(_stale(f"literature/{old}.md", old, new, record.operation_id))
             for path, relative in _surfaces(vault):
                 if _names(path.read_text(encoding="utf-8", errors="surrogateescape"), old):
                     outcomes.append(_stale(relative, old, new, record.operation_id))
@@ -4633,7 +4633,7 @@ def lint_propagation(vault_root) -> list[Outcome]:
 
 **The residue lint's SKIPPED row on a vault that has never propagated is the intended reading, ruled at Task 14's second review.** With no applied plan there is nothing to check a surface against, and ADR 0002 leaves exactly one honest state for that: not MATCHED, because "emptiness is not a pass" — vacuous truth over zero records certifies nothing — and not silence, because a check that emits nothing is indistinguishable from a check that never ran; SKIPPED is "the check does not apply, determined automatically". The ledger already knows how to hold it: `verify` files the row once (its dedup keys off `inbox.open_entries`, where SKIPPED rows stay), `inbox.summary` excludes SKIPPED from the count and age basis, and `surface_decision` blocks on an UNMATCHED row whose check is in the surface's closing set and on any genuine UNREACHABLE row, closing set or not — SKIPPED is in neither branch — so the row never blocks a commit or a publish and never ages. It is the same shape as decision 26's lifecycle row on a vault with no captured note, and it closes the same way — by the first `propagate`, not by an acknowledgment.
 
-**Every mapping is verified against Zotero, whatever its source** (`ZoteroError` joins the module's imports from `.zotero`). The first draft of this task let `plan(vault, None, mapping)` run without a client — "an explicit mapping needs no client" — and Task 14's review found the trap that opens: `propagate --map old=wrong`, a plain typo, renamed `literatures/old.md` to `wrong.md`, rewrote every citation to `[@wrong]`, and the recapture then wrote `literatures/<live key>.md` beside it. The orphan carries `citationKey: old`, so lifecycle reports it `re-keyed` forever (non-closing), the residue lint is silent because nothing names `old` any more, and no verb retires it. The review asked whether ADR 0003 protects such a duplicate. **Ruling: it does — and the question is moot for every path the tool owns.** A file under `literatures/` carrying a provenance tuple is a captured source's record by shape and location; the ADR's protection does not turn on how the file got there, and a verb that retired one on an inference ("the same item as that other note") would be deletion by heuristic — the same class of fault as the silent rename-over the target-exists guard refuses. The design-discipline climb stops at the first rung: the problem is eliminated. A citation key is a name Zotero assigns (spec §3.5: a re-key is detected by the lifecycle linter alone), so an operator's `--map` asserts nothing — it selects which re-key to propagate, and `plan` confirms the note's item carries the new name live before the plan exists; `apply` recomputes with the client, so the check runs again before the first rename: an outage or a 412 there touches nothing. An outage during the recapture is different — `capture.capture` returns UNREACHABLE rather than raising (`capture.py:172`), so it comes out through `outcomes.extend(...)` with the rename and the rewrite already landed, and the note sits at its new path still recording its old key. That is the state `lint_lifecycle` reports as `re-keyed — <old> → <new>`, the same row `_mapping_from_linter` turns into the next plan, and `_sources` finishes it on the next `propagate`; an outage on entry 2 of 3 leaves entry 1 complete and entries 2 and 3 reported `re-keyed`, and one re-run finishes both. Which is why `cmd_propagate` holds on UNMATCHED alone where `cmd_capture` holds on UNMATCHED and UNREACHABLE: a capture that fails before writing leaves no artefact to lint, so without the hold nothing records that the operator tried; an interrupted apply leaves the artefact the lint already reports, and a hold would be a second record of one fact whose remedy is already named — one that could not even tell an interrupted apply from a re-key nobody has propagated yet, since the vault state and the fix are the same (ruled at Task 14's second review; deferred file, "Do not fix"). With the target-exists guard, no tool path can leave two notes for one item: a linter mapping comes from Zotero, an explicit one is checked against it, and a collision is refused. A duplicate can then only be a person's hand-made copy, outside every transition; lifecycle's standing `re-keyed` row on it is the correct signal, and the person who made it removes it. The tests install `FakeZotero` (`_zotero` above) wherever a client is needed and monkeypatch `capture.capture`, so no test opens a socket and the recapture is asserted by its call, not its effect — which is why Task 20 Step 1 runs one attended `propagate` round on the test instance.
+**Every mapping is verified against Zotero, whatever its source** (`ZoteroError` joins the module's imports from `.zotero`). The first draft of this task let `plan(vault, None, mapping)` run without a client — "an explicit mapping needs no client" — and Task 14's review found the trap that opens: `propagate --map old=wrong`, a plain typo, renamed `literature/old.md` to `wrong.md`, rewrote every citation to `[@wrong]`, and the recapture then wrote `literature/<live key>.md` beside it. The orphan carries `citationKey: old`, so lifecycle reports it `re-keyed` forever (non-closing), the residue lint is silent because nothing names `old` any more, and no verb retires it. The review asked whether ADR 0003 protects such a duplicate. **Ruling: it does — and the question is moot for every path the tool owns.** A file under `literature/` carrying a provenance tuple is a captured source's record by shape and location; the ADR's protection does not turn on how the file got there, and a verb that retired one on an inference ("the same item as that other note") would be deletion by heuristic — the same class of fault as the silent rename-over the target-exists guard refuses. The design-discipline climb stops at the first rung: the problem is eliminated. A citation key is a name Zotero assigns (spec §3.5: a re-key is detected by the lifecycle linter alone), so an operator's `--map` asserts nothing — it selects which re-key to propagate, and `plan` confirms the note's item carries the new name live before the plan exists; `apply` recomputes with the client, so the check runs again before the first rename: an outage or a 412 there touches nothing. An outage during the recapture is different — `capture.capture` returns UNREACHABLE rather than raising (`capture.py:172`), so it comes out through `outcomes.extend(...)` with the rename and the rewrite already landed, and the note sits at its new path still recording its old key. That is the state `lint_lifecycle` reports as `re-keyed — <old> → <new>`, the same row `_mapping_from_linter` turns into the next plan, and `_sources` finishes it on the next `propagate`; an outage on entry 2 of 3 leaves entry 1 complete and entries 2 and 3 reported `re-keyed`, and one re-run finishes both. Which is why `cmd_propagate` holds on UNMATCHED alone where `cmd_capture` holds on UNMATCHED and UNREACHABLE: a capture that fails before writing leaves no artefact to lint, so without the hold nothing records that the operator tried; an interrupted apply leaves the artefact the lint already reports, and a hold would be a second record of one fact whose remedy is already named — one that could not even tell an interrupted apply from a re-key nobody has propagated yet, since the vault state and the fix are the same (ruled at Task 14's second review; deferred file, "Do not fix"). With the target-exists guard, no tool path can leave two notes for one item: a linter mapping comes from Zotero, an explicit one is checked against it, and a collision is refused. A duplicate can then only be a person's hand-made copy, outside every transition; lifecycle's standing `re-keyed` row on it is the correct signal, and the person who made it removes it. The tests install `FakeZotero` (`_zotero` above) wherever a client is needed and monkeypatch `capture.capture`, so no test opens a socket and the recapture is asserted by its call, not its effect — which is why Task 20 Step 1 runs one attended `propagate` round on the test instance.
 
 ```python
 def cmd_propagate(args):
@@ -4695,7 +4695,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 - Consumes: `notes.read_provenance`, `frontmatter.parse`, `structure.is_excluded` (Task 6), `pathcodec.RepoPath`, `Outcome`/`Result`, the compile tool's ledger at `wiki/meta/ledgers/source-ledger.json` (`{"schema": "claude-obsidian.source-ledger.v1", "sources": {"src-…": {"origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"}, "content_sha256": "…", ...}}}`).
 
-- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literatures/` and `structure.EXCLUDED_DIRS` → a page link, not a key — matched by stem or by any trailing run of path segments, as Obsidian resolves `[[concepts/Foo]]`, and a trailing `.md` on the target is dropped first (this closes the implementer's Concern 7 here, since no later task owns `captured.py`); (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from the `sha256` the note's `fulltext` list records for the attachment its locator names (`fulltext/<attachment key>.md`) is `recompile-needed` — the ledger hashes one text file, so the comparison is per attachment, never against the per-note `compile-input-sha256` (they coincide only for the compile-input attachment). An `active` record is also `recompile-needed — ledger <id> stale: observed <retrieved_at or ingested_at>, refresh due <refresh_due>, as of <as_of>` when the tool's own staleness predicate holds — `due is None or observed is None or observed > as_of or due < as_of`, with `observed = retrieved_at or ingested_at` and ISO instants compared by their first ten characters (spec §7 at `b555d77`: the tool defines `source_is_stale` but its lint never calls it, so the vault is the only reporter, and it uses the tool's predicate so the two can never disagree about what stale means). Only `active` records are judged: the wrapper writes `unreviewed` with `refresh_due: null`, which the predicate would otherwise call stale. The vault writes no freshness field of its own (`stale_after` reconciled with `refresh_due` at `c8717ef`); `clock.today(as_of)` is the comparison's other operand. `clock.today(as_of=None) -> str` returns `as_of` validated as `YYYY-MM-DD`, else today's UTC date; it is the only place the package reads today's date (decision 28).
+- Produces: the Interface index `research_vault/captured.py` block. Wikilink resolution order (the numbered rule): (1) target in the captured set → resolved; (2) a file `<target>.md` exists anywhere under the vault outside `literature/` and `structure.EXCLUDED_DIRS` → a page link, not a key — matched by stem or by any trailing run of path segments, as Obsidian resolves `[[concepts/Foo]]`, and a trailing `.md` on the target is dropped first (this closes the implementer's Concern 7 here, since no later task owns `captured.py`); (3) target equals a `title` or an `aliases` entry of a captured note → resolved; (4) else a finding. `[@key]` citations resolve only through (1). Structural half: every ledger record with `origin.kind == "file"` must have a locator `fulltext/<KEY>.md` whose `<KEY>` appears in some captured note's `fulltext` list, else `not-captured`; a record whose `content_sha256` differs from the `sha256` the note's `fulltext` list records for the attachment its locator names (`fulltext/<attachment key>.md`) is `recompile-needed` — the ledger hashes one text file, so the comparison is per attachment, never against the per-note `compile-input-sha256` (they coincide only for the compile-input attachment). An `active` record is also `recompile-needed — ledger <id> stale: observed <retrieved_at or ingested_at>, refresh due <refresh_due>, as of <as_of>` when the tool's own staleness predicate holds — `due is None or observed is None or observed > as_of or due < as_of`, with `observed = retrieved_at or ingested_at` and ISO instants compared by their first ten characters (spec §7 at `b555d77`: the tool defines `source_is_stale` but its lint never calls it, so the vault is the only reporter, and it uses the tool's predicate so the two can never disagree about what stale means). Only `active` records are judged: the wrapper writes `unreviewed` with `refresh_due: null`, which the predicate would otherwise call stale. The vault writes no freshness field of its own (`stale_after` reconciled with `refresh_due` at `c8717ef`); `clock.today(as_of)` is the comparison's other operand. `clock.today(as_of=None) -> str` returns `as_of` validated as `YYYY-MM-DD`, else today's UTC date; it is the only place the package reads today's date (decision 28).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4717,7 +4717,7 @@ def _note(vault, key, item_key, *, title=None, text_key=None, sha=None):
         lines.append(f'  - {{attachment-key: "{text_key}", sha256: "{sha}"}}')
         lines.append('compile-input-sha256: "' + "f" * 64 + '"')  # a decoy: the structural leg compares per attachment, never this
     lines += ['---', '']
-    (vault / "literatures" / f"{key}.md").write_text("\n".join(lines))
+    (vault / "literature" / f"{key}.md").write_text("\n".join(lines))
 
 
 def _ledger(vault, records):
@@ -4728,22 +4728,22 @@ def _ledger(vault, records):
 
 def test_captured_set_is_the_recorded_keys_not_the_filenames(tmp_vault):
     _note(tmp_vault, "smith2020", "SMITH001")
-    (tmp_vault / "literatures" / "renamed2020.md").write_text(
-        (tmp_vault / "literatures" / "smith2020.md").read_text().replace('citationKey: "smith2020"', 'citationKey: "smith2020a"')
+    (tmp_vault / "literature" / "renamed2020.md").write_text(
+        (tmp_vault / "literature" / "smith2020.md").read_text().replace('citationKey: "smith2020"', 'citationKey: "smith2020a"')
     )
-    (tmp_vault / "literatures" / "junk.md").write_text("no frontmatter\n")
+    (tmp_vault / "literature" / "junk.md").write_text("no frontmatter\n")
     assert captured.captured_set(tmp_vault) == {"smith2020": "SMITH001", "smith2020a": "SMITH001"}
 
 
 def test_a_note_the_reader_cannot_take_is_a_row_not_a_silent_omission(tmp_vault):
     """Decision 08 drops a corrupt note's key from the captured set; this lint is what says so."""
     _note(tmp_vault, "smith2020", "E352DFS8")
-    (tmp_vault / "literatures" / "broken.md").write_text("---\ntype: literature\n")  # unterminated frontmatter
-    (tmp_vault / "literatures" / "stray.md").write_text('---\ntype: "literature"\n---\nno tuple\n')
+    (tmp_vault / "literature" / "broken.md").write_text("---\ntype: literature\n")  # unterminated frontmatter
+    (tmp_vault / "literature" / "stray.md").write_text('---\ntype: "literature"\n---\nno tuple\n')
     rows = sorted(
         (str(o.target).rsplit("/", 1)[-1], o.result, o.reason.split(" — ")[0])
         for o in captured.lint_captured_set(tmp_vault)
-        if "literatures/" in str(o.target)
+        if "literature/" in str(o.target)
     )
     assert rows == [("broken.md", Result.UNMATCHED, "schema-violation"), ("stray.md", Result.UNMATCHED, "schema-violation")]
     assert captured.captured_set(tmp_vault) == {"smith2020": "E352DFS8"}  # the set is what capture's CSL selection reads
@@ -4892,7 +4892,7 @@ _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
 
 
 def _read_notes(vault: Path) -> tuple[list[tuple[dict, notes.Provenance]], list[Outcome]]:
-    """Every note under literatures/ with its tuple — and a row for every note the reader cannot take.
+    """Every note under literature/ with its tuple — and a row for every note the reader cannot take.
 
     lifecycle._provenances skips such a note silently, and capture reports it only when its key is
     requested; decision 08 then drops the key from the captured set and so from the CSL file. This
@@ -4900,8 +4900,8 @@ def _read_notes(vault: Path) -> tuple[list[tuple[dict, notes.Provenance]], list[
     """
     entries: list[tuple[dict, notes.Provenance]] = []
     outcomes: list[Outcome] = []
-    for path in sorted((vault / "literatures").glob("*.md")):
-        target = RepoPath(os.fsencode(f"literatures/{path.name}"))
+    for path in sorted((vault / "literature").glob("*.md")):
+        target = RepoPath(os.fsencode(f"literature/{path.name}"))
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as error:
@@ -4949,7 +4949,7 @@ def _page_names(vault: Path) -> set[str]:
         if structure.is_excluded(path, vault):
             continue
         parts = path.relative_to(vault).with_suffix("").parts
-        if parts[0] == "literatures":
+        if parts[0] == "literature":
             continue
         names.update("/".join(parts[k:]) for k in range(len(parts)))
     return names
@@ -5077,7 +5077,7 @@ def resolve_keys(
 
 In `capture()`, the one call changes: `resolved = resolve_keys(client, requested, item_key_of)` (`item_key_of` is built before the call today; nothing moves).
 
-2. **`_REFUSED` (Task 13's frozenset, the constant the refuse check reads) gains `"database-changed"`:** a note the linter reports `database-changed — note records <id>` (a mixed-id vault) is refused too — capturing it would re-home the note to the other database's item of the same key. **And, from the whole-branch review (I-1, fixed in Task 20's wave): `re-keyed` refuses conditionally.** `re-keyed` is not in `_REFUSED`, so a refresh of a re-keyed item proceeded, `_capture_one` derived the path from the *live* key and wrote `literatures/<new>.md` while `<old>.md` stayed, and `propagate.plan` then refused over the existing file — a dead end the skill documented by prose where a mechanism was available (spec §3.1: the file renames only on a re-key, and the propagation task set performs it; capture does not). The refuse check now also refuses when the linter's standing for the item is `re-keyed` **and** `notes.note_path(vault, old).is_file()`, reason `re-keyed — old → new; run propagate`; `propagate.apply`'s recapture (the old path renamed away) and the partial-apply re-run (the note already at `<new>.md`) keep proceeding, and a capture→propagate test pins the refusal; the wave's `_refused` steps aside (proceeds) when the recorded old key is not a representable note name (`InvalidCitationKeyError`), since there is no old note to protect, and that is pinned too.
+2. **`_REFUSED` (Task 13's frozenset, the constant the refuse check reads) gains `"database-changed"`:** a note the linter reports `database-changed — note records <id>` (a mixed-id vault) is refused too — capturing it would re-home the note to the other database's item of the same key. **And, from the whole-branch review (I-1, fixed in Task 20's wave): `re-keyed` refuses conditionally.** `re-keyed` is not in `_REFUSED`, so a refresh of a re-keyed item proceeded, `_capture_one` derived the path from the *live* key and wrote `literature/<new>.md` while `<old>.md` stayed, and `propagate.plan` then refused over the existing file — a dead end the skill documented by prose where a mechanism was available (spec §3.1: the file renames only on a re-key, and the propagation task set performs it; capture does not). The refuse check now also refuses when the linter's standing for the item is `re-keyed` **and** `notes.note_path(vault, old).is_file()`, reason `re-keyed — old → new; run propagate`; `propagate.apply`'s recapture (the old path renamed away) and the partial-apply re-run (the note already at `<new>.md`) keep proceeding, and a capture→propagate test pins the refusal; the wave's `_refused` steps aside (proceeds) when the recorded old key is not a representable note name (`InvalidCitationKeyError`), since there is no old note to protect, and that is pinned too.
 
 3. **No hardcoded library name** (decision 13's "never hardcoded"): `library_name = library_name or read.item.get("library", {}).get("name")` loses its `or "My Library"`, the final call is `_regenerate_csl(vault, client, library_name, run_version)`, and `_regenerate_csl(vault, client, library_name: str | None, run_version)` takes the library route only when a name was read this run; otherwise it goes straight to `item.export` over the captured keys, which needs no name:
 
@@ -5873,7 +5873,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 **Files:**
 
 - Create: `tests/test_add.py`
-- Modify: `research_vault/zotero.py` (the export timeout — decision 13's measurement: the Better BibTeX library route takes 4.78 s cold against the 5.0 s default, and Task 13's first live run filed a false outage while the `item.export` fallback queued behind the still-running export and timed out too, so a retry repeats the failure: `_http(url, data=None, headers=None, method=None, *, timeout=None)` defaulting to `self.timeout`; a module constant `EXPORT_TIMEOUT = 30.0` (about six times the cold measurement, so a library three times larger still clears); `library_csl` passes it; `_rpc(method, params, *, timeout=None)` with **only** `export_csl` passing it — never `_rpc` globally, because `ready()` is doctor's `bbt` probe and per-item reads keep the short timeout or a busy Zotero hangs the loop; `_local` maps a 400 to `ZoteroError(f"local API 400 for {path}: {response.body[:200]!r}", result=Result.UNMATCHED)` — spec §9 measured a malformed `POST /items` answering 400, a definite refusal of the payload; as built it falls through to `UNREACHABLE`, so `add` would call a bad item an outage; and `base_for` in strict mode refuses a `zotero_base` that is present but not a non-empty string — a number, `""`, a list — with `ZoteroError("machine.json unreadable: zotero_base must be a non-empty string", result=Result.UNMATCHED)` instead of silently answering `DEFAULT_BASE` as `zotero.py:88-90` does at HEAD; JSON `null` is the spelling of unset and keeps the default, the reading Task 16 gives a `null` `zotero_profile`; the sentence claiming this lived in Task 13's Files block, which is why no Task 17 brief carried it), `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`; and `--all` re-based on every note under `literatures/` by its recorded `citationKey`, tuple or not — Step 3's closing block, the migration path Task 19 documents), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`; an `--item` file the verb cannot read or parse — `OSError`, `UnicodeError`, `ValueError` — prints `add: cannot read --item: …` to stderr and exits 2, the CLI's "could not run" contract, never a four-state verdict; the implementer filled this from `cmd_verify`'s convention when the brief said only "reads `--item FILE`"), `tests/fakes.py` (`FakeZotero._http` gains `timeout=None` in its signature and records `self._last_post_body = data` on every POST; `FakeZotero._rpc_call` gains `*, timeout=None` too, because `export_csl` now passes the keyword and the fake's override of `client._rpc` would otherwise raise `TypeError` in every installed-fake test that reaches the CSL fallback), `tests/test_capture.py` (the two test-local `_http` shims, `moving` and `changing`, gain `timeout=None` — they have fixed four-parameter signatures and break the moment `_http` is called with the keyword; and the `--all` test at the end of Step 3), `tests/test_zotero.py` (one test asserts `library_csl` and `export_csl` open their sockets with `EXPORT_TIMEOUT` and `ready()`/`item()` with the default, by patching `_http` to record the keyword; one test writes `machine.json` with `"zotero_base": 23129` and asserts strict `base_for` raises with that message and `result is Result.UNMATCHED`, and with `"zotero_base": null` answers `DEFAULT_BASE`)
+- Modify: `research_vault/zotero.py` (the export timeout — decision 13's measurement: the Better BibTeX library route takes 4.78 s cold against the 5.0 s default, and Task 13's first live run filed a false outage while the `item.export` fallback queued behind the still-running export and timed out too, so a retry repeats the failure: `_http(url, data=None, headers=None, method=None, *, timeout=None)` defaulting to `self.timeout`; a module constant `EXPORT_TIMEOUT = 30.0` (about six times the cold measurement, so a library three times larger still clears); `library_csl` passes it; `_rpc(method, params, *, timeout=None)` with **only** `export_csl` passing it — never `_rpc` globally, because `ready()` is doctor's `bbt` probe and per-item reads keep the short timeout or a busy Zotero hangs the loop; `_local` maps a 400 to `ZoteroError(f"local API 400 for {path}: {response.body[:200]!r}", result=Result.UNMATCHED)` — spec §9 measured a malformed `POST /items` answering 400, a definite refusal of the payload; as built it falls through to `UNREACHABLE`, so `add` would call a bad item an outage; and `base_for` in strict mode refuses a `zotero_base` that is present but not a non-empty string — a number, `""`, a list — with `ZoteroError("machine.json unreadable: zotero_base must be a non-empty string", result=Result.UNMATCHED)` instead of silently answering `DEFAULT_BASE` as `zotero.py:88-90` does at HEAD; JSON `null` is the spelling of unset and keeps the default, the reading Task 16 gives a `null` `zotero_profile`; the sentence claiming this lived in Task 13's Files block, which is why no Task 17 brief carried it), `research_vault/capture.py` (`add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]`; `KEY_STORE = ".research-vault/zotero-keys.json"`; and `--all` re-based on every note under `literature/` by its recorded `citationKey`, tuple or not — Step 3's closing block, the migration path Task 19 documents), `research_vault/__main__.py` (`add --vault PATH --item FILE [--collection KEY]`; an `--item` file the verb cannot read or parse — `OSError`, `UnicodeError`, `ValueError` — prints `add: cannot read --item: …` to stderr and exits 2, the CLI's "could not run" contract, never a four-state verdict; the implementer filled this from `cmd_verify`'s convention when the brief said only "reads `--item FILE`"), `tests/fakes.py` (`FakeZotero._http` gains `timeout=None` in its signature and records `self._last_post_body = data` on every POST; `FakeZotero._rpc_call` gains `*, timeout=None` too, because `export_csl` now passes the keyword and the fake's override of `client._rpc` would otherwise raise `TypeError` in every installed-fake test that reaches the CSL fallback), `tests/test_capture.py` (the two test-local `_http` shims, `moving` and `changing`, gain `timeout=None` — they have fixed four-parameter signatures and break the moment `_http` is called with the keyword; and the `--all` test at the end of Step 3), `tests/test_zotero.py` (one test asserts `library_csl` and `export_csl` open their sockets with `EXPORT_TIMEOUT` and `ready()`/`item()` with the default, by patching `_http` to record the keyword; one test writes `machine.json` with `"zotero_base": 23129` and asserts strict `base_for` raises with that message and `result is Result.UNMATCHED`, and with `"zotero_base": null` answers `DEFAULT_BASE`)
 
 **Interfaces:**
 
@@ -5909,7 +5909,7 @@ def test_add_authorizes_once_stores_the_key_creates_and_captures(tmp_vault, monk
     items = [{"itemType": "journalArticle", "title": "T", "creators": [{"creatorType": "author", "lastName": "X"}]}]
     outcomes = capture.add(tmp_vault, client, items, collection="IQZW5UVX")
     assert outcomes[0].reason == "matched — created E352DFS8"
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").is_file()
     store = tmp_vault / ".research-vault" / "zotero-keys.json"
     assert json.loads(store.read_text()) == {"6LpvURP2E933": "k" * 32}
     assert oct(store.stat().st_mode & 0o777) == "0o600"
@@ -5932,7 +5932,7 @@ def test_add_refuses_unknown_fields_before_any_network(tmp_vault, monkeypatch):
 
 def test_add_uses_the_recorded_server_id_when_notes_exist(tmp_vault, monkeypatch):
     fake, client = _fake_for_add(monkeypatch)
-    (tmp_vault / "literatures" / "x.md").write_text(
+    (tmp_vault / "literature" / "x.md").write_text(
         '---\ntype: "literature"\nzotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "AAAA0000"\n'
         'zotero-item-version: 1\ncitationKey: "x"\nattachments:\nfulltext:\n---\n'
     )
@@ -6104,7 +6104,7 @@ def add(
 
 CLI: `cmd_add` reads `--item FILE` (JSON list or object), calls `capture.add`, prints and holds like `cmd_capture`. Parser: `add_cmd = sub.add_parser("add", parents=[common]); add_cmd.add_argument("--vault", required=True); add_cmd.add_argument("--item", required=True); add_cmd.add_argument("--collection")`.
 
-**`--all` reaches a note that carries no tuple.** As built in Task 13, `refresh_all` enumerated `[p.citation_key for _, p in existing]`, and `existing` is `lifecycle._provenances(vault)` — notes with a tuple. An older vault's notes carry `citationKey` and none of the `zotero-*` fields (the retired template never wrote them), so `capture --all` on such a vault requested nothing, reported only decision 26's SKIPPED row, and after Task 15 every one of those notes is an `UNMATCHED schema-violation — no provenance tuple` in the `commit` and `publish` closing sets with no remedy the plan named. Task 15's implementer found it (Concern 15). The fix is what `--all` should have meant: every note under `literatures/`, named by its recorded `citationKey`. A note with a tuple still resolves through it (`resolve_keys`' `known`, row 36 — nothing there changes); a note without one is a name-only request that takes its identity from Zotero at capture, exactly as `capture <citation key>` does (decision 08: the name is the request, the item key and server id are the answer, recorded in the tuple the write produces). A note with no usable `citationKey` is reported, not skipped. Replace the `requested = …` line in `capture()` with:
+**`--all` reaches a note that carries no tuple.** As built in Task 13, `refresh_all` enumerated `[p.citation_key for _, p in existing]`, and `existing` is `lifecycle._provenances(vault)` — notes with a tuple. An older vault's notes carry `citationKey` and none of the `zotero-*` fields (the retired template never wrote them), so `capture --all` on such a vault requested nothing, reported only decision 26's SKIPPED row, and after Task 15 every one of those notes is an `UNMATCHED schema-violation — no provenance tuple` in the `commit` and `publish` closing sets with no remedy the plan named. Task 15's implementer found it (Concern 15). The fix is what `--all` should have meant: every note under `literature/`, named by its recorded `citationKey`. A note with a tuple still resolves through it (`resolve_keys`' `known`, row 36 — nothing there changes); a note without one is a name-only request that takes its identity from Zotero at capture, exactly as `capture <citation key>` does (decision 08: the name is the request, the item key and server id are the answer, recorded in the tuple the write produces). A note with no usable `citationKey` is reported, not skipped. Replace the `requested = …` line in `capture()` with:
 
 ```python
     all_keys, unrequestable = _every_note(vault) if refresh_all else ([], [])
@@ -6115,15 +6115,15 @@ append `unrequestable` to `outcomes` right after `outcomes: list[Outcome] = []`,
 
 ```python
 def _every_note(vault: Path) -> tuple[list[str], list[Outcome]]:
-    """--all: every note under literatures/, by its recorded citationKey — tuple or not.
+    """--all: every note under literature/, by its recorded citationKey — tuple or not.
 
     A note without a tuple is an older vault's, captured once to acquire one; a note
     that cannot even be named is a row, never a silent omission.
     """
     keys: list[str] = []
     outcomes: list[Outcome] = []
-    for path in sorted((vault / "literatures").glob("*.md")):
-        target = RepoPath(os.fsencode(f"literatures/{path.name}"))
+    for path in sorted((vault / "literature").glob("*.md")):
+        target = RepoPath(os.fsencode(f"literature/{path.name}"))
         try:
             data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))
         except OSError as error:
@@ -6158,19 +6158,19 @@ def test_refresh_all_reaches_a_note_that_carries_no_tuple(tmp_vault, monkeypatch
     """An older vault's note has citationKey and no zotero-* fields; --all captures it by name."""
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
-    (tmp_vault / "literatures").mkdir(exist_ok=True)
-    legacy = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    (tmp_vault / "literature").mkdir(exist_ok=True)
+    legacy = tmp_vault / "literature" / "jakesch.etal2023a.md"
     legacy.write_text('---\ntype: "literature"\ncitationKey: "jakesch.etal2023a"\n---\nold prose\n')
-    (tmp_vault / "literatures" / "nameless.md").write_text('---\ntype: "literature"\n---\n')
+    (tmp_vault / "literature" / "nameless.md").write_text('---\ntype: "literature"\n---\n')
     outcomes = capture.capture(tmp_vault, client, [], refresh_all=True)
     rows = [(str(o.target), o.result, o.reason.split(" — ")[0]) for o in outcomes]
     assert ("jakesch.etal2023a", Result.MATCHED, "matched") in rows
-    assert [r[1:] for r in rows if r[0].endswith("literatures/nameless.md")] == [(Result.UNMATCHED, "schema-violation")]
+    assert [r[1:] for r in rows if r[0].endswith("literature/nameless.md")] == [(Result.UNMATCHED, "schema-violation")]
     assert notes.read_provenance(legacy.read_text()) is not None  # the capture gave it its tuple
     assert "old prose" not in legacy.read_text()  # greenfield: rewritten whole from Zotero
 ```
 
-**Rulings from Task 17's review (fix round 1), which the printed code above predates — the round's committed code is the shape, folded here verbatim once it lands:** (1) `_store_key` guards the key store's shape: a valid-JSON non-object (`[]`, a string) reads as `{}` rather than raising `TypeError` after the person has clicked Always Allow, which would lose the granted key and re-dialog every later run; (2) the 401 is typed, not matched by substring — `create_items` raises `ApiKeyRejectedError(ZoteroError)` (result UNMATCHED) and `add` catches it by type, the `DatabaseChangedError` precedent; the printed `"401" in str(error)` would scan a message this task's own `_local` 400 mapping now fills with two hundred bytes of server body; (3) on that 401 `add` clears `client.api_key` beside `key = None`, so the re-authorization does not carry the rejected key on the wire; (4) the printed test's second `add` uses a fresh client, because `client.api_key or _load_key(...)` short-circuits on a reused one and the store's read path — the CLI's only path, since `cmd_add` builds a client per run — was never pinned; (5) `_validate_items` checks `creators` and `tags` are lists, as the Interfaces block says and the printed Step 3 did not — the Interfaces block is the interface; plus two tests the brief lacked: the 401 → re-authorize → retry path both ways, and an export-timeout test that reaches the real `_rpc` (as printed it captured the fake's override, so dropping `timeout=timeout` from `_rpc` stayed green). **(6) Holds keep the outcome's target kind.** `_hold` → `record_finding` → `inbox.append_entry` hardcodes `"identifier"` in both the finding id and the entry, while `verify`'s dedup and `is_acknowledged` key on `outcome.target_kind`; a `literatures/<name>.md` row from `capture._every_note` is the first repo-path target to reach `_hold` (pre-existing since Task 13 — `system/bibliography.json` already rides it), and filed as an identifier it gets an id and a kind no acknowledgment can match. `record_finding` gains `target_kind: str = "identifier"`, passed to `inbox.finding_id` and `inbox.append_entry`; `_hold` gains it and `cmd_capture`, `cmd_propagate` and `cmd_add` pass `outcome.target_kind`; a test files one repo-path hold through `cmd_capture` and asserts the entry's `target_kind == "repo-path"` and that `inbox.append_ack` on it closes it. Nine minors are deferred to the deferred file at the boundary.
+**Rulings from Task 17's review (fix round 1), which the printed code above predates — the round's committed code is the shape, folded here verbatim once it lands:** (1) `_store_key` guards the key store's shape: a valid-JSON non-object (`[]`, a string) reads as `{}` rather than raising `TypeError` after the person has clicked Always Allow, which would lose the granted key and re-dialog every later run; (2) the 401 is typed, not matched by substring — `create_items` raises `ApiKeyRejectedError(ZoteroError)` (result UNMATCHED) and `add` catches it by type, the `DatabaseChangedError` precedent; the printed `"401" in str(error)` would scan a message this task's own `_local` 400 mapping now fills with two hundred bytes of server body; (3) on that 401 `add` clears `client.api_key` beside `key = None`, so the re-authorization does not carry the rejected key on the wire; (4) the printed test's second `add` uses a fresh client, because `client.api_key or _load_key(...)` short-circuits on a reused one and the store's read path — the CLI's only path, since `cmd_add` builds a client per run — was never pinned; (5) `_validate_items` checks `creators` and `tags` are lists, as the Interfaces block says and the printed Step 3 did not — the Interfaces block is the interface; plus two tests the brief lacked: the 401 → re-authorize → retry path both ways, and an export-timeout test that reaches the real `_rpc` (as printed it captured the fake's override, so dropping `timeout=timeout` from `_rpc` stayed green). **(6) Holds keep the outcome's target kind.** `_hold` → `record_finding` → `inbox.append_entry` hardcodes `"identifier"` in both the finding id and the entry, while `verify`'s dedup and `is_acknowledged` key on `outcome.target_kind`; a `literature/<name>.md` row from `capture._every_note` is the first repo-path target to reach `_hold` (pre-existing since Task 13 — `system/bibliography.json` already rides it), and filed as an identifier it gets an id and a kind no acknowledgment can match. `record_finding` gains `target_kind: str = "identifier"`, passed to `inbox.finding_id` and `inbox.append_entry`; `_hold` gains it and `cmd_capture`, `cmd_propagate` and `cmd_add` pass `outcome.target_kind`; a test files one repo-path hold through `cmd_capture` and asserts the entry's `target_kind == "repo-path"` and that `inbox.append_ack` on it closes it. Nine minors are deferred to the deferred file at the boundary.
 
 - [ ] **Step 4: Run the suite and form owners; commit**
 
@@ -6211,7 +6211,7 @@ def test_ack_scope_hash_is_the_notes_managed_sha256(fixture_vault):
     from research_vault import frontmatter, verify
 
     digest = verify._citation_key_hash(fixture_vault, "smith2020")
-    data, _ = frontmatter.parse((fixture_vault / "literatures" / "smith2020.md").read_text())
+    data, _ = frontmatter.parse((fixture_vault / "literature" / "smith2020.md").read_text())
     assert digest == data["managed-sha256"]  # open point 07: the body hash capture writes, never a hash passed by hand
 
 
@@ -6335,7 +6335,7 @@ def clear_marker_for(vault_root, check: str, target: str) -> bool:
     names every line citing ``[@<key>``, the citation regex keeping
     ``smith2020`` from matching ``smith2020a``; a ``path-bytes:`` target names
     the file itself, and every terminal marker for the check in it. The notes
-    are ``projects/**/*.md`` and ``literatures/*.md``: ``_plan_state`` scans
+    are ``projects/**/*.md`` and ``literature/*.md``: ``_plan_state`` scans
     both for claim lines, and a capture-rendered literature note matches
     nothing only because it carries none — a hand-authored one does receive
     markers. Anything under ``wiki/`` is skipped, mirroring the writer's own
@@ -6479,7 +6479,7 @@ def test_fixture_substitutions_cannot_become_no_ops():
 
 (The literal shapes it flags — a line break, a `key: value`, an inline field — are the fixture-text shapes; a plain-word `.replace` in a test is not its business.)
 
-**Rulings from Task 18's review, settled before its fix round — the round's committed code is the shape, folded here verbatim once it lands:** (1) `clear_marker_for`'s shapes are as the Produces line now reads. The implementer measured what the first printed line got wrong: a quote finding on `projects/brief/draft.md` citing an existing `smith2020` carries target `smith2020#^c-…`, the ack looked in `literatures/smith2020.md`, found no anchor and returned False — the printed test passed only because it filed `fabricated2020`, whose note is absent; and a verify-filed `citation-key` finding carries a bare key, matching neither shape, so the commonest marker was never cleared. Two tests accordingly: one files a `#^` target for a key whose note *exists* and asserts the draft's anchored line loses its marker; one files a bare-key `citation-key` finding for a key cited on two lines of two project notes (one of them also citing a longer key that shares the prefix) and asserts exactly the two citing lines lose their marker. (2) Caller-supplied `--date` / `at` values keep their existing validators and only the *defaults* resolve through `clock.today()` — `clock.today`'s refusal text is "`--as-of` must be YYYY-MM-DD", wrong for `finding --date bad`, and in `record_finding` the printed assignment sat outside the `try`, a traceback where exit 2 was owed; the one-reader scan is green either way. (3) `ack` printing a second line when a marker clears is deferred (nothing parses its stdout). (4) **The stamp respects the acknowledgment, so a clear is not undone by the next run.** The review found, at `b451bc1`, that `verify.py:1054` passes `authoritative` — not `effective` — to `_apply_state_transitions`, whose `:829-830` stamps every UNMATCHED outcome ack-blind, so under the plan as first printed every ack clear was reversed by the next `verify` for every target shape, and `cmd_ack`'s "cleared" line was true only until then. Spec open point 09 records §5's rule that a human acknowledgment clears the marker as unimplemented, not withdrawn, and a one-shot clear would leave it unimplemented, so the ruling is the other resolution: the UNMATCHED *stamp* runs only for outcomes still in `effective` — `_apply_state_transitions(vault, authoritative, detection_date, stamp=effective)` with the stamp branch checking membership by `id()`, while the MATCHED clear and every other transition keep running over `authoritative` as today — and the marker's meaning is stated in the code: a raw failure no person has acknowledged, standing beside the inbox row it mirrors, both closed by the same ack and both reopened when the ack lapses on a content-hash change. `tests/test_verify_cli.py:181` (`test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash`) flips its one assertion — the marker is absent after ack + verify — and its reopen leg asserts the marker returns with the finding, which is the strongest form of the same test; the raw outcome is still retained in the run's output, so the name stays true. (5) **An ack scope hashes what the person wrote, never the tool's own marks.** Open point 07's scope is `sha256(check, target, target hash)`, and for every leg but the captured-note one — the anchored-claim bytes, the origin-note bytes, the repo-path bytes — the target hash at `e84eca5` includes verify's own `[failed-verification:: …]` marker bytes, so the flow holds only because verify files the pre-stamp hash and the ack's clear restores exactly that state; an ack made against a stamped state (any row the old run-twice workaround produced) is orphaned by its own clear. `_claim_bytes_from_text`'s docstring already claims the marker is ignored while the code does not, and `canonical_content` already ignores `verified` events for the captured-note leg. Ruling: every leg strips `_ANY_VERIFY_MARKER` before hashing, so the scope is invariant under the tool's own stamping and clearing; the docstring becomes true; and a test acks a row from a *stamped* state and asserts the ack still matches after the clear and after the next `verify`. (6) **The clear reaches `literatures/` too.** Ruling 1's premise — nothing writes a marker into a machine-written note — holds for capture-rendered notes, which carry no claim lines, but `_plan_state`'s `note_files` (`verify.py:1019-1023`) scans `literatures/` as well, so a hand-authored literature note carrying claim lines (the fixture's `smith2020.md` is one) does receive `quote` and `citation-key` markers the `projects/`-only clear cannot reach. The candidate set is `projects/**/*.md` and `literatures/*.md` — one more glob; the anchor or citation filter still confines the edit, and a capture-rendered note matches nothing. The premise is recorded as capture-rendered-only, not as a property of the folder. (7) **The substitution guard covers bytes and f-strings.** Round 1 found seven `bytes` fixture substitutions outside `must_replace`'s printed `str` signature and the AST scan blind to a `bytes` or f-string (`JoinedStr`) first argument, plus `tests/conftest.py::_with_body_witness` still on a bare `.replace` outside the scan's file list. Ruling: `must_replace(text, old, new)` accepts `str | bytes` with `old` and `new` the same type as `text`; the scan flags a `Constant` of either type and a `JoinedStr` as the first argument; `tests/conftest.py` joins the scanned files. (8) **The one-clock scan matches the call, not one spelling:** the predicate is the regex `\.now\([^)]*\)\.date\(\)`, so `now(tz=datetime.UTC).date()` cannot evade it. (9) **An `update-notice` finding's frontmatter `failed-verification` row is a record, not a marker, and `ack` does not touch it** — declined, not deferred: `events.record_failure` writes a verification event (ADR 0002's four-state record; ADR 0003's deprecate-never-delete), the acknowledgment is itself the record of acceptance, and the two stand together the way an acked inbox row stands beside its entry. Task 20's roll-up carries the remaining minors (the every-marker-in-file clear on a `path-bytes:` target, documented; the fifteen-line duplication of `_mutate_marker`'s loop; the two dead baseline rows the gate run clears; the narrowed update-notice pin). (10) **The scope ignores the frontmatter `failed-verification` row as it ignores `verified` events — round 3, not a decline.** Round 2's re-review found ruling 5's principle stopping one level short: `notes.canonical_content` (`notes.py:203-233`) strips only the verifier-owned `verified` event list and keeps the `failed-verification` row `events.record_failure` writes and `record_pass` removes, so for the population without a `managed-sha256` — hand-authored `literatures/*.md`, the unwitnessed fallback leg — the scope hash still oscillates fail → pass → fail, and a scratch run showed two `verify` runs with an ack between them filing a second row for both `update-notice` and `quote`: the orphaning ruling 5 closed, one level up. The row is a record and stays (ruling 9); the *scope* is what ignores it, exactly as it ignores `verified` events: `canonical_content` excludes the `failed-verification` list under the same `_valid_event` test that makes the `verified` exclusion verifier-owned, a hand-written row of the same name being left alone as it is today. No later Files block claims `notes.py`, so by this plan's own deferral rule it is fixed now, as Task 18's round 3, with `tests/test_verify_cli.py:1328`'s pin flipped and one test that reproduces the scratch run — an unwitnessed note, an ack between two runs, no second row and the outcome no longer effective. Declining it would leave a mechanism that orphans acknowledgments for a real population until Task 19's migration recaptures it, and some of that population (a `not-admitted` key) is never recaptured. Deferred with reasons: `_claim_notes` globs `literatures/` non-recursively where `_plan_state` rglobs it (`literatures/` is flat by construction — `notes.note_path` places every capture at the top — so a nested note is hand-made); a tab before an anchor yields a marker shape neither the clear nor the strip handles (pre-existing writer/clear asymmetry).
+**Rulings from Task 18's review, settled before its fix round — the round's committed code is the shape, folded here verbatim once it lands:** (1) `clear_marker_for`'s shapes are as the Produces line now reads. The implementer measured what the first printed line got wrong: a quote finding on `projects/brief/draft.md` citing an existing `smith2020` carries target `smith2020#^c-…`, the ack looked in `literature/smith2020.md`, found no anchor and returned False — the printed test passed only because it filed `fabricated2020`, whose note is absent; and a verify-filed `citation-key` finding carries a bare key, matching neither shape, so the commonest marker was never cleared. Two tests accordingly: one files a `#^` target for a key whose note *exists* and asserts the draft's anchored line loses its marker; one files a bare-key `citation-key` finding for a key cited on two lines of two project notes (one of them also citing a longer key that shares the prefix) and asserts exactly the two citing lines lose their marker. (2) Caller-supplied `--date` / `at` values keep their existing validators and only the *defaults* resolve through `clock.today()` — `clock.today`'s refusal text is "`--as-of` must be YYYY-MM-DD", wrong for `finding --date bad`, and in `record_finding` the printed assignment sat outside the `try`, a traceback where exit 2 was owed; the one-reader scan is green either way. (3) `ack` printing a second line when a marker clears is deferred (nothing parses its stdout). (4) **The stamp respects the acknowledgment, so a clear is not undone by the next run.** The review found, at `b451bc1`, that `verify.py:1054` passes `authoritative` — not `effective` — to `_apply_state_transitions`, whose `:829-830` stamps every UNMATCHED outcome ack-blind, so under the plan as first printed every ack clear was reversed by the next `verify` for every target shape, and `cmd_ack`'s "cleared" line was true only until then. Spec open point 09 records §5's rule that a human acknowledgment clears the marker as unimplemented, not withdrawn, and a one-shot clear would leave it unimplemented, so the ruling is the other resolution: the UNMATCHED *stamp* runs only for outcomes still in `effective` — `_apply_state_transitions(vault, authoritative, detection_date, stamp=effective)` with the stamp branch checking membership by `id()`, while the MATCHED clear and every other transition keep running over `authoritative` as today — and the marker's meaning is stated in the code: a raw failure no person has acknowledged, standing beside the inbox row it mirrors, both closed by the same ack and both reopened when the ack lapses on a content-hash change. `tests/test_verify_cli.py:181` (`test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash`) flips its one assertion — the marker is absent after ack + verify — and its reopen leg asserts the marker returns with the finding, which is the strongest form of the same test; the raw outcome is still retained in the run's output, so the name stays true. (5) **An ack scope hashes what the person wrote, never the tool's own marks.** Open point 07's scope is `sha256(check, target, target hash)`, and for every leg but the captured-note one — the anchored-claim bytes, the origin-note bytes, the repo-path bytes — the target hash at `e84eca5` includes verify's own `[failed-verification:: …]` marker bytes, so the flow holds only because verify files the pre-stamp hash and the ack's clear restores exactly that state; an ack made against a stamped state (any row the old run-twice workaround produced) is orphaned by its own clear. `_claim_bytes_from_text`'s docstring already claims the marker is ignored while the code does not, and `canonical_content` already ignores `verified` events for the captured-note leg. Ruling: every leg strips `_ANY_VERIFY_MARKER` before hashing, so the scope is invariant under the tool's own stamping and clearing; the docstring becomes true; and a test acks a row from a *stamped* state and asserts the ack still matches after the clear and after the next `verify`. (6) **The clear reaches `literature/` too.** Ruling 1's premise — nothing writes a marker into a machine-written note — holds for capture-rendered notes, which carry no claim lines, but `_plan_state`'s `note_files` (`verify.py:1019-1023`) scans `literature/` as well, so a hand-authored literature note carrying claim lines (the fixture's `smith2020.md` is one) does receive `quote` and `citation-key` markers the `projects/`-only clear cannot reach. The candidate set is `projects/**/*.md` and `literature/*.md` — one more glob; the anchor or citation filter still confines the edit, and a capture-rendered note matches nothing. The premise is recorded as capture-rendered-only, not as a property of the folder. (7) **The substitution guard covers bytes and f-strings.** Round 1 found seven `bytes` fixture substitutions outside `must_replace`'s printed `str` signature and the AST scan blind to a `bytes` or f-string (`JoinedStr`) first argument, plus `tests/conftest.py::_with_body_witness` still on a bare `.replace` outside the scan's file list. Ruling: `must_replace(text, old, new)` accepts `str | bytes` with `old` and `new` the same type as `text`; the scan flags a `Constant` of either type and a `JoinedStr` as the first argument; `tests/conftest.py` joins the scanned files. (8) **The one-clock scan matches the call, not one spelling:** the predicate is the regex `\.now\([^)]*\)\.date\(\)`, so `now(tz=datetime.UTC).date()` cannot evade it. (9) **An `update-notice` finding's frontmatter `failed-verification` row is a record, not a marker, and `ack` does not touch it** — declined, not deferred: `events.record_failure` writes a verification event (ADR 0002's four-state record; ADR 0003's deprecate-never-delete), the acknowledgment is itself the record of acceptance, and the two stand together the way an acked inbox row stands beside its entry. Task 20's roll-up carries the remaining minors (the every-marker-in-file clear on a `path-bytes:` target, documented; the fifteen-line duplication of `_mutate_marker`'s loop; the two dead baseline rows the gate run clears; the narrowed update-notice pin). (10) **The scope ignores the frontmatter `failed-verification` row as it ignores `verified` events — round 3, not a decline.** Round 2's re-review found ruling 5's principle stopping one level short: `notes.canonical_content` (`notes.py:203-233`) strips only the verifier-owned `verified` event list and keeps the `failed-verification` row `events.record_failure` writes and `record_pass` removes, so for the population without a `managed-sha256` — hand-authored `literature/*.md`, the unwitnessed fallback leg — the scope hash still oscillates fail → pass → fail, and a scratch run showed two `verify` runs with an ack between them filing a second row for both `update-notice` and `quote`: the orphaning ruling 5 closed, one level up. The row is a record and stays (ruling 9); the *scope* is what ignores it, exactly as it ignores `verified` events: `canonical_content` excludes the `failed-verification` list under the same `_valid_event` test that makes the `verified` exclusion verifier-owned, a hand-written row of the same name being left alone as it is today. No later Files block claims `notes.py`, so by this plan's own deferral rule it is fixed now, as Task 18's round 3, with `tests/test_verify_cli.py:1328`'s pin flipped and one test that reproduces the scratch run — an unwitnessed note, an ack between two runs, no second row and the outcome no longer effective. Declining it would leave a mechanism that orphans acknowledgments for a real population until Task 19's migration recaptures it, and some of that population (a `not-admitted` key) is never recaptured. Deferred with reasons: `_claim_notes` globs `literature/` non-recursively where `_plan_state` rglobs it (`literature/` is flat by construction — `notes.note_path` places every capture at the top — so a nested note is hand-made); a tab before an anchor yields a marker shape neither the clear nor the strip handles (pre-existing writer/clear asymmetry).
 
 - [ ] **Step 4: Run everything; commit**
 
@@ -6581,7 +6581,7 @@ Ingest is the process that gets a source from outside the vault into the vault: 
 
 **No project is required.** The flow is continuous and project-independent, so every step below runs on a vault with zero projects; only `find-sources` is project-scoped.
 
-In every command, `PATH` is the vault and `KEY` is either the Zotero item key (eight upper-case characters, shown in Zotero's item pane) or the citation key — Zotero's own **Citation Key** field, which Better BibTeX fills and which shows in the item list's Citation Key column. Never invent or guess one. Every mechanical act below is a CLI verb call: you compose and explain, the CLI writes. `literatures/`, `fulltext/`, `system/bibliography.json`, `system/propagations/` and `wiki/` are machine surfaces; never `Write` or `Edit` them.
+In every command, `PATH` is the vault and `KEY` is either the Zotero item key (eight upper-case characters, shown in Zotero's item pane) or the citation key — Zotero's own **Citation Key** field, which Better BibTeX fills and which shows in the item list's Citation Key column. Never invent or guess one. Every mechanical act below is a CLI verb call: you compose and explain, the CLI writes. `literature/`, `fulltext/`, `system/bibliography.json`, `system/propagations/` and `wiki/` are machine surfaces; never `Write` or `Edit` them.
 
 ## 1. Add: `add`
 
@@ -6600,7 +6600,7 @@ python3 -m research_vault capture KEY [KEY ...] --vault PATH
 python3 -m research_vault capture --all --vault PATH      # refresh every captured note
 ```
 
-Capture runs the lifecycle linter first, then for each item reads the item, its children and the indexed text, writes `literatures/<citation key>.md` (frontmatter: Zotero's own fields verbatim, the provenance tuple, a body carrying only the attachment list and the item's Zotero child notes), writes `fulltext/<attachment key>.md` for every attachment with usable text, and regenerates `system/bibliography.json` whole. One line per outcome:
+Capture runs the lifecycle linter first, then for each item reads the item, its children and the indexed text, writes `literature/<citation key>.md` (frontmatter: Zotero's own fields verbatim, the provenance tuple, a body carrying only the attachment list and the item's Zotero child notes), writes `fulltext/<attachment key>.md` for every attachment with usable text, and regenerates `system/bibliography.json` whole. One line per outcome:
 
 | Line | What happened |
 | --- | --- |
@@ -6609,7 +6609,7 @@ Capture runs the lifecycle linter first, then for each item reads the item, its 
 | `UNMATCHED KEY — not-admitted — …` | The key is not in the library. |
 | `UNMATCHED KEY — no-fulltext — …` | The note was written, but no attachment has usable text (absent, partial past Zotero's page cap, or below the content floor), so there is no compile input. Read the reason back verbatim. |
 | `SKIPPED KEY — no-fulltext — no attachment to read (…)` | The item holds no file at all — a web page, a repository, a program. The note was written; the text checks do not apply, and nothing was filed. Getting text for such sources is a later lane's work, not a capture failure. |
-| `UNMATCHED KEY — re-keyed — old → new; run propagate` | The citation key changed. Capture refuses while `literatures/old.md` still exists, because writing `new.md` beside it would dead-end `propagate`; run `propagate` (§4), whose own recapture proceeds because the rename has already moved the old note away. |
+| `UNMATCHED KEY — re-keyed — old → new; run propagate` | The citation key changed. Capture refuses while `literature/old.md` still exists, because writing `new.md` beside it would dead-end `propagate`; run `propagate` (§4), whose own recapture proceeds because the rename has already moved the old note away. |
 | `UNMATCHED KEY — merged\|trashed\|deleted — …` | The item left the library. Nothing was written; the note is kept. |
 | `UNMATCHED vault — database-changed — …` | A different Zotero database answered. Nothing was written. Stop and tell the person which server id the notes record. |
 | `UNREACHABLE … — outage — …` | Zotero did not answer. **Never a verdict on the source.** Retry later. |
@@ -6669,7 +6669,7 @@ A vault whose literature notes carry the old `citekey:` frontmatter key runs the
 python3 - <<'PY'
 from pathlib import Path
 from research_vault import notes
-for path in sorted(Path("literatures").glob("*.md")):
+for path in sorted(Path("literature").glob("*.md")):
     text = path.read_text(encoding="utf-8", newline="")
     renamed = notes.rename_frontmatter_key(text, "citekey", "citationKey")
     if renamed != text:
@@ -6678,10 +6678,10 @@ for path in sorted(Path("literatures").glob("*.md")):
 PY
 ```
 
-Run it from the vault root and report the paths it printed. Then `capture --all`: it requests every note under `literatures/` by its `citationKey`, and a note that carries no Zotero tuple yet is captured by that name and given one. **The capture rewrites each note whole from Zotero** — the design is greenfield, and prose an older note carried does not survive it; move anything worth keeping into `wiki/` first. Afterwards `inbox` names what did not migrate, and each row is the person's to resolve, never the tool's to delete: `not-admitted` means Zotero holds no item under that citation key (the source was removed, or the key was never Zotero's), and a note that stays `no provenance tuple` beside a freshly written one means Zotero's key for that item has changed since the note was written. Acknowledgments made against a migrated note lapse: the ack scope moves from the old fixity-sha256 (unbackticked here on purpose: a retired field name no code spells any more, and the skill-name scan would read a backticked kebab token as a route) to the capture's `managed-sha256`, so a standing acknowledgment on a note this run rewrites is re-filed by the next `verify` and is the person's to re-acknowledge or act on.
+Run it from the vault root and report the paths it printed. Then `capture --all`: it requests every note under `literature/` by its `citationKey`, and a note that carries no Zotero tuple yet is captured by that name and given one. **The capture rewrites each note whole from Zotero** — the design is greenfield, and prose an older note carried does not survive it; move anything worth keeping into `wiki/` first. Afterwards `inbox` names what did not migrate, and each row is the person's to resolve, never the tool's to delete: `not-admitted` means Zotero holds no item under that citation key (the source was removed, or the key was never Zotero's), and a note that stays `no provenance tuple` beside a freshly written one means Zotero's key for that item has changed since the note was written. Acknowledgments made against a migrated note lapse: the ack scope moves from the old fixity-sha256 (unbackticked here on purpose: a retired field name no code spells any more, and the skill-name scan would read a backticked kebab token as a route) to the capture's `managed-sha256`, so a standing acknowledgment on a note this run rewrites is re-filed by the next `verify` and is the person's to re-acknowledge or act on.
 ````
 
-`research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `README.md`: the `find-sources` row's "terminates at the admission boundary" becomes "terminates at the person's selection"; the `import-source` row becomes `| Catalog | capture-source | Add an item to Zotero, capture it into literatures/ and fulltext/, propagate a citation-key change |` (the file's row wraps `capture-source`, `literatures/` and `fulltext/` in backticks); the routing sentence at `:89` becomes "Capture this paper" is not "capture it and rebuild the concept page." `docs/terminology.md` §4.3: the governed skill names list swaps `import-source` for `capture-source`, and the commands table gains a row for the bare-verb commands `capture`, `add` and `propagate` (`compile` noted as Part B's), which the table did not have.
+`research_vault/templates/vault/AGENTS.md`: the skills table row becomes `capture-source` — "add, capture, refresh, or propagate a re-key of a source". `README.md`: the `find-sources` row's "terminates at the admission boundary" becomes "terminates at the person's selection"; the `import-source` row becomes `| Catalog | capture-source | Add an item to Zotero, capture it into literature/ and fulltext/, propagate a citation-key change |` (the file's row wraps `capture-source`, `literature/` and `fulltext/` in backticks); the routing sentence at `:89` becomes "Capture this paper" is not "capture it and rebuild the concept page." `docs/terminology.md` §4.3: the governed skill names list swaps `import-source` for `capture-source`, and the commands table gains a row for the bare-verb commands `capture`, `add` and `propagate` (`compile` noted as Part B's), which the table did not have.
 
 **Rulings from Task 19's execution, for its fix round 1 — the round's committed text is the shape, folded here once it lands:** (1) The commit deletes `skills/import-source/` while `skills/find-sources/SKILL.md:115` ("route to `import-source` to catalog it") and `:122` (the routing table's Catalog row) still route to it, and `tests/test_searchlog_cli.py:520` pins the name — a live skill routing to a deleted one, which no Files block in Part A or B claims and no test catches, because the directory scan (`test_every_skill_name_a_shipped_template_cites_has_a_skill_directory`, in `tests/test_skill_contracts.py` at HEAD — not `tests/test_skill_files.py` as this paragraph first said) walks shipped templates only. Ruling: Task 19 re-routes both lines to `capture-source` and moves the pin, by the plan's own rule (no later block claims it: fix now); and the scan gains `skills/*/SKILL.md` as a second corpus, so a skill that names a kebab-case skill token without a directory fails the suite — the mechanism that would have caught this, for the next rename. Historical documents under `docs/product-landscape/`, `docs/research/` and older plans keep the name; they are records of what was, not routes. (2) Three strings the Files block lists for removal were already absent at `fc0e8e9` — navigation drift, nothing to do. (3) Measured departures upheld: the printed outcomes table's raw `|` is written `\|` because mdformat mangles it otherwise; the terminology row sits above the "Other" catch-all per that table's first-match rule, cells `Mechanical ingest step | Bare imperative verb`; `skills/project-flow/SKILL.md`'s routing row, example sentence and its pin at `tests/test_project_flow_skill.py:122` follow the deleted directory. (4) Process: two `sonnet` implementers stalled at the moment of issuing a command — the first at "run the full offline suite", the second at "check ruff and mypy" — with no child process and no tool call recorded; an `opus` implementer from the same inherited tree committed in ten minutes and verified all sixteen inherited paths byte for byte. Recorded as a tier ruling; a third stall would have been read as environmental. (5) **Two design choices in the scan's mechanism, ruled after round 1 (`579efff`):** (a) over a corpus that backticks check ids, reason codes, field names and verbs, the scan needs a rule for "is this bare kebab token a skill name"; the implementer measured three readings and shipped *a token is a skill name unless the code spells it* — a substring of a non-docstring string literal under `research_vault/` — which masks no live skill name at base and whose price is a constraint on product code, pinned by `test_the_code_spells_no_hyphenated_skill_name` so a literal that would mask a skill name fails visibly. Upheld as a proportionate mechanism, and the constraint is promoted to both parts' Global Constraints so Part B's code meets it. (b) `paper-lookup`, K-Dense's upstream skill cited by provenance at `skills/find-sources/SKILL.md:11` (the vendored-fork sentence with the repo URL and commit), shipped as an explicit, cited, staleness-checked exemption `_FOREIGN_SKILL_NAMES`. Overruled in favour of the alternative the report offered: the backticks at `:11` go, because a provenance citation is prose about a name, not a route, and an exemption list is a rule where dropping two characters eliminates the problem; the exemption is then empty and is deleted with its staleness check. "Admission" stays at `:3`, `:9`, `:114`, where the skill defines it as the person's act of accepting a source into Zotero; only the boundary sentences follow the README's "person's selection". (6) Task 19 closed at `c2a7e08` (merged at `bf6d71b`); the branch's skill and document text is the shape, and this task's printed text is the intent. The printed outcomes table's `merged\|trashed\|deleted` row now escapes its pipes inside the code span as the tree does (deferred row 61: mdformat splits a raw pipe into a cell, and the repo's table-cell guard catches the row only after it is mangled). Deferred row 59 — the code-spelled self-check iterates live skill directories only, so a skill deleted in the same commit as a literal spelling its name would slip a narrow window — stays with Task 20's roll-up.
 
@@ -6713,7 +6713,7 @@ python3 scripts/mutation_gate.py --lcov lcov.info --max-workers 1 --base main
 git status --porcelain   # must be empty
 ```
 
-Expected: every command exits 0; report the pytest counts and the mutation-gate summary line verbatim. If the mutation gate reports survivors in `factcheck.py`, `lints.py` or `verify.py` whose only difference from a baseline row is Task 7's rename or the `ruff format` reflow of the same expression, say so rather than judging them new (row 15 of `2026-09-07-ingest-redesign-a-deferred.md` records the one pre-existing row that never matched), and refresh the baseline with the gate's own `--update-baseline` in a commit of its own — gate mode never writes the baseline, so deferred row 57's two dead rows also stay until that commit, not "until the gate run" as the row first said. **Sequencing decided 2026-09-13 (assembly spec §7.1.1):** Plan W (`2026-09-13-plan-w-quality-tail.md`) runs on `main` between this part's merge and Part B's dispatch and replaces mutate4py, so this part **skips** the `--update-baseline` commit (Plan W's Task 25 writes the baseline over every module, the six unmeasurable ones included), **declines** deferred rows 1–4 (the stale `.py.manifest.json` sidecars retire wholesale with the tool), and the merge message names the three changed modules the gate could not measure — `events.py`, `frontmatter.py`, `gitstate.py` — as unmeasured, not as passed. **Measured at `e9f9099`, correcting two claims this paragraph first made.** The CRAP command does not already pass: the two functions the dated deferral covered (`_bump_generated`, `check_metadata`) were deleted in Tasks 1 and 3, but four branch regressions sit above 30 — `__main__.cmd_add` 72.0 (no CLI-level test, 0 % coverage), `verify._worktree_path_hash` 50.7 (26.7 at `main`), `verify._snapshot_path_hash` 31.3 (18.5 at `main`), `capture.capture` 31.1 (new). Ruling: the merge waits until all four are under 30; they go into the post-review fix wave with the whole-branch reviewer's smallest-fix recommendation per function (two CLI tests through `cli.main(["add", …])` for `cmd_add`, CC 8 → CRAP ≈ 8; `capture.capture` is CC-bound — CRAP ≥ 31 at any coverage, so this paragraph's earlier prognosis that coverage would fix it was wrong — and drops below 30 by extracting `_read_keyed(client, item_key, key_wait_seconds) -> ItemRead | None` or `_refused(standing, item_key) -> Outcome | None`; `_worktree_path_hash` has no production caller, so its pre-merge fix is two direct tests and its real disposition is a deletion in the follow-up issue; `_snapshot_path_hash` wants one test for the absent-from-candidate fallback), and the workflow's `continue-on-error` on that step is removed in Part B Task 4 as before. The mutation gate as commanded (`--max-workers 1`, `--base main`, twenty-three changed modules) is an 8–17 hour serial run — the gate's own header forbids parallel workers because mutate4py 0.1.4 leaks memory at roughly 200 MB/s and has taken the machine down, and CI's six-hour cap hits the same wall, so the branch's mutants were measured nowhere by default. First ruling: the full gate runs to completion in a throwaway detached worktree (`/tmp/rv-gate` at `e9f9099`, serial, `--memory-cap 6G`, log `/tmp/rv-gate.log`) so this worktree stays free for the review, and the merge waits on its summary line and on a scoped run over the fix wave's diff. **Reversed 2026-09-13, operator's decision, once the gate's output was read rather than assumed:** the per-module `ok` line is mutate4py's *failure class* (exit 0), not a verdict — the verdict is computed once at the end as survivors minus baseline — and this branch adds eight modules with no baseline rows (`capture.py` alone lists thirteen survivors), so both runs end in FAIL by construction with "new" survivors that are simply new code's survivors. **The gate summaries are not a merge condition.** Part A merges on the suite, CRAP at exit 0, the whole-branch review with its fix wave, and the attended leg. The full run continues detached as *data*: its per-module survivor lists are the only record of what Part A introduced, because Plan W's blanket baseline over the merged tree cannot tell Part A's survivors from older ones afterwards; the list is attached to Plan W Task 25 for triage (kill or accept, each recorded) when that baseline is written. The scoped wave run is stopped and its worktree discarded — it measures pre-Plan-W code with the retiring tool, and Plan W covers the wave's modules. Nothing reads mutate4py's FAIL line as a verdict on this branch, and the merge message says so beside the three unmeasured modules. Tooling: mutate4py leaves a mutant live in the tree on SIGINT — restore the file from its `.bak` and verify the sha256 before anything else runs, as Step 1's implementer did for `__main__.py`. **Row 54's rule, chosen in the fix wave:** `literatures/` is flat everywhere — decision 08 spells the captured set as `literatures/*.md`, spec §3.1's filename is `literatures/<citation key>.md`, and `notes.note_path` refuses a `/` in the key, so capture can only ever write flat — and every reader globs flat (`verify`, `capture`, `lifecycle`, `captured`, `lints`); a hand-placed nested file under `literatures/` is not a literature note anywhere and gets only the folder-typed `okf-frontmatter` row from `structure.check_note_frontmatter`, the one whole-vault walker, which stays as it is. Pinned by `tests/test_verify_cli.py::test_a_nested_note_under_literatures_is_not_a_literature_note_anywhere`.
+Expected: every command exits 0; report the pytest counts and the mutation-gate summary line verbatim. If the mutation gate reports survivors in `factcheck.py`, `lints.py` or `verify.py` whose only difference from a baseline row is Task 7's rename or the `ruff format` reflow of the same expression, say so rather than judging them new (row 15 of `2026-09-07-ingest-redesign-a-deferred.md` records the one pre-existing row that never matched), and refresh the baseline with the gate's own `--update-baseline` in a commit of its own — gate mode never writes the baseline, so deferred row 57's two dead rows also stay until that commit, not "until the gate run" as the row first said. **Sequencing decided 2026-09-13 (assembly spec §7.1.1):** Plan W (`2026-09-13-plan-w-quality-tail.md`) runs on `main` between this part's merge and Part B's dispatch and replaces mutate4py, so this part **skips** the `--update-baseline` commit (Plan W's Task 25 writes the baseline over every module, the six unmeasurable ones included), **declines** deferred rows 1–4 (the stale `.py.manifest.json` sidecars retire wholesale with the tool), and the merge message names the three changed modules the gate could not measure — `events.py`, `frontmatter.py`, `gitstate.py` — as unmeasured, not as passed. **Measured at `e9f9099`, correcting two claims this paragraph first made.** The CRAP command does not already pass: the two functions the dated deferral covered (`_bump_generated`, `check_metadata`) were deleted in Tasks 1 and 3, but four branch regressions sit above 30 — `__main__.cmd_add` 72.0 (no CLI-level test, 0 % coverage), `verify._worktree_path_hash` 50.7 (26.7 at `main`), `verify._snapshot_path_hash` 31.3 (18.5 at `main`), `capture.capture` 31.1 (new). Ruling: the merge waits until all four are under 30; they go into the post-review fix wave with the whole-branch reviewer's smallest-fix recommendation per function (two CLI tests through `cli.main(["add", …])` for `cmd_add`, CC 8 → CRAP ≈ 8; `capture.capture` is CC-bound — CRAP ≥ 31 at any coverage, so this paragraph's earlier prognosis that coverage would fix it was wrong — and drops below 30 by extracting `_read_keyed(client, item_key, key_wait_seconds) -> ItemRead | None` or `_refused(standing, item_key) -> Outcome | None`; `_worktree_path_hash` has no production caller, so its pre-merge fix is two direct tests and its real disposition is a deletion in the follow-up issue; `_snapshot_path_hash` wants one test for the absent-from-candidate fallback), and the workflow's `continue-on-error` on that step is removed in Part B Task 4 as before. The mutation gate as commanded (`--max-workers 1`, `--base main`, twenty-three changed modules) is an 8–17 hour serial run — the gate's own header forbids parallel workers because mutate4py 0.1.4 leaks memory at roughly 200 MB/s and has taken the machine down, and CI's six-hour cap hits the same wall, so the branch's mutants were measured nowhere by default. First ruling: the full gate runs to completion in a throwaway detached worktree (`/tmp/rv-gate` at `e9f9099`, serial, `--memory-cap 6G`, log `/tmp/rv-gate.log`) so this worktree stays free for the review, and the merge waits on its summary line and on a scoped run over the fix wave's diff. **Reversed 2026-09-13, operator's decision, once the gate's output was read rather than assumed:** the per-module `ok` line is mutate4py's *failure class* (exit 0), not a verdict — the verdict is computed once at the end as survivors minus baseline — and this branch adds eight modules with no baseline rows (`capture.py` alone lists thirteen survivors), so both runs end in FAIL by construction with "new" survivors that are simply new code's survivors. **The gate summaries are not a merge condition.** Part A merges on the suite, CRAP at exit 0, the whole-branch review with its fix wave, and the attended leg. The full run continues detached as *data*: its per-module survivor lists are the only record of what Part A introduced, because Plan W's blanket baseline over the merged tree cannot tell Part A's survivors from older ones afterwards; the list is attached to Plan W Task 25 for triage (kill or accept, each recorded) when that baseline is written. The scoped wave run is stopped and its worktree discarded — it measures pre-Plan-W code with the retiring tool, and Plan W covers the wave's modules. Nothing reads mutate4py's FAIL line as a verdict on this branch, and the merge message says so beside the three unmeasured modules. Tooling: mutate4py leaves a mutant live in the tree on SIGINT — restore the file from its `.bak` and verify the sha256 before anything else runs, as Step 1's implementer did for `__main__.py`. **Row 54's rule, chosen in the fix wave:** `literature/` is flat everywhere — decision 08 spells the captured set as `literature/*.md`, spec §3.1's filename is `literature/<citation key>.md`, and `notes.note_path` refuses a `/` in the key, so capture can only ever write flat — and every reader globs flat (`verify`, `capture`, `lifecycle`, `captured`, `lints`); a hand-placed nested file under `literature/` is not a literature note anywhere and gets only the folder-typed `okf-frontmatter` row from `structure.check_note_frontmatter`, the one whole-vault walker, which stays as it is. Pinned by `tests/test_verify_cli.py::test_a_nested_note_under_literature_is_not_a_literature_note_anywhere`.
 
 **Attended propagate round on the test instance.** Task 14's review found that every `apply` test monkeypatches `capture.capture`, so the recapture — the one step of the vault's only vault-wide mutation that talks to Zotero — has never run against a real instance. This is a write-capable leg on the test instance (`RV_LIVE_WRITE_BASE`, `http://localhost:23129`), attended rather than automated: Part B Task 5 owns an automated leg once a way to re-key an item over the local API is measured. Run it before the merge:
 
@@ -6729,7 +6729,7 @@ python3 -m research_vault propagate --vault "$V" --base "$B" --plan PLAN --appro
 python3 -m research_vault verify --vault "$V" --base "$B"               # expect: no lifecycle row for the key; the queue is append-only, so the earlier holds stay open until `ack`
 ```
 
-Expected after apply: `literatures/NEW.md` exists and carries `citationKey: NEW`, `literatures/OLD.md` is gone, `projects/leg.md` reads `[@NEW, p. 3]` and `[[NEW]]`, `system/propagations/<operation id>.json` records the applied plan, `verify` reports no lifecycle row for the key, and `inbox` still lists the holds the refused capture filed (append-only; two of them, since the CSL `item.export` fallback also asked for the old key — issue #129). Report the capture, propagate and verify outputs and the record's path verbatim in Step 5. **Run 2026-09-13 on 23129, item `ALKT2NF7`:** the native `citationKey` field took the re-key — `PATCH /api/users/0/items/ALKT2NF7` with `If-Unmodified-Since-Version: 1708` answered 204, `Last-Modified-Version: 1714`, Better BibTeX agreeing within about two seconds, `extra` untouched, so the Extra-line fallback was never needed; one `authorize()` with `remember: true`; the linter's `re-keyed` refusal fired live through `capture`, `propagate` planned and applied, the recapture was a NOOP, a fresh plan found nothing to propagate, and a restore PATCH answered 204. Research records 449–451 in the Task 20 report carry the request and answering headers in the reading doc's shape for Part B Task 5. If the recapture fails (the partial state Task 14's fix round made recoverable), report exactly what the vault holds and stop — that outcome is the leg's finding, not a reason to fix by hand.
+Expected after apply: `literature/NEW.md` exists and carries `citationKey: NEW`, `literature/OLD.md` is gone, `projects/leg.md` reads `[@NEW, p. 3]` and `[[NEW]]`, `system/propagations/<operation id>.json` records the applied plan, `verify` reports no lifecycle row for the key, and `inbox` still lists the holds the refused capture filed (append-only; two of them, since the CSL `item.export` fallback also asked for the old key — issue #129). Report the capture, propagate and verify outputs and the record's path verbatim in Step 5. **Run 2026-09-13 on 23129, item `ALKT2NF7`:** the native `citationKey` field took the re-key — `PATCH /api/users/0/items/ALKT2NF7` with `If-Unmodified-Since-Version: 1708` answered 204, `Last-Modified-Version: 1714`, Better BibTeX agreeing within about two seconds, `extra` untouched, so the Extra-line fallback was never needed; one `authorize()` with `remember: true`; the linter's `re-keyed` refusal fired live through `capture`, `propagate` planned and applied, the recapture was a NOOP, a fresh plan found nothing to propagate, and a restore PATCH answered 204. Research records 449–451 in the Task 20 report carry the request and answering headers in the reading doc's shape for Part B Task 5. If the recapture fails (the partial state Task 14's fix round made recoverable), report exactly what the vault holds and stop — that outcome is the leg's finding, not a reason to fix by hand.
 
 - [ ] **Step 2: Merge to `main`**
 
@@ -6763,7 +6763,7 @@ Task numbers are this part's; `B n` names a Part B task. Part B's own self-revie
 | §1 "full-map read"                   | `?since=0` full maps, three reads                                                                                                                                                                              | 9, 12                        |
 | §1.1                                 | retire then rename; 200 identifiers; ten skill files; frontmatter migration; glossary; `import`/`authority` collisions; captured set defined                                                                   | 1–8, 15, 19                  |
 | §2                                   | Path A authorize/write; `Zotero-Server-ID` recorded not echoed; key poll to 10 s; Path B dropped; tags verbatim; no pinning; URL-only cut; archive retired                                                     | 1, 9, 11, 17                 |
-| §3.1                                 | item key + server id identity; filename `literatures/<citation key>.md`; alias probe; rename by propagation                                                                                                    | 11, 14, B1 (T5)              |
+| §3.1                                 | item key + server id identity; filename `literature/<citation key>.md`; alias probe; rename by propagation                                                                                                     | 11, 14, B1 (T5)              |
 | §3.2                                 | snapshot fields; provenance tuple; `annotations` deferred; wholly machine-written note; vault-owned fields dispositioned; CSL file scope = captured set; `Extra` note                                          | 5, 11, 13, 18                |
 | §3.3 steps 1–7                       | reads; annotations route measured/unwired; fulltext usability; whole-library CSL read + fallback; body renders only what frontmatter cannot; NOOP; per-item restart; library re-read                           | 9, 10, 11, 13                |
 | §3.4                                 | linter at capture and verify; 412 stop; three reads; per-object classification; drift cause; reason order; outage at pre-commit never a classification                                                         | 12, 13                       |

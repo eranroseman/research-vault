@@ -12,7 +12,7 @@ from . import AGENT_ACTOR, Result, frontmatter
 
 
 class InvalidCitationKeyError(ValueError):
-    """A citation key that cannot safely name one file in ``literatures``."""
+    """A citation key that cannot safely name one file in ``literature``."""
 
 
 class LedgerUnreadableError(Exception):
@@ -143,7 +143,7 @@ def note_path(vault_root, citation_key) -> Path:
         or Path(citation_key).is_absolute()
     ):
         raise InvalidCitationKeyError(f"unsafe citation key: {citation_key!r}")
-    return Path(vault_root) / "literatures" / f"{citation_key}.md"
+    return Path(vault_root) / "literature" / f"{citation_key}.md"
 
 
 def rename_frontmatter_key(text: str, old: str, new: str) -> str:

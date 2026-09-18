@@ -54,7 +54,7 @@ def test_claim_link():
 
 
 def test_fixture_vault_parses_wikilink_fields(fixture_vault):
-    literature = (fixture_vault / "literatures" / "smith2020.md").read_text()
+    literature = (fixture_vault / "literature" / "smith2020.md").read_text()
     inference = (
         fixture_vault / "wiki" / "concepts" / "mortality-trends.md"
     ).read_text()

@@ -10,7 +10,7 @@ Environment facts are not written down. Live values come from `python3 -m resear
 
 This repository is the product source and is read as a repository: vault rules and conventions — `CONTEXT.md`'s layout, the skills' gates, the vault's pre-commit hook — govern a user vault, not this tree.
 
-- A user vault is the directory containing `inbox/`, `wiki/`, `literatures/` and `.raw/`. Mutable state always belongs there.
+- A user vault is the directory containing `inbox/`, `wiki/`, `literature/` and `.raw/`. Mutable state always belongs there.
 - `research_vault/templates/vault` is the distributable seed. Root `wiki/`, `.raw/`, and
   `.vault-meta/` are contributor state and are excluded from public artifacts.
 - Never derive a user vault from the plugin cache or `${CLAUDE_PLUGIN_ROOT}`.

@@ -12,7 +12,7 @@ from research_vault import frontmatter, scaffold
 
 VAULT_DIRS = [
     "inbox",
-    "literatures",
+    "literature",
     "log",
     "projects",
     "system/templates",
@@ -28,7 +28,7 @@ EXPECTED_CREATED = [
     "AGENTS.md",
     "inbox/review-queue.md",
     "index.md",
-    "literatures/.gitkeep",
+    "literature/.gitkeep",
     "log.md",
     "log/.gitkeep",
     "projects/.gitkeep",
@@ -94,7 +94,7 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     assert (vault / "index.md").read_text() == (
         '---\nokf_version: "0.2"\n---\n'
         "# Vault index\n\n"
-        "- [literatures/](literatures/) — evidence layer: literature notes, one per "
+        "- [literature/](literature/) — evidence layer: literature notes, one per "
         "captured source, named by citation key\n"
         "- [wiki/](wiki/) — compiled layer: per-source pages under `wiki/sources/`, "
         "cross-source pages under `wiki/concepts/`, written by the adopted compile tool\n"
@@ -196,7 +196,7 @@ def test_scaffold_installs_an_executable_hook_and_keeps_empty_roots_in_clones(tm
     assert os.access(vault / ".git" / "hooks" / "pre-commit", os.X_OK)
     clone = tmp_path / "clone"
     subprocess.run(["git", "clone", "-q", str(vault), str(clone)], check=True)
-    for root in ("literatures", "log", "projects"):
+    for root in ("literature", "log", "projects"):
         assert (clone / root / ".gitkeep").is_file()
 
 

@@ -30,7 +30,7 @@ RECORD_DIR = "system/propagations"
 CHECK = "propagation"
 SCHEMA = "research-vault.propagation.v1"
 _SKIP_FILES = {"log.md", "inbox/review-queue.md"}
-_SKIP_DIRS = {"literatures", "fulltext", "log"}
+_SKIP_DIRS = {"literature", "fulltext", "log"}
 
 
 class Surface(NamedTuple):
@@ -102,8 +102,8 @@ def _sources(
 
     Decision 08's identity, not the filename: after a partial apply — an
     outage during the recapture is the realistic route — the note sits at
-    ``literatures/<new>.md`` still recording ``<old>``, and a plan that opened
-    ``literatures/<old>.md`` would refuse the very state it produced. Found by
+    ``literature/<new>.md`` still recording ``<old>``, and a plan that opened
+    ``literature/<old>.md`` would refuse the very state it produced. Found by
     the recorded key, a re-run treats that note as already at its target.
     """
     by_key: dict[str, list[tuple[Path, notes.Provenance]]] = {}
@@ -129,15 +129,15 @@ def _sources(
             outcomes.append(
                 _refusal(
                     old,
-                    f"literatures/{named} records citationKey "
+                    f"literature/{named} records citationKey "
                     f"{by_name[named].citation_key}, not {old}",
                 )
             )
-        elif (vault / "literatures" / named).is_file():
+        elif (vault / "literature" / named).is_file():
             outcomes.append(_refusal(old, "note carries no provenance tuple"))
         else:
             outcomes.append(
-                _refusal(old, f"no note under literatures/ records citationKey {old}")
+                _refusal(old, f"no note under literature/ records citationKey {old}")
             )
     return found, outcomes
 
@@ -189,7 +189,7 @@ def plan(
             outcomes.append(
                 _refusal(
                     old,
-                    f"literatures/{new}.md already exists; nothing is renamed over it",
+                    f"literature/{new}.md already exists; nothing is renamed over it",
                 )
             )
             continue
@@ -449,8 +449,8 @@ def lint_propagation(vault_root) -> list[Outcome]:
             # the freed key and captured normally — so the mapping's claim on
             # the name ends: the item key is identity, the name only a name.
             continue
-        if (vault / "literatures" / f"{old}.md").is_file():
-            outcomes.append(_stale(f"literatures/{old}.md", old, new, operation_id))
+        if (vault / "literature" / f"{old}.md").is_file():
+            outcomes.append(_stale(f"literature/{old}.md", old, new, operation_id))
         outcomes.extend(
             _stale(relative, old, new, operation_id)
             for relative, text in texts

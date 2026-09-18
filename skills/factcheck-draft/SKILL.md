@@ -33,7 +33,7 @@ Its selection order (spec §6, binding — not a suggestion): **inference/paraph
 
 ## Check every selected claim, one pass each
 
-For each entry in `selected`, open the draft at `line_no` and the cited literature note (`literatures/<citation-key>.md`, citation key from `claim_link`) and read its body. What you're judging depends on the claim's tag:
+For each entry in `selected`, open the draft at `line_no` and the cited literature note (`literature/<citation-key>.md`, citation key from `claim_link`) and read its body. What you're judging depends on the claim's tag:
 
 - **`quote`** — quote fidelity: the deterministic checker already confirmed the text matches byte-for-byte (or flagged it if not); your job is whether the excerpt, as used in the draft, is fair to the source — not cherry-picked or presented out of the context that would change its meaning.
 - **`paraphrase`** — paraphrase support: does the cited note body actually support this paraphrase's direction, magnitude, population, and certainty — not just its general topic?

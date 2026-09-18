@@ -8,16 +8,16 @@ Trust-first academic research on a personal knowledge vault: every claim traceab
 
 **Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, built to outlive its tools (ADR 0001) as an OKF bundle.
 
-**Type (OKF)**: A note's kind, derived from its folder — `literatures/` → literature, `log/` → daily, `inbox/` → fleeting, and only `projects/<name>/draft.md` → project. `wiki/` derives none: the compile tool writes its own `type` values (source, concept, entity, meta). `fulltext/` notes carry `type: fulltext` by construction. Notes under `system/` and at the vault root carry any non-empty type, freely chosen.
+**Type (OKF)**: A note's kind, derived from its folder — `literature/` → literature, `log/` → daily, `inbox/` → fleeting, and only `projects/<name>/draft.md` → project. `wiki/` derives none: the compile tool writes its own `type` values (source, concept, entity, meta). `fulltext/` notes carry `type: fulltext` by construction. Notes under `system/` and at the vault root carry any non-empty type, freely chosen.
 
-**Evidence layer**: The vault's machine-projected record of captured sources (`literatures/`); never free-written.
+**Evidence layer**: The vault's machine-projected record of captured sources (`literature/`); never free-written.
 
 **Text layer**: The extracted full text of every indexed attachment, one file per attachment at `fulltext/<attachment key>.md`, gitignored and regenerable from Zotero. Obsidian indexes it; git never carries it. Its sha256 is machine-local: two machines indexing one PDF do not produce identical text.
 
 **Compiled layer**: The adopted compile tool's pages under `wiki/`: one per-source page under `wiki/sources/` and cross-source pages under `wiki/concepts/`. Nothing under `wiki/` passes an evidence gate; it asserts arrangement, not evidence, and is written only by the tool's transaction engine.
 _Avoid_: synthesis layer, synthesis note (the layer moved under `wiki/` and took the tool's page names)
 
-**Literature note**: The vault's record of one captured source, `literatures/<citation key>.md`, wholly machine-written by capture: a metadata snapshot, a provenance tuple, and a body carrying only what frontmatter cannot — the attachment list and the item's Zotero child notes. Per-source prose belongs in a Zotero child note, which capture renders.
+**Literature note**: The vault's record of one captured source, `literature/<citation key>.md`, wholly machine-written by capture: a metadata snapshot, a provenance tuple, and a body carrying only what frontmatter cannot — the attachment list and the item's Zotero child notes. Per-source prose belongs in a Zotero child note, which capture renders.
 
 **Project**: A manuscript or deliverable in progress (`projects/<name>/`), with a publication lifecycle.
 
@@ -50,7 +50,7 @@ _Avoid_: citekey (a Better BibTeX synonym for a field Better BibTeX no longer ow
 
 **Standing**: A source's state after it was added, in the lifecycle linter's words: current, drifted, re-keyed, **merged**, **trashed**, **deleted** (Zotero's words); **retracted**, **corrected** (Retraction Watch, Cochrane). A transition never deletes a note; it files a finding.
 
-**Captured set**: The citation keys read from the `citationKey` field of every parseable note under `literatures/` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation. The CSL file's scope, the compile wrapper's selection and the captured-set lint all read this set.
+**Captured set**: The citation keys read from the `citationKey` field of every parseable note under `literature/` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation. The CSL file's scope, the compile wrapper's selection and the captured-set lint all read this set.
 
 **Provenance tuple**: The frontmatter fields that record what a literature note depends on: `zotero-server-id`, `zotero-item-key`, `zotero-item-version`, `citationKey`, `attachments` (key, version, md5, content type, filename), `fulltext` (attachment key, sha256), `compile-input-sha256`, `generated`. Versions and keys are meaningful only within one server id.
 

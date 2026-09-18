@@ -25,7 +25,7 @@ def _note(vault, key, item_key, *, title=None, text_key=None, sha=None):
             'compile-input-sha256: "' + "f" * 64 + '"'
         )  # a decoy: the structural leg compares per attachment, never this
     lines += ["---", ""]
-    (vault / "literatures" / f"{key}.md").write_text("\n".join(lines))
+    (vault / "literature" / f"{key}.md").write_text("\n".join(lines))
 
 
 def _ledger(vault, records):
@@ -44,12 +44,12 @@ def _ledger(vault, records):
 
 def test_captured_set_is_the_recorded_keys_not_the_filenames(tmp_vault):
     _note(tmp_vault, "smith2020", "SMITH001")
-    (tmp_vault / "literatures" / "renamed2020.md").write_text(
-        (tmp_vault / "literatures" / "smith2020.md")
+    (tmp_vault / "literature" / "renamed2020.md").write_text(
+        (tmp_vault / "literature" / "smith2020.md")
         .read_text()
         .replace('citationKey: "smith2020"', 'citationKey: "smith2020a"')
     )
-    (tmp_vault / "literatures" / "junk.md").write_text("no frontmatter\n")
+    (tmp_vault / "literature" / "junk.md").write_text("no frontmatter\n")
     assert captured.captured_set(tmp_vault) == {
         "smith2020": "SMITH001",
         "smith2020a": "SMITH001",
@@ -59,16 +59,16 @@ def test_captured_set_is_the_recorded_keys_not_the_filenames(tmp_vault):
 def test_a_note_the_reader_cannot_take_is_a_row_not_a_silent_omission(tmp_vault):
     """Decision 08 drops a corrupt note's key from the captured set; this lint is what says so."""
     _note(tmp_vault, "smith2020", "E352DFS8")
-    (tmp_vault / "literatures" / "broken.md").write_text(
+    (tmp_vault / "literature" / "broken.md").write_text(
         "---\ntype: literature\n"
     )  # unterminated frontmatter
-    (tmp_vault / "literatures" / "stray.md").write_text(
+    (tmp_vault / "literature" / "stray.md").write_text(
         '---\ntype: "literature"\n---\nno tuple\n'
     )
     rows = sorted(
         (str(o.target).rsplit("/", 1)[-1], o.result, o.reason.split(" — ")[0])
         for o in captured.lint_captured_set(tmp_vault)
-        if "literatures/" in str(o.target)
+        if "literature/" in str(o.target)
     )
     assert rows == [
         ("broken.md", Result.UNMATCHED, "schema-violation"),
@@ -212,14 +212,14 @@ def test_a_line_break_in_a_link_or_a_filename_stays_one_writable_row(tmp_vault):
     assert decode_repo_path(rows[0].target) == b"wiki/sources/A\nB.md"
 
 
-def test_a_root_file_named_literatures_is_still_a_page(tmp_vault):
+def test_a_root_file_named_literature_is_still_a_page(tmp_vault):
     """The evidence-folder guard reads the unstripped parts: with_suffix("") turns a
-    root-level `literatures.md` into `literatures`, and the guard would drop its name,
-    making [[literatures]] a blocking finding."""
-    (tmp_vault / "literatures.md").write_text("---\ntype: concept\n---\n")
+    root-level `literature.md` into `literature`, and the guard would drop its name,
+    making [[literature]] a blocking finding."""
+    (tmp_vault / "literature.md").write_text("---\ntype: concept\n---\n")
     pages = tmp_vault / "wiki" / "sources"
     pages.mkdir(parents=True)
-    (pages / "A.md").write_text("---\ntype: source\n---\n[[literatures]]\n")
+    (pages / "A.md").write_text("---\ntype: source\n---\n[[literature]]\n")
     assert [
         o.reason
         for o in captured.lint_captured_set(tmp_vault)
@@ -502,7 +502,7 @@ def test_read_notes_rows_each_note_it_cannot_take_and_keeps_reading(tmp_vault):
     """An unreadable note, an unparseable one, a non-UTF-8 one and one without
     a tuple each get their row, in name order, and the readable note after
     them is still taken."""
-    lit = tmp_vault / "literatures"
+    lit = tmp_vault / "literature"
     (lit / "a-dir.md").mkdir()
     (lit / "b-bad.md").write_text("---\nnot a mapping\n---\n")
     (lit / "c-latin1.md").write_bytes(b"---\ntitle: \xe9\n---\n")
@@ -514,10 +514,10 @@ def test_read_notes_rows_each_note_it_cannot_take_and_keeps_reading(tmp_vault):
     assert [p.citation_key for _data, p in entries] == ["smith2020"]
     rows = [(o.target, o.result, o.reason.split(" — ")[0]) for o in outcomes]
     assert rows == [
-        ("path-bytes:literatures/a-dir.md", Result.UNREACHABLE, "outage"),
-        ("path-bytes:literatures/b-bad.md", Result.UNMATCHED, "schema-violation"),
-        ("path-bytes:literatures/c-latin1.md", Result.UNMATCHED, "schema-violation"),
-        ("path-bytes:literatures/d-notuple.md", Result.UNMATCHED, "schema-violation"),
+        ("path-bytes:literature/a-dir.md", Result.UNREACHABLE, "outage"),
+        ("path-bytes:literature/b-bad.md", Result.UNMATCHED, "schema-violation"),
+        ("path-bytes:literature/c-latin1.md", Result.UNMATCHED, "schema-violation"),
+        ("path-bytes:literature/d-notuple.md", Result.UNMATCHED, "schema-violation"),
     ]
     assert outcomes[2].reason.startswith("schema-violation — not UTF-8: ")
     assert outcomes[3].reason == "schema-violation — no provenance tuple"
@@ -526,7 +526,7 @@ def test_read_notes_rows_each_note_it_cannot_take_and_keeps_reading(tmp_vault):
 def test_page_names_skip_excluded_and_literature_paths_but_not_the_pages_after_them(
     tmp_vault,
 ):
-    """rglob order is not name order: an excluded path and a literatures/ note
+    """rglob order is not name order: an excluded path and a literature/ note
     are passed over, and every wiki page still contributes its names."""
     (tmp_vault / ".raw").mkdir(exist_ok=True)
     (tmp_vault / ".raw" / "hidden.md").write_text("x\n")
@@ -538,7 +538,7 @@ def test_page_names_skip_excluded_and_literature_paths_but_not_the_pages_after_t
     assert {"Foo", "concepts/Foo", "wiki/concepts/Foo", "Bar", "wiki/Bar"} <= names
     assert "hidden" not in names
     assert "smith2020" not in names
-    assert "literatures/smith2020" not in names
+    assert "literature/smith2020" not in names
 
 
 def test_textual_half_walks_past_an_excluded_page_and_an_unreadable_one(tmp_vault):

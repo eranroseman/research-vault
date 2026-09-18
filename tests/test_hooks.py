@@ -224,8 +224,8 @@ def test_posttooluse_is_silent_for_clean_wiki_edit(fixture_vault):
 @pytest.mark.parametrize(
     "relative",
     [
-        Path("literatures") / "clean.md",
-        Path("literatures") / "nested space" / "naïve.md",
+        Path("literature") / "clean.md",
+        Path("literature") / "nested space" / "naïve.md",
     ],
 )
 def test_posttooluse_warns_for_every_literature_touch(fixture_vault, relative):
@@ -254,7 +254,7 @@ def test_posttooluse_reports_non_evidence_file_findings(fixture_vault):
 
 def test_posttooluse_accepts_write_tool_identity(fixture_vault):
     _make_hook_vault(fixture_vault)
-    note = fixture_vault / "literatures" / "clean.md"
+    note = fixture_vault / "literature" / "clean.md"
     note.write_text("# Clean literature note\n")
     payload = _payload(note, fixture_vault)
     payload["tool_name"] = "Write"
@@ -359,7 +359,7 @@ def test_posttooluse_uses_payload_cwd_for_walkup_and_relative_file_path(
 @pytest.mark.parametrize(
     "relative",
     [
-        Path("literatures-old") / "note.md",
+        Path("literature-old") / "note.md",
         Path("log") / "note.md",
         Path("inbox") / "note.md",
     ],
@@ -470,7 +470,7 @@ def test_posttooluse_warns_for_literature_even_if_checkers_fail(
     fixture_vault, monkeypatch, capsys
 ):
     _make_hook_vault(fixture_vault)
-    note = fixture_vault / "literatures" / "clean.md"
+    note = fixture_vault / "literature" / "clean.md"
     note.write_text("# Literature\n")
     hook = _load_hook()
 
@@ -504,8 +504,8 @@ def test_posttooluse_warns_for_unreachable_per_file_check(fixture_vault):
 @pytest.mark.parametrize(
     "relative",
     [
-        Path("literatures") / "clean.md",
-        Path("literatures") / "nested" / "note.md",
+        Path("literature") / "clean.md",
+        Path("literature") / "nested" / "note.md",
         Path("log") / "2026-08-16.md",
         Path("log") / "2026-01-01.md",
         Path("log.md"),
@@ -580,9 +580,9 @@ def test_pretooluse_denies_write_creating_new_log_day_file(fixture_vault):
     assert _pretooluse_deny(result) == MACHINE_SURFACE_DENY_REASON
 
 
-def test_pretooluse_denies_notebookedit_into_literatures(fixture_vault):
+def test_pretooluse_denies_notebookedit_into_literature(fixture_vault):
     _make_hook_vault(fixture_vault)
-    target = fixture_vault / "literatures" / "notebook.ipynb"
+    target = fixture_vault / "literature" / "notebook.ipynb"
     payload = _pretooluse_payload(
         fixture_vault,
         "NotebookEdit",
@@ -615,7 +615,7 @@ def test_pretooluse_allows_notebookedit_outside_machine_surfaces(fixture_vault):
 
 def test_pretooluse_resolves_relative_file_path_against_cwd(fixture_vault):
     _make_hook_vault(fixture_vault)
-    cwd = fixture_vault / "literatures"
+    cwd = fixture_vault / "literature"
     payload = _pretooluse_payload(cwd, "Edit", file_path="clean.md")
 
     result = _run_pretooluse(cwd, payload)
@@ -625,7 +625,7 @@ def test_pretooluse_resolves_relative_file_path_against_cwd(fixture_vault):
 
 def test_pretooluse_denies_dotdot_traversal_into_machine_surface(fixture_vault):
     _make_hook_vault(fixture_vault)
-    target = fixture_vault / "inbox" / ".." / "literatures" / "clean.md"
+    target = fixture_vault / "inbox" / ".." / "literature" / "clean.md"
     payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
 
     result = _run_pretooluse(fixture_vault, payload)
@@ -636,7 +636,7 @@ def test_pretooluse_denies_dotdot_traversal_into_machine_surface(fixture_vault):
 def test_pretooluse_denies_symlink_that_resolves_into_machine_surface(fixture_vault):
     _make_hook_vault(fixture_vault)
     decoy = fixture_vault / "projects" / "brief" / "decoy.md"
-    decoy.symlink_to(fixture_vault / "literatures" / "smuggled.md")
+    decoy.symlink_to(fixture_vault / "literature" / "smuggled.md")
     payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(decoy))
 
     result = _run_pretooluse(fixture_vault, payload)
@@ -656,9 +656,9 @@ def test_pretooluse_is_silent_outside_a_vault(tmp_path):
 def test_pretooluse_allows_machine_surface_shaped_path_without_a_real_vault_marker(
     tmp_path,
 ):
-    """A path that merely looks like `literatures/...` is not enough — the
+    """A path that merely looks like `literature/...` is not enough — the
     guard requires a real, non-symlinked `.research-vault` marker above it."""
-    target = tmp_path / "literatures" / "clean.md"
+    target = tmp_path / "literature" / "clean.md"
     payload = _pretooluse_payload(tmp_path, "Edit", file_path=str(target))
 
     result = _run_pretooluse(tmp_path, payload)
@@ -670,17 +670,17 @@ def test_pretooluse_rejects_a_nearer_symlinked_research_vault_dir_and_finds_the_
     fixture_vault, tmp_path
 ):
     """A `.research-vault` that exists but is not a real directory — here, a
-    symlink planted inside `literatures/` itself, closer to the target than
+    symlink planted inside `literature/` itself, closer to the target than
     the real vault root — must not be accepted as a vault marker. If it
-    were, the write's "vault" boundary would collapse to `literatures/`
-    itself, `relative_to` that boundary would drop the `literatures/`
+    were, the write's "vault" boundary would collapse to `literature/`
+    itself, `relative_to` that boundary would drop the `literature/`
     prefix entirely, and the deny would silently miss. The walk must keep
     searching upward past the spoofed marker and find the real `.research-vault`
     at the vault root instead."""
     _make_hook_vault(fixture_vault)
-    spoofed = fixture_vault / "literatures" / ".research-vault"
+    spoofed = fixture_vault / "literature" / ".research-vault"
     spoofed.symlink_to(tmp_path)
-    target = fixture_vault / "literatures" / "evil.md"
+    target = fixture_vault / "literature" / "evil.md"
     payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
 
     result = _run_pretooluse(fixture_vault, payload)
@@ -695,7 +695,7 @@ def test_pretooluse_denies_absolute_target_regardless_of_unrelated_cwd(
     on the resolved write target, never on `cwd` — `cwd` only completes a
     relative candidate path."""
     _make_hook_vault(fixture_vault)
-    target = fixture_vault / "literatures" / "clean.md"
+    target = fixture_vault / "literature" / "clean.md"
     payload = _pretooluse_payload(tmp_path, "Edit", file_path=str(target))
 
     result = _run_pretooluse(tmp_path, payload)
@@ -705,7 +705,7 @@ def test_pretooluse_denies_absolute_target_regardless_of_unrelated_cwd(
 
 def test_pretooluse_denies_absolute_target_when_cwd_is_missing(fixture_vault):
     _make_hook_vault(fixture_vault)
-    target = fixture_vault / "literatures" / "clean.md"
+    target = fixture_vault / "literature" / "clean.md"
     payload = _pretooluse_payload(fixture_vault, "Edit", file_path=str(target))
     del payload["cwd"]
 
@@ -723,7 +723,7 @@ def test_pretooluse_allows_relative_target_when_cwd_is_missing(fixture_vault):
     surface. Only the payload's own `cwd` field is a trusted anchor."""
     _make_hook_vault(fixture_vault)
     payload = _pretooluse_payload(
-        fixture_vault, "Edit", file_path="literatures/clean.md"
+        fixture_vault, "Edit", file_path="literature/clean.md"
     )
     del payload["cwd"]
 
@@ -742,7 +742,7 @@ def test_pretooluse_allows_relative_target_when_declared_cwd_is_itself_relative(
     directory (here, `subprocess.run(cwd=fixture_vault)`, a real vault)."""
     _make_hook_vault(fixture_vault)
     payload = _pretooluse_payload(fixture_vault, "Edit", file_path="clean.md")
-    payload["cwd"] = "literatures"
+    payload["cwd"] = "literature"
 
     result = _run_pretooluse(fixture_vault, payload)
 
@@ -812,7 +812,7 @@ def test_pretooluse_is_silent_for_parseable_non_dict_payload(tmp_path):
 @pytest.mark.parametrize("tool_name", ["Bash", "Read", "Grep"])
 def test_pretooluse_is_silent_for_unmatched_tool_names(fixture_vault, tool_name):
     _make_hook_vault(fixture_vault)
-    target = fixture_vault / "literatures" / "clean.md"
+    target = fixture_vault / "literature" / "clean.md"
     payload = _pretooluse_payload(fixture_vault, tool_name, file_path=str(target))
 
     result = _run_pretooluse(fixture_vault, payload)
@@ -1956,7 +1956,7 @@ def test_stop_gate_matches_direct_publish_state_and_effects(
     def projected_state(vault):
         return tuple(
             (str(path.relative_to(vault)), path.read_bytes())
-            for root_name in ("inbox", "literatures", "projects")
+            for root_name in ("inbox", "literature", "projects")
             for path in sorted((vault / root_name).rglob("*"))
             if path.is_file()
         )

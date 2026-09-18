@@ -50,7 +50,7 @@ def test_capture_writes_note_text_layer_and_csl_file(tmp_vault, monkeypatch):
         ("jakesch.etal2023a", Result.MATCHED, "matched"),
         ("system/bibliography.json", Result.MATCHED, "matched"),
     ]
-    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
     data, _body = frontmatter.parse(note.read_text())
     assert data["zotero-server-id"] == "6LpvURP2E933"
     assert data["zotero-item-version"] == 544
@@ -86,12 +86,12 @@ def test_second_run_is_a_noop_and_keeps_generated(tmp_vault, monkeypatch):
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"], now=_at("2026-09-07T10:00:00Z"))
-    first = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    first = (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     outcomes = capture.capture(
         tmp_vault, client, ["E352DFS8"], now=_at("2026-09-08T10:00:00Z")
     )
     assert outcomes[0].reason == "matched — NOOP"
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text() == first
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text() == first
 
 
 def _at(text):
@@ -106,7 +106,7 @@ def test_refresh_after_compile_embeds_the_page_and_completes_the_note(
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
-    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
     assert (
         "## Compiled" not in note.read_text()
     )  # capture runs before compile (§3.3 step 5)
@@ -144,7 +144,7 @@ def test_an_unreadable_ledger_holds_the_item_and_leaves_the_note_alone(
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
-    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
     before = note.read_text()
     ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
     ledger.parent.mkdir(parents=True, exist_ok=True)
@@ -193,7 +193,7 @@ def test_no_usable_text_writes_the_note_and_files_no_fulltext(tmp_vault, monkeyp
         (Result.UNMATCHED, "no-fulltext — D7EJ9FTG partial — indexedPages 100 of 143"),
     ]
     data, _ = frontmatter.parse(
-        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     )
     assert "compile-input-sha256" not in data
     assert data["fulltext"] == []
@@ -245,7 +245,7 @@ def test_url_only_item_without_attachment_is_skipped_not_a_finding(
             "no-fulltext — no attachment to read (webpage); text checks do not apply",
         ),
     ]
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").is_file()
     monkeypatch.setattr(cli, "ZoteroClient", lambda base=None: client)
     assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 0
     assert "SKIPPED jakesch.etal2023a — no-fulltext" in capsys.readouterr().out
@@ -281,7 +281,7 @@ def test_unkeyed_item_is_reported_not_written(tmp_vault, monkeypatch):
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"], key_wait_seconds=0)
     assert outcomes[0].result is Result.UNMATCHED
     assert outcomes[0].reason.startswith("unkeyed")
-    assert not list((tmp_vault / "literatures").glob("*.md"))
+    assert not list((tmp_vault / "literature").glob("*.md"))
 
 
 def test_capture_runs_the_linter_first_and_refuses_a_trashed_item(
@@ -296,10 +296,10 @@ def test_capture_runs_the_linter_first_and_refuses_a_trashed_item(
         headers={"Last-Modified-Version": "566"},
     )
     fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
-    before = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    before = (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     assert outcomes[0].reason.startswith("trashed — ")
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text() == before
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text() == before
 
 
 def test_database_changed_aborts_before_any_write(tmp_vault, monkeypatch):
@@ -379,8 +379,8 @@ def test_cli_capture_all_files_a_repo_path_hold_that_an_ack_closes(
     import research_vault.__main__ as cli
     from research_vault import inbox
 
-    (tmp_vault / "literatures").mkdir(parents=True, exist_ok=True)
-    (tmp_vault / "literatures" / "nameless.md").write_text(
+    (tmp_vault / "literature").mkdir(parents=True, exist_ok=True)
+    (tmp_vault / "literature" / "nameless.md").write_text(
         '---\ntype: "literature"\n---\n'
     )
     fake = FakeZotero()
@@ -462,7 +462,7 @@ def test_a_key_filled_during_the_wait_is_captured_at_its_post_fill_version(
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"], key_wait_seconds=0)
     assert outcomes[0].reason == "matched"
     data, _ = frontmatter.parse(
-        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     )
     assert data["citationKey"] == "jakesch.etal2023a"
     assert data["zotero-item-version"] == 545
@@ -478,7 +478,7 @@ def test_a_corrupt_existing_note_is_a_schema_violation_not_a_traceback(
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
-    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
     csl = tmp_vault / "system" / "bibliography.json"
     assert [e["id"] for e in json.loads(csl.read_text())] == ["jakesch.etal2023a"]
     corrupt = '---\ntype: "literature"\nno closing delimiter\n'
@@ -579,7 +579,7 @@ def test_a_note_recording_another_database_is_refused_not_read(tmp_vault, monkey
     fake.rpc("item.export", LIBRARY)
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
-    other = tmp_vault / "literatures" / "other2020.md"
+    other = tmp_vault / "literature" / "other2020.md"
     other.write_text(
         '---\ntype: "literature"\ntitle: "Other"\n'
         'zotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "OTHER001"\n'
@@ -624,7 +624,7 @@ def test_a_mid_run_412_stamps_what_was_written_before_the_vault_row(
         ("vault", Result.UNMATCHED),
     ]
     assert outcomes[-1].reason.startswith("database-changed")
-    assert (tmp_vault / "literatures" / "jakesch.etal2023a.md").is_file()
+    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").is_file()
     # log.md is the discriminator: tmp_vault ships none, and the pre-fix early
     # return skipped okf.regenerate_log. (A `type` assertion on the note would be
     # vacuous — render_note writes that field on every write, stamped or not.)
@@ -636,18 +636,18 @@ def test_refresh_all_reaches_a_note_that_carries_no_tuple(tmp_vault, monkeypatch
     """An older vault's note has citationKey and no zotero-* fields; --all captures it by name."""
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
-    (tmp_vault / "literatures").mkdir(exist_ok=True)
-    legacy = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    (tmp_vault / "literature").mkdir(exist_ok=True)
+    legacy = tmp_vault / "literature" / "jakesch.etal2023a.md"
     legacy.write_text(
         '---\ntype: "literature"\ncitationKey: "jakesch.etal2023a"\n---\nold prose\n'
     )
-    (tmp_vault / "literatures" / "nameless.md").write_text(
+    (tmp_vault / "literature" / "nameless.md").write_text(
         '---\ntype: "literature"\n---\n'
     )
     outcomes = capture.capture(tmp_vault, client, [], refresh_all=True)
     rows = [(str(o.target), o.result, o.reason.split(" — ")[0]) for o in outcomes]
     assert ("jakesch.etal2023a", Result.MATCHED, "matched") in rows
-    assert [r[1:] for r in rows if r[0].endswith("literatures/nameless.md")] == [
+    assert [r[1:] for r in rows if r[0].endswith("literature/nameless.md")] == [
         (Result.UNMATCHED, "schema-violation")
     ]
     assert (
@@ -668,13 +668,13 @@ def test_all_keeps_unrequestable_rows_when_the_vault_level_read_then_fails(
     (nothing registers it), which is exactly the outage this pins."""
     fake = FakeZotero()
     client = _client(monkeypatch, fake)
-    (tmp_vault / "literatures").mkdir(parents=True, exist_ok=True)
-    (tmp_vault / "literatures" / "nameless.md").write_text(
+    (tmp_vault / "literature").mkdir(parents=True, exist_ok=True)
+    (tmp_vault / "literature" / "nameless.md").write_text(
         '---\ntype: "literature"\n---\n'
     )
     outcomes = capture.capture(tmp_vault, client, [], refresh_all=True)
     assert len(outcomes) == 2
-    assert str(outcomes[0].target).endswith("literatures/nameless.md")
+    assert str(outcomes[0].target).endswith("literature/nameless.md")
     assert outcomes[0].result is Result.UNMATCHED
     assert outcomes[0].reason.startswith("schema-violation")
     assert outcomes[1].target == "vault"
@@ -695,11 +695,11 @@ def test_all_keeps_unrequestable_rows_when_the_linter_blocks_the_vault(
     `database-changed` on `vault`."""
     fake = FakeZotero()
     client = _client(monkeypatch, fake)
-    (tmp_vault / "literatures").mkdir(parents=True, exist_ok=True)
-    (tmp_vault / "literatures" / "nameless.md").write_text(
+    (tmp_vault / "literature").mkdir(parents=True, exist_ok=True)
+    (tmp_vault / "literature" / "nameless.md").write_text(
         '---\ntype: "literature"\n---\n'
     )
-    (tmp_vault / "literatures" / "other2020.md").write_text(
+    (tmp_vault / "literature" / "other2020.md").write_text(
         '---\ntype: "literature"\ntitle: "Other"\n'
         'zotero-server-id: "Tdoqsn2J4q4h"\nzotero-item-key: "OTHER001"\n'
         'zotero-item-version: 1\ncitationKey: "other2020"\n'
@@ -707,7 +707,7 @@ def test_all_keeps_unrequestable_rows_when_the_linter_blocks_the_vault(
     )
     outcomes = capture.capture(tmp_vault, client, [], refresh_all=True)
     assert len(outcomes) == 2
-    assert str(outcomes[0].target).endswith("literatures/nameless.md")
+    assert str(outcomes[0].target).endswith("literature/nameless.md")
     assert outcomes[0].result is Result.UNMATCHED
     assert outcomes[0].reason.startswith("schema-violation")
     assert outcomes[1].target == "vault"
@@ -772,8 +772,8 @@ def test_capture_refuses_a_re_keyed_item_while_the_old_note_exists_and_propagate
         "old2020",
         "re-keyed — old2020 → new2020; run propagate",
     )
-    literatures = tmp_vault / "literatures"
-    assert sorted(p.name for p in literatures.glob("*.md")) == ["old2020.md"]
+    literature = tmp_vault / "literature"
+    assert sorted(p.name for p in literature.glob("*.md")) == ["old2020.md"]
     planned, outcomes = propagate.plan(tmp_vault, client, None)
     assert planned is not None, outcomes
     assert planned.mapping == {"old2020": "new2020"}
@@ -784,8 +784,8 @@ def test_capture_refuses_a_re_keyed_item_while_the_old_note_exists_and_propagate
     assert [(o.check, o.target, o.result) for o in applied] == [
         ("propagation", "new2020", Result.MATCHED)
     ]
-    assert sorted(p.name for p in literatures.glob("*.md")) == ["new2020.md"]
-    data, _ = frontmatter.parse((literatures / "new2020.md").read_text())
+    assert sorted(p.name for p in literature.glob("*.md")) == ["new2020.md"]
+    data, _ = frontmatter.parse((literature / "new2020.md").read_text())
     assert data["citationKey"] == "new2020"
     assert data["zotero-item-version"] == 545
 
@@ -807,7 +807,7 @@ def test_cli_capture_holds_a_per_item_outage_and_exits_3(
     assert line.startswith("UNREACHABLE E352DFS8 — outage — local API HTTP 500")
     (held,) = [f for f in inbox.load(tmp_vault) if f.check == "capture"]
     assert (held.target, held.result) == ("E352DFS8", Result.UNREACHABLE.value)
-    assert not list((tmp_vault / "literatures").glob("*.md"))
+    assert not list((tmp_vault / "literature").glob("*.md"))
 
 
 def test_a_disk_fault_while_writing_is_an_outage_not_a_schema_violation(
@@ -828,7 +828,7 @@ def test_a_disk_fault_while_writing_is_an_outage_not_a_schema_violation(
         Result.UNREACHABLE,
     )
     assert outcomes[0].reason.startswith("outage — ")
-    assert not (tmp_vault / "literatures" / "jakesch.etal2023a.md").exists()
+    assert not (tmp_vault / "literature" / "jakesch.etal2023a.md").exists()
 
 
 def test_an_unsafe_live_citation_key_is_a_schema_violation(tmp_vault, monkeypatch):
@@ -860,13 +860,13 @@ def test_read_item_skips_a_stored_child_without_a_key(tmp_vault, monkeypatch):
 def test_a_re_keyed_note_recording_an_unsafe_key_is_captured_as_before(
     tmp_vault, monkeypatch
 ):
-    """`_refused`'s re-keyed check asks whether `literatures/<old>.md` exists;
+    """`_refused`'s re-keyed check asks whether `literature/<old>.md` exists;
     a recorded key no filename can carry (a hand edit on a machine surface)
     is a name `note_path` refuses, and the check steps aside rather than
     turning the refusal into a traceback or a new refusal."""
     fake, client, new = _re_keyed_fake(monkeypatch)
     _re_key(fake, new)
-    (tmp_vault / "literatures" / "odd.md").write_text(
+    (tmp_vault / "literature" / "odd.md").write_text(
         '---\ntype: "literature"\nzotero-server-id: "6LpvURP2E933"\n'
         'zotero-item-key: "E352DFS8"\nzotero-item-version: 544\n'
         'citationKey: "../escape"\nattachments:\nfulltext:\n---\n'
@@ -995,7 +995,7 @@ def test_no_fulltext_is_filed_only_when_no_attachment_is_usable(tmp_vault, monke
         ("system/bibliography.json", Result.MATCHED, "matched"),
     ]
     data, _body = frontmatter.parse(
-        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     )
     assert data["fulltext"] == [
         {"attachment-key": "D7EJ9FTG", "sha256": data["compile-input-sha256"]}
@@ -1027,7 +1027,7 @@ def test_capture_renders_the_child_notes_and_stamps_accessed_and_generated_from_
     )
 
     assert outcomes[0].reason == "matched"
-    text = (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+    text = (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     data, body = frontmatter.parse(text)
     assert body.endswith(
         "## Zotero notes\n\nRead for the method.\n\nSecond paragraph.\n"
@@ -1055,7 +1055,7 @@ def test_capture_without_now_stamps_a_utc_second_resolution_instant(
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
     data, _body = frontmatter.parse(
-        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     )
     at = data["generated"]["at"]
     assert at.endswith("Z")
@@ -1073,7 +1073,7 @@ def test_an_existing_crlf_note_is_rewritten_not_read_as_a_noop(tmp_vault, monkey
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"], now=_at("2026-09-07T10:00:00Z"))
-    note = tmp_vault / "literatures" / "jakesch.etal2023a.md"
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
     lf = note.read_bytes()
     note.write_bytes(lf.replace(b"\n", b"\r\n"))
 
@@ -1088,11 +1088,11 @@ def test_an_existing_crlf_note_is_rewritten_not_read_as_a_noop(tmp_vault, monkey
 def test_every_note_lists_each_key_and_rows_every_note_it_cannot_request(
     tmp_vault,
 ):
-    """--all walks literatures/ in name order: a readable note contributes its
+    """--all walks literature/ in name order: a readable note contributes its
     citationKey; an unreadable one is an outage row, an unparseable one and
     one whose citationKey is missing, empty or not a string are
     schema-violation rows -- and none of them stops the walk."""
-    lit = tmp_vault / "literatures"
+    lit = tmp_vault / "literature"
     lit.mkdir(exist_ok=True)
     (lit / "a-good.md").write_text('---\ncitationKey: "good"\n---\n')
     (lit / "b-unreadable.md").mkdir()  # read_text raises IsADirectoryError
@@ -1108,20 +1108,20 @@ def test_every_note_lists_each_key_and_rows_every_note_it_cannot_request(
     rows = [(o.check, o.target, o.result, o.reason) for o in outcomes]
     assert rows[0][:3] == (
         "capture",
-        "path-bytes:literatures/b-unreadable.md",
+        "path-bytes:literature/b-unreadable.md",
         Result.UNREACHABLE,
     )
     assert rows[0][3].startswith("outage — [Errno 21] Is a directory")
     assert rows[1][:3] == (
         "capture",
-        "path-bytes:literatures/c-broken.md",
+        "path-bytes:literature/c-broken.md",
         Result.UNMATCHED,
     )
     assert rows[1][3].startswith("schema-violation — ")
     assert rows[2:] == [
         (
             "capture",
-            f"path-bytes:literatures/{name}.md",
+            f"path-bytes:literature/{name}.md",
             Result.UNMATCHED,
             "schema-violation — no citationKey to request by",
         )
@@ -1372,7 +1372,7 @@ def test_stored_children_are_imported_files_or_urls_and_a_child_without_data_is_
 
     assert [(o.result, o.reason) for o in outcomes[:1]] == [(Result.MATCHED, "matched")]
     data, _body = frontmatter.parse(
-        (tmp_vault / "literatures" / "jakesch.etal2023a.md").read_text()
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     )
     assert [e["attachment-key"] for e in data["fulltext"]] == ["A2ND0002"]
     text, _ = frontmatter.parse((tmp_vault / "fulltext" / "A2ND0002.md").read_text())

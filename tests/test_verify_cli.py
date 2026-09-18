@@ -208,7 +208,7 @@ def test_ack_suppresses_effects_but_retains_raw_outcome_and_reopens_on_hash(net_
         e.check == "quote" and e.target == raw.target
         for e in inbox.open_entries(net_vault)
     )
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     _move_note_body(source)
     # Committed so `lint_evidence_layer`'s base and candidate agree on the
     # moved body — this test exercises hash-based reopening, not the
@@ -249,7 +249,7 @@ def test_target_hash_routes_safe_file_claim_and_citation_key(net_vault):
     claim_hash = _target_hash(net_vault, claim_outcome)
     assert claim_hash == _citation_key_hash(net_vault, "smith2020")
     assert _target_hash(net_vault, citation_key_outcome) == claim_hash
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     source.write_text(
         must_replace(
             source.read_text(),
@@ -270,7 +270,7 @@ def test_well_formed_managed_sha256_never_reaches_the_note_bytes_fallback(
     never hash the note themselves (open point 07)."""
     from research_vault import verify
 
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     witness = frontmatter.parse(source.read_text())[0]["managed-sha256"]
 
     def never(_data):
@@ -296,7 +296,7 @@ def test_malformed_managed_sha256_falls_through_to_the_note_bytes_digest(
     pins the ``{64}`` bound on both `_citation_key_hash` branches, and that a
     witness capture did not write never becomes an ack scope.
     """
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     text = source.read_text()
     source.write_text(
         must_replace(
@@ -328,7 +328,7 @@ def test_preclose_blank_event_keeps_no_attachment_ack_hash(
     existing_fields = f"{frontmatter_line}{newline}" if frontmatter_line else ""
     body = f"- (quote) body ^c-11111111{newline}"
     text = f"---{newline}{existing_fields}{newline}---{newline}{body}"
-    note = net_vault / "literatures" / "blank.md"
+    note = net_vault / "literature" / "blank.md"
     note.write_bytes(text.encode())
     outcome = _outcome("doi", "blank", Result.UNMATCHED, "mismatch — DOI")
     before = _target_hash(net_vault, outcome)
@@ -433,7 +433,7 @@ def test_matching_outcome_still_mints_event_after_same_hash_ack(net_vault, monke
     assert any(
         event["check"] == "update-notice"
         for event in events.verified_checks(
-            (net_vault / "literatures" / "smith2020.md").read_text()
+            (net_vault / "literature" / "smith2020.md").read_text()
         )
     )
 
@@ -477,7 +477,7 @@ def test_run_verify_mints_exact_quote_event_on_cited_literature_note(net_vault):
     # one row across three runs, not a second one filed over the stamped draft.
     assert len(first_entries) == len(second_entries) == len(third_entries) == 1
     assert first_entries[0].target_hash == second_entries[0].target_hash
-    source = (net_vault / "literatures" / "smith2020.md").read_text()
+    source = (net_vault / "literature" / "smith2020.md").read_text()
     recorded = {event["check"] for event in events.verified_checks(source)}
     assert "quote:smith2020#^c-66666666:managed-region" in recorded
 
@@ -935,7 +935,7 @@ def test_acknowledged_matched_warn_mints_event_without_refiling_or_printing(
     cmd_verify(
         type("Args", (), {"vault": net_vault, "offline": False, "rw_csv": None})()
     )
-    source = (net_vault / "literatures" / "smith2020.md").read_text()
+    source = (net_vault / "literature" / "smith2020.md").read_text()
     assert any(
         event["check"] == "update-notice" for event in events.verified_checks(source)
     )
@@ -960,7 +960,7 @@ def test_apply_state_transitions_routes_unmatched_update_notice_to_failure_not_a
 
     _apply_state_transitions(net_vault, [outcome], "2026-08-16", stamp=[outcome])
 
-    source = (net_vault / "literatures" / "smith2020.md").read_text()
+    source = (net_vault / "literature" / "smith2020.md").read_text()
     assert not any(
         event["check"] == "update-notice" for event in events.verified_checks(source)
     )
@@ -1007,14 +1007,14 @@ def test_cli_exit_precedence_ignores_warns_but_closing_beats_unreachable(
 
 
 def test_deleted_claim_and_append_only_inbox_hashes_are_stable(net_vault):
-    note = net_vault / "literatures" / "smith2020.md"
+    note = net_vault / "literature" / "smith2020.md"
     note.unlink()
     claim = _outcome(
         "claim-immutability",
         "smith2020#^c-11111111",
         Result.UNMATCHED,
         "drift — deleted claim",
-        note_path="literatures/smith2020.md",
+        note_path="literature/smith2020.md",
         claim_id="c-11111111",
     )
     append = _outcome(
@@ -1096,7 +1096,7 @@ def test_unwitnessed_note_hash_ignores_events_and_markers_but_content_is_substan
     """The `_note_bytes` fallback, for a note capture never wrote: verifier
     events and verify's own marker are not content (open point 07);
     the body and the frontmatter the author wrote are."""
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     text = _without_witness(source.read_text())
     source.write_bytes(must_replace(text, "\n", "\r\n", -1).encode())
     outcome = _outcome(
@@ -1104,7 +1104,7 @@ def test_unwitnessed_note_hash_ignores_events_and_markers_but_content_is_substan
         "smith2020#^c-11111111",
         Result.UNMATCHED,
         "mismatch — quote",
-        note_path="literatures/smith2020.md",
+        note_path="literature/smith2020.md",
         claim_id="c-11111111",
     )
     original = _target_hash(net_vault, outcome)
@@ -1229,7 +1229,7 @@ def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
 
 
 def test_body_only_literature_ack_survives_verifier_event_envelope(net_vault):
-    note = net_vault / "literatures" / "bodyonly.md"
+    note = net_vault / "literature" / "bodyonly.md"
     original = "- (quote) body-only [@bodyonly] ^c-1\n"
     note.write_text(original)
     outcome = _outcome("doi", "bodyonly", Result.UNMATCHED, "mismatch — DOI")
@@ -1283,7 +1283,7 @@ def test_marker_stamp_ignores_prose_lookalike_and_clears_only_terminal_field(
 def test_acknowledged_warning_stays_suppressed_across_effects(
     net_vault, monkeypatch, capsys
 ):
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     warning = _outcome(
         "update-notice",
         "smith2020",
@@ -1375,7 +1375,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
         )
         is None
     )
-    citation_key_link = net_vault / "literatures" / "escaped.md"
+    citation_key_link = net_vault / "literature" / "escaped.md"
     citation_key_link.symlink_to(outside)
     assert (
         _target_hash(
@@ -1636,7 +1636,7 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     assert "retracted — retraction" in output
     assert blocker.target_hash == warning.target_hash
     assert (
-        events.trust_tier((net_vault / "literatures" / "smith2020.md").read_text())
+        events.trust_tier((net_vault / "literature" / "smith2020.md").read_text())
         == "unverified"
     )
 
@@ -1687,7 +1687,7 @@ def _projecting_failure(check):
         Result.UNMATCHED,
         "mismatch — quote",
         {
-            "note_path": RepoPath(b"literatures/smith2020.md"),
+            "note_path": RepoPath(b"literature/smith2020.md"),
             "claim_id": "c-11111111",
             "target": "managed-region",
         },
@@ -1707,7 +1707,7 @@ def test_unwitnessed_note_target_hashes_are_candidate_bound_before_projection(
     # `lint_evidence_layer`'s base and candidate agree on the missing
     # managed-sha256 — this test exercises candidate-bound hashing, not the
     # machine-owned-frontmatter guard.
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     source.write_text(_without_witness(source.read_text()))
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
     subprocess.run(
@@ -1749,7 +1749,7 @@ def test_unwitnessed_note_acknowledgment_survives_projections_own_writes(
     # `lint_evidence_layer`'s base and candidate agree on the missing
     # managed-sha256 — this test exercises candidate-bound hashing, not the
     # machine-owned-frontmatter guard.
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     source.write_text(_without_witness(source.read_text()))
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
     subprocess.run(
@@ -1810,7 +1810,7 @@ def test_current_failure_projection_keeps_exact_recovery_behavior(
     """The two surviving projecting check kinds — the bare ``update-notice``
     identity and the per-claim ``quote`` identity — recover independently,
     same as the retired ``doi``/``metadata`` pair once did."""
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     text = source.read_text()
     for verified_check in (
         "update-notice",
@@ -1853,7 +1853,7 @@ def test_current_failure_projection_keeps_exact_recovery_behavior(
             Result.MATCHED,
             "matched",
             {
-                "note_path": RepoPath(b"literatures/smith2020.md"),
+                "note_path": RepoPath(b"literature/smith2020.md"),
                 "claim_id": "c-11111111",
                 "target": "managed-region",
             },
@@ -2125,7 +2125,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
 def test_literature_note_add_is_collected_and_projected_as_evidence_finding(
     fixture_vault,
 ):
-    added = fixture_vault / "literatures" / "added.md"
+    added = fixture_vault / "literature" / "added.md"
     # A hand-written note: no writer attestation (the fixture's machine-class
     # `generated` is replaced with a human actor), so the write itself is the
     # drift this test collects and projects. A plain byte-for-byte copy would
@@ -2134,7 +2134,7 @@ def test_literature_note_add_is_collected_and_projected_as_evidence_finding(
     added.write_text(
         must_replace(
             must_replace(
-                (fixture_vault / "literatures" / "smith2020.md").read_text(),
+                (fixture_vault / "literature" / "smith2020.md").read_text(),
                 'citationKey: "smith2020"',
                 'citationKey: "added"',
             ),
@@ -2151,7 +2151,7 @@ def test_literature_note_add_is_collected_and_projected_as_evidence_finding(
         outcome
         for outcome in report["outcomes"]
         if outcome.check == "evidence-layer"
-        and outcome.target == "path-bytes:literatures/added.md"
+        and outcome.target == "path-bytes:literature/added.md"
         and outcome.reason == "drift — literature note added without writer attestation"
     )
     assert finding in effective
@@ -2405,7 +2405,7 @@ def test_ack_scope_hash_is_the_notes_managed_sha256(fixture_vault):
 
     digest = verify._citation_key_hash(fixture_vault, "smith2020")
     data, _ = frontmatter.parse(
-        (fixture_vault / "literatures" / "smith2020.md").read_text()
+        (fixture_vault / "literature" / "smith2020.md").read_text()
     )
     assert (
         digest == data["managed-sha256"]
@@ -2596,7 +2596,7 @@ def test_ack_clears_the_marker_on_a_claim_citing_a_captured_note(fixture_vault, 
             "- (quote) [@smith2020, p. 12] [failed-verification:: quote/2026-09-07] ^c-66666666",
         )
     )
-    assert (fixture_vault / "literatures" / "smith2020.md").is_file()
+    assert (fixture_vault / "literature" / "smith2020.md").is_file()
     assert (
         main(
             [
@@ -2772,10 +2772,10 @@ def test_ack_clears_a_file_target_from_a_relative_vault(
 def test_ack_clears_the_marker_on_a_hand_authored_literature_note(
     fixture_vault, capsys
 ):
-    """`_plan_state` scans `literatures/` too, so a hand-authored note there
+    """`_plan_state` scans `literature/` too, so a hand-authored note there
     that carries claim lines receives markers; the clear reaches them. A
     capture-rendered note carries no claim lines and matches nothing."""
-    note = fixture_vault / "literatures" / "smith2020.md"
+    note = fixture_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(
             note.read_text(),
@@ -2891,7 +2891,7 @@ def test_ack_on_an_unwitnessed_note_survives_the_failure_row(
     an ack between two runs is orphaned — a second row, and the outcome
     effective again. The scope ignores the tool's own record as it ignores
     `verified` events; the record stays."""
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     source.write_text(_without_witness(source.read_text()))
     subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
     subprocess.run(
@@ -2959,8 +2959,8 @@ def test_worktree_path_hash_reads_a_live_note_through_its_scope_bytes(net_vault)
     """No candidate snapshot: the live worktree is the plane. A `.md` target
     hashes its `_note_bytes` (verifier-owned lists and verify's own marks
     excluded), so a marker landing on the note does not move the hash."""
-    source = net_vault / "literatures" / "smith2020.md"
-    outcome = _repo_path_outcome("literatures/smith2020.md")
+    source = net_vault / "literature" / "smith2020.md"
+    outcome = _repo_path_outcome("literature/smith2020.md")
     expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
     assert _target_hash(net_vault, outcome) == expected
     source.write_text(
@@ -2978,9 +2978,9 @@ def test_worktree_path_hash_reads_a_live_note_through_its_scope_bytes(net_vault)
 def test_worktree_path_hash_of_a_live_symlink_is_none(net_vault):
     """A symlink carries no content a hash could stand for: `_safe_relative`
     refuses it and no base image answers, so the target has no identity."""
-    link = net_vault / "literatures" / "link.md"
+    link = net_vault / "literature" / "link.md"
     link.symlink_to("smith2020.md")
-    assert _target_hash(net_vault, _repo_path_outcome("literatures/link.md")) is None
+    assert _target_hash(net_vault, _repo_path_outcome("literature/link.md")) is None
 
 
 def test_worktree_path_hash_of_a_deleted_note_holds_from_the_base_snapshot(
@@ -2989,10 +2989,10 @@ def test_worktree_path_hash_of_a_deleted_note_holds_from_the_base_snapshot(
     """A path no longer on disk is still identifiable from the base snapshot,
     or from HEAD when no base was given — what holds a deletion's
     acknowledgment hash steady across the transaction that deleted it."""
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     before = _note_bytes(source.read_bytes())
     base = gitstate.snapshot_worktree(net_vault)
-    outcome = _repo_path_outcome("literatures/smith2020.md")
+    outcome = _repo_path_outcome("literature/smith2020.md")
     live = _target_hash(net_vault, outcome, base_snapshot=base)
     source.unlink()
     assert _target_hash(net_vault, outcome, base_snapshot=base) == live
@@ -3066,19 +3066,19 @@ def test_snapshot_directory_bytes_takes_only_the_prefix_children_that_carry_byte
     snapshot = gitstate.Snapshot(
         {
             b"inbox/x.md": _image(b"inbox/x.md", "file", b"elsewhere"),
-            b"literatures": _image(b"literatures", "directory"),
-            b"literatures/a-link": _image(b"literatures/a-link", "symlink", b"t"),
-            b"literatures/b.md": _image(
-                b"literatures/b.md",
+            b"literature": _image(b"literature", "directory"),
+            b"literature/a-link": _image(b"literature/a-link", "symlink", b"t"),
+            b"literature/b.md": _image(
+                b"literature/b.md",
                 "file",
                 b'---\nverified:\n  - {by: "bot", at: "2026-08-16"}\n---\nbody\n',
             ),
-            b"literatures/c.txt": _image(b"literatures/c.txt", "file", b"C"),
-            b"literatures/sub": _image(b"literatures/sub", "directory"),
-            b"literaturesX.md": _image(b"literaturesX.md", "file", b"no"),
+            b"literature/c.txt": _image(b"literature/c.txt", "file", b"C"),
+            b"literature/sub": _image(b"literature/sub", "directory"),
+            b"literatureX.md": _image(b"literatureX.md", "file", b"no"),
         }
     )
-    assert verify._snapshot_directory_bytes(snapshot, b"literatures") == b"\0".join(
+    assert verify._snapshot_directory_bytes(snapshot, b"literature") == b"\0".join(
         [b"a-link", b"symlink", b"t", b"b.md", b"body\n", b"c.txt", b"C"]
     )
 
@@ -3105,8 +3105,8 @@ def test_snapshot_path_hash_takes_the_candidate_file_directory_or_base_bytes(
     note = b'---\nverified:\n  - {by: "bot", at: "2026-08-16"}\n---\nbody\n'
     candidate = gitstate.Snapshot(
         {
-            b"literatures": _image(b"literatures", "directory"),
-            b"literatures/a.md": _image(b"literatures/a.md", "file", note),
+            b"literature": _image(b"literature", "directory"),
+            b"literature/a.md": _image(b"literature/a.md", "file", note),
             b"inbox/review-queue.md": _image(
                 b"inbox/review-queue.md", "file", b"grown"
             ),
@@ -3114,7 +3114,7 @@ def test_snapshot_path_hash_takes_the_candidate_file_directory_or_base_bytes(
     )
     base = gitstate.Snapshot(
         {
-            b"literatures/gone.md": _image(b"literatures/gone.md", "file", note),
+            b"literature/gone.md": _image(b"literature/gone.md", "file", note),
             b"inbox/review-queue.md": _image(
                 b"inbox/review-queue.md", "file", b"basis"
             ),
@@ -3124,15 +3124,15 @@ def test_snapshot_path_hash_takes_the_candidate_file_directory_or_base_bytes(
     def digest(data):
         return hashlib.sha256(data).hexdigest()[:16]
 
-    plain = _repo_path_outcome("literatures/a.md")
+    plain = _repo_path_outcome("literature/a.md")
     assert verify._snapshot_path_hash(
-        net_vault, plain, b"literatures/a.md", base, candidate
+        net_vault, plain, b"literature/a.md", base, candidate
     ) == digest(b"body\n")
     assert verify._snapshot_path_hash(
-        net_vault, plain, b"literatures", base, candidate
+        net_vault, plain, b"literature", base, candidate
     ) == digest(b"\0".join([b"a.md", b"body\n"]))
     assert verify._snapshot_path_hash(
-        net_vault, plain, b"literatures/gone.md", base, candidate
+        net_vault, plain, b"literature/gone.md", base, candidate
     ) == digest(b"body\n")
     append = _outcome(
         "append-only", "inbox/review-queue.md", Result.UNMATCHED, "drift — inbox"
@@ -3143,11 +3143,11 @@ def test_snapshot_path_hash_takes_the_candidate_file_directory_or_base_bytes(
 
 
 def test_safe_relative_needs_the_repo_path_kind_and_a_string(net_vault):
-    encoded = encode_repo_path(b"literatures/smith2020.md")
+    encoded = encode_repo_path(b"literature/smith2020.md")
     assert _safe_relative(net_vault, encoded, "identifier") is None
-    assert _safe_relative(net_vault, b"literatures/smith2020.md", "repo-path") is None
+    assert _safe_relative(net_vault, b"literature/smith2020.md", "repo-path") is None
     assert _safe_relative(net_vault, encoded, "repo-path") == (
-        net_vault / "literatures" / "smith2020.md"
+        net_vault / "literature" / "smith2020.md"
     )
 
 
@@ -3202,12 +3202,12 @@ def test_snapshot_path_hash_of_a_note_absent_from_the_candidate_falls_back_to_ba
 ):
     """A candidate snapshot IS the vault for this hash; a path the candidate
     lacks falls back to the base image so a deletion keeps a stable hash."""
-    source = net_vault / "literatures" / "smith2020.md"
+    source = net_vault / "literature" / "smith2020.md"
     before = _note_bytes(source.read_bytes())
     base = gitstate.snapshot_worktree(net_vault)
     source.unlink()
     candidate = gitstate.snapshot_worktree(net_vault)
-    outcome = _repo_path_outcome("literatures/smith2020.md")
+    outcome = _repo_path_outcome("literature/smith2020.md")
     assert (
         _target_hash(
             net_vault, outcome, base_snapshot=base, candidate_snapshot=candidate
@@ -3220,9 +3220,9 @@ def test_snapshot_path_hash_of_a_note_absent_from_the_candidate_falls_back_to_ba
     )
 
 
-def test_a_nested_note_under_literatures_is_not_a_literature_note_anywhere(net_vault):
-    """One rule at every reader of `literatures/`:
-    the captured set is `literatures/*.md` (decision 08), capture writes only
+def test_a_nested_note_under_literature_is_not_a_literature_note_anywhere(net_vault):
+    """One rule at every reader of `literature/`:
+    the captured set is `literature/*.md` (decision 08), capture writes only
     that shape (`note_path` refuses `/`), so a nested `.md` is not a
     literature note for the captured set, the linter, `--all`, the marker
     clear, the claim scan or the evidence layer. Two readers recursed: a
@@ -3231,7 +3231,7 @@ def test_a_nested_note_under_literatures_is_not_a_literature_note_anywhere(net_v
     never have written."""
     from research_vault import capture, captured, lifecycle, lints, verify
 
-    nested = net_vault / "literatures" / "older" / "nested2020.md"
+    nested = net_vault / "literature" / "older" / "nested2020.md"
     nested.parent.mkdir()
     nested.write_text(
         '---\ntype: "literature"\ncitationKey: "nested2020"\n'
@@ -3239,7 +3239,7 @@ def test_a_nested_note_under_literatures_is_not_a_literature_note_anywhere(net_v
         "zotero-item-version: 1\nattachments:\nfulltext:\n---\n"
         "- (quote) [@ghost2020, p. 1] ^c-99999999\n"
     )
-    raw = os.fsencode("literatures/older/nested2020.md")
+    raw = os.fsencode("literature/older/nested2020.md")
     snapshot = gitstate.snapshot_worktree(net_vault)
     assert raw in snapshot.images
     assert raw not in lints._literature_files(snapshot)
@@ -3254,7 +3254,7 @@ def test_a_nested_note_under_literatures_is_not_a_literature_note_anywhere(net_v
     assert nested not in verify._claim_notes(net_vault)
     _report, effective, _hashes, _warnings = verify_state(net_vault, network=False)
     # `structure.check_note_frontmatter` walks the whole vault and still types
-    # the file by its folder (OKF rule 2, not a literatures/ reader): that row
+    # the file by its folder (OKF rule 2, not a literature/ reader): that row
     # is the one thing verify says about it.
     assert [
         (o.check, o.result)
