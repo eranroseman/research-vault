@@ -132,13 +132,13 @@ def _backticked(row: str) -> set[str]:
 
 
 def _probe_ids() -> set[str]:
-    """Every doctor probe id the code can emit, read off scaffold.py's AST.
+    """Every doctor probe id the code can emit, read off doctor.py's AST.
 
     Probe ids are literals at their construction sites rather than a registry
     constant, so the AST is the only honest source; a grep would also match
     prose in docstrings.
     """
-    tree = package_ast(ROOT / "research_vault/scaffold.py")
+    tree = package_ast(ROOT / "research_vault/doctor.py")
     return {
         node.args[0].value
         for node in ast.walk(tree)
@@ -168,13 +168,13 @@ def test_every_doctor_probe_id_at_head_is_governed():
     governed = _backticked(_governance_row("doctor probe ids"))
     ungoverned = sorted(probes - governed)
     assert not ungoverned, (
-        "doctor probe ids emitted by scaffold.py with no backticked entry in "
+        "doctor probe ids emitted by doctor.py with no backticked entry in "
         f"terminology.md §4.4: {ungoverned}"
     )
     stale = sorted(governed - probes)
     assert not stale, (
         "doctor probe ids in terminology.md §4.4 with no matching Probe(...) in "
-        f"scaffold.py: {stale} — remove the row entry, the probe was deleted"
+        f"doctor.py: {stale} — remove the row entry, the probe was deleted"
     )
 
 

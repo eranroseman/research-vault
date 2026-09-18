@@ -26,10 +26,10 @@ from . import (
     zotero,
 )
 from . import compile as compile_mod
+from .doctor import doctor
 from .pathcodec import (
     PathCodecError,
 )
-from .scaffold import doctor
 from .verify import (
     CLOSING_BY_SURFACE,
     DEFAULT_BASE,

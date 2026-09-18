@@ -70,7 +70,7 @@ def tool_root(vault_root) -> Path | None:
     override = config.get("claude_obsidian_root")
     if isinstance(override, str) and override.strip():
         return Path(override)
-    from .scaffold import _installed_plugins
+    from .doctor import _installed_plugins
 
     records = _installed_plugins().get(PLUGIN_ID) or []
     install_path = records[0].get("installPath") if records else None

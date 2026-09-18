@@ -183,7 +183,7 @@ def check_reserved(vault_root) -> list[Outcome]:
 
 
 def check_tree(vault_root) -> Outcome:
-    """Vault-wide directory scaffolding attestation (verify-side; see scaffold.doctor).
+    """Vault-wide directory scaffolding attestation (verify-side; see doctor.doctor).
 
     Doctor keeps a separate `tree` probe for repair-at-setup; this is a
     different job — verify-side attestation only, no repair.

@@ -6,9 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from research_vault import Result, paths, scaffold, zotero
+from research_vault import Result, doctor, paths, scaffold, zotero
 from tests.conftest import package_ast
 from tests.fakes import FakeZotero
+
+# Captured before _hermetic_host (below) ever runs, so the plugin-registry
+# test can re-patch past that fixture's stand-in and exercise the real read.
+_REAL_INSTALLED_PLUGINS = doctor._installed_plugins
 
 PROBE_NAMES = [
     "tree",
@@ -62,7 +66,7 @@ def _hermetic_host(monkeypatch):
     ``~/.claude/plugins/installed_plugins.json``. Pin both so a test's answer
     never depends on the machine running it; a test that wants them re-patches."""
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: False)
-    monkeypatch.setattr(scaffold, "_installed_plugins", dict)
+    monkeypatch.setattr(doctor, "_installed_plugins", dict)
 
 
 def _probes(**states):
@@ -163,13 +167,13 @@ def _result_literal(node) -> str | None:
 
 
 def _maybe_unreachable_probe_ids() -> set[str]:
-    """Every probe id scaffold.py may construct with Result.UNREACHABLE, off the AST.
+    """Every probe id doctor.py may construct with Result.UNREACHABLE, off the AST.
 
     The technique of test_config_validity's _probe_ids, keyed on the result
     argument. A Probe whose result is written as any other expression — a
     variable, a NamedTuple field — can carry any result, so it counts too.
     """
-    tree = package_ast(Path(scaffold.__file__))
+    tree = package_ast(Path(doctor.__file__))
     ids: set[str] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or getattr(node.func, "id", None) != "Probe":
@@ -302,15 +306,15 @@ def test_doctor_reports_the_thirteen_probes_in_order(tmp_vault, tmp_path, monkey
     _stored_attachment(tmp_path)
     _fake, client = _doctor_fake(monkeypatch, tmp_path)
     monkeypatch.setattr(
-        scaffold,
+        doctor,
         "_installed_plugins",
         lambda: {
             COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0", "installPath": "/x"}]
         },
     )
-    monkeypatch.setattr(scaffold.paths, "_running_in_wsl", lambda: True)
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
-    probes = scaffold.doctor(vault, client=client)
+    probes = doctor.doctor(vault, client=client)
 
     assert [p.check for p in probes] == PROBE_NAMES
     by = {p.check: p for p in probes}
@@ -336,12 +340,12 @@ def test_doctor_distinguishes_local_api_off_from_zotero_down(tmp_vault, monkeypa
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
 
     assert by["zotero"].result is Result.UNMATCHED
     assert "preference" in by["zotero"].reason
     for name in LOCAL_API_PROBES:
-        assert by[name] == scaffold.Probe(
+        assert by[name] == doctor.Probe(
             name, Result.SKIPPED, "local API preference is off"
         )
     assert by["bbt"].result is Result.MATCHED  # json-rpc answers with the pref off
@@ -356,7 +360,7 @@ def test_doctor_write_guard_fails_when_the_wrong_id_is_not_refused(
     # the server "accepts" the wrong id
     monkeypatch.setattr(fake, "server_id", "research-vault-wrong-id")
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
     assert by["write-guard"].result is Result.UNMATCHED
 
 
@@ -365,7 +369,7 @@ def test_doctor_without_a_profile_skips_rather_than_passes(
 ):
     vault = _doctor_vault(tmp_vault)
     _fake, client = _doctor_fake(monkeypatch, tmp_path)
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
     assert by["fulltext-sync"].result is Result.SKIPPED
     assert by["plugins"].result is Result.SKIPPED
     assert by["bbt-git"].result is Result.SKIPPED
@@ -375,19 +379,19 @@ def test_doctor_returns_thirteen_tuple_probes_and_repairs_tree(tmp_vault, monkey
     vault = _doctor_vault(tmp_vault)
     (vault / "projects").rmdir()
 
-    probes = scaffold.doctor(vault, client=_ready_client(monkeypatch))
+    probes = doctor.doctor(vault, client=_ready_client(monkeypatch))
 
     assert [probe.check for probe in probes] == PROBE_NAMES
     assert all(isinstance(probe, tuple) and len(probe) == 3 for probe in probes)
     assert (vault / "projects").is_dir()
     assert probes[0].result is Result.MATCHED
     by = {p.check: p for p in probes}
-    assert by["zotero"] == scaffold.Probe(
+    assert by["zotero"] == doctor.Probe(
         "zotero",
         Result.MATCHED,
         "zotero=10.0.1 api=3 schema=44 server_id=6LpvURP2E933",
     )
-    assert by["bbt"] == scaffold.Probe("bbt", Result.MATCHED, "9.0.63")
+    assert by["bbt"] == doctor.Probe("bbt", Result.MATCHED, "9.0.63")
 
 
 def test_doctor_zotero_down_is_unreachable_and_its_dependents_are_skipped(
@@ -397,7 +401,7 @@ def test_doctor_zotero_down_is_unreachable_and_its_dependents_are_skipped(
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
     # No fake installed: the offline socket guard makes every read an outage.
-    probes = scaffold.doctor(vault, client=None)
+    probes = doctor.doctor(vault, client=None)
     by = {p.check: p for p in probes}
 
     assert [probe.check for probe in probes] == PROBE_NAMES
@@ -405,7 +409,7 @@ def test_doctor_zotero_down_is_unreachable_and_its_dependents_are_skipped(
     assert by["bbt"].result is Result.UNREACHABLE
     assert by["bbt"].reason.startswith("zotero down: ")
     for name in LOCAL_API_PROBES:
-        assert by[name] == scaffold.Probe(name, Result.SKIPPED, "zotero unreachable")
+        assert by[name] == doctor.Probe(name, Result.SKIPPED, "zotero unreachable")
     assert [probe.check for probe in probes[-2:]] == ["remote", "backup"]
 
 
@@ -416,9 +420,9 @@ def test_doctor_reads_the_remote_of_the_vault_not_of_the_process_cwd(
     at all it still finds the vault's `origin`."""
     vault = _doctor_vault(tmp_vault)
     monkeypatch.chdir(tmp_vault.parent)
-    probes = scaffold.doctor(vault, client=None)
+    probes = doctor.doctor(vault, client=None)
     by = {p.check: p for p in probes}
-    assert by["remote"] == scaffold.Probe("remote", Result.MATCHED, "origin")
+    assert by["remote"] == doctor.Probe("remote", Result.MATCHED, "origin")
 
 
 @pytest.mark.parametrize(
@@ -435,7 +439,7 @@ def test_doctor_bbt_not_answering_is_a_setup_fault_when_zotero_answered(
     # /better-bibtex/json-rpc does when Better BibTeX is not installed.
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
 
     assert by["zotero"].result is not Result.UNREACHABLE
     assert by["bbt"].result is Result.UNMATCHED
@@ -445,7 +449,7 @@ def test_doctor_bbt_not_answering_is_a_setup_fault_when_zotero_answered(
 def test_doctor_missing_bbt_reports_unmatched(tmp_vault, monkeypatch):
     vault = _doctor_vault(tmp_vault)
 
-    probes = scaffold.doctor(
+    probes = doctor.doctor(
         vault, client=_ready_client(monkeypatch, {"zotero": "10.0.1"})
     )
 
@@ -455,7 +459,7 @@ def test_doctor_missing_bbt_reports_unmatched(tmp_vault, monkeypatch):
 def test_doctor_treats_whitespace_bbt_version_as_missing(tmp_vault, monkeypatch):
     vault = _doctor_vault(tmp_vault)
 
-    probes = scaffold.doctor(
+    probes = doctor.doctor(
         vault,
         client=_ready_client(monkeypatch, {"zotero": "10.0.1", "betterbibtex": "  "}),
     )
@@ -468,12 +472,12 @@ def test_doctor_scaffold_failure_still_returns_all_thirteen_probes(
 ):
     vault = tmp_path / "missing-vault"
     monkeypatch.setattr(
-        scaffold,
+        doctor,
         "scaffold_vault",
         lambda *args, **kwargs: (_ for _ in ()).throw(OSError("cannot create")),
     )
 
-    probes = scaffold.doctor(vault, client=_ready_client(monkeypatch))
+    probes = doctor.doctor(vault, client=_ready_client(monkeypatch))
 
     assert [probe.check for probe in probes] == PROBE_NAMES
     assert probes[0].result is Result.UNMATCHED
@@ -486,16 +490,16 @@ def test_doctor_classifies_machine_remote_and_backup_conditions(tmp_vault, monke
         '{"mailto":"you@example.edu","zotero_backup":""}'
     )
 
-    probes = scaffold.doctor(vault, client=_ready_client(monkeypatch))
+    probes = doctor.doctor(vault, client=_ready_client(monkeypatch))
     by_check = {probe.check: probe for probe in probes}
 
     assert by_check["machine-config"].result is Result.UNMATCHED
-    assert by_check["remote"] == scaffold.Probe(
+    assert by_check["remote"] == doctor.Probe(
         "remote",
         Result.UNMATCHED,
         "no remote — vault endures only on this disk (§2)",
     )
-    assert by_check["backup"] == scaffold.Probe(
+    assert by_check["backup"] == doctor.Probe(
         "backup",
         Result.UNMATCHED,
         "no stated Zotero storage backup (§2 boundary)",
@@ -512,7 +516,7 @@ def test_doctor_bbt_git_warns_when_better_bibtex_may_run_git(
         )
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     assert by["bbt-git"].result is Result.UNMATCHED
     assert by["bbt-git"].reason.startswith("git=config")
@@ -524,9 +528,9 @@ def test_doctor_plugins_fails_on_a_missing_required_addon_and_names_it(
     profile = _profile(tmp_path, addons=[])
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
-    assert by["plugins"] == scaffold.Probe(
+    assert by["plugins"] == doctor.Probe(
         "plugins", Result.UNMATCHED, "Better BibTeX missing"
     )
 
@@ -550,9 +554,9 @@ def test_doctor_plugins_fails_when_an_active_addon_has_automatic_mode_off(
     )
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
-    assert by["plugins"] == scaffold.Probe(
+    assert by["plugins"] == doctor.Probe(
         "plugins",
         Result.UNMATCHED,
         "DOI Manager automatic mode off (extensions.shortdoi.autoretrieve)",
@@ -568,9 +572,9 @@ def test_doctor_fulltext_sync_reports_zotero_defaults_when_prefs_are_unset(
     (profile / "extensions.json").write_text(json.dumps({"addons": []}))
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
-    assert by["fulltext-sync"] == scaffold.Probe(
+    assert by["fulltext-sync"] == doctor.Probe(
         "fulltext-sync",
         Result.MATCHED,
         "sync.fulltext.enabled=unset (Zotero default) "
@@ -584,10 +588,10 @@ def test_doctor_reports_a_zotero_profile_that_is_not_a_string(tmp_vault, monkeyp
         json.dumps({"mailto": "eran@example.edu", "zotero_profile": 42})
     )
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     for name in PROFILE_PROBES:
-        assert by[name] == scaffold.Probe(
+        assert by[name] == doctor.Probe(
             name, Result.UNMATCHED, "zotero_profile must be a string"
         )
 
@@ -601,10 +605,10 @@ def test_doctor_treats_a_null_or_empty_zotero_profile_as_not_configured(
         json.dumps({"mailto": "eran@example.edu", "zotero_profile": value})
     )
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     for name in PROFILE_PROBES:
-        assert by[name] == scaffold.Probe(
+        assert by[name] == doctor.Probe(
             name, Result.SKIPPED, "zotero_profile not configured"
         )
 
@@ -615,10 +619,10 @@ def test_doctor_reports_a_zotero_profile_that_is_not_a_directory(
     missing = tmp_path / "no-such-profile"
     vault = _profiled_vault(tmp_vault, tmp_path, missing)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     for name in PROFILE_PROBES:
-        assert by[name] == scaffold.Probe(
+        assert by[name] == doctor.Probe(
             name, Result.UNMATCHED, f"zotero_profile {missing} is not a directory"
         )
 
@@ -631,7 +635,7 @@ def test_doctor_reports_an_unreadable_prefs_js_as_an_outage(
     (profile / "extensions.json").write_text(json.dumps({"addons": []}))
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     for name in PROFILE_PROBES:
         assert by[name].result is Result.UNREACHABLE
@@ -645,7 +649,7 @@ def test_doctor_reports_an_unparseable_prefs_js_as_a_fault(
     (profile / "prefs.js").write_bytes(b"\xff\xfe not utf-8")
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     for name in PROFILE_PROBES:
         assert by[name].result is Result.UNMATCHED
@@ -659,7 +663,7 @@ def test_doctor_plugins_unreadable_extensions_json_is_an_outage(
     (profile / "extensions.json").unlink()
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     assert by["plugins"].result is Result.UNREACHABLE
     assert by["plugins"].reason.startswith("extensions.json unreadable: ")
@@ -676,7 +680,7 @@ def test_doctor_plugins_malformed_extensions_json_is_a_fault(
     (profile / "extensions.json").write_text(content)
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     assert by["plugins"].result is Result.UNMATCHED
     assert by["plugins"].reason.startswith("extensions.json malformed: ")
@@ -689,7 +693,7 @@ def test_doctor_path_shim_fails_when_the_resolved_file_is_absent(
     _fake, client = _doctor_fake(monkeypatch, tmp_path)
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
 
     assert by["path-shim"].result is Result.UNMATCHED
     assert by["path-shim"].reason == (
@@ -724,10 +728,10 @@ def test_doctor_path_shim_is_skipped_without_a_stored_attachment_and_names_the_s
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
 
     # nothing to check is not an outage; a short page ends the walk
-    assert by["path-shim"] == scaffold.Probe("path-shim", Result.SKIPPED, reason)
+    assert by["path-shim"] == doctor.Probe("path-shim", Result.SKIPPED, reason)
     listing_calls = [c for c in fake.calls if c[1].startswith("/api/users/0/items?")]
     assert [c[1] for c in listing_calls] == [LISTING.format(start=0)]
 
@@ -754,7 +758,7 @@ def test_doctor_path_shim_walks_to_a_stored_file_on_the_second_page(
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
 
     assert by["path-shim"].result is Result.MATCHED
     listing_calls = [c[1] for c in fake.calls if c[1].startswith("/api/users/0/items?")]
@@ -775,9 +779,9 @@ def test_doctor_path_shim_caps_the_walk_at_twenty_pages(tmp_vault, monkeypatch):
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
 
-    assert by["path-shim"] == scaffold.Probe(
+    assert by["path-shim"] == doctor.Probe(
         "path-shim",
         Result.SKIPPED,
         "no stored attachment among the first 1000 of 1372",
@@ -800,7 +804,7 @@ def test_doctor_path_shim_listing_failure_is_an_outage(
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
 
     assert by["path-shim"].result is Result.UNREACHABLE
     assert "500" in by["path-shim"].reason
@@ -816,7 +820,7 @@ def test_doctor_path_shim_reports_a_malformed_machine_json_instead_of_raising(
     _fake, client = _doctor_fake(monkeypatch, tmp_path)
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
-    probes = scaffold.doctor(vault, client=client)
+    probes = doctor.doctor(vault, client=client)
     by = {p.check: p for p in probes}
 
     assert [p.check for p in probes] == PROBE_NAMES
@@ -830,9 +834,9 @@ def test_doctor_path_shim_is_skipped_outside_wsl(tmp_vault, tmp_path, monkeypatc
     vault = _doctor_vault(tmp_vault)
     _fake, client = _doctor_fake(monkeypatch, tmp_path)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
 
-    assert by["path-shim"] == scaffold.Probe(
+    assert by["path-shim"] == doctor.Probe(
         "path-shim", Result.SKIPPED, "not running in WSL"
     )
 
@@ -846,7 +850,7 @@ def test_doctor_translator_formats_warns_when_the_closed_route_reopens(
     fake.get("/api/users/0/items/top?format=csljson&limit=1", status=200, body=[])
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=client)}
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
 
     assert by["translator-formats"].result is Result.UNMATCHED
     assert "reopened" in by["translator-formats"].reason
@@ -867,9 +871,9 @@ def test_doctor_compile_tool_compares_the_installed_sha_to_the_pin(
     installed, expected, tmp_vault, monkeypatch
 ):
     vault = _doctor_vault(tmp_vault)
-    monkeypatch.setattr(scaffold, "_installed_plugins", lambda: installed)
+    monkeypatch.setattr(doctor, "_installed_plugins", lambda: installed)
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     assert by["compile-tool"].result is expected
     if expected is Result.UNMATCHED:
@@ -914,18 +918,18 @@ def test_compile_tool_probe_names_the_seven_char_sha_and_reads_an_empty_record_l
     monkeypatch,
 ):
     monkeypatch.setattr(
-        scaffold,
+        doctor,
         "_installed_plugins",
         lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0"}]},
     )
-    probe = scaffold._compile_tool_probe()
+    probe = doctor._compile_tool_probe()
     assert (probe.check, probe.result, probe.reason) == (
         "compile-tool",
         Result.MATCHED,
         f"{COMPILE_PLUGIN} at 32ac5a0",
     )
-    monkeypatch.setattr(scaffold, "_installed_plugins", lambda: {COMPILE_PLUGIN: []})
-    probe = scaffold._compile_tool_probe()
+    monkeypatch.setattr(doctor, "_installed_plugins", lambda: {COMPILE_PLUGIN: []})
+    probe = doctor._compile_tool_probe()
     assert (probe.result, probe.reason) == (
         Result.SKIPPED,
         f"{COMPILE_PLUGIN} not installed",
@@ -947,7 +951,7 @@ def test_doctor_tree_refuses_a_stray_literatures_directory_without_creating_the_
         '---\ntype: "literature"\n---\n'
     )
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     assert by["tree"].result is Result.UNMATCHED
     assert by["tree"].reason == (
@@ -961,7 +965,71 @@ def test_doctor_tree_refuses_when_both_roots_exist(tmp_vault, monkeypatch):
     vault = _doctor_vault(tmp_vault)
     (vault / "literatures").mkdir()
 
-    by = {p.check: p for p in scaffold.doctor(vault, client=_ready_client(monkeypatch))}
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     assert by["tree"].result is Result.UNMATCHED
     assert by["tree"].reason.startswith("stray literatures/: ")
+
+
+def test_doctor_is_its_own_module_and_scaffold_keeps_only_scaffolding():
+    """The cut: scaffolding stays in `scaffold.py`; the thirteen probes, `Probe`
+    and `doctor` live in `doctor.py`, which imports `scaffold_vault`,
+    `VAULT_DIRS` and `_git` from the other side and nothing the other way."""
+    from research_vault import doctor as doctor_module
+
+    assert doctor_module.Probe is not None
+    assert callable(doctor_module.doctor)
+    assert not hasattr(scaffold, "doctor")
+    assert not hasattr(scaffold, "Probe")
+    assert not hasattr(scaffold, "_installed_plugins")
+    source = Path(doctor.__file__).read_text(encoding="utf-8")
+    assert "from .doctor" not in source and "import doctor" not in source  # noqa: PT018
+
+
+@pytest.fixture
+def plugin_registry(_per_test_home):
+    """The plugin registry's path under the test's own HOME, its directory
+    made and the file absent -- the seam `_installed_plugins` reads."""
+    registry = _per_test_home / ".claude" / "plugins" / "installed_plugins.json"
+    registry.parent.mkdir(parents=True)
+    return registry
+
+
+def test_installed_plugins_reads_the_registry_under_home_or_answers_empty(
+    plugin_registry, monkeypatch
+):
+    """`~/.claude/plugins/installed_plugins.json`: its `plugins` mapping when
+    the file parses to an object carrying one; `{}` for an absent,
+    unreadable, undecodable, malformed or shapeless registry. Under the
+    test's own HOME: the one suite test that reached this read (doctor's
+    probe list) answered from the developer's own home, where a registry
+    exists, and the CI runner has none -- so a mutant that broke the read
+    died here and lived there. The codec is not pinned: the fixture bodies
+    are ASCII and the undecodable bytes decode under no codec, so
+    `encoding="UTF-8"` and `encoding=None` answer the same and stay
+    baselined; a codec name that does not exist (`XXutf-8XX`) dies on the
+    LookupError the except tuple does not catch, because a registry is there
+    to be opened."""
+    # _hermetic_host (autouse) pins doctor._installed_plugins to a stand-in
+    # for every other test in this module; this test exercises the real read.
+    monkeypatch.setattr(doctor, "_installed_plugins", _REAL_INSTALLED_PLUGINS)
+    registry = plugin_registry
+    assert Path.home() == registry.parents[2]
+    assert doctor._installed_plugins() == {}
+    plugins = {
+        "claude-obsidian@agricidaniel-claude-obsidian": [
+            {"gitCommitSha": "32ac5a02c4e0", "installPath": "/plugins/claude-obsidian"}
+        ]
+    }
+    registry.write_text(
+        json.dumps({"version": 2, "plugins": plugins}), encoding="utf-8"
+    )
+    assert doctor._installed_plugins() == plugins
+    for body in ('{"version": 2}', '{"plugins": ["x"]}', "[1, 2]", "{not json"):
+        registry.write_text(body, encoding="utf-8")
+        assert doctor._installed_plugins() == {}
+    registry.write_bytes(b"\xff\xfe\x00")
+    assert doctor._installed_plugins() == {}
+    registry.unlink()
+    registry.mkdir()
+    assert doctor._installed_plugins() == {}

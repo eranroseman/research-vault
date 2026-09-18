@@ -1,4 +1,3 @@
-import json
 import os
 import subprocess
 import sys
@@ -652,49 +651,3 @@ def test_scaffold_skips_a_created_path_the_vaults_own_gitignore_ignores(
     assert "index.md" in committed
     assert git_result(vault, "check-ignore", "-q", "--", "log.md").returncode == 0
     assert git(vault, "ls-files", "--", "log.md") == ""
-
-
-@pytest.fixture
-def plugin_registry(_per_test_home):
-    """The plugin registry's path under the test's own HOME, its directory
-    made and the file absent -- the seam `_installed_plugins` reads."""
-    registry = _per_test_home / ".claude" / "plugins" / "installed_plugins.json"
-    registry.parent.mkdir(parents=True)
-    return registry
-
-
-def test_installed_plugins_reads_the_registry_under_home_or_answers_empty(
-    plugin_registry,
-):
-    """`~/.claude/plugins/installed_plugins.json`: its `plugins` mapping when
-    the file parses to an object carrying one; `{}` for an absent,
-    unreadable, undecodable, malformed or shapeless registry. Under the
-    test's own HOME: the one suite test that reached this read (doctor's
-    probe list) answered from the developer's own home, where a registry
-    exists, and the CI runner has none -- so a mutant that broke the read
-    died here and lived there. The codec is not pinned: the fixture bodies
-    are ASCII and the undecodable bytes decode under no codec, so
-    `encoding="UTF-8"` and `encoding=None` answer the same and stay
-    baselined; a codec name that does not exist (`XXutf-8XX`) dies on the
-    LookupError the except tuple does not catch, because a registry is there
-    to be opened."""
-    registry = plugin_registry
-    assert Path.home() == registry.parents[2]
-    assert scaffold._installed_plugins() == {}
-    plugins = {
-        "claude-obsidian@agricidaniel-claude-obsidian": [
-            {"gitCommitSha": "32ac5a02c4e0", "installPath": "/plugins/claude-obsidian"}
-        ]
-    }
-    registry.write_text(
-        json.dumps({"version": 2, "plugins": plugins}), encoding="utf-8"
-    )
-    assert scaffold._installed_plugins() == plugins
-    for body in ('{"version": 2}', '{"plugins": ["x"]}', "[1, 2]", "{not json"):
-        registry.write_text(body, encoding="utf-8")
-        assert scaffold._installed_plugins() == {}
-    registry.write_bytes(b"\xff\xfe\x00")
-    assert scaffold._installed_plugins() == {}
-    registry.unlink()
-    registry.mkdir()
-    assert scaffold._installed_plugins() == {}

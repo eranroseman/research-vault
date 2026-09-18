@@ -989,7 +989,7 @@ def test_apply_uses_the_real_vault_for_tool_root(tmp_vault):
 @pytest.fixture
 def plugin_registry(_per_test_home):
     """The plugin registry's path under the test's own HOME, its directory
-    made and the file absent — mirrors tests/test_scaffold.py's fixture of the
+    made and the file absent — mirrors tests/test_doctor.py's fixture of the
     same shape, so ``tool_root``'s own plugin-lookup branch runs for real."""
     registry = _per_test_home / ".claude" / "plugins" / "installed_plugins.json"
     registry.parent.mkdir(parents=True)
