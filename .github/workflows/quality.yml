@@ -3,6 +3,12 @@ name: quality
 on:
   push:
   workflow_dispatch:
+    inputs:
+      time_budget:
+        description: gate-side time budget in seconds; replaces the value computed
+          from MUTATION_GATE_TIMEOUT_MINUTES
+        required: false
+        type: string
   schedule:
     - cron: 17 4 * * 1
 # A newer push to the same branch supersedes its run; a push to main is a
@@ -106,6 +112,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ fromJSON(vars.MUTATION_GATE_TIMEOUT_MINUTES) }}
     steps:
+      - name: Job start
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # the gate diffs against origin/main
@@ -145,9 +153,16 @@ jobs:
       # an assumed 0.6/s) stands as measured. The job timeout (the variable) is
       # this worst case plus ≈18 % variance. The steady state is small diffs
       # (one module ≈40 min); an oversize one is run locally.
+      # The time budget is computed here, never read by the gate: the job's
+      # timeout in minutes (the repository variable) minus the seconds since the
+      # job's first step; a workflow_dispatch input replaces it (§3.9 done-when).
       - name: Mutation gate (no new survivors)
-        run: python scripts/mutation_gate.py --base origin/main --max-children 2 --child-address-space
-          3GiB --max-mutants 9000
+        env:
+          TIMEOUT_MINUTES: ${{ vars.MUTATION_GATE_TIMEOUT_MINUTES }}
+          TIME_BUDGET_OVERRIDE: ${{ inputs.time_budget }}
+        run: |
+          budget="${TIME_BUDGET_OVERRIDE:-$((TIMEOUT_MINUTES * 60 - ($(date +%s) - JOB_START)))}"
+          python scripts/mutation_gate.py --base origin/main --max-children 2 --child-address-space 3GiB --max-mutants 9000 --time-budget "$budget"
   okf-spec-drift:
     name: OKF spec drift (pin vs upstream)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

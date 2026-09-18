@@ -122,23 +122,36 @@ CI: a 3 GiB cap made every test launching with the 4 GiB default read as a
 nested over-cap, and all ten modules errored); the tests patch the seam, and
 a real nested over-cap is still refused.
 
-CI mutant budget. --max-mutants N (gate mode only; default: no budget). A
-GitHub job dies at 360 minutes, and the whole-branch integration case -- a
-diff touching most of the 34 modules, ~10,000 mutants at the runner's two
-children -- does not fit that with headroom: without a budget it would time
-out, and a timed-out check reads as a failure it never measured. So before
-mutating anything the gate counts the mutants the changed set would run and,
-over the budget, prints exactly one qualified line -- `[gate] not measured:
-<count> mutants across <M> changed modules exceed the CI budget of <N>; run
-the gate locally` -- plus the per-module counts, and exits 0 without
+Two CI budgets, in this order. (1) --max-mutants N (gate mode only; default:
+no budget). A GitHub job dies at its timeout, and the whole-branch integration
+case -- a diff touching most of the 35 modules, ~17,000 mutants at the
+runner's two children -- does not fit that with headroom: without a budget it
+would time out, and a timed-out check reads as a failure it never measured.
+So before mutating anything the gate counts the mutants the changed set would
+run and, over the budget, prints exactly one qualified line -- `[gate] not
+measured: <count> mutants across <M> changed modules exceed the CI budget of
+<N>; run the gate locally` -- plus the per-module counts, and exits 0 without
 launching mutmut or reading the baseline (the four-state rule: an unrun check
-reads unmeasured, never pass or fail, so the advisory lane does not go red
-for size). The count is mutmut's own generator run in memory over each
-changed module's source (mutate_file_contents: the same operator set and
-pragma handling the run applies, so it equals the run's count -- checked
-2026-09-14 against the blanket run's cached .meta for all 34 modules, 17,151
-of 17,151), writing nothing under mutants/ and running no test. N is set in
-quality.yml from the measured per-mutant cost on the runner.
+reads unmeasured, never pass or fail). The count is mutmut's own generator run
+in memory over each changed module's source (mutate_file_contents: the same
+operator set and pragma handling the run applies, so it equals the run's
+count -- checked 2026-09-14 against the blanket run's cached .meta for all
+modules, 17,151 of 17,151), writing nothing under mutants/ and running no
+test. (2) --time-budget SECONDS (gate mode only; default: none). A slow
+multi-module set can fit the count budget and still exceed the job timeout.
+No single module approaches it (the largest is under seventy minutes at the
+slowest measured rate), so the first changed module is always measured; then
+the remaining modules are estimated from the stats file that run left behind
+(mutants/mutmut-stats.json: `duration_by_test` and
+`tests_by_mangled_function_name`) -- each module's mutants mapped to the tests
+that reach their functions, the durations summed, divided by --max-children,
+plus FIXED_MODULE_SECONDS per module -- and compared with the budget minus the
+gate's own elapsed time. Over it: the first module's verdict, then `[gate] not
+measured: estimated <m> min for <k> remaining modules exceeds the <n> min left
+of the time budget`, and the exit code the first module earned. quality.yml
+computes the budget from the job's start and its timeout variable, so the gate
+never reads the environment; an estimate that cannot be read (no stats file,
+a malformed one) is reported on one line and the run continues.
 
 Git isolation. Measured 2026-09-14T02:13Z: a scaffold.py mutant with its vault
 argument mutated to a non-vault ran the vault-hook install with cwd inside
@@ -182,6 +195,7 @@ import resource
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -209,6 +223,11 @@ NO_VERDICT_STATUSES = (
 # Verdicts the mutant caused, reported by name and never a survivor.
 BY_NAME_STATUSES = ("timeout", "caught by type check")
 DEFAULT_ADDRESS_SPACE = "4GiB"
+# The fixed cost of one module's measurement beyond its mutants: mutant
+# generation, the stats phase and the clean run, ≈5 min (runs 34822363722 and
+# 34827110718, 2026-09-14; quality.yml's gate comment).
+FIXED_MODULE_SECONDS = 300
+STATS_FILE = Path("mutants") / "mutmut-stats.json"
 _SIZE_UNITS = {"MiB": 1 << 20, "GiB": 1 << 30}
 # The pre-check's one read of the inherited limit, a seam so the gate's own
 # tests do not depend on it: mutmut's stats phase runs them in-process under
@@ -499,6 +518,15 @@ def parse_budget(text: str) -> int:
     """--max-mutants: a positive mutant count."""
     if not text.isdigit() or int(text) < 1:
         raise argparse.ArgumentTypeError(f"{text!r}: expected a positive mutant count")
+    return int(text)
+
+
+def parse_seconds(text: str) -> int:
+    """--time-budget: a positive number of seconds."""
+    if not text.isdigit() or int(text) < 1:
+        raise argparse.ArgumentTypeError(
+            f"{text!r}: expected a positive number of seconds"
+        )
     return int(text)
 
 
@@ -877,24 +905,58 @@ def _over_budget(modules: list[str], max_mutants: int) -> bool:
     return over
 
 
+def _estimate_seconds(modules: list[str], root: Path, max_children: int) -> float:
+    """What the remaining changed modules would cost, from the stats file the
+    first module's run left behind (see the header's budget paragraph): each
+    module's mutants mapped to the tests that reach their functions, the
+    durations summed and divided by the child count, plus the fixed cost."""
+    stats = json.loads((root / STATS_FILE).read_text(encoding="utf-8"))
+    tests_by_function: dict[str, list[str]] = stats["tests_by_mangled_function_name"]
+    duration_by_test: dict[str, float] = stats["duration_by_test"]
+    mm = _mutmut(root)
+    total = 0.0
+    for relpath in modules:
+        dotted = relpath[: -len(".py")].replace("/", ".")
+        source = (root / relpath).read_text(encoding="utf-8")
+        with contextlib.chdir(root):
+            names = mm.mutate_file_contents(relpath, source).mutant_names
+        seconds = 0.0
+        for name in names:
+            function = f"{dotted}.{mm.mangled_name_from_mutant_name(name)}"
+            seconds += sum(
+                duration_by_test.get(test, 0.0)
+                for test in tests_by_function.get(function, ())
+            )
+        total += seconds / max_children + FIXED_MODULE_SECONDS
+    return total
+
+
+def _minutes(seconds: float) -> int:
+    return round(seconds / 60)
+
+
 def _gate(
     baseline_path: Path,
     base: str,
     max_children: int,
     address_space: int,
     max_mutants: int | None = None,
+    time_budget: int | None = None,
 ) -> int:
+    started = time.monotonic()
     modules = changed_modules(base, cwd=ROOT)
     if not modules:
         print("[gate] no changed research_vault modules; pass")
         return 0
+    # The count budget is first: it refuses before anything is generated.
     if max_mutants is not None and _over_budget(modules, max_mutants):
         return 0
     baseline = baseline_keys(baseline_path)
     fresh: set[str] = set()
     failed: list[str] = []
     no_tests: dict[str, int] = {}
-    for module in modules:
+    unmeasured: str | None = None
+    for index, module in enumerate(modules):
         print(f"[gate] {module}", flush=True)
         out, code, cls, result, note = _measure(module, max_children, address_space)
         print(out)
@@ -902,22 +964,46 @@ def _gate(
         if cls != "ok" or result is None:
             print(f"[gate] FAIL {module}: mutmut exited {code} [{cls}]")
             failed.append(module)
-            continue
-        fresh |= new_survivors(result.survivors, baseline)
-        if result.counts.get("no tests"):
-            no_tests[module] = result.counts["no tests"]
+        else:
+            fresh |= new_survivors(result.survivors, baseline)
+            if result.counts.get("no tests"):
+                no_tests[module] = result.counts["no tests"]
+        remaining = modules[index + 1 :]
+        if index == 0 and time_budget is not None and remaining:
+            # Nothing gate-side can see an estimate before the first module
+            # is measured (the stats file is that run's); the first module is
+            # measured regardless and the rest are budgeted from it.
+            try:
+                estimate = _estimate_seconds(remaining, ROOT, max_children)
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                print(f"[gate] time budget not applied: {STATS_FILE}: {error}")
+                continue
+            left = time_budget - (time.monotonic() - started)
+            if estimate > left:
+                count = f"{len(remaining)} remaining module" + (
+                    "" if len(remaining) == 1 else "s"
+                )
+                unmeasured = (
+                    f"[gate] not measured: estimated {_minutes(estimate)} min for "
+                    f"{count} exceeds the {_minutes(left)} min left of the time budget"
+                )
+                break
     _summarise_no_tests("[gate]", no_tests)
     if failed:
         print(f"[gate] FAIL — {len(failed)} module(s) errored:")
         print(f"[gate]   error ({len(failed)}): {', '.join(failed)}")
-        return 1
-    if fresh:
+        code = 1
+    elif fresh:
         print(f"[gate] FAIL — {len(fresh)} new survivor(s):")
         for key in sorted(fresh):
             print(f"  {key}")
-        return 1
-    print("[gate] pass — no new survivors")
-    return 0
+        code = 1
+    else:
+        print("[gate] pass — no new survivors")
+        code = 0
+    if unmeasured is not None:
+        print(unmeasured)
+    return code
 
 
 def main() -> int:
@@ -949,6 +1035,16 @@ def main() -> int:
         "run -- see the header",
     )
     parser.add_argument(
+        "--time-budget",
+        type=parse_seconds,
+        default=None,
+        metavar="SECONDS",
+        help="gate mode only: after the first changed module is measured, the "
+        "remaining modules are estimated from mutmut's stats file and reported "
+        "as not measured when the estimate exceeds what is left of this budget "
+        "-- see the header",
+    )
+    parser.add_argument(
         "--out-dir",
         default=None,
         help="--update-baseline only: per-module records, for resuming a killed "
@@ -976,6 +1072,8 @@ def main() -> int:
         )
     if args.max_mutants is not None and args.update_baseline:
         parser.error("--max-mutants is a gate-mode budget; not with --update-baseline")
+    if args.time_budget is not None and args.update_baseline:
+        parser.error("--time-budget is a gate-mode budget; not with --update-baseline")
     unknown = sorted(set(args.only) - set(_all_modules()))
     if unknown:
         parser.error(f"--only names no research_vault module: {', '.join(unknown)}")
@@ -996,6 +1094,7 @@ def main() -> int:
             args.max_children,
             args.child_address_space,
             args.max_mutants,
+            args.time_budget,
         )
     except GateAbortError as error:
         prefix = "[baseline]" if args.update_baseline else "[gate]"

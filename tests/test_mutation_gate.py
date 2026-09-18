@@ -1806,6 +1806,176 @@ def test_max_mutants_is_a_positive_gate_mode_budget(tmp_path, monkeypatch, capsy
         assert expected in err
 
 
+# --- the time budget (gate mode; §3.9) ----------------------------------------
+
+
+def _stats_file(root: Path, module: str, seconds_by_function: dict[str, float]):
+    """mutants/mutmut-stats.json in the shape mutmut's save_stats writes: a
+    test set per `<module>.<mangled function>` and a duration per test."""
+    dotted = module[: -len(".py")].replace("/", ".")
+    tests_by_function = {}
+    duration_by_test = {}
+    for mangled, seconds in seconds_by_function.items():
+        test_id = f"tests/test_{mangled}.py::test_{mangled}"
+        tests_by_function[f"{dotted}.{mangled}"] = [test_id]
+        duration_by_test[test_id] = seconds
+    (root / "mutants").mkdir(exist_ok=True)
+    (root / "mutants" / "mutmut-stats.json").write_text(
+        json.dumps(
+            {
+                "tests_by_mangled_function_name": tests_by_function,
+                "duration_by_test": duration_by_test,
+                "stats_time": 1.0,
+                "function_hashes": {},
+                "function_dependencies": {},
+                "config_fingerprint": "x",
+                "watched_file_hashes": {},
+                "git_commit": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _two_module_gate(root: Path, monkeypatch, calls: list[str]):
+    """Module a already measured (its artifacts faked); module b remaining,
+    with the source `count_mutants` and the estimate generate from."""
+    a, b = "research_vault/a.py", "research_vault/b.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 33, SIZE_1: 1})
+    _fake_module(root, b, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    (root / a).write_text(BUDGET_SOURCE, encoding="utf-8")
+    (root / b).write_text(BUDGET_SOURCE, encoding="utf-8")
+    _fake_measurement(root, monkeypatch, calls)
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a, b])
+    return a, b
+
+
+@pytest.mark.parametrize("first_module_fails", [False, True])
+def test_gate_refuses_the_remaining_modules_over_the_time_budget(
+    tmp_path, monkeypatch, capsys, first_module_fails
+):
+    """After the first module returns, the remaining modules' mutants are
+    mapped to their tests through the stats file, the durations summed and
+    divided by --max-children, the fixed per-module cost added, and the sum
+    compared with what is left of the budget. Over it: the first module's
+    verdict, one qualified line, no further launch, and the exit code the
+    first module earned (a FAIL found is a FAIL, otherwise 0)."""
+    root = _fake_root(tmp_path)
+    calls: list[str] = []
+    a, b = _two_module_gate(root, monkeypatch, calls)
+    # b: x_add's tests 900 s, Box.size's 300 s; /4 children = 300 s, + 300 s
+    # fixed = 600 s = 10 min, against a 500 s (8 min) budget.
+    _stats_file(root, b, {"x_add": 900.0, "xǁBoxǁsize": 300.0})
+    baseline_path = _argv_gate(monkeypatch, root)
+    monkeypatch.setattr(
+        sys, "argv", [*sys.argv, "--max-children", "4", "--time-budget", "500"]
+    )
+    if not first_module_fails:
+        baseline_path.write_text(KEY_ADD_1.replace(MODULE, a) + "\n", encoding="utf-8")
+
+    code = mutation_gate.main()
+
+    assert calls == [a]
+    out = capsys.readouterr().out.splitlines()
+    assert f"[gate] {a}: ok (killed 2, survived 1, no tests 1)" in out
+    if first_module_fails:
+        assert code == 1
+        assert "[gate] FAIL — 1 new survivor(s):" in out
+    else:
+        assert code == 0
+        assert "[gate] pass — no new survivors" in out
+    assert out[-1] == (
+        "[gate] not measured: estimated 10 min for 1 remaining module exceeds "
+        "the 8 min left of the time budget"
+    )
+
+
+def test_gate_measures_every_module_within_the_time_budget(
+    tmp_path, monkeypatch, capsys
+):
+    root = _fake_root(tmp_path)
+    calls: list[str] = []
+    a, b = _two_module_gate(root, monkeypatch, calls)
+    _stats_file(root, b, {"x_add": 900.0, "xǁBoxǁsize": 300.0})
+    _argv_gate(monkeypatch, root)
+    monkeypatch.setattr(
+        sys, "argv", [*sys.argv, "--max-children", "4", "--time-budget", "5000"]
+    )
+
+    assert mutation_gate.main() == 1  # a's survivor is new: measured, not budgeted away
+    assert calls == [a, b]
+    assert "not measured" not in capsys.readouterr().out
+
+
+def test_gate_without_a_time_budget_never_reads_the_stats_file(
+    tmp_path, monkeypatch, capsys
+):
+    root = _fake_root(tmp_path)
+    calls: list[str] = []
+    a, b = _two_module_gate(root, monkeypatch, calls)
+    monkeypatch.setattr(mutation_gate, "_estimate_seconds", _fail_if_called)
+    _argv_gate(monkeypatch, root)
+
+    mutation_gate.main()
+
+    assert calls == [a, b]
+
+
+def test_gate_continues_when_the_estimate_is_unavailable(tmp_path, monkeypatch, capsys):
+    """No stats file after the first module (mutmut's own fault): the budget
+    cannot be applied, the gate says so on one line and measures on -- an
+    unknowable estimate must not read as over budget or as pass."""
+    root = _fake_root(tmp_path)
+    calls: list[str] = []
+    a, b = _two_module_gate(root, monkeypatch, calls)
+    _argv_gate(monkeypatch, root)
+    monkeypatch.setattr(sys, "argv", [*sys.argv, "--time-budget", "1"])
+
+    mutation_gate.main()
+
+    assert calls == [a, b]
+    line = next(
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("[gate] time budget not applied: ")
+    )
+    assert "mutmut-stats.json" in line
+
+
+def test_estimate_seconds_is_the_stats_sum_over_children_plus_the_fixed_cost(
+    tmp_path,
+):
+    root = _fake_root(tmp_path)
+    b = "research_vault/b.py"
+    (root / b).write_text(BUDGET_SOURCE, encoding="utf-8")
+    _stats_file(root, b, {"x_add": 900.0, "xǁBoxǁsize": 300.0})
+    assert mutation_gate._estimate_seconds([b], root, 4) == 300.0 + 300.0
+    assert mutation_gate._estimate_seconds([b], root, 2) == 600.0 + 300.0
+    assert mutation_gate._estimate_seconds([b, b], root, 4) == 2 * 600.0
+    # A function no test reaches costs nothing beyond the fixed per-module cost.
+    _stats_file(root, b, {})
+    assert mutation_gate._estimate_seconds([b], root, 4) == 300.0
+
+
+@pytest.mark.parametrize(
+    ("argv", "fragment"),
+    [
+        (["--update-baseline", "--time-budget", "5"], "--update-baseline"),
+        (["--time-budget", "0"], "positive"),
+        (["--time-budget", "-1"], "positive"),
+        (["--time-budget", "soon"], "positive"),
+    ],
+)
+def test_time_budget_argparse_shape(argv, fragment, monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["mutation_gate.py", *argv])
+    with pytest.raises(SystemExit) as caught:
+        mutation_gate.main()
+    assert caught.value.code == 2
+    err = capsys.readouterr().err
+    assert "--time-budget" in err
+    assert fragment in err
+
+
 # --- the suite's own mutant-awareness ----------------------------------------
 
 
