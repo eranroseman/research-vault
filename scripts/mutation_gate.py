@@ -5,7 +5,11 @@ Invoked explicitly as `python scripts/mutation_gate.py` — no shebang on purpos
 
 Gate mode (default): mutation-test the research_vault modules changed since
 --base, fail (exit 1) on any survivor whose key is absent from the committed
-baseline. --update-baseline: measure every research_vault module and rewrite the
+baseline. The gate SELECTS from commits (`<base>...HEAD`) and MEASURES the
+working tree (mutmut copies it; _tree_digest hashes it), so both modes refuse
+a dirty research_vault/ or tests/ tree up front -- an uncommitted edit would
+otherwise measure nothing and read as a pass (#133).
+--update-baseline: measure every research_vault module and rewrite the
 baseline file with every current survivor; REFUSES to write if any module did
 not measure cleanly (a module mutmut did not finish has no survivor list, and an
 empty contribution is not a clean one -- writing it would put an undetectable
@@ -238,6 +242,13 @@ class GitCommandError(GateAbortError):
     --base, the init of mutants/: the command, its exit code and its stderr."""
 
 
+class DirtyTreeError(GateAbortError):
+    """research_vault/ or tests/ carries an uncommitted change. Gate mode
+    selects modules from `<base>...HEAD` while mutmut copies and _tree_digest
+    hashes the working tree, so an uncommitted edit measures nothing and would
+    read as a pass; --update-baseline has the same exposure (#133)."""
+
+
 class ModuleParseError(GateAbortError):
     """A module's source does not parse for mutmut's generator (a syntax
     error, a malformed `# pragma: no mutate` context): the file and the
@@ -363,9 +374,33 @@ def _git_failure(error: subprocess.CalledProcessError) -> GitCommandError:
     )
 
 
+def _refuse_dirty_tree(cwd: Path) -> None:
+    """Both modes, before anything is selected or measured: any status line
+    under the source trees is a refusal naming the paths."""
+    try:
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--", *SOURCE_TREES],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=cwd,
+        ).stdout
+    except subprocess.CalledProcessError as error:
+        raise _git_failure(error) from error
+    dirty = [line[3:] for line in status.splitlines() if line.strip()]
+    if dirty:
+        trees = " and ".join(f"{tree}/" for tree in SOURCE_TREES)
+        raise DirtyTreeError(
+            f"uncommitted changes under {trees}: {', '.join(dirty)} -- commit "
+            "first: the gate selects modules from <base>...HEAD and measures "
+            "the working tree"
+        )
+
+
 def changed_modules(base: str, cwd: Path = ROOT) -> list[str]:
     # --relative + a cwd-relative pathspec, both resolved from the repo root: a
     # stale core/-prefixed pathspec here matches nothing and kills the gate silently.
+    _refuse_dirty_tree(cwd)
     try:
         diff = subprocess.run(
             [
@@ -752,6 +787,7 @@ def _update_baseline(
     max_children: int,
     address_space: int,
 ) -> int:
+    _refuse_dirty_tree(ROOT)
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
     keys: set[str] = set()
@@ -848,7 +884,7 @@ def _gate(
     address_space: int,
     max_mutants: int | None = None,
 ) -> int:
-    modules = changed_modules(base)
+    modules = changed_modules(base, cwd=ROOT)
     if not modules:
         print("[gate] no changed research_vault modules; pass")
         return 0

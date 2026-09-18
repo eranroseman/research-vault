@@ -333,7 +333,7 @@ def test_a_malformed_meta_classes_only_its_module_error_and_the_rest_still_run(
     assert (out_dir / "research_vault__c.py.exit").read_text(encoding="utf-8") == "0 ok"
 
     calls.clear()
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a, b, c])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a, b, c])
     _argv_gate(monkeypatch, root)
     assert mutation_gate.main() == 1
     assert calls == [a, b, c]
@@ -424,11 +424,92 @@ def test_changed_modules_aborts_with_the_command_when_base_does_not_resolve(
     assert isinstance(caught.value.__cause__, subprocess.CalledProcessError)
 
 
+def _dirty_repo(tmp_path: Path) -> Path:
+    """The `test_changed_modules_lists_modified_core_files` shape with `A = 2`
+    staged over a committed `A = 1`: the selection would read the commits
+    (nothing changed since `main`) while the measurement reads the tree."""
+    repo = tmp_path / "repo"
+    (repo / "research_vault").mkdir(parents=True)
+    (repo / "tests").mkdir()
+
+    def git(*argv: str) -> None:
+        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@example.invalid")
+    git("config", "user.name", "t")
+    (repo / "research_vault" / "x.py").write_text("A = 1\n", encoding="utf-8")
+    (repo / "research_vault" / "__init__.py").write_text("", encoding="utf-8")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    (repo / "research_vault" / "x.py").write_text("A = 2\n", encoding="utf-8")
+    git("add", "research_vault/x.py")
+    return repo
+
+
+def test_changed_modules_refuses_a_dirty_tree_naming_the_path(tmp_path: Path):
+    """Gate mode selects from `<base>...HEAD` and measures the working tree,
+    so an uncommitted change measures nothing and would read as a pass (#133).
+    The refusal names the path and says what to do."""
+    repo = _dirty_repo(tmp_path)
+    with pytest.raises(mutation_gate.DirtyTreeError) as caught:
+        changed_modules("main", cwd=repo)
+    message = str(caught.value)
+    assert "research_vault/x.py" in message
+    assert "commit first" in message
+    assert isinstance(caught.value, mutation_gate.GateAbortError)
+
+
+def test_gate_main_aborts_on_a_dirty_tree(tmp_path: Path, monkeypatch, capsys):
+    repo = _dirty_repo(tmp_path)
+    monkeypatch.setattr(mutation_gate, "ROOT", repo)
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", _fail_if_called)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["mutation_gate.py", "--base", "main", "--baseline", str(repo / "b.txt")],
+    )
+    assert mutation_gate.main() == 1
+    out = capsys.readouterr().out
+    assert out.startswith("[gate] ABORT: ")
+    assert "research_vault/x.py" in out
+
+
+def test_update_baseline_refuses_a_dirty_tree_before_measuring(
+    tmp_path: Path, monkeypatch, capsys
+):
+    repo = _dirty_repo(tmp_path)
+    monkeypatch.setattr(mutation_gate, "ROOT", repo)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: ["research_vault/x.py"])
+    monkeypatch.setattr(mutation_gate, "_run_mutmut", _fail_if_called)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["mutation_gate.py", "--update-baseline", "--baseline", str(repo / "b.txt")],
+    )
+    assert mutation_gate.main() == 1
+    out = capsys.readouterr().out
+    assert out.startswith("[baseline] ABORT: ")
+    assert "research_vault/x.py" in out
+    assert not (repo / "b.txt").exists()
+
+
+def test_a_clean_tree_passes_the_refusal(tmp_path: Path):
+    repo = _dirty_repo(tmp_path)
+    subprocess.run(["git", "commit", "-q", "-m", "committed"], cwd=repo, check=True)
+    mutation_gate._refuse_dirty_tree(repo)  # no raise
+    assert changed_modules("main", cwd=repo) == []
+
+
 # --- the mutmut invocation ---------------------------------------------------
 
 
 def _completed(cmd, code: int = 0) -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(cmd, code, stdout="mutmut out", stderr="")
+
+
+def _fail_if_called(*_args, **_kwargs):
+    raise AssertionError("must not be called")
 
 
 def _record_runs(monkeypatch) -> list[dict]:
@@ -552,13 +633,16 @@ def test_git_isolation_refuses_a_symlinked_mutants_before_touching_anything(
     fake = _fake_root(root)
     a = "research_vault/a.py"
     monkeypatch.setattr(mutation_gate, "ROOT", fake)
+    # A fake root is no repository: the dirty-tree refusal is pinned by its
+    # own tests against a real one, and stands aside here.
+    monkeypatch.setattr(mutation_gate, "_refuse_dirty_tree", lambda cwd: None)
     monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
     baseline_path = _argv_baseline(monkeypatch, fake)
     assert mutation_gate.main() == 1
     assert not baseline_path.exists()
     out = capsys.readouterr().out
     assert f"[baseline] ABORT: {fake / 'mutants'} is not a real directory" in out
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     _argv_gate(monkeypatch, fake)
     assert mutation_gate.main() == 1
     assert f"[gate] ABORT: {fake / 'mutants'} is not a real directory" in (
@@ -638,6 +722,9 @@ def test_a_child_limit_failure_is_the_gates_abort_line_in_both_modes(
     root = _fake_root(tmp_path)
     a = "research_vault/a.py"
     monkeypatch.setattr(mutation_gate, "ROOT", root)
+    # A fake root is no repository: the dirty-tree refusal is pinned by its
+    # own tests against a real one, and stands aside here.
+    monkeypatch.setattr(mutation_gate, "_refuse_dirty_tree", lambda cwd: None)
 
     def fake_run_mutmut(relpath, max_children, root=root, address_space=None):
         raise mutation_gate.ChildLimitError("--child-address-space 4 exceeds ...")
@@ -651,7 +738,7 @@ def test_a_child_limit_failure_is_the_gates_abort_line_in_both_modes(
         capsys.readouterr().out
     )
 
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     _argv_gate(monkeypatch, root)
     assert mutation_gate.main() == 1
     assert "[gate] ABORT: --child-address-space 4 exceeds ..." in (
@@ -1021,6 +1108,9 @@ def _fake_measurement(root: Path, monkeypatch, calls: list[str] | None = None):
         return "mutmut out", 0
 
     monkeypatch.setattr(mutation_gate, "ROOT", root)
+    # A fake root is no repository: the dirty-tree refusal is pinned by its
+    # own tests against a real one, and stands aside here.
+    monkeypatch.setattr(mutation_gate, "_refuse_dirty_tree", lambda cwd: None)
     monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
 
 
@@ -1097,9 +1187,12 @@ def test_max_children_and_the_cap_reach_the_launch_in_both_modes(tmp_path, monke
         return "mutmut out", 0
 
     monkeypatch.setattr(mutation_gate, "ROOT", root)
+    # A fake root is no repository: the dirty-tree refusal is pinned by its
+    # own tests against a real one, and stands aside here.
+    monkeypatch.setattr(mutation_gate, "_refuse_dirty_tree", lambda cwd: None)
     monkeypatch.setattr(mutation_gate, "_run_mutmut", fake_run_mutmut)
     monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     baseline_path = root / "mutation-baseline.txt"
     flags = ["--max-children", "3", "--child-address-space", "2.5GiB"]
 
@@ -1209,7 +1302,7 @@ def test_timeout_verdict_keeps_the_module_ok_in_both_modes(
     assert f"[baseline]   timeout {ADD_1.replace('fake', 'a')}  " in out
     assert KEY_ADD_1.replace(MODULE, a) in out
 
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     _argv_gate(monkeypatch, root)  # the baseline just written holds the survivor
     assert mutation_gate.main() == 0
     assert "[gate] pass — no new survivors" in capsys.readouterr().out.splitlines()
@@ -1244,7 +1337,7 @@ def test_suspicious_and_segfault_verdicts_class_the_module_error_in_both_modes(
     assert "[baseline]   error (1): research_vault/a.py" in out
 
     baseline_path.write_text(KEY_ADD_1.replace(MODULE, a) + "\n", encoding="utf-8")
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     _argv_gate(monkeypatch, root)
     assert mutation_gate.main() == 1
     out = capsys.readouterr().out
@@ -1273,6 +1366,9 @@ def test_out_dir_skips_module_with_recorded_success(tmp_path, monkeypatch):
         raise AssertionError("a recorded success must not be re-run")
 
     monkeypatch.setattr(mutation_gate, "ROOT", root)
+    # A fake root is no repository: the dirty-tree refusal is pinned by its
+    # own tests against a real one, and stands aside here.
+    monkeypatch.setattr(mutation_gate, "_refuse_dirty_tree", lambda cwd: None)
     monkeypatch.setattr(mutation_gate, "_run_mutmut", fail_if_called)
     monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
     baseline_path = _argv_baseline(monkeypatch, root, out_dir)
@@ -1458,7 +1554,7 @@ def test_source_tree_change_aborts_the_run_without_writing(
 def test_gate_passes_with_no_changed_modules(tmp_path, monkeypatch, capsys):
     root = _fake_root(tmp_path)
     monkeypatch.setattr(mutation_gate, "ROOT", root)
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [])
     _argv_gate(monkeypatch, root)
     assert mutation_gate.main() == 0
     assert "no changed research_vault modules" in capsys.readouterr().out
@@ -1471,7 +1567,7 @@ def test_gate_fails_on_a_survivor_absent_from_the_baseline(
     a = "research_vault/a.py"
     _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 0})
     _fake_measurement(root, monkeypatch)
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     baseline_path = _argv_gate(monkeypatch, root)
     baseline_path.write_text(KEY_ADD_1.replace(MODULE, a) + "\n", encoding="utf-8")
 
@@ -1488,7 +1584,7 @@ def test_gate_passes_when_every_survivor_is_baselined(tmp_path, monkeypatch, cap
     a = "research_vault/a.py"
     _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 33, SIZE_1: 0})
     _fake_measurement(root, monkeypatch)
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     baseline_path = _argv_gate(monkeypatch, root)
     baseline_path.write_text(
         KEY_ADD_1.replace(MODULE, a) + "\n" + KEY_SIZE_1.replace(MODULE, a) + "\n",
@@ -1508,7 +1604,7 @@ def test_gate_fails_when_a_module_errors(tmp_path, monkeypatch, capsys):
     a = "research_vault/a.py"
     monkeypatch.setattr(mutation_gate, "ROOT", root)
     monkeypatch.setattr(mutation_gate, "_run_mutmut", lambda *_args, **_kwargs: ("", 1))
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     _argv_gate(monkeypatch, root)
 
     assert mutation_gate.main() == 1
@@ -1531,10 +1627,6 @@ OVER_BUDGET = (
     "[gate] not measured: {count} mutants across {modules} "
     "exceed the CI budget of {budget}; run the gate locally"
 )
-
-
-def _fail_if_called(*_args, **_kwargs):
-    raise AssertionError("must not be called")
 
 
 def test_count_mutants_is_mutmuts_own_generation_run_in_memory(tmp_path):
@@ -1599,7 +1691,7 @@ def test_a_git_or_parse_failure_is_the_gates_abort_line_in_gate_mode(
     monkeypatch.setattr(mutation_gate, "_run_mutmut", _fail_if_called)
     monkeypatch.setattr(mutation_gate, "baseline_keys", _fail_if_called)
 
-    def unresolved(base):
+    def unresolved(base, **_):
         raise mutation_gate.GitCommandError(
             f"`git diff --name-only --relative {base}...HEAD -- research_vault/*.py` "
             "exited 128: fatal: bad revision"
@@ -1616,7 +1708,7 @@ def test_a_git_or_parse_failure_is_the_gates_abort_line_in_gate_mode(
     ]
 
     (root / a).write_text("def add(a, b:\n    return a + b\n", encoding="utf-8")
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     _argv_gate(monkeypatch, root, max_mutants=3)
     assert mutation_gate.main() == 1
     (line,) = capsys.readouterr().out.splitlines()
@@ -1640,7 +1732,7 @@ def test_gate_reads_an_oversize_diff_as_unmeasured_without_launching_mutmut(
     calls = _record_runs(monkeypatch)
     monkeypatch.setattr(mutation_gate, "_run_mutmut", _fail_if_called)
     monkeypatch.setattr(mutation_gate, "new_survivors", _fail_if_called)
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a, b])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a, b])
     _argv_gate(monkeypatch, root, max_mutants=3)
 
     assert mutation_gate.main() == 0
@@ -1663,7 +1755,7 @@ def test_gate_measures_a_diff_within_the_budget(tmp_path, monkeypatch, capsys):
     _fake_module(root, a, {ADD_1: 0, SIZE_1: 0})
     calls: list[str] = []
     _fake_measurement(root, monkeypatch, calls)
-    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base: [a])
+    monkeypatch.setattr(mutation_gate, "changed_modules", lambda base, **_: [a])
     baseline_path = _argv_gate(monkeypatch, root, max_mutants=2)
     baseline_path.write_text(
         KEY_ADD_1.replace(MODULE, a) + "\n" + KEY_SIZE_1.replace(MODULE, a) + "\n",
