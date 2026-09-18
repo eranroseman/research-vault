@@ -6,7 +6,6 @@ regenerated whole at the end of the run; NOOP is a result.
 """
 
 import datetime
-import json
 import os
 import time
 from collections.abc import Mapping
@@ -22,6 +21,12 @@ from . import (
     literature_notes,
     okf,
     stamp,
+)
+from .keystore import (  # noqa: F401 -- re-exported for the tests' patch targets
+    KEY_STORE,
+    _forget_key,
+    _load_key,
+    _store_key,
 )
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
@@ -546,7 +551,6 @@ def capture(
     return outcomes
 
 
-KEY_STORE = ".research-vault/zotero-keys.json"
 _ITEM_FIELDS = frozenset(literature_notes.SNAPSHOT_FIELDS) | {"collections"}
 
 
@@ -565,31 +569,6 @@ def _validate_items(items) -> str | None:
             if list_field in item and not isinstance(item[list_field], list):
                 return f"item {index}: {list_field} must be a list"
     return None
-
-
-def _load_key(vault: Path, server_id: str) -> str | None:
-    path = vault / KEY_STORE
-    try:
-        return json.loads(path.read_text(encoding="utf-8")).get(server_id)
-    except (OSError, ValueError, AttributeError):
-        return None
-
-
-def _store_key(vault: Path, server_id: str, key: str) -> None:
-    path = vault / KEY_STORE
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        current = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        current = {}
-    if not isinstance(current, dict):
-        current = {}
-    current[server_id] = key
-    # Created 0600 before any byte lands: write_text then chmod would leave the
-    # key at the umask default for the instant between them (row 47).
-    path.touch(mode=0o600, exist_ok=True)
-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
-    path.chmod(0o600)
 
 
 def add(
@@ -645,6 +624,7 @@ def add(
             if isinstance(error, ApiKeyRejectedError) and attempt == 1:
                 key = None
                 client.api_key = None
+                _forget_key(vault, client.server_id)
                 continue
             return [lifecycle.blocked(CHECK, "add", error)]
     successful = envelope.get("successful")

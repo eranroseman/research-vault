@@ -489,3 +489,36 @@ def test_add_posts_each_item_whole_names_every_created_key_and_captures_at_now(
     )
     assert data["accessed"] == "2026-09-07"
     assert data["generated"]["at"] == "2026-09-07T10:00:00Z"
+
+
+def test_a_401_forgets_the_rejected_key_before_the_re_grant(tmp_vault, monkeypatch):
+    """Row 47(b): the rejected server id's entry is deleted before the dialog
+    re-opens, so a re-grant with `remember: false` leaves no stale key in the
+    store to be rejected again on the next run."""
+    fake, client = _fake_for_add(monkeypatch)
+    store = tmp_vault / ".research-vault" / "zotero-keys.json"
+    store.parent.mkdir(parents=True, exist_ok=True)
+    store.write_text(json.dumps({"6LpvURP2E933": "stale" * 8}))
+    real_http = fake._http
+    rejected_once = {"done": False}
+
+    def flaky(url, data=None, headers=None, method=None, *, timeout=None):
+        if (
+            url.endswith("/api/users/0/items")
+            and method == "POST"
+            and not rejected_once["done"]
+        ):
+            rejected_once["done"] = True
+            fake.calls.append(("POST", "/api/users/0/items", dict(headers or {})))
+            return zotero.Response(401, b"", {})
+        return real_http(
+            url, data=data, headers=headers, method=method, timeout=timeout
+        )
+
+    monkeypatch.setattr(client, "_http", flaky)
+    fake.post("/api/local/authorize", body={"key": "k" * 32, "remember": False})
+
+    outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
+
+    assert outcomes[0].reason.startswith("matched — created")
+    assert json.loads(store.read_text()) == {}
