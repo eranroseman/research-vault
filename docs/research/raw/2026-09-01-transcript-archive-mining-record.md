@@ -5,23 +5,23 @@ Disposition: historical (2026-09-06)
 **Status (2026-09-01):** MINED — DISCARDED. The one-time transcript export tracked (post-sweep,
 2026-08-30) at `docs/research/raw/research-vault-transcripts/` was mined per
 [#68](https://github.com/eranroseman/knowledge-harness/issues/68) and deleted in the same commit
-that added this record. Authentic pre-sweep bytes remain retrievable at commit `e900dfa` (path
+that added this record. Authentic pre-sweep bytes remain retrievable at commit `7cacace` (path
 `research/raw/knowledge-harness-transcripts/`); they hash-match the
 [fixity manifest](2026-08-25-transcript-archive-manifest.md) 63/63.
 
 What this record is: the durable replacement for the discarded raw export. Every finding below
 carries provenance (session file id + UTC message timestamp, resolvable against the authentic
-bytes at `e900dfa`); the instruments are named so the mining is checkable; the disposition
+bytes at `7cacace`); the instruments are named so the mining is checkable; the disposition
 states exactly what was deleted and what survives where. What it is not: a transcript dump.
 The early-turn detail of the four compaction-capped main-session files survives only as the
 compaction summaries; nothing here re-quotes beyond what those held.
 
 ## Instruments
 
-- **Authentic bytes.** The export landed 2026-08-25 in `e900dfa` ("the project's process lab
+- **Authentic bytes.** The export landed 2026-08-25 in `7cacace` ("the project's process lab
   notebook, preserved per the standing recommendation"). The tracked HEAD copies were rewritten
-  by the knowledge-harness → research-vault sweep (`da637c9`, 2026-08-30) under the
-  renames-sweep ruling (docs/terminology.md §1, #87). Mining used the `e900dfa` blobs — the
+  by the knowledge-harness → research-vault sweep (`4f07dab`, 2026-08-30) under the
+  renames-sweep ruling (docs/terminology.md §1, #87). Mining used the `7cacace` blobs — the
   bytes the manifest authenticates — not HEAD's.
 - **Extraction.** Per file: user-side messages only — human text, typed slash commands,
   cross-session relays, compaction handoffs — each with its timestamp; tool results, IDE/task
@@ -133,22 +133,22 @@ machine sessions are the review-request queue's own sessions, listed in the tabl
 ## Instrument findings (about the archive itself)
 
 - **A1 — the sweep invalidated the fixity manifest at HEAD (correction, manifest).** The
-  renames-sweep ruling (#87: "renames sweep the historical record") executed by #90 (`da637c9`)
+  renames-sweep ruling (#87: "renames sweep the historical record") executed by #90 (`4f07dab`)
   rewrote the transcripts' message text in place — long-form names only: `2e6f1385` had 23,485
-  `knowledge-harness` occurrences at `e900dfa`, 814 at HEAD, while `kh` short forms were
-  untouched (2,536 = 2,536). 57 of 63 manifest hashes therefore authenticate only the `e900dfa`
+  `knowledge-harness` occurrences at `7cacace`, 814 at HEAD, while `kh` short forms were
+  untouched (2,536 = 2,536). 57 of 63 manifest hashes therefore authenticate only the `7cacace`
   bytes; the 6 that still match had no message-text targets (their tool-result payloads kept
   the era's remote URL verbatim, e.g. `e322c366`'s push stdout). The manifest — whose stated
   role is "process claims cite a transcript by session id + SHA-256" — was never re-baselined.
-  Consequence adopted: hash-citations resolve against `e900dfa`; the manifest header now says
+  Consequence adopted: hash-citations resolve against `7cacace`; the manifest header now says
   so. A fixity manifest is a measurement; rewriting its measured object invalidates the
   measurement, whatever the sweep ruling says about the records themselves. If a future record
   needs byte-proof authenticity (ADR 0002's domain), exclusion from sweeps is part of its
   design.
 - **A2 — "Source snapshot commit: e45c976" does not resolve in this repository** (checked
   `git fetch origin` then `git cat-file -t e45c976`: no object with that prefix exists in any
-  local ref; the export landed at `e900dfa`, parent `cca397a`). Most plausibly a commit in the
-  discarded external clone, gone with it. The manifest's snapshot anchor is now `e900dfa`.
+  local ref; the export landed at `7cacace`, parent `c47d031`). Most plausibly a commit in the
+  discarded external clone, gone with it. The manifest's snapshot anchor is now `7cacace`.
 - **A3 — 15 of the 63 files are machine sessions.** Hook/SDK-spawned security-review sessions
   (the "Review this change for security vulnerabilities… Investigate per the method in your
   instructions" prompt, `promptSource: sdk`, `entrypoint: sdk-py`). Zero human turns; they
@@ -174,7 +174,7 @@ are grouped by durable home below; every one carries provenance.
     relitigate settled design to save a sentence; excuse everything and the exception list
     becomes the system"). Three instances in one day, one per direction.
     Provenance: `2e6f1385` @ 2026-08-24T16:50:34Z, @ 16:58:11Z (of: `b1fcd241`/`f5219270`
-    lineage files at `e900dfa`).
+    lineage files at `7cacace`).
 02. **`R` The correction-vs-decision test.** "Would this decision exist if the agent had simply
     done the obvious thing? If not, it is a correction, not a decision." Killed a five-ADR slate
     ("an agent proposed 170 confirmations, you said no, the agent wrote the correction into the
@@ -205,10 +205,10 @@ are grouped by durable home below; every one carries provenance.
     Provenance: `b1fcd241` @ 2026-08-22T19:33:27Z; `b1fcd241` @ 2026-08-23T19:52:38Z.
 07. **`M` The filter-repo history purge (2026-08-23) — the largest unrecorded event.** All
     draft ADRs (`docs/adr/0004-*`–`0008-*`) purged from history with git filter-repo and
-    force-pushed; hashes changed `ab31984` → `25c2b23`; the stale-clone hazard and the recovery
+    force-pushed; hashes changed `ab31984` → `cdc3175`; the stale-clone hazard and the recovery
     protocol (rebase `--onto`, purged-path grep must print nothing, ff-only push, old
     merge/pull forbidden) were written as a ruling. The banked reconstruction records only
-    "three proposed ADRs scrapped" (5ad05a0); none of the mechanics is in it. Predates the
+    "three proposed ADRs scrapped" (b88c263); none of the mechanics is in it. Predates the
     record-immutability gate work (#28) without being reconciled with it.
     Provenance: `b1fcd241`/`f5219270` @ 2026-08-23T20:22:38Z, @ 20:26:32Z; `f5219270` @
     2026-08-23T20:42:41Z.
@@ -449,11 +449,11 @@ are grouped by durable home below; every one carries provenance.
 
 - Deleted at HEAD: `docs/research/raw/research-vault-transcripts/` — all 63 session files and
   its README. This record replaces it.
-- Survives: authentic bytes at `e900dfa` (git history of this private repo); the fixity
+- Survives: authentic bytes at `7cacace` (git history of this private repo); the fixity
   manifest (updated header below) as the citable inventory of what the archive was; this record
   as the durable home of the mine's output.
 - The redundant external clone at `~/knowledge-harness-transcripts` was verified absent
   (2026-09-01 filesystem sweep: `~/`, `/mnt/c` to depth 3, all of `/home/eranr`).
-- Raw export bytes remain reachable in git history at `e900dfa`; deletion at HEAD removes them
+- Raw export bytes remain reachable in git history at `7cacace`; deletion at HEAD removes them
   from the working tree and from any future clone of the current repo state. That is the
   intended meaning of "discard" here.

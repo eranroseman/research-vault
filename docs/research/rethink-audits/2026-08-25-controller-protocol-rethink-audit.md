@@ -10,7 +10,7 @@ prior-art file) with a live LangGraph spot-check finding no counterexample — t
 per-instance human approval, not a standing grant, so the delegation rule's ahead-of-documented-
 practice claim stands. One nuance: the audit's MARCH table row omits the prior-art file's
 "topology differs" caveat (maker→isolated-checker vs disputant→arbiter), which the fuller
-citation carries. Migrate steps 1/3/4 executed same day on the material note (d8211b3); step 5
+citation carries. Migrate steps 1/3/4 executed same day on the material note (fd2571d); step 5
 rides ADR 0005; step 2 holds by design.
 
 Clean-slate design audit of [docs/research/validation-slice/2026-08-25-controller-protocol-material.md](../../research/validation-slice/2026-08-25-controller-protocol-material.md), the banked record of the improvised protocol a controller session used to coordinate four peer sessions sharing one git checkout. This note is itself the fix for gap D of [docs/research/rethink-audits/2026-08-25-coding-companion-plugin-layering-rethink-audit.md](2026-08-25-coding-companion-plugin-layering-rethink-audit.md) ("controller seat ungoverned"), produced by that audit's migrate step 4. Method: rethink-audit (requires → prior-art → design → gap → migrate → trade-offs). Prior-art sourcing: [docs/research/prior-art/2026-08-25-controller-orchestration-layer-prior-art.md](../prior-art/2026-08-25-controller-orchestration-layer-prior-art.md).

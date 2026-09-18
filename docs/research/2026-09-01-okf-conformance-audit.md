@@ -359,7 +359,7 @@ Three finder agents reported ADR 0001's spec pointer
 Verified 2026-09-01: the URL returns HTTP 200, and the file is byte-identical to
 `open-knowledge-format/SPEC.md` (both 37748 bytes, `diff` clean). The spec now also has its
 own dedicated repository, and the ADR's pointer named a mirror inside a product repo — worth
-updating for clarity, but it resolved. (Updated after this audit, in `c98372b`/`1e84b7c`; the
+updating for clarity, but it resolved. (Updated after this audit, in `9f30b5b`/`3338502`; the
 paragraph above evaluates the pre-fix text.) The only real gap is the missing commit pin (D5).
 
 Also cleared: non-adoption of §10 is not a §11 violation; claim-link wikilinks are conformant;

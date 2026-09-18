@@ -47,7 +47,7 @@ jobs:
       # downloaded binaries (these two and actionlint below) are digest-checked.
       # Every tool in this lane is pinned exact, but only the downloads carry a
       # digest: the pip-installed tools are version pins, and actions/* are major
-      # tags (commit d402858's subject, "every tool pinned and digest-checked",
+      # tags (commit 9436426's subject, "every tool pinned and digest-checked",
       # overstated this; the subject is history, this comment is the record).
       # The runner image's own shellcheck floats with the image (0.9.0 on 24.04,
       # 0.11.x on 26.04), so it is never used; /usr/local/bin precedes it on PATH
@@ -81,7 +81,7 @@ jobs:
       - name: Tests + branch coverage
         run: python -m pytest tests -q -n auto --dist worksteal --cov=research_vault
           --cov-branch --cov-report=lcov:lcov.info
-      # The ceiling is 30 and stays 30 (986086e). The two functions that sat
+      # The ceiling is 30 and stays 30 (9fadfcb). The two functions that sat
       # above it — `_bump_generated` (archive.py) and `check_metadata`
       # (checks.py) — were deleted by the ingest redesign (2026-09), so the
       # dated deferral decision 21 carried is closed and this step fails the

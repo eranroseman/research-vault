@@ -4,11 +4,11 @@
 
 **Criterion (the operator's, 2026-09-16, narrowed the same day):** delete or update a file only if it asserts, as current, something the tree contradicts, or if its whole subject is gone. Being historical is not by itself a reason. Where a small edit removes the only contradiction, the edit is the action; where the contradiction runs through a document, the document is rewritten in place.
 
-**Method:** two read-only surveys over main at 6ba5585 — every record file under `docs/` and `.out-of-scope/` (104 files) classified, then re-classified under the narrowed criterion; every current-state surface (README, CONTEXT, AGENTS, ATTRIBUTION, `docs/agents`, `docs/adr`, terminology, testing, the skills, the templates, the plugin manifests, config comments, module docstrings) read for retired names, dangling paths and false statements. Every path and line below was verified against the tree on 2026-09-16; line numbers move with Part B's merge.
+**Method:** two read-only surveys over main at b7a2573 — every record file under `docs/` and `.out-of-scope/` (104 files) classified, then re-classified under the narrowed criterion; every current-state surface (README, CONTEXT, AGENTS, ATTRIBUTION, `docs/agents`, `docs/adr`, terminology, testing, the skills, the templates, the plugin manifests, config comments, module docstrings) read for retired names, dangling paths and false statements. Every path and line below was verified against the tree on 2026-09-16; line numbers move with Part B's merge.
 
 **Order:** after Part B merges. Pointers are repaired before the three files they point at are deleted.
 
-**Executed 2026-09-16** (main through `4df5e95`): A, B, C2, C3 and E as listed, with the operator's amendments recorded under D; C1 became the retirement of the foundation specification itself. Section E's three mechanisms are `tests/test_current_state.py`.
+**Executed 2026-09-16** (main through `aa75c42`): A, B, C2, C3 and E as listed, with the operator's amendments recorded under D; C1 became the retirement of the foundation specification itself. Section E's three mechanisms are `tests/test_current_state.py`.
 
 ______________________________________________________________________
 
@@ -16,8 +16,8 @@ ______________________________________________________________________
 
 Three files. Each documents a mechanism that no longer exists in any form.
 
-1. `docs/superpowers/plans/2026-09-05-status-marking-pass.md` — the plan for the `Disposition:` marker system, deleted at `7ec2c95` with `docs/document-dispositions.tsv`. Its own header reads `Disposition: current (%(date)s)`, an unexpanded placeholder asserting currency for a system that is gone. Citers (historical, links go dangling): `docs/2026-08-31-proposed-adr-and-context-changes.md`, `docs/research/harness-audits/2026-08-30-installed-asset-disposition-survey.md` — see D2.
-2. `docs/superpowers/specs/2026-08-16-foundation-spec-mutate4py-defects-evidence.md` — defect evidence for mutate4py, retired at `a1347dd`; the exclusion list it documents is closed and every module is baselined over mutmut. Before it goes: D1 (#67 holds its drafts). Citers to repoint: `2026-08-16-foundation-spec.md:171` (rewritten in C1 anyway), `2026-09-13-plan-w-quality-tail-results.md` ("Upstream reports queued"), issue #67.
+1. `docs/superpowers/plans/2026-09-05-status-marking-pass.md` — the plan for the `Disposition:` marker system, deleted at `64b8c0b` with `docs/document-dispositions.tsv`. Its own header reads `Disposition: current (%(date)s)`, an unexpanded placeholder asserting currency for a system that is gone. Citers (historical, links go dangling): `docs/2026-08-31-proposed-adr-and-context-changes.md`, `docs/research/harness-audits/2026-08-30-installed-asset-disposition-survey.md` — see D2.
+2. `docs/superpowers/specs/2026-08-16-foundation-spec-mutate4py-defects-evidence.md` — defect evidence for mutate4py, retired at `5e1e105`; the exclusion list it documents is closed and every module is baselined over mutmut. Before it goes: D1 (#67 holds its drafts). Citers to repoint: `2026-08-16-foundation-spec.md:171` (rewritten in C1 anyway), `2026-09-13-plan-w-quality-tail-results.md` ("Upstream reports queued"), issue #67.
 3. `docs/superpowers/specs/2026-09-06-import-redesign-part-a-mutation-survivors.md` — a mutate4py run pinned to one sha; the survivor set was re-measured over mutmut into `mutation-baseline.txt`. Citer to repoint: `2026-09-06-import-redesign-part-a-results.md`.
 
 Everything else surveyed stays: 95 files are true records (dated, framed as such), and their `Disposition: historical (2026-09-06)` headers are true statements.
@@ -40,7 +40,7 @@ Only rows where the text asserts something the tree contradicts. True dated narr
 
 **Dangling paths (a reader hits a missing file today)**
 
-- `README.md:117` links `docs/research/harness-audits/dev-harness-analysis.md`, deleted at `ec77cb0`.
+- `README.md:117` links `docs/research/harness-audits/dev-harness-analysis.md`, deleted at `1f64d06`.
 - `AGENTS.md:16–18` names `config/public-marketplace.json` (no `config/` directory) and says a contributor checkout "has no marketplace catalog" while `.claude-plugin/marketplace.json` is tracked; state the actual release mechanism.
 - `skills/synthesis-conventions/SKILL.md:26` routes through `system/templates/synthesis.md` (does not exist) — Part B Task 3 rewrote this skill; confirm after merge.
 - `pyproject.toml:37–39` instructs a check of `%%rv-managed%%` markers in `system/templates/literature.md`: the markers are retired and the file does not exist.
@@ -83,8 +83,8 @@ Each spec stays; its dated amendments and superseding rows are true records and 
 
 ### C2. `2026-09-05-assembly-design.md`
 
-- `:32, :415, :427` "ADRs 0004 and 0005 carry `Status: suspended`" — deleted at `c26cd34`; `docs/adr/` holds 0001–0003.
-- `:80, :606` `docs/document-dispositions.tsv` "a reviewed artifact" — deleted at `7ec2c95`; `:78` (decision 15) against `:80` ("the artifact is untouched") — one sentence: the artifact is gone.
+- `:32, :415, :427` "ADRs 0004 and 0005 carry `Status: suspended`" — deleted at `b3ed645`; `docs/adr/` holds 0001–0003.
+- `:80, :606` `docs/document-dispositions.tsv` "a reviewed artifact" — deleted at `64b8c0b`; `:78` (decision 15) against `:80` ("the artifact is untouched") — one sentence: the artifact is gone.
 - §10 (`:415–:444`) specifies the `Disposition:` marker grammar, its `pending-issue:` value and its linter — the system is deleted; the section becomes one dated sentence recording that it ran and was removed, or goes.
 - §15 items that are closed but still listed as open items (01, 06, 14) — strike or mark closed; the rest stay as written.
 

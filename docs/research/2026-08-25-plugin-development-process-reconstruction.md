@@ -4,9 +4,9 @@ Disposition: historical (2026-09-06)
 
 **Verified (2026-08-25):** two independent passes. (1) Citation verification: every in-scope
 artifact claim re-derived fresh — scale numbers exact at the note's snapshot (658 commits at
-0abec75; drift since is the note's own commits), all eight commit spot-checks and all six
+67fb428; drift since is the note's own commits), all eight commit spot-checks and all six
 verbatim quotes character-confirmed, the wayfinder structure confirmed, and both anomalies
-resolved (Plan Q landed by fast-forward, no merge commit exists; the 094121b date inversion is a
+resolved (Plan Q landed by fast-forward, no merge commit exists; the c15d49e date inversion is a
 UTC-vs-−0500 rendering artifact — the commit followed issue #16 by 3m33s). (2) Seat-bias peer
 review by the batch implementer session, folded throughout: three narrative corrections, ten
 execution-seat inventions (ledger 17–26), and two transcript-side claims amended.
@@ -26,25 +26,25 @@ testimony with its measurements scoped inline.
   feature commits five to one, which is the docs-first culture measured, not asserted.
 - 25 issues (#1–#15 the wayfinder foundation map and its tickets, all closed 08-16 era; #16–#25
   triage- and batch-born, open). 19 plan documents ever, 4 extant — 14 deleted in one
-  sweep after absorption (553ae6f), one folded into Plan Q earlier (308dd01). 62 research files. 4 accepted ADRs. Spec: 211 lines, ~7.5k words. Test suite: 24
+  sweep after absorption (ea697fc), one folded into Plan Q earlier (3aaf18c). 62 research files. 4 accepted ADRs. Spec: 211 lines, ~7.5k words. Test suite: 24
   gated live tests at slice Phase 0 → 1,454 (08-22) → ~1,747 collected at HEAD.
 
 ## The arc, in nine phases
 
 1. **Wayfinder mapping + prior-art sweep (08-16).** Issue #1 (`wayfinder:map`) with a
    decisions-so-far ledger; #2–#6 research tickets resolved by fan-out (fd64536); raw exploration
-   banked under docs/research/ including manually recovered + OCR'd primaries (3719086, 96742a2).
+   banked under docs/research/ including manually recovered + OCR'd primaries (4847b80, d5b6d39).
 2. **Decision tickets → spec → adversarial verification (08-16).** #7–#14 grilling tickets became
    spec sections that cite them inline ("## 3. Vault structure ([#7])"); the spec shipped only
    after "two adversarial verification passes (44 findings resolved) and a seven-domain rethink
-   audit (85 findings; three trust-boundary defects fixed)" — its own Status line (e04db28,
-   de4ec5f, approved 5211ebf).
+   audit (85 findings; three trust-boundary defects fixed)" — its own Status line (04df2cb,
+   b71e27d, approved 81a02e4).
 3. **Build plans A/B/C (08-16 → 08-21).** Bridge core ("12 findings fixed, live-probed"),
    verification engine ("30 verification findings fixed"), scaffold + enforcement ("23 findings
    fixed") — every plan carries its own counted adversarial pass, and execution is punctuated by
-   `ruling:` commits and build-time spec corrections (bd71121).
+   `ruling:` commits and build-time spec corrections (bfaee96).
 4. **ADRs + terminology wave (08-20 → 08-21).** ADR 0001 iterated across seven commits before
-   0002/0003 joined it (65697ed); the eight-tier terminology precedence stack ruled and executed
+   0002/0003 joined it (19122f6); the eight-tier terminology precedence stack ruled and executed
    as Plan T; CONTEXT.md created by a plan task, not ad hoc.
 5. **Quality lane (08-20 → 08-23).** Plan Q: pinned tools, ruff+mypy, mdformat, the mutation
    gate script, advisory CI. docs/testing.md born here.
@@ -56,18 +56,18 @@ testimony with its measurements scoped inline.
    adversarially verified by a fresh agent instructed to refute — 21 confirmed, 18 refuted");
    decision rules pre-registered before their evidence window opens; trust-core remediation
    absorbed into one combined pre-slice plan so a single merge unblocks Phases 2–6.
-8. **Pre-slice batch (08-23 → 08-25; first batch commit 002cb25 is author-dated 08-23).** 26
+8. **Pre-slice batch (08-23 → 08-25; first batch commit d301bdd is author-dated 08-23).** 26
    tasks, 58KB plan, controller/implementer/reviewer topology, per-task review + fix rounds —
    not an exception but the norm: **10 of 26 task-closes record at least one fix round** (six
    took one, two took two, two took three; peer-counted from the ledger). One boundary SHA-walk
-   at the Part 1/2 boundary (ca0281d; the pre-merge walk did not run and the post-merge walk is
+   at the Part 1/2 boundary (6e871d9; the pre-merge walk did not run and the post-merge walk is
    owed), an independent plan review, a concern-disposition sweep, ADR 0004 accepted, issues
    #16–#25 filed. What was hard, from the execution seat: plan text drifting from the tree
    (stale line numbers, a brief naming a nonexistent test file, a two-day-stale brief, a
    falsified premise that was true for an unchecked field), claims outrunning evidence in both
    directions, and three seats coordinating without ever seeing the same artifact. The
    highest-leverage single activity was the controller pre-check (ledger item 17). Plan W split
-   out so the batch header's single-dispatch claim "becomes true again" (f6b7788).
+   out so the batch header's single-dispatch claim "becomes true again" (6f39721).
 9. **Present (08-25).** Batch complete 112/112, acceptance sweep clean, merged; method
    retrospective committed and visibly amended; slice Phases 2–6 unblocked, not yet run; Plan W
    pending.
@@ -86,7 +86,7 @@ Each mechanism with its first-appearance artifact — the reusable part.
     pass's numbers in the commit or Status line (44+85 for the spec; 12/30/23/19 for plans A–D).
 04. **The ADR bar** — "only ADRs carry constitutional weight (the domain-modeling three-test bar
     decides)"; enforced negatively too: three proposed ADRs scrapped, one landed "as sentences
-    where they are read, not as ADRs" (5ad05a0, d7fa91b).
+    where they are read, not as ADRs" (b88c263, cbc2602).
 05. **Pre-registered decision rules + instrument freeze** — rules registered before evidence
     exists, registry closes when the window opens, "a rule recommends; it never acts"
     (slice-decision-rules.md); instruments merge before the slice runs (plan-s:8).
@@ -106,7 +106,7 @@ Each mechanism with its first-appearance artifact — the reusable part.
     measurement gap" expected to shrink, not a suppression list; tool defects documented and
     queued upstream; replacement (mutmut) adopted only on a pre-registered pilot's data.
 11. **Governed vocabulary with parity tests** — the reason-code registry enumerated in
-    terminology.md with a test asserting doc/code parity (b209fbc).
+    terminology.md with a test asserting doc/code parity (a59c42c).
 12. **Four-state truth constitutionalized** — in code on day one, ADR 0002 four days later ("an
     outage is never an accusation; only a genuine pass mints a verification record").
 13. **Terminology cost model** — rename churn priced at zero; eight-tier anchor-source
@@ -143,7 +143,7 @@ Ten inventions the controller-side ledger missed, counted from the implementer's
 22. **Destination-per-concern at write time** — an honest decline is a disposition; silence is
     not.
 23. **Correct-forward over amend for reviewed commits** — including commit messages that made
-    false claims (a3db464, 2393658 precedents).
+    false claims (498df69, 0372e9b precedents).
 24. **The seat holding the consent context performs the consented act** — Task 13's live-vault
     write stayed with the controller because a delegate would re-derive the safety context or
     act without it.
@@ -203,7 +203,7 @@ so recorded separately from the cited sections above.
    citations, and no fixity or archive discipline exists for them. If research-vault-as-paper is live,
    transcript preservation is a decision with a clock on it (export key sessions into
    `docs/research/raw/` or `sources/`; small cost, shrinking window). Partial counter-example that
-   strengthens the point: the batch's SDD ledger (progress.md, committed at 95a81b3) IS a
+   strengthens the point: the batch's SDD ledger (progress.md, committed at a2004eb) IS a
    preserved partial transcript — rulings with derivations, errors included — and served as the
    recovery map across a context compaction. The one place preservation was done, it worked;
    it exists because a skill happened to prescribe it, not because preservation was decided.

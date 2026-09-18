@@ -141,7 +141,7 @@ Spaced em dashes, semicolons, parentheticals, formal non-contracted phrasing, an
 
 This is not noise to be tuned away. It is a second naming authority installed beside the one the project spent its terminology pass ruling.
 
-**True positives, in full:** `PKM` unexpanded in `README.md` line 3, defined nowhere a reader reaches — real, and fixed in commit `3244371` by spelling it out rather than glossing it (used once, it earns no abbreviation). `Google.Timeless` on "currently" in the vault glossary (2 hits) — arguably real for prose meant to outlive a version. `TOML` flagged as an undefined acronym — false, it is standard in a developer section. **Yield: one to three findings across ~11.4k words**, obtainable by reading a 165-word README once.
+**True positives, in full:** `PKM` unexpanded in `README.md` line 3, defined nowhere a reader reaches — real, and fixed in commit `13ae22d` by spelling it out rather than glossing it (used once, it earns no abbreviation). `Google.Timeless` on "currently" in the vault glossary (2 hits) — arguably real for prose meant to outlive a version. `TOML` flagged as an undefined acronym — false, it is standard in a developer section. **Yield: one to three findings across ~11.4k words**, obtainable by reading a 165-word README once.
 
 **Neither existing trigger fires.** "User-facing" changes the *reader*, not the *writer*. Vale sits in the authoring pipeline, and the writers here are still agents — the same fact that sank the LSP argument in §6. A human reading the output does not put a human at the keyboard.
 

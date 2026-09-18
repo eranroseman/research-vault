@@ -12,11 +12,11 @@ Source snapshot commit: e45c976
 
 **Amended 2026-09-01 (#68 mining).** The export was mined and deleted at HEAD; this manifest is
 the citable inventory of what the archive was. The SHA-256 column authenticates the **pre-sweep
-bytes**, preserved at commit `e900dfa` (`git show e900dfa:research/raw/knowledge-harness-transcripts/<file>`);
+bytes**, preserved at commit `7cacace` (`git show 7cacace:research/raw/knowledge-harness-transcripts/<file>`);
 all 63 rows match those blobs. The tracked HEAD copies were message-text-rewritten by the #90
-rename sweep (da637c9, per the #87 renames-sweep ruling), so 57 of 63 no longer hash-match at
+rename sweep (4f07dab, per the #87 renames-sweep ruling), so 57 of 63 no longer hash-match at
 HEAD. `e45c976` does not resolve in this repository (checked after `git fetch origin`; it most
-plausibly lived in the discarded external clone); `e900dfa` is the surviving anchor. Mining
+plausibly lived in the discarded external clone); `7cacace` is the surviving anchor. Mining
 output and disposition: `2026-09-01-transcript-archive-mining-record.md`.
 
 | session file                                 | sha256                                                             | bytes    |

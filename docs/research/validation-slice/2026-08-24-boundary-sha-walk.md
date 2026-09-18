@@ -3,35 +3,35 @@
 Disposition: historical (2026-09-06)
 
 Independent reviewer, read-only pass, 2026-08-24. Re-run of the coverage walk commissioned at
-`0ea7fc7`, now that the boundary merge has landed. Measured at `fix/pre-slice-batch` tip
-`32acfe2`, against `origin/main` at `0ea7fc7`. Baseline to beat: **22 commits / 4 uncovered**
-at `ebea360`. Method as before — resolve every SHA the ledger names, walk the claimed ranges in
+`bd64dcb`, now that the boundary merge has landed. Measured at `fix/pre-slice-batch` tip
+`8ed31c5`, against `origin/main` at `bd64dcb`. Baseline to beat: **22 commits / 4 uncovered**
+at `1ed029c`. Method as before — resolve every SHA the ledger names, walk the claimed ranges in
 code, diff the covered set against the branch-authored set. Nothing was modified.
 
 ## Result: 27 / 9 uncovered — not N/0, and the reason is nameable
 
 Every SHA-like token in progress.md still resolves: **56 of 56, zero phantoms.** Twelve
-completion lines, same as at `ebea360` — none were added for the five commits that have landed
+completion lines, same as at `1ed029c` — none were added for the five commits that have landed
 since. The uncovered set splits cleanly in two, and only one half is a gap.
 
 **Structurally uncoverable by a task range (4) — expected, no action:**
 
 | Commit    | Why                                                                                                                           |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `aef25c1` | Controller's Part 3 amendment, later reverted. Already explained in the ledger's own integrity audit as the sole chain break. |
-| `3a6d0cd` | The boundary merge itself. No task range can claim a merge commit.                                                            |
-| `d6c5ccd` | `chore: mdformat Plan W` — form-owner pass.                                                                                   |
-| `32acfe2` | The checkbox backfill. Controller commit.                                                                                     |
+| `7abe69b` | Controller's Part 3 amendment, later reverted. Already explained in the ledger's own integrity audit as the sole chain break. |
+| `f51990c` | The boundary merge itself. No task range can claim a merge commit.                                                            |
+| `d5fa7d2` | `chore: mdformat Plan W` — form-owner pass.                                                                                   |
+| `8ed31c5` | The checkbox backfill. Controller commit.                                                                                     |
 
 **Task work awaiting a completion line (5) — the real gap:**
 
 | Commit    | Owed                                                                             |
 | --------- | -------------------------------------------------------------------------------- |
-| `c418cf7` | Task 2d, landed, review returned NEEDS FIXES.                                    |
-| `eff8d67` | Task 9 addendum. Reviewed and cleared 2026-08-24; line not yet written.          |
-| `ebea360` | Task 4 addendum. Same.                                                           |
-| `2e23c40` | Task 2d's fix round. **Not mentioned in progress.md at all** (`grep` returns 0). |
-| `89fe2fe` | The `oldest_age_days` wiring. **Not mentioned in progress.md at all.**           |
+| `cc8f916` | Task 2d, landed, review returned NEEDS FIXES.                                    |
+| `91dfa70` | Task 9 addendum. Reviewed and cleared 2026-08-24; line not yet written.          |
+| `1ed029c` | Task 4 addendum. Same.                                                           |
+| `efa6b77` | Task 2d's fix round. **Not mentioned in progress.md at all** (`grep` returns 0). |
+| `76c3137` | The `oldest_age_days` wiring. **Not mentioned in progress.md at all.**           |
 
 So the count rose from 4 to 9 because five more commits landed and the ledger did not follow
 them. Two of the five are not merely unclaimed by a range — they are absent from the file. The
@@ -45,8 +45,8 @@ Every claim relayed at the boundary was checked, not accepted.
 
 | Claim                                     | Verdict                                                                                                                                                                                                   |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Merge at `3a6d0cd`, backfill at `32acfe2` | Both resolve. Merge 13:10:43, backfill 13:12:11.                                                                                                                                                          |
-| "38 boxes across the twelve tasks"        | **Exact.** `32acfe2` flips 38 `- [ ]` to `- [x]`; 38 insertions / 38 deletions, one file.                                                                                                                 |
+| Merge at `f51990c`, backfill at `8ed31c5` | Both resolve. Merge 13:10:43, backfill 13:12:11.                                                                                                                                                          |
+| "38 boxes across the twelve tasks"        | **Exact.** `8ed31c5` flips 38 `- [ ]` to `- [x]`; 38 insertions / 38 deletions, one file.                                                                                                                 |
 | "72 remain"                               | **71.** Off by one. Tip reads 71 unchecked / 41 checked (38 flipped + Task 8b's 3 pre-existing = 41). The §3.2 finding is closed either way.                                                              |
 | XML clause corrected                      | **Closed.** `skills/find-sources/SKILL.md:23` now reads "no *external* entity expansion — internal entities do expand, which is the class the next clause hedges". The Important is discharged.           |
 | Task 1's rename survived the merge        | **Confirmed.** `docs/terminology.md:125` carries `project-flow`; no bare `project` skill reference remains. The wholesale-theirs hazard was real and was avoided.                                         |
@@ -61,12 +61,12 @@ while every pin stays green. Carried to the Part 2 boundary for a tool-run check
 
 ## An anomaly worth not mis-blaming later
 
-The offline suite is green at `32acfe2` — **1554 passed, 7 skipped** (port 23119 LISTENING, so
+The offline suite is green at `8ed31c5` — **1554 passed, 7 skipped** (port 23119 LISTENING, so
 live legs ran; not a hermetic result, per the standing caveat). That is **22 fewer collected
-tests than the 1576 measured at `ebea360`**, which reads at a glance like coverage lost across a
+tests than the 1576 measured at `1ed029c`**, which reads at a glance like coverage lost across a
 merge.
 
-It is not. Test *definitions* are unchanged: 823 at `ebea360`, 823 at `32acfe2`. The drop is one
+It is not. Test *definitions* are unchanged: 823 at `1ed029c`, 823 at `8ed31c5`. The drop is one
 parametrized test resizing. `tests/test_config_validity.py:454` parametrizes
 `test_markdown_table_rows_have_no_truncated_code_spans` over `_mdformat_owned_markdown()`, an
 `rglob("*.md")` across `_MDFORMAT_ROOTS = ("README.md", "AGENTS.md", "CONTEXT.md", "docs", "skills")`. Across the merge:
@@ -84,15 +84,15 @@ sits unremarked and gets blamed on something unrelated weeks later.
 
 ## First-pass findings now closed
 
-Measured at `origin/main` `45c5e26` and branch tip `32acfe2`:
+Measured at `origin/main` `6091521` and branch tip `8ed31c5`:
 
-- **§2.1** (Task 2d's confirmed Important) — closed by `2e23c40`: search-log surface added to all
+- **§2.1** (Task 2d's confirmed Important) — closed by `efa6b77`: search-log surface added to all
   three ignore files, prettier/markdownlint patterns anchored.
-- **§2.3** (`oldest_age_days` emitted and unread) — closed by `89fe2fe`, which wires it into
+- **§2.3** (`oldest_age_days` emitted and unread) — closed by `76c3137`, which wires it into
   project-flow and setup-vault reporting.
-- **§3.1** (scope creep) — closed by `f6b7788`, Part 4 split into Plan W.
-- **§3.2** (dead checkbox contract) — closed by `32acfe2`, 38 boxes backfilled.
-- **§3.5** (33 deferred minors routed nowhere) — closed by `45c5e26`: 38 items enumerated into the
+- **§3.1** (scope creep) — closed by `6f39721`, Part 4 split into Plan W.
+- **§3.2** (dead checkbox contract) — closed by `8ed31c5`, 38 boxes backfilled.
+- **§3.5** (33 deferred minors routed nowhere) — closed by `6091521`: 38 items enumerated into the
   polish-pass section of `docs/research/validation-slice/2026-08-22-skills-layer-audit.md`. Verified
   count: 38 numbered entries, matching the 33 from the ledger plus 2 from 2d's review and 3 from
   the addenda review.
@@ -106,5 +106,5 @@ commit has touched.
 
 ## Standing-role note
 
-`research/` stands as written, so this is a new file rather than an edit to `0ea7fc7`'s. The
+`research/` stands as written, so this is a new file rather than an edit to `bd64dcb`'s. The
 next boundary is Part 2's end.

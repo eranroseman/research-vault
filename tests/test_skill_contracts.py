@@ -489,7 +489,7 @@ def test_the_emitted_check_id_scan_finds_the_pipelines_own_ids():
 def test_the_documented_bound_on_the_co_occurrence_anchor_holds():
     """The bound the two docstrings state, made executable.
 
-    It was stated wrongly once — ``de1867d``'s body and docstrings claimed
+    It was stated wrongly once — ``e2ca882``'s body and docstrings claimed
     only a *wholesale* rename escapes — so it is pinned here rather than left
     as prose a later reader has to re-derive. The shape is the two-member run
     the corpus actually ships at ``skills/publish/SKILL.md:37``, which no

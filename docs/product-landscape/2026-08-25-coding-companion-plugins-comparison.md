@@ -29,7 +29,7 @@ came from three instruments and only the third had the scope its claims needed):
 - Full-text pass: all three corpora loaded verbatim into one context — this repo's 9 skills,
   superpowers' 14 plus the SDD dispatch prompts and reviewer templates, mattpocock's promoted set,
   plus the beta `implement-spec` and writing suite.
-- Fit evidence: the post-q pre-slice batch (merged `d9b3acf..4b9f427`), executed end-to-end on
+- Fit evidence: the post-q pre-slice batch (merged `a79c8d9..7871097`), executed end-to-end on
   superpowers SDD with mattpocock triage/domain-modeling running beside it, and this controller
   session's event record.
 - Adversarial pass: a clean-slate rethink audit (requires → prior-art → design → gap → migrate),
@@ -237,7 +237,7 @@ dissolution live in the map's tickets, which are the program's source of truth f
     export was mined (lineage map + 30+ provenance-bearing findings) and deleted at HEAD; the
     redundant external clone was already discarded. Mining record:
     `docs/research/raw/2026-09-01-transcript-archive-mining-record.md`; authentic pre-sweep bytes
-    survive at commit `e900dfa`. This entry now points at that record instead of the archive.
+    survive at commit `7cacace`. This entry now points at that record instead of the archive.
 13. **Workload 2 framed as a methods replication** — the template applied to a different domain
     with divergences recorded is the paper's external-validity evidence, free if framed before
     that build starts.

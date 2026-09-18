@@ -40,7 +40,7 @@ in a report file that nothing reads again." Neither filed. Tracker holds only #1
 A4 should not be filed as a bug. It is a design boundary whose only record is the brief and the
 report, both untracked. Its home is a spec §10 stated-boundary entry — §10.2, *Identity, records,
 and trust model*, in the same register as the human-attestation entry at line 168 (both citations
-re-verified against `origin/main` `4a2a476`, after §10's restructure into six themed subsections).
+re-verified against `origin/main` `c8991d1`, after §10's restructure into six themed subsections).
 
 ### B. Conditional declines recorded only in untracked files (2)
 
@@ -106,8 +106,8 @@ Both from Task 4, both genuine, neither with a home outside the report.
 
 The controller's relay states that this reviewer routed the three 17b round-0 concerns to the
 issue tracker. That is a misattribution, and it matters here because this sweep exists to fix a
-record-keeping failure. This session reviewed the plan and its ledger (`0ea7fc7`), the two
-addenda `eff8d67`/`ebea360`, and re-ran the boundary SHA-walk (`ca0281d`). It did not review Task
+record-keeping failure. This session reviewed the plan and its ledger (`bd64dcb`), the two
+addenda `91dfa70`/`1ed029c`, and re-ran the boundary SHA-walk (`6e871d9`). It did not review Task
 17b. The routing was promised by the **17b task reviewer** — `task-17b-review.md:216-217`, "per
 AGENTS.md this repo tracks work in GitHub Issues; it should be filed, not left as a paragraph in a
 report file that nothing reads again" — and the implementer's report then recorded it as

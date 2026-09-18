@@ -262,7 +262,7 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
             )
         if record.get("review_status") == "active":
             # The tool's own predicate (ledgers.py source_is_stale), so the two never disagree about "stale";
-            # its lint never calls it, so this is the only reporter (spec §7 at ac0cfd2).
+            # its lint never calls it, so this is the only reporter (spec §7 at b555d77).
             due = record.get("refresh_due")
             observed = record.get("retrieved_at") or record.get("ingested_at")
             instant = clock.today(as_of)

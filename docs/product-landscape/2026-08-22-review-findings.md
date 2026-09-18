@@ -71,9 +71,9 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Claim:** §4 states the shipped core carries one pinned runtime dependency (defusedxml, admitted 2026-08-20), but the tree this doc ships on has zero: the claim describes the unmerged Plan-Q worktree, not the project.
 
-**Evidence:** "**one** pinned runtime dependency — `defusedxml`, admitted 2026-08-20" — but pyproject.toml at HEAD (eecff57) has `dependencies = []`, defusedxml is imported nowhere, and checks.py:6 is `import xml.etree.ElementTree`; defusedxml exists only in .claude/worktrees/build+quality-lane (branch build/quality-lane). Repeated at line 1883 ("admitted 2026-0
+**Evidence:** "**one** pinned runtime dependency — `defusedxml`, admitted 2026-08-20" — but pyproject.toml at HEAD (99ef3dc) has `dependencies = []`, defusedxml is imported nowhere, and checks.py:6 is `import xml.etree.ElementTree`; defusedxml exists only in .claude/worktrees/build+quality-lane (branch build/quality-lane). Repeated at line 1883 ("admitted 2026-0
 
-**Verifier:** CONFIRMED. Decisive: §4's own "9,716 lines" matches main at HEAD eecff57 exactly (worktree = 9,824), so the section was measured from main — yet main has pyproject.toml `dependencies = []` and checks.py:6 `import xml.etree.ElementTree`; defusedxml exists only in .claude/worktrees/build+quality-lane (pyproject.toml:22 `defusedxml==0.7.1`, checks.py:765-766 lazy import). Line 1883's "explicit contract-match test" is worktree-only (tests/test_config …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED. Decisive: §4's own "9,716 lines" matches main at HEAD 99ef3dc exactly (worktree = 9,824), so the section was measured from main — yet main has pyproject.toml `dependencies = []` and checks.py:6 `import xml.etree.ElementTree`; defusedxml exists only in .claude/worktrees/build+quality-lane (pyproject.toml:22 `defusedxml==0.7.1`, checks.py:765-766 lazy import). Line 1883's "explicit contract-match test" is worktree-only (tests/test_config …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:128 — HIGH (self-claims)
 
@@ -101,7 +101,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 ### 2026-08-22-product-comparison-verified.md:1909 — HIGH (cross-doc)
 
-**Claim:** The §13 axis table says the core's dependencies are "stdlib only", contradicting §4 line 113 and §12 ("exactly one pinned runtime dependency — defusedxml"), the memoria note line 45, and adoption plan lines 261 ("Our core imports nothing outside the standard library today") and 729 ("Zero-dependency core") — and the tree itself is undecidable from the docs: main's pyproject.toml has dependencies = [] with no defusedxml anywhere in research_vault/, the admission living only on the unmerged quality-lane worktree (commit cced181: "the core is no longer zero-dependency"); the 1,467-test count in §4 likewise matches the worktree (1,470 today), not main (1,330 collected).
+**Claim:** The §13 axis table says the core's dependencies are "stdlib only", contradicting §4 line 113 and §12 ("exactly one pinned runtime dependency — defusedxml"), the memoria note line 45, and adoption plan lines 261 ("Our core imports nothing outside the standard library today") and 729 ("Zero-dependency core") — and the tree itself is undecidable from the docs: main's pyproject.toml has dependencies = [] with no defusedxml anywhere in research_vault/, the admission living only on the unmerged quality-lane worktree (commit bba245d: "the core is no longer zero-dependency"); the 1,467-test count in §4 likewise matches the worktree (1,470 today), not main (1,330 collected).
 
 **Evidence:** "| Dependencies | stdlib only | Node/Python trees, Postgres, embeddings, model providers |" vs line 113 "**one** pinned runtime dependency — `defusedxml`, admitted 2026-08-20"
 
@@ -193,7 +193,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "§2.10 confirms every other enforcement surface needs an operator flag" — this plan's §2.10 is "`_quote_match`, measured"
 
-**Verifier:** CONFIRMED on every cited instance. Plan §3 was moved from assembled-harness-spec §9 (the spec's §9, line 327, is now a stub: "Moved... now live in [the adoption plan] §3"). The mover renumbered internal §9.x refs to §3.x and re-qualified comparison refs (§18.1 -> "§2.1 of the product comparison", per git show be4d83f~1), but left bare references to the assembled spec's own sections, which now mis-resolve inside the plan: line 570 "§2.10" -> plan …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED on every cited instance. Plan §3 was moved from assembled-harness-spec §9 (the spec's §9, line 327, is now a stub: "Moved... now live in [the adoption plan] §3"). The mover renumbered internal §9.x refs to §3.x and re-qualified comparison refs (§18.1 -> "§2.1 of the product comparison", per git show ac8cec0~1), but left bare references to the assembled spec's own sections, which now mis-resolve inside the plan: line 570 "§2.10" -> plan …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-adoption-plan.md:572 — MEDIUM (adoption)
 
@@ -273,7 +273,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** the same conclusion the product comparison reaches in §17.2 by a different route
 
-**Verifier:** Confirmed on every element. (1) product-comparison-verified.md has no §17: headers jump from '## 16' (line 2002) to '## 19' (line 2031). (2) Pre-split commit 4f3b3d8 shows '### 17.2 The build-versus-adopt binary is false...' containing 'build the trust core, adopt the breadth'; split commit be4d83f (23:19) moved it verbatim to adoption-plan.md §1.2 (lines 85-89), and the adoption plan's line 6 states §17/§18 'lived at' the comparison. (3) The spl …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** Confirmed on every element. (1) product-comparison-verified.md has no §17: headers jump from '## 16' (line 2002) to '## 19' (line 2031). (2) Pre-split commit 0e8b42c shows '### 17.2 The build-versus-adopt binary is false...' containing 'build the trust core, adopt the breadth'; split commit ac8cec0 (23:19) moved it verbatim to adoption-plan.md §1.2 (lines 85-89), and the adoption plan's line 6 states §17/§18 'lived at' the comparison. (3) The spl …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-assembled-harness-spec.md:315 — MEDIUM (cross-doc)
 
@@ -337,7 +337,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** The comparison document's §17 concludes "build the trust core, adopt the breadth"
 
-**Verifier:** CONFIRMED. The comparison doc's headers jump from "## 16. Searched and not added" (line 2002) directly to "## 19. Re-running this comparison" (line 2031); grep for any ##/### 17.x or 18.x header returns nothing. Commit be4d83f (2026-08-22 23:19:39, "split the product-landscape notes by lifecycle") explicitly states it "Extracted §17 (positioning verdict) and §18 (vendoring tiers) from the comparison" into the adoption plan and rewrote "seven inbo …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED. The comparison doc's headers jump from "## 16. Searched and not added" (line 2002) directly to "## 19. Re-running this comparison" (line 2031); grep for any ##/### 17.x or 18.x header returns nothing. Commit ac8cec0 (2026-08-22 23:19:39, "split the product-landscape notes by lifecycle") explicitly states it "Extracted §17 (positioning verdict) and §18 (vendoring tiers) from the comparison" into the adoption plan and rewrote "seven inbo …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-memoria-and-research-vault.md:198 — MEDIUM (cross-doc)
 
@@ -353,7 +353,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "26 Python modules, 9,716 lines; **one** pinned runtime dependency — `defusedxml`" — main tree: 27 files totalling 9,716 lines, pyproject.toml `dependencies = []`, checks.py:6 `import xml.etree.ElementTree`; worktree has defusedxml but 9,824 lines; §13 line 1909 says "Dependencies | stdlib only".
 
-**Verifier:** CONFIRMED — no frame makes the whole row true. Main-tree frame: dependency clause false — pyproject.toml has `dependencies = []`, checks.py:6 is `import xml.etree.ElementTree`, and defusedxml==0.7.1 exists only in commit 3f72d7a (2026-08-22) on unmerged build/quality-lane. Author's own worktree frame (commit cced181: "I read main instead of the worktree"): counts false — worktree is 27 modules / 9,824 lines, not 9,716. Either frame: §13 line 1909 …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED — no frame makes the whole row true. Main-tree frame: dependency clause false — pyproject.toml has `dependencies = []`, checks.py:6 is `import xml.etree.ElementTree`, and defusedxml==0.7.1 exists only in commit 3f72d7a (2026-08-22) on unmerged build/quality-lane. Author's own worktree frame (commit bba245d: "I read main instead of the worktree"): counts false — worktree is 27 modules / 9,824 lines, not 9,716. Either frame: §13 line 1909 …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:114 — MEDIUM (self-claims)
 
@@ -361,7 +361,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "Tests | 1,467 collected" — `pytest --collect-only -q` on the main checkout: "1330 tests collected"; on .claude/worktrees/build+quality-lane: "1470 tests collected". The figure recurs at lines 890, 1108, 1566 and 1819.
 
-**Verifier:** CONFIRMED by direct measurement: main checkout (eecff57) collects 1330 tests; the unmerged build/quality-lane worktree collects 1470; the doc's 1,467 matches neither and recurs at lines 114, 890, 1108, 1565, 1819. Git history shows commit cced181 (22:37 on 08-22) changed 1,330 to 1,467 by reading the worktree ("I read main instead of the worktree… the suite is 1,467 tests, not 1,330"), yet the doc nowhere discloses branch scoping (no worktree/qua …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED by direct measurement: main checkout (99ef3dc) collects 1330 tests; the unmerged build/quality-lane worktree collects 1470; the doc's 1,467 matches neither and recurs at lines 114, 890, 1108, 1565, 1819. Git history shows commit bba245d (22:37 on 08-22) changed 1,330 to 1,467 by reading the worktree ("I read main instead of the worktree… the suite is 1,467 tests, not 1,330"), yet the doc nowhere discloses branch scoping (no worktree/qua …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:114 — MEDIUM (sourcing)
 
@@ -369,7 +369,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "| Tests | 1,467 collected" — `pytest --collect-only -q` on main at HEAD collects 1,330 with zero errors (tests/ last changed 2026-08-22 10:54, before the doc); the build/quality-lane worktree collects 1,470. Repeated at lines 890 ("Our 1,467 tests prove..."), 1108, 1565 ("1,467 tests say so"), 1819, while §3 line 107 claims "Our own side was measu
 
-**Verifier:** CONFIRMED. Measured directly: main@eecff57 collects 1,330 (`pytest --collect-only -q`; tests/ untouched since 2026-08-22 10:54, commit f047116), worktree@1308682 collects 1,470 — 1,467 matches neither. Provenance: the doc originally said 1,330 (correct for main); commit cced181 (23:37:59, msg: "the suite is 1,467 tests, not 1,330") flipped all five occurrences (114, 890, 1108, 1565, 1819) to the worktree's count at f61c14b (23:35:49), which I ver …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED. Measured directly: main@99ef3dc collects 1,330 (`pytest --collect-only -q`; tests/ untouched since 2026-08-22 10:54, commit ad32604), worktree@1308682 collects 1,470 — 1,467 matches neither. Provenance: the doc originally said 1,330 (correct for main); commit bba245d (23:37:59, msg: "the suite is 1,467 tests, not 1,330") flipped all five occurrences (114, 890, 1108, 1565, 1819) to the worktree's count at f61c14b (23:35:49), which I ver …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:125 — MEDIUM (self-claims)
 
@@ -425,7 +425,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "All four are in `sources/` and were read as full texts, not abstracts." vs line 1053 "it was also the cheapest: four abstracts, one results table, and a repository already cloned" and line 1061-1063 "The mechanism is not in the sections read." (The four PDFs do exist in sources/.)
 
-**Verifier:** CONFIRMED — the contradiction is line 940 vs line 1053, and git history proves line 1053 is a stale leftover. Line 940 (§8.5.1) says "All four are in `sources/` and were read as full texts, not abstracts"; line 1053 (§8.5.3) describes the same reading as "four abstracts, one results table, and a repository already cloned." Commit 2f908ff (21:37, pre-download) wrote the section from abstracts — the sentence originally sat beside "Abstracts were en …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED — the contradiction is line 940 vs line 1053, and git history proves line 1053 is a stale leftover. Line 940 (§8.5.1) says "All four are in `sources/` and were read as full texts, not abstracts"; line 1053 (§8.5.3) describes the same reading as "four abstracts, one results table, and a repository already cloned." Commit bdf7024 (21:37, pre-download) wrote the section from abstracts — the sentence originally sat beside "Abstracts were en …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:1267 — MEDIUM (self-claims)
 
@@ -449,7 +449,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "What is citable | only a human-admitted Zotero item" — spec §4: "a claim's citekey is citable only if its literature note exists (tier 2 ... ) Accidental cross-project citation fails loudly"; audit defect 4 (checks.py:151): "a never-imported citation reports MATCHED and publishes". The §12 entry at line 1871 repeats the tier-1 form.
 
-**Verifier:** CONFIRMED. Doc line 1897 answers the "What is citable" axis with "only a human-admitted Zotero item" — the tier-1 form. Spec §4 (L45, commit 8df8c9c, 2026-08-22 16:04 -0500) rules two-tier citability hours BEFORE the doc's commits (22:50–23:37 same day): "a claim's citekey is citable only if its literature note exists (tier 2)" and explicitly "library-present ≠ citable-in-this-vault", so the doc names a superset of the citable set as the boundary …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** CONFIRMED. Doc line 1897 answers the "What is citable" axis with "only a human-admitted Zotero item" — the tier-1 form. Spec §4 (L45, commit 590f535, 2026-08-22 16:04 -0500) rules two-tier citability hours BEFORE the doc's commits (22:50–23:37 same day): "a claim's citekey is citable only if its literature note exists (tier 2)" and explicitly "library-present ≠ citable-in-this-vault", so the doc names a superset of the citable set as the boundary …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ### 2026-08-22-product-comparison-verified.md:1902 — MEDIUM (self-claims)
 
@@ -497,7 +497,7 @@ Reviewed 2026-08-22 (author-directed). Method: five lanes (self-claims vs the tr
 
 **Evidence:** "| [adoption-plan](2026-08-22-adoption-plan.md) | ... | as we act on it | 741 |" — wc -l reports 792
 
-**Verifier:** Confirmed. wc -l today: adoption-plan 792, assembled-harness-spec 330, product-comparison 2095, memoria 223 — README (lines 8-11) says 741/312/2,092/223, so three of four are stale and only memoria matches. Git proves the reviewer's causal story exactly: at be4d83f, the commit that wrote the README ("docs: split the product-landscape notes by lifecycle"), the files measured 741/312/2092/223 — matching the README to the line — and five later commi …[full verdict in workflow journal wf_ffc62986-0a8]
+**Verifier:** Confirmed. wc -l today: adoption-plan 792, assembled-harness-spec 330, product-comparison 2095, memoria 223 — README (lines 8-11) says 741/312/2,092/223, so three of four are stale and only memoria matches. Git proves the reviewer's causal story exactly: at ac8cec0, the commit that wrote the README ("docs: split the product-landscape notes by lifecycle"), the files measured 741/312/2092/223 — matching the README to the line — and five later commi …[full verdict in workflow journal wf_ffc62986-0a8]
 
 ## Refuted (8)
 

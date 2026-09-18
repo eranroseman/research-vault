@@ -305,7 +305,7 @@ outright — worth knowing precisely so the audit doesn't credit unwritten
 
 ### Grounding against the ADR-0005 incident
 
-Commit `573489b` added `docs/adr/0005-apply-open-standards-at-applicable-boundaries.md`
+Commit `fd2f81f` added `docs/adr/0005-apply-open-standards-at-applicable-boundaries.md`
 with `Status: accepted (2026-08-28)` directly — no `proposed` stage, no
 separate review pass. As of this research, the working tree carries an
 uncommitted `D docs/adr/0005-apply-open-standards-at-applicable-boundaries.md`

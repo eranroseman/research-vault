@@ -216,7 +216,7 @@ def _capture_one(
             handle.write(candidate)
         outcomes.append(Outcome(CHECK, citation_key, Result.MATCHED, "matched"))
     if not read.texts:
-        # Spec §0 (ac0cfd2): a web page, a repository, a program — no stored
+        # Spec §0 (b555d77): a web page, a repository, a program — no stored
         # attachment, nothing to read. The fourth state, not a failure: the note
         # is written, the text checks do not apply, nothing is filed.
         outcomes.append(

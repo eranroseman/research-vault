@@ -9,7 +9,7 @@ mechanics for their own sake.
 this repo at HEAD, external claims against `obsidian-history-vault` at `a3d22d0a` (exact HEAD of
 master) and the live pages. All eight gaps and the reverse-strengths list are real; the
 starter-vault evidence checked byte-exact. Seven substantive citation errors and the
-precision drift were folded in `742a905` (author re-verified each against primary source first).
+precision drift were folded in `6809fa0` (author re-verified each against primary source first).
 Dispositions routed: the three cheap adoptions → issue #18 (post-slice, instrument freeze);
 entity layer and the §7 frontmatter trade-off → spec §10 deferrals with triggers; query surface,
 manuscript assembly, and the task aggregator → the Obsidian ecosystem on the portable vault;
