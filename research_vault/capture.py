@@ -252,6 +252,7 @@ def _regenerate_csl(
     client: ZoteroClient,
     library_name: str | None,
     run_version: int | None,
+    skip=frozenset(),
 ) -> Outcome:
     """§3.3 step 4: one whole-library read, re-read once if Zotero moved, item.export fallback.
 
@@ -259,7 +260,7 @@ def _regenerate_csl(
     read from the item envelope this run, so a run that read no item (a refusal,
     a 404) goes straight to ``item.export`` over the captured keys, which needs none.
     """
-    captured_keys = sorted(_captured_keys(vault))
+    captured_keys = sorted(_captured_keys(vault) - set(skip))
     items = None
     route = "matched"
     if library_name is not None:
@@ -379,16 +380,18 @@ def _read_keyed(
     return read_item(client, item_key)
 
 
-def _refused(vault: Path, prior: Outcome | None, requested_key: str) -> Outcome | None:
+def _refused(vault: Path, prior, requested_key: str, existing, new: str | None):
     """The linter's standing this item is not written over, or None to proceed.
 
-    A ``_REFUSED`` transition is refused outright. ``re-keyed`` is refused only
-    while ``literature/<old>.md`` still exists: rendering under the live key
-    would leave a second note beside it, and ``propagate.plan`` refuses to
-    rename over an existing file — the file renames only on a re-key, and the
-    propagation task set performs it (spec §3.1). ``propagate.apply`` renames
-    before it recaptures, and a partial-apply re-run finds the note already at
-    ``<new>.md``, so the old path is gone in both and the recapture proceeds.
+    A ``_REFUSED`` transition is refused outright. ``re-keyed`` is refused by
+    identity (the Part A plan's decision 08): while any note recording the old
+    key — `existing`, the `(path, provenance)` pairs `capture()` already read
+    — sits anywhere but ``note_path(vault, new)``, rendering under the live
+    key would leave a second note beside it, and ``propagate.plan`` refuses to
+    rename over an existing file; the propagation task set performs the rename
+    (spec §3.1), and its own recapture finds the note already at ``<new>.md``.
+    No file is probed here: a directory the process cannot read surfaces in
+    the per-item try, not as a vault-wide exit (residual 2).
     """
     if prior is None or prior.result is not Result.UNMATCHED:
         return None
@@ -397,17 +400,23 @@ def _refused(vault: Path, prior: Outcome | None, requested_key: str) -> Outcome 
         return Outcome(CHECK, requested_key, Result.UNMATCHED, prior.reason)
     if code != "re-keyed":
         return None
+    old = prior.target
     try:
-        old_note = literature_notes.note_path(vault, prior.target)
+        target = literature_notes.note_path(vault, new) if new else None
     except literature_notes.InvalidCitationKeyError:
-        # A recorded key no filename can carry is a hand edit this check
-        # cannot place; capture proceeds as it did before the check existed.
+        target = None
+    if any(p.citation_key == old and path != target for path, p in existing):
+        return Outcome(
+            CHECK, requested_key, Result.UNMATCHED, f"{prior.reason}; run propagate"
+        )
+    return None
+
+
+def _re_key_target(prior) -> str | None:
+    """The new key a `re-keyed — old → new` reason names."""
+    if prior is None or not prior.reason.startswith("re-keyed — "):
         return None
-    if not old_note.is_file():
-        return None
-    return Outcome(
-        CHECK, requested_key, Result.UNMATCHED, f"{prior.reason}; run propagate"
-    )
+    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]
 
 
 def capture(
@@ -472,6 +481,7 @@ def capture(
         # (--all); a vault-level failure here must not silently drop them
         # (ADR 0002).
         return [*outcomes, lifecycle.blocked(CHECK, "vault", error)]
+    re_keyed: set[str] = set()
     for requested_key, item_key in resolved.items():
         if item_key is None:
             outcomes.append(
@@ -483,9 +493,12 @@ def capture(
                 )
             )
             continue
-        refusal = _refused(vault, standing.get(item_key), requested_key)
+        prior = standing.get(item_key)
+        refusal = _refused(vault, prior, requested_key, existing, _re_key_target(prior))
         if refusal is not None:
             outcomes.append(refusal)
+            if prior is not None and refusal.reason.startswith("re-keyed — "):
+                re_keyed.add(str(prior.target))
             continue
         try:
             read = _read_keyed(client, item_key, key_wait_seconds)
@@ -547,7 +560,11 @@ def capture(
         # No CSL file from the database that answered after the move.
         return [*outcomes, aborted]
     if library_name is not None or existing:
-        outcomes.append(_regenerate_csl(vault, client, library_name, run_version))
+        outcomes.append(
+            _regenerate_csl(
+                vault, client, library_name, run_version, skip=frozenset(re_keyed)
+            )
+        )
     return outcomes
 
 

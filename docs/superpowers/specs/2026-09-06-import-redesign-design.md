@@ -238,7 +238,7 @@ So the live vectors are three, all deliberate: an explicit right-click **Refresh
 
 ### 3.6 Paths and the full-text layer (**chosen 2026-09-07**)
 
-No absolute paths in the repository. The file URL from Zotero is a Windows `file://` path, percent-encoded; the existing `wslpath` shim resolves it at use time. The shim works because this host runs WSL2 with `networkingMode=mirrored`, which is also why a Windows-side Zotero answers on localhost at all.
+No absolute paths in the repository. The file URL from Zotero is a Windows `file://` path, percent-encoded; the existing `wslpath` shim resolves it at use time. The shim works because this host runs WSL2 with `networkingMode=mirrored`, which is also why a Windows-side Zotero answers on localhost at all. *Amended 2026-09-17 (pre-lane-2 spec §7.1, row 45): a file URL whose path carries no drive letter is reported `SKIPPED` by doctor's path-shim probe and never handed to the shim; the shim resolves Windows file URLs only.*
 
 **The extracted text becomes a vault layer, `fulltext/<attachment key>.md`, gitignored and OKF-conformant.** One file per indexed attachment, carrying frontmatter with a `fulltext` type, its `sha256` recorded in the literature note's provenance tuple.
 

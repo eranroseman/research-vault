@@ -721,7 +721,17 @@ def _re_keyed_fake(monkeypatch):
     old = json.loads(json.dumps(ITEM))
     old["data"]["citationKey"] = "old2020"
     fake = _canned_run(canned_item(FakeZotero(), item=old), items=(old,))
-    fake.rpc("item.export", [])
+
+    def export(params):
+        keys = params[0] if params and isinstance(params[0], list) else []
+        if "old2020" in keys:
+            raise zotero.ZoteroError(
+                "JSON-RPC error: {'code': -32602, 'message': 'old2020 not found'}",
+                Result.UNMATCHED,
+            )
+        return []
+
+    fake.rpc("item.export", export)
     client = _client(monkeypatch, fake)
     new = json.loads(json.dumps(old))
     new["data"]["citationKey"] = "new2020"
@@ -857,13 +867,14 @@ def test_read_item_skips_a_stored_child_without_a_key(tmp_vault, monkeypatch):
     assert not [c for c in fake.calls if c[1].endswith("/fulltext")]
 
 
-def test_a_re_keyed_note_recording_an_unsafe_key_is_captured_as_before(
+def test_a_re_keyed_note_recording_an_unsafe_key_is_refused_by_identity(
     tmp_vault, monkeypatch
 ):
-    """`_refused`'s re-keyed check asks whether `literature/<old>.md` exists;
-    a recorded key no filename can carry (a hand edit on a machine surface)
-    is a name `note_path` refuses, and the check steps aside rather than
-    turning the refusal into a traceback or a new refusal."""
+    """I-1: `_refused` refuses a re-keyed item when any note recording the
+    old key sits at a path other than `note_path(vault, new)` — decision 08's
+    identity, the pairs `capture()` already computes — so a hand-edited note
+    recording `../escape` no longer gets a second note beside it, and no
+    `is_file()` runs before the per-item try (residual 2)."""
     fake, client, new = _re_keyed_fake(monkeypatch)
     _re_key(fake, new)
     (tmp_vault / "literature" / "odd.md").write_text(
@@ -873,10 +884,11 @@ def test_a_re_keyed_note_recording_an_unsafe_key_is_captured_as_before(
     )
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     assert (outcomes[0].target, outcomes[0].result, outcomes[0].reason) == (
-        "new2020",
-        Result.MATCHED,
-        "matched",
+        "E352DFS8",
+        Result.UNMATCHED,
+        "re-keyed — ../escape → new2020; run propagate",
     )
+    assert sorted(p.name for p in (tmp_vault / "literature").glob("*.md")) == ["odd.md"]
 
 
 def test_cli_capture_with_neither_keys_nor_all_is_a_usage_error(tmp_vault, capsys):

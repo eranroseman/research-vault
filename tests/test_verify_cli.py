@@ -3258,11 +3258,20 @@ def test_a_nested_note_under_literature_is_not_a_literature_note_anywhere(net_va
     # `structure.check_note_frontmatter` walks the whole vault and still types
     # the file by its folder (OKF rule 2, not a literature/ reader): that row
     # is the one thing verify says about it.
-    assert [
-        (o.check, o.result)
+    assert sorted(
+        (o.check, o.result, o.reason)
         for o in effective
-        if "older" in str(o.target) or "older" in str(o.extra.get("note_path", ""))
-    ] == [("okf-frontmatter", Result.MATCHED)]
+        if "older" in str(o.target)
+        or "older" in str(o.extra.get("note_path", ""))
+        or (o.check == "tree" and "older" in o.reason)
+    ) == [
+        ("okf-frontmatter", Result.MATCHED, "matched"),
+        (
+            "tree",
+            Result.UNMATCHED,
+            "schema-violation — literature/ is flat: literature/older/",
+        ),
+    ]
     assert "[failed-verification::" not in nested.read_text()
 
 

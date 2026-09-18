@@ -182,18 +182,38 @@ def check_reserved(vault_root) -> list[Outcome]:
     return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]
 
 
-def check_tree(vault_root) -> Outcome:
+def check_tree(vault_root) -> list[Outcome]:
     """Vault-wide directory scaffolding attestation (verify-side; see doctor.doctor).
 
     Doctor keeps a separate `tree` probe for repair-at-setup; this is a
-    different job — verify-side attestation only, no repair.
+    different job — verify-side attestation only, no repair. The existing
+    tree row, plus one row per directory nested under `literature/`: every
+    reader of the evidence layer globs it flat (decision 08), so a note in a
+    nested directory is a literature note nowhere — reported here rather than
+    typed by folder and forgotten.
     """
     from . import scaffold
 
     vault = Path(vault_root)
     missing = [d for d in scaffold.VAULT_DIRS if not (vault / d).is_dir()]
-    if missing:
-        return Outcome(
+    rows = [
+        Outcome(
             "tree", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"
         )
-    return Outcome("tree", "vault", Result.MATCHED, "matched")
+        if missing
+        else Outcome("tree", "vault", Result.MATCHED, "matched")
+    ]
+    literature = vault / "literature"
+    if literature.is_dir():
+        for child in sorted(literature.iterdir()):
+            if child.is_dir():
+                relative = f"literature/{child.name}/"
+                rows.append(
+                    Outcome(
+                        "tree",
+                        relative,
+                        Result.UNMATCHED,
+                        f"schema-violation — literature/ is flat: {relative}",
+                    )
+                )
+    return rows

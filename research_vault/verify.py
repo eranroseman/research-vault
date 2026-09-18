@@ -845,7 +845,7 @@ def _plan_state(
             continue
         raw.extend(structure.check_note_frontmatter(vault, path))
     raw.extend(structure.check_reserved(vault))
-    raw.append(structure.check_tree(vault))
+    raw.extend(structure.check_tree(vault))
     if network:
         raw.extend(lifecycle.lint_lifecycle(vault, ZoteroClient(base=base)))
     else:

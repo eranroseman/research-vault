@@ -701,6 +701,33 @@ def test_doctor_path_shim_fails_when_the_resolved_file_is_absent(
     )
 
 
+def test_doctor_path_shim_skips_a_posix_file_url(tmp_vault, tmp_path, monkeypatch):
+    """Row 45: the shim resolves Windows file URLs only (the Part A plan's
+    decision 10). A URL whose path carries no drive letter is SKIPPED with the
+    raw URL, never fed to `wslpath` (which answers a relative path with exit
+    0 and mangles the reason)."""
+    vault = _profiled_vault(tmp_vault, tmp_path, _profile(tmp_path))
+    fake, client = _doctor_fake(monkeypatch, tmp_path)
+    fake.get(
+        "/api/users/0/items/D7EJ9FTG/file/view/url",
+        body=b"file:///home/user/Zotero/storage/D7EJ9FTG/a.pdf",
+    )
+    monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
+
+    def unwound_by_nothing(*_args):
+        raise AssertionError("a POSIX URL must never reach the shim")
+
+    monkeypatch.setattr(paths, "to_local", unwound_by_nothing)
+
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
+
+    assert by["path-shim"].result is Result.SKIPPED
+    assert by["path-shim"].reason == (
+        "file URL is not a Windows path; the shim resolves Windows file URLs only: "
+        "file:///home/user/Zotero/storage/D7EJ9FTG/a.pdf"
+    )
+
+
 @pytest.mark.parametrize(
     ("rows", "headers", "reason"),
     [

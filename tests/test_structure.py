@@ -138,7 +138,7 @@ def test_tree_check(tmp_path):
     from research_vault import scaffold
 
     scaffold.scaffold_vault(tmp_path)
-    assert structure.check_tree(tmp_path).result is Result.MATCHED
+    assert [o.result for o in structure.check_tree(tmp_path)] == [Result.MATCHED]
 
 
 def test_commit_surface_closes_on_structure_violation(tmp_path):
@@ -178,4 +178,31 @@ def test_log_shape_reads_a_log_whose_frontmatter_does_not_parse_as_all_body():
     )
     assert structure._log_shape_problems("## 2026-08-20\n\n## 2026-08-21\n") == [
         "day headings not newest first"
+    ]
+
+
+def test_check_tree_reports_each_nested_directory_under_literature(tmp_path):
+    """Residual 3: every literature reader ignores a nested directory (flat
+    since 4c6eca9), so a `literature/<dir>/` is a tree finding — one row per
+    stray directory, beside the existing tree row; the id stays `tree`."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    (tmp_path / "literature" / "older").mkdir()
+    (tmp_path / "literature" / "zzz").mkdir()
+    rows = structure.check_tree(tmp_path)
+    assert [(o.check, o.target, o.result, o.reason) for o in rows] == [
+        ("tree", "vault", Result.MATCHED, "matched"),
+        (
+            "tree",
+            "literature/older/",
+            Result.UNMATCHED,
+            "schema-violation — literature/ is flat: literature/older/",
+        ),
+        (
+            "tree",
+            "literature/zzz/",
+            Result.UNMATCHED,
+            "schema-violation — literature/ is flat: literature/zzz/",
+        ),
     ]

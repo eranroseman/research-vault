@@ -68,7 +68,8 @@ class FakeZotero:
         self.timeouts.append(timeout)
         if method not in self._rpc:
             raise zotero.ZoteroError(f"JSON-RPC error: unknown method {method}")
-        return self._rpc[method]
+        result = self._rpc[method]
+        return result(params) if callable(result) else result
 
     def install(self, client, monkeypatch):
         monkeypatch.setattr(client, "_http", self._http)

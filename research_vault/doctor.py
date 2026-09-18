@@ -5,6 +5,7 @@ calls only `scaffold_vault`, `VAULT_DIRS` and `_git` from the other side.
 """
 
 import json
+import re
 import subprocess
 import urllib.parse
 from pathlib import Path
@@ -82,6 +83,7 @@ _ATTACHMENT_PAGE = (
     "/api/users/0/items?itemType=attachment&sort=dateAdded&direction=asc"
     f"&limit={_PAGE_SIZE}&start={{start}}&format=json"
 )
+_WINDOWS_FILE_URL = re.compile(r"^file:///[A-Za-z]:/")
 
 
 class _ProfileHold(NamedTuple):
@@ -349,6 +351,15 @@ def _path_shim_probe(client, skip: str | None, vault: Path) -> Probe:
         # the server's two definite negatives (404, 400) for a row it listed as stored
         return Probe(
             "path-shim", Result.SKIPPED, f"stored attachment {key} has no file URL"
+        )
+    if _WINDOWS_FILE_URL.match(url) is None:
+        # The Part A plan's decision 10: the shim resolves Windows file URLs
+        # only. A POSIX URL is reported, not unwound through wslpath.
+        return Probe(
+            "path-shim",
+            Result.SKIPPED,
+            f"file URL is not a Windows path; the shim resolves Windows file "
+            f"URLs only: {url}",
         )
     windows_path = urllib.parse.unquote(url.removeprefix("file:///")).replace("/", "\\")
     try:
