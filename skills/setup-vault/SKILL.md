@@ -57,3 +57,7 @@ claude plugin install claude-obsidian@agricidaniel-claude-obsidian
 ```
 
 Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. `$ROOT` is the plugin's `installPath` recorded in `~/.claude/plugins/installed_plugins.json` (the record doctor's `compile-tool` probe reads); `.research-vault/machine.json` may name a `claude_obsidian_root` that overrides it. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run, JSON on stdout), then `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH --apply --approved-plan-sha256 <approved_plan_sha256> --operation-id <operation.operation_id> --generated-at <generated_at>`, the three values read from the dry run's JSON — the approval hash covers `generated_at` and `operation_id`, which the apply run would otherwise regenerate from the clock and answer `PLAN_CHANGED`. The tool leaves the vault's existing `.gitignore` untouched (silently, not by refusing — measured 2026-09-14); append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`.
+
+Once adopted, run the tool's wiki-lint skill over the vault once; its report is the tool's own health check, distinct from `doctor`.
+
+The vault runs the tool in `generic` mode (`CONTEXT.md`'s paths); `python3 "$ROOT/scripts/claude-obsidian.py" mode get PATH` reads it back. No doctor row observes it yet (lane 3a).

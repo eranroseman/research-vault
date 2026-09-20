@@ -36,6 +36,9 @@ def test_capture_source_keeps_the_kept_rules():
         "python3 -m research_vault compile --all --vault PATH",
         "--approved-plan-sha256",
         "wiki-ingest",
+        "wiki-lint",
+        "Two hash-approved bundles",
+        "fulltext/<attachment key>.md",
         "recompile-needed",
         "![[<page path>]]",
     ):
@@ -43,6 +46,7 @@ def test_capture_source_keeps_the_kept_rules():
     assert "import-note" not in text
     assert "managed region" not in text
     assert "auto-export" not in text
+    assert "there is no second one" not in text
 
 
 def test_synthesis_conventions_names_the_tool_and_the_seam():
@@ -51,6 +55,7 @@ def test_synthesis_conventions_names_the_tool_and_the_seam():
         "claude-obsidian",
         "transaction inspect",
         "wiki-ingest",
+        "wiki-lint",
         "`captured-set`",
         "[[<citation key>]]",
         "wiki/index.md",
@@ -59,3 +64,4 @@ def test_synthesis_conventions_names_the_tool_and_the_seam():
     ):
         assert needle in text, needle
     assert "synthesis/" not in text
+    assert "block its checkpoint" not in text

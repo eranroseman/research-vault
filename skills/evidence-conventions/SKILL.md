@@ -13,7 +13,7 @@ A claim line exists only after its literature note exists and its citation key r
 
 ## Claim syntax (§5)
 
-Every claim is one line, and it carries its own tag, citation, and anchor. Claims get copied — from a literature note into the compiled layer under `wiki/`, from there into a draft — and whatever is not on the line does not travel with it, so attribution held in frontmatter survives exactly one hop:
+Every claim is one line, and it carries its own tag, citation, and anchor. Claims get copied — from a literature note into a draft — and whatever is not on the line does not travel with it, so attribution held in frontmatter survives exactly one hop:
 
 ```
 - (quote|paraphrase|inference|open-question) <text> [@citation-key, locator] [field:: value ...] ^claim-id
@@ -31,13 +31,6 @@ Every claim is one line, and it carries its own tag, citation, and anchor. Claim
   - (quote) [@smith2020, p. 12] ^c-a1b2c3d4
     > Mortality fell 12% (95% CI 8–16).
   ```
-
-### Compiled-layer fields
-
-Claims in the compiled layer under `wiki/` add:
-
-- **`[confidence:: <level>]`** — inference-only.
-- **Stance links** — `[supports:: [[citation-key#^claim-id]]]` / `[disputes:: [[citation-key#^claim-id]]]`, targeting another claim link, never a bare note.
 
 ### Deprecation — never delete
 

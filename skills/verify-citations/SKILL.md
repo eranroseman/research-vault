@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Verify citations
 
-This is a thin wrapper over the CLI's `verify` verb — the deterministic suite of §6. Never carry an inventory of check ids in your head or in a report. Run the CLI; its output is always up to date. It ships no mechanics of its own: your job is orientation, running the verb, and reporting its four-state results grouped by check id — the CLI writes a result, a `verified` event, and a review-inbox entry, inside `verify` itself.
+This is a thin wrapper over the CLI's `verify` verb — the deterministic suite of the ingest spec's §6 (`docs/superpowers/specs/2026-09-06-import-redesign-design.md`). Never carry an inventory of check ids in your head or in a report. Run the CLI; its output is always up to date. It ships no mechanics of its own: your job is orientation, running the verb, and reporting its four-state results grouped by check id — the CLI writes a result, a `verified` event, and a review-inbox entry, inside `verify` itself.
 
 ## Run the audit
 

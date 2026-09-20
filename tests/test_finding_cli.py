@@ -467,6 +467,8 @@ def test_factcheck_draft_skill_names_its_bounds_and_never_blocks():
         "UNREACHABLE",
         "SKIPPED",
         "budget-cap",
+        "fulltext/<attachment key>.md",
+        "untrusted evidence",
         # Each of the three below occurs exactly once in the skill, so deleting
         # the paragraph it belongs to fails here. Every token above it recurs
         # elsewhere in the file and so pins vocabulary, not any one paragraph.
