@@ -260,8 +260,9 @@ def test_target_hash_routes_safe_file_claim_and_citation_key(net_vault):
     citation_key_outcome = _outcome(
         "doi", "smith2020", Result.UNMATCHED, "mismatch — doi"
     )
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
     assert (
-        _target_hash(net_vault, file_outcome)
+        _target_hash(net_vault, file_outcome, candidate_snapshot=candidate_snapshot)
         == hashlib.sha256((net_vault / "log/2026-08-16.md").read_bytes()).hexdigest()[
             :16
         ]
@@ -1033,11 +1034,15 @@ def test_deleted_claim_and_append_only_inbox_hashes_are_stable(net_vault):
     append = _outcome(
         "append-only", "inbox/review-queue.md", Result.UNMATCHED, "drift — inbox"
     )
-    first = _target_hash(net_vault, append)
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
+    first = _target_hash(net_vault, append, candidate_snapshot=candidate_snapshot)
     with (net_vault / "inbox" / "review-queue.md").open("a") as queue:
         queue.write("new finding\n")
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
     assert _target_hash(net_vault, claim) is not None
-    assert _target_hash(net_vault, append) == first
+    assert (
+        _target_hash(net_vault, append, candidate_snapshot=candidate_snapshot) == first
+    )
 
 
 def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
@@ -1406,6 +1411,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
     direct_link = net_vault / "projects" / "brief" / "outside-link.md"
     direct_link.symlink_to(outside)
     assert _safe_relative(net_vault, "projects/brief/outside-link.md") is None
+    outside_link_snapshot = gitstate.snapshot_worktree(net_vault)
     assert (
         _target_hash(
             net_vault,
@@ -1415,6 +1421,7 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
                 Result.UNMATCHED,
                 "drift",
             ),
+            candidate_snapshot=outside_link_snapshot,
         )
         is None
     )
@@ -1443,12 +1450,27 @@ def test_safe_unicode_paths_and_nested_symlinks_are_contained(net_vault, tmp_pat
         Result.UNMATCHED,
         "drift",
     )
-    first = _target_hash(net_vault, directory_outcome)
+    directory_snapshot = gitstate.snapshot_worktree(net_vault)
+    first = _target_hash(
+        net_vault, directory_outcome, candidate_snapshot=directory_snapshot
+    )
     first_target.write_text("changing outside content stays invisible\n")
-    assert _target_hash(net_vault, directory_outcome) == first
+    directory_snapshot = gitstate.snapshot_worktree(net_vault)
+    assert (
+        _target_hash(
+            net_vault, directory_outcome, candidate_snapshot=directory_snapshot
+        )
+        == first
+    )
     link.unlink()
     link.symlink_to(second_target)
-    assert _target_hash(net_vault, directory_outcome) != first
+    directory_snapshot = gitstate.snapshot_worktree(net_vault)
+    assert (
+        _target_hash(
+            net_vault, directory_outcome, candidate_snapshot=directory_snapshot
+        )
+        != first
+    )
 
 
 def test_main_routes_base_before_and_after_verify(net_vault, monkeypatch, capsys):
@@ -1997,8 +2019,14 @@ def test_deleted_nested_repo_path_hashes_resolved_base_without_live_parent(
         "drift — deleted note",
     )
     expected = hashlib.sha256(b"candidate evidence\n").hexdigest()[:16]
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
 
-    target_hash = _target_hash(net_vault, outcome, base_snapshot=snapshots.base)
+    target_hash = _target_hash(
+        net_vault,
+        outcome,
+        base_snapshot=snapshots.base,
+        candidate_snapshot=candidate_snapshot,
+    )
 
     assert target_hash == expected
     finding = inbox.append_entry(
@@ -2018,7 +2046,12 @@ def test_deleted_nested_repo_path_hashes_resolved_base_without_live_parent(
         net_vault,
         outcome.check,
         outcome.target,
-        current_hash=_target_hash(net_vault, outcome, base_snapshot=snapshots.base),
+        current_hash=_target_hash(
+            net_vault,
+            outcome,
+            base_snapshot=snapshots.base,
+            candidate_snapshot=candidate_snapshot,
+        ),
         target_kind=outcome.target_kind,
     )
 
@@ -2276,8 +2309,12 @@ def test_hash_and_marker_filesystem_routing_requires_explicit_repo_path_kind(
         Result.UNMATCHED,
         "drift — identifier text",
     )
+    candidate_snapshot = gitstate.snapshot_worktree(fixture_vault)
 
-    assert _target_hash(fixture_vault, typed) is not None
+    assert (
+        _target_hash(fixture_vault, typed, candidate_snapshot=candidate_snapshot)
+        is not None
+    )
     assert _target_hash(fixture_vault, identifier) is None
     with open(path, "rb") as stream:
         before = stream.read()
@@ -2962,49 +2999,21 @@ def _repo_path_outcome(relative):
     )
 
 
-def test_worktree_path_hash_reads_a_live_note_through_its_scope_bytes(net_vault):
-    """No candidate snapshot: the live worktree is the plane. A `.md` target
-    hashes its `_note_bytes` (verifier-owned lists and verify's own marks
-    excluded), so a marker landing on the note does not move the hash."""
-    source = net_vault / "literature" / "smith2020.md"
-    outcome = _repo_path_outcome("literature/smith2020.md")
-    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
-    assert _target_hash(net_vault, outcome) == expected
-    source.write_text(
-        must_replace(
-            source.read_text(),
-            "---\n# Mortality decline\n",
-            'verified:\n  - {by: "bot", at: "2026-08-16", check: "quote"}\n'
-            "---\n# Mortality decline\n",
+def test_a_repo_path_target_requires_a_candidate_snapshot(net_vault):
+    """The worktree leg is gone: the one production caller always passes the
+    candidate snapshot, and reading the worktree instead would let a
+    concurrent edit leak into an identity the transaction already fixed."""
+    with pytest.raises(TypeError, match="candidate_snapshot"):
+        _target_hash(net_vault, _repo_path_outcome("literature/smith2020.md"))
+    snapshot = gitstate.snapshot_worktree(net_vault)
+    assert (
+        _target_hash(
+            net_vault,
+            _repo_path_outcome("literature/smith2020.md"),
+            candidate_snapshot=snapshot,
         )
+        is not None
     )
-    assert _target_hash(net_vault, outcome) == expected  # the event list is not scope
-    assert hashlib.sha256(source.read_bytes()).hexdigest()[:16] != expected
-
-
-def test_worktree_path_hash_of_a_live_symlink_is_none(net_vault):
-    """A symlink carries no content a hash could stand for: `_safe_relative`
-    refuses it and no base image answers, so the target has no identity."""
-    link = net_vault / "literature" / "link.md"
-    link.symlink_to("smith2020.md")
-    assert _target_hash(net_vault, _repo_path_outcome("literature/link.md")) is None
-
-
-def test_worktree_path_hash_of_a_deleted_note_holds_from_the_base_snapshot(
-    net_vault,
-):
-    """A path no longer on disk is still identifiable from the base snapshot,
-    or from HEAD when no base was given — what holds a deletion's
-    acknowledgment hash steady across the transaction that deleted it."""
-    source = net_vault / "literature" / "smith2020.md"
-    before = _note_bytes(source.read_bytes())
-    base = gitstate.snapshot_worktree(net_vault)
-    outcome = _repo_path_outcome("literature/smith2020.md")
-    live = _target_hash(net_vault, outcome, base_snapshot=base)
-    source.unlink()
-    assert _target_hash(net_vault, outcome, base_snapshot=base) == live
-    assert live == hashlib.sha256(before).hexdigest()[:16]
-    assert _target_hash(net_vault, outcome) == live  # HEAD: the fixture is committed
 
 
 # --- hash-basis helpers pinned against mutation survivors ---------------------
@@ -3012,59 +3021,6 @@ def test_worktree_path_hash_of_a_deleted_note_holds_from_the_base_snapshot(
 
 def _image(raw, kind, data=None, mode=0o100644):
     return gitstate.FileImage(raw, kind, mode if kind == "file" else 0o40000, data)
-
-
-def test_directory_bytes_lists_symlinks_and_files_in_order_and_normalises_notes(
-    tmp_path,
-):
-    """Every child in sorted order: a symlink as its literal target, a file
-    as its bytes, a `.md` as its note bytes (verifier events dropped), a
-    subdirectory contributing only its files -- none of them ends the walk."""
-    from research_vault import verify
-
-    root = tmp_path / "d"
-    (root / "b-dir").mkdir(parents=True)
-    (root / "a-link").symlink_to("target")
-    (root / "b-dir" / "inner.txt").write_bytes(b"inner")
-    (root / "c.md").write_text(
-        '---\ntitle: "x"\nverified:\n  - {by: "bot", at: "2026-08-16"}\n---\nbody\n'
-    )
-    (root / "d.txt").write_bytes(b"D")
-    note_bytes = _note_bytes((root / "c.md").read_bytes())
-    assert note_bytes == b'---\ntitle: "x"\n---\nbody\n'
-    assert verify._directory_bytes(root) == b"\0".join(
-        [
-            b"a-link",
-            b"symlink",
-            b"target",
-            b"b-dir/inner.txt",
-            b"inner",
-            b"c.md",
-            note_bytes,
-            b"d.txt",
-            b"D",
-        ]
-    )
-    assert verify._directory_bytes(root / "d.txt") is None
-
-
-@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a mode-000 file")
-def test_directory_bytes_marks_an_unreadable_file_and_keeps_walking(tmp_path):
-    from research_vault import verify
-
-    root = tmp_path / "d"
-    root.mkdir()
-    (root / "a.txt").write_bytes(b"A")
-    unreadable = root / "b.txt"
-    unreadable.write_bytes(b"B")
-    unreadable.chmod(0)
-    (root / "c.txt").write_bytes(b"C")
-    try:
-        assert verify._directory_bytes(root) == b"\0".join(
-            [b"a.txt", b"A", b"b.txt", b"unreadable", b"c.txt", b"C"]
-        )
-    finally:
-        unreadable.chmod(0o644)
 
 
 def test_snapshot_directory_bytes_takes_only_the_prefix_children_that_carry_bytes():

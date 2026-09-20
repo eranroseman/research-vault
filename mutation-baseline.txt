@@ -1954,18 +1954,6 @@ research_vault/verify.py::func/_claim_bytes_from_text::-            for continua
 research_vault/verify.py::func/_claim_bytes_from_text::-            for continuation in lines[index + 1 :]:\n+            for continuation in lines[index - 1 :]:
 research_vault/verify.py::func/_claim_bytes_from_text::-            return _without_own_marks("".join(block)).encode(errors="surrogateescape")\n+            return _without_own_marks("XXXX".join(block)).encode(errors="surrogateescape")
 research_vault/verify.py::func/_claim_bytes_from_text::-        if _terminal_anchor_match(content, claim_id):\n+        if _terminal_anchor_match(content, None):
-research_vault/verify.py::func/_directory_bytes::-                    link_target = b"unreadable-link"\n+                    link_target = None
-research_vault/verify.py::func/_directory_bytes::-                    link_target = b"unreadable-link"\n+                    link_target = b"UNREADABLE-LINK"
-research_vault/verify.py::func/_directory_bytes::-                    link_target = b"unreadable-link"\n+                    link_target = b"XXunreadable-linkXX"
-research_vault/verify.py::func/_directory_bytes::-            chunks.extend((relative, b"outside"))\n+            chunks.extend((relative, b"OUTSIDE"))
-research_vault/verify.py::func/_directory_bytes::-            chunks.extend((relative, b"outside"))\n+            chunks.extend((relative, b"XXoutsideXX"))
-research_vault/verify.py::func/_directory_bytes::-            chunks.extend((relative, b"outside"))\n+            chunks.extend(None)
-research_vault/verify.py::func/_directory_bytes::-            chunks.extend((relative, b"unreadable"))\n+            chunks.extend((relative, b"UNREADABLE"))
-research_vault/verify.py::func/_directory_bytes::-            chunks.extend((relative, b"unreadable"))\n+            chunks.extend((relative, b"XXunreadableXX"))
-research_vault/verify.py::func/_directory_bytes::-            chunks.extend((relative, b"unreadable"))\n+            chunks.extend(None)
-research_vault/verify.py::func/_directory_bytes::-            continue\n+            break
-research_vault/verify.py::func/_directory_bytes::-        return b"unreadable-directory"\n+        return b"UNREADABLE-DIRECTORY"
-research_vault/verify.py::func/_directory_bytes::-        return b"unreadable-directory"\n+        return b"XXunreadable-directoryXX"
 research_vault/verify.py::func/_effective::-            target_kind=outcome.target_kind,\n-        )\n+            )
 research_vault/verify.py::func/_file_effects::-                        outcome.extra.get("detection_date", detection_date)\n+                        outcome.extra.get("DETECTION_DATE", detection_date)
 research_vault/verify.py::func/_file_effects::-                        outcome.extra.get("detection_date", detection_date)\n+                        outcome.extra.get("XXdetection_dateXX", detection_date)
@@ -2162,17 +2150,6 @@ research_vault/verify.py::func/_warning_effectiveness::-                warning.
 research_vault/verify.py::func/_warning_effectiveness::-                warning.get("notice_date") if isinstance(warning, Mapping) else None\n+                warning.get(None) if isinstance(warning, Mapping) else None
 research_vault/verify.py::func/_warning_effectiveness::-            notice_date = (\n-                warning.get("notice_date") if isinstance(warning, Mapping) else None\n-            )\n+            notice_date = None
 research_vault/verify.py::func/_warning_effectiveness::-            statuses.append(effective)\n+            statuses.append(None)
-research_vault/verify.py::func/_worktree_path_hash::-            else b""\n+            else b"XXXX"
-research_vault/verify.py::func/_worktree_path_hash::-        ) or b""\n+        ) or b"XXXX"
-research_vault/verify.py::func/_worktree_path_hash::-        data = _append_only_basis(vault_root, raw_target, base_snapshot)\n+        data = _append_only_basis(vault_root, raw_target, )
-research_vault/verify.py::func/_worktree_path_hash::-        data = _append_only_basis(vault_root, raw_target, base_snapshot)\n+        data = _append_only_basis(vault_root, raw_target, None)
-research_vault/verify.py::func/_worktree_path_hash::-        if raw_target.endswith(b".md"):\n+        if raw_target.endswith(b".MD"):
-research_vault/verify.py::func/_worktree_path_hash::-        if raw_target.endswith(b".md"):\n+        if raw_target.endswith(b"XX.mdXX"):
-research_vault/verify.py::func/_worktree_path_hash::-    if live_target is not None and live_target.kind in {"symlink", "special"}:\n+    if live_target is not None and live_target.kind in {"SYMLINK", "special"}:
-research_vault/verify.py::func/_worktree_path_hash::-    if live_target is not None and live_target.kind in {"symlink", "special"}:\n+    if live_target is not None and live_target.kind in {"XXsymlinkXX", "special"}:
-research_vault/verify.py::func/_worktree_path_hash::-    if live_target is not None and live_target.kind in {"symlink", "special"}:\n+    if live_target is not None and live_target.kind in {"symlink", "SPECIAL"}:
-research_vault/verify.py::func/_worktree_path_hash::-    if live_target is not None and live_target.kind in {"symlink", "special"}:\n+    if live_target is not None and live_target.kind in {"symlink", "XXspecialXX"}:
-research_vault/verify.py::func/_worktree_path_hash::-    live_target = gitstate.live_image(Path(vault_root), raw_target)\n+    live_target = None
 research_vault/verify.py::func/_write_note_text::-    with Path(path).open("w", encoding="utf-8", newline="") as note:\n+    with Path(path).open("w", encoding="UTF-8", newline="") as note:
 research_vault/verify.py::func/_write_note_text::-    with Path(path).open("w", encoding="utf-8", newline="") as note:\n+    with Path(path).open("w", encoding="utf-8", ) as note:
 research_vault/verify.py::func/_write_note_text::-    with Path(path).open("w", encoding="utf-8", newline="") as note:\n+    with Path(path).open("w", encoding="utf-8", newline=None) as note:
