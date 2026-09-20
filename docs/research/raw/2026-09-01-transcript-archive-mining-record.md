@@ -453,7 +453,7 @@ are grouped by durable home below; every one carries provenance.
   manifest (updated header below) as the citable inventory of what the archive was; this record
   as the durable home of the mine's output.
 - The redundant external clone at `~/knowledge-harness-transcripts` was verified absent
-  (2026-09-01 filesystem sweep: `~/`, `/mnt/c` to depth 3, all of `/home/eranr`).
+  (2026-09-01 filesystem sweep: `~/`, `/mnt/c` to depth 3, all of the home directory).
 - Raw export bytes remain reachable in git history at `7cacace`; deletion at HEAD removes them
   from the working tree and from any future clone of the current repo state. That is the
   intended meaning of "discard" here.

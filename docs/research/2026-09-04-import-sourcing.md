@@ -12,7 +12,7 @@ Disposition: historical (2026-09-06) [should-be-scoping-review]
 
 **Nothing here is a decision.** This note carries findings and, per candidate, one opinion about which treatment that candidate's own evidence points toward. It ranks nothing, shortlists nothing, and names no single answer. The treatments are design's to choose among: install as-is, fork and keep merging, copy frozen, copy plus a delta, author to the design and credit it, or write from scratch.
 
-**Conventions.** Every quote is verbatim from the candidate's body at the pin named in that candidate's section, reproduced with its own punctuation, spelling, and language. Authored text is this note's wording. A finding drawn from what a body says it does, rather than from a shipped script, schema, template, or worked example, is marked `basis: claim`; a finding drawn from an artifact is marked `basis: evidence`. Where a record carries a second, adversarial read, its result appears in that candidate's Verify line.
+**Conventions.** Every quote is verbatim from the candidate's body at the pin named in that candidate's section, reproduced with its own punctuation, spelling, and language. Authored text is this note's wording. A finding drawn from what a body says it does, rather than from a shipped script, schema, template, or worked example, is marked `basis: claim`; a finding drawn from an artifact is marked `basis: evidence`. Where a record carries a second, adversarial read, its result appears in that candidate's Verify line. Quotations are reproduced only from candidates whose repository records a licence at the pin (named in each candidate's Licence line); a candidate with no licence found — §10, §12, and §21 as declared-but-unpapered, §11's rendered page — is cited and paraphrased, never quoted (#164, 2026-09-18).
 
 ______________________________________________________________________
 
@@ -1529,7 +1529,7 @@ Every tool is a plain Python CLI; the shipped launchd or cron example runs the f
 
 ### 9. kepano/obsidian-skills
 
-Seeded ("installed; markdown, bases, cli skills"). `https://github.com/kepano/obsidian-skills`. Pin `a1dc48e68138490d522c04cbf5822214c6eb1202` (main HEAD; `plugin.json` version 1.0.1), identical to the local install at `/home/eranr/.claude/plugins/cache/obsidian-skills/obsidian/1.0.1`: the recorded `gitCommitSha` matches and all fourteen files are sha256-identical to the raw files at that SHA. Kind: a Claude Code plugin that is an Agent Skills bundle of five skills plus markdown reference files, with no scripts, no executable code and no templates.
+Seeded ("installed; markdown, bases, cli skills"). `https://github.com/kepano/obsidian-skills`. Pin `a1dc48e68138490d522c04cbf5822214c6eb1202` (main HEAD; `plugin.json` version 1.0.1), identical to the local install at `~/.claude/plugins/cache/obsidian-skills/obsidian/1.0.1`: the recorded `gitCommitSha` matches and all fourteen files are sha256-identical to the raw files at that SHA. Kind: a Claude Code plugin that is an Agent Skills bundle of five skills plus markdown reference files, with no scripts, no executable code and no templates.
 
 **Maintenance.** Last push 2026-06-08 (a documentation merge); 47,870 stars; default branch main; about three months without a push at read time; plugin version 1.0.1.
 
@@ -1701,89 +1701,67 @@ The nearest text is an invitation to copy rather than a grant: line 5 says the d
 
 **D1 covers** (claim). Line 37, the Ingest operation.
 
-```
-An example flow: the LLM reads the source, discusses key takeaways with you, writes a summary page in the wiki, updates the index, updates relevant entity and concept pages across the wiki, and appends an entry to the log.
-```
+`llm-wiki.md:37` at the pin — the ingest flow reads the source, discusses key takeaways, writes a summary page, updates the index and related entity/concept pages, and appends a log entry.
 
 The ingest flow prescribes exactly a per-source summary page derived from reading the source and its key takeaways. Prose only, so the basis is a claim; the status is covers because the requirement is addressed in full as described behaviour.
 
 **D2 does not** (claim). Line 75, with the Dataview tip at line 61.
 
-```
-The exact directory structure, the schema conventions, the page formats, the tooling — all of that will depend on your domain, your preferences, and your LLM of choice.
-```
+`llm-wiki.md:75` at the pin — directory structure, schema conventions, page formats and tooling are left to the caller's domain, preferences and LLM choice.
 
 No per-source template or field mechanism is described anywhere. Page formats are explicitly delegated to the caller-authored schema, and the only field-like mention is optional YAML frontmatter for Dataview, which is not a caller-supplied charting field list. Delegating the format is not a mechanism for filling one.
 
 **D3 partial** (claim). Lines 31, 49, 11 and 41.
 
-```
-Summaries, entity pages, concept pages, comparisons, an overview, a synthesis. || **log.md** is chronological. It's an append-only record of what happened and when — ingests, queries, lint passes. || noting where new data contradicts old claims || Look for: contradictions between pages, stale claims that newer sources have superseded, orphan pages with no inbound links
-```
+`llm-wiki.md:31,49,11,41` at the pin — the wiki holds summary, entity, concept, comparison, overview and synthesis pages; `log.md` is an append-only chronological record of ingests, queries and lint passes; new data is meant to note where it contradicts old claims; and lint looks for cross-page contradictions, claims superseded by newer sources, and orphan pages.
 
 Cross-source concept and synthesis pages, an index catalogue and an append-only log are all prescribed, and contradictions are to be noted and flagged. The never-resolved-by-deleting-one-side rule is not stated; on the contrary, lint is told to look for stale claims that newer sources have superseded, which contemplates supersession without saying whether the older claim is kept.
 
 **D4 covers** (claim). Lines 29 and 37.
 
-```
-These are immutable — the LLM reads from them but never modifies them. This is your source of truth. || You drop a new source into the raw collection and tell the LLM to process it.
-```
+`llm-wiki.md:29,37` at the pin — raw sources are immutable (the LLM reads but never modifies them), and processing begins only once a human drops a source into the raw collection and tells the LLM to process it.
 
 The raw layer is created by the human, or by the Web Clipper, and is immutable to the LLM; digestion begins only when the human tells the LLM to process a source already present. Capture and integrate are separate by construction and the LLM never owns creation of the source file.
 
 **D5 does not** (claim). Line 49.
 
-```
-The log gives you a timeline of the wiki's evolution and helps the LLM understand what's been done recently.
-```
+`llm-wiki.md:49` at the pin — the log is described only as a human-readable timeline aid, not a hash or idempotency mechanism.
 
 No content hash, fingerprint or idempotency rule appears in the body. The only guard against re-processing is the human-readable log the LLM is meant to consult, which is a memory aid rather than a no-op mechanism.
 
 **D6 does not** (claim). Lines 5 and 33.
 
-```
-This is an idea file, it is designed to be copy pasted to your own LLM Agent (e.g. OpenAI Codex, Claude Code, OpenCode / Pi, or etc.). || **The schema** — a document (e.g. CLAUDE.md for Claude Code or AGENTS.md for Codex) that tells the LLM how the wiki is structured, what the conventions are, and what workflows to follow when ingesting sources, answering questions, or maintaining the wiki.
-```
+`llm-wiki.md:5,33` at the pin — the gist calls itself an idea file meant to be copy-pasted into an agent, with the schema living in `CLAUDE.md` or `AGENTS.md`, naming no installable skill, plugin or script.
 
 Self-described as an idea file to copy-paste into an agent. There is no skill file, plugin manifest, command, hook or script; the gist's only file in its only revision is the idea file. Nothing is installable. Codex compatibility, recorded separately: the body names OpenAI Codex as a target and `AGENTS.md` as the Codex schema file, so the pattern is harness-agnostic even though nothing installs.
 
 **D7 partial** (claim). Lines 31, 45 and 75.
 
-```
-The LLM owns this layer entirely. It creates pages, updates them when new sources arrive, maintains cross-references, and keeps everything consistent. You read it; the LLM writes it. || Two special files help the LLM (and you) navigate the wiki as it grows. || The exact directory structure, the schema conventions, the page formats, the tooling — all of that will depend on your domain, your preferences, and your LLM of choice.
-```
+`llm-wiki.md:31,45,75` at the pin — the LLM owns the wiki layer, creating and updating pages and cross-references; two special files (index and log) aid navigation; and directory structure, schema, formats and tooling are all left to the caller.
 
 The first alternative (an existing vault with a caller-chosen layout) is not really addressed: the body assumes a fresh LLM-owned wiki layer, though nothing forbids coexistence. The second alternative is only partly met: it names two special files and a three-layer split and gives a raw-assets example, then declines to fix a directory structure. Partial on both halves.
 
 **D8 does not** (claim). Lines 49 and 47.
 
-```
-A useful tip: if each entry starts with a consistent prefix (e.g. `## [2026-04-02] ingest | Article Title`), the log becomes parseable with simple unix tools || each page listed with a link, a one-line summary, and optionally metadata like date or source count
-```
+`llm-wiki.md:49,47` at the pin — the only worked identifiers are an article title in a suggested log-entry prefix and a link-plus-summary index listing; no stable id or citekey convention appears.
 
 The one worked identifier in the body is an article title in the log prefix; the index identifies pages by link plus one-line summary, and query answers come with citations. No stable id, citekey or provenance-marker convention is described anywhere.
 
 **D9 covers** (claim). Line 37.
 
-```
-Personally I prefer to ingest sources one at a time and stay involved — I read the summaries, check the updates, and guide the LLM on what to emphasize. But you could also batch-ingest many sources at once with less supervision. It's up to you to develop the workflow that fits your style and document it in the schema for future sessions.
-```
+`llm-wiki.md:37` at the pin — both per-source review and lighter-supervision batch ingest are described, with the chosen mode meant to be recorded in the schema.
 
 Per-source review and batch ingest with less supervision are both documented, and the chosen mode is to be recorded in the schema, which meets the at-least-documented bar. Line 22 also anticipates humans in the loop reviewing updates for team wikis. Nothing is configurable in a mechanical sense.
 
 **D10 undetermined** (claim). Line 5, with the absence of any licence file.
 
-```
-This is an idea file, it is designed to be copy pasted to your own LLM Agent (e.g. OpenAI Codex, Claude Code, OpenCode / Pi, or etc.).
-```
+`llm-wiki.md:5` at the pin — the same copy-paste framing quoted at D6, offered here against the absence of any licence file.
 
 No licence instrument exists, so default copyright applies. The copy-paste invitation and the instantiate-a-version line signal the author's intent that the pattern be reused and adapted, but an invitation is not a grant of modification rights. Undetermined rather than does-not, because no licence forbids use either; the caller has to judge whether the invitation suffices.
 
 **C5 partial** (claim). Line 15.
 
-```
-In practice, I have the LLM agent open on one side and Obsidian open on the other. The LLM makes edits based on our conversation, and I browse the results in real time — following links, checking the graph view, reading the updated pages. Obsidian is the IDE; the LLM is the programmer; the wiki is the codebase.
-```
+`llm-wiki.md:15` at the pin — the author describes running the LLM agent and Obsidian side by side, browsing results in real time, with Obsidian cast only as a viewer, not a dependency.
 
 A cross-lane row included only as a property of the pattern: the agent edits markdown files directly and Obsidian is a viewer, so nothing in the workflow depends on the Obsidian application, yet the body never states that it runs without Obsidian and the author describes running with it open. It is not a capture tool: it reads no Zotero.
 
@@ -1801,13 +1779,7 @@ Seeded ("update discipline statement"). `https://llmwikis.org`. Pin: no reposito
 
 **Licence.** Found, and split. The rendered page carries no licence notice; the content licence page states:
 
-```
-Unless a page states otherwise, LlmWikis.org public explanatory text may be quoted, summarized, and linked with attribution to LlmWikis.org. Starter examples are provided as implementation scaffolds and should preserve source attribution and local project ownership.
-
-## Third-party material
-
-Source excerpts, package metadata, logos, code, and linked third-party references retain their original ownership and license terms. Software files follow the license declared in their package, repository, or file header.
-```
+`llmwikis.org` content-licence page at the pin — public explanatory text may be quoted, summarised and linked with attribution to LlmWikis.org (modification not addressed); third-party excerpts, code and logos keep their own licence terms, and software follows whatever licence its package, repository or file header declares.
 
 Looked for a software licence and found none: no licence file in the bundle root or scripts directory, no licence header in any of the three Node scripts, no licence key in the bundle manifest or the site specification, and a recursive grep of the unpacked bundle for licence, copyright, MIT, Apache and CC returned nothing. So the prose may be quoted, summarised and linked with attribution (modification is not addressed), the scaffolds may be used with attribution, and the scripts have no declared licence at all.
 
@@ -1825,100 +1797,61 @@ IP assertions: the bundle manifest states that it is a starter structure rather 
 
 **D1 partial** (evidence). The ingest page's copy-paste prompt and source page shape.
 
-```
-- Create or update exactly one wiki/sources/ page for the source.
-- Extract Summary, Key Claims, Evidence, Entities, Connections, and Contradictions.
-```
+llmwikis.org ingest page at the pin — the copy-paste prompt directs creating or updating exactly one source page and extracting Summary, Key Claims, Evidence, Entities, Connections and Contradictions; the record found this shape fails the bundle's own shipped validators.
 
 The body supplies a worked prompt and a page-shape template for exactly the per-source summary and key-points page, taking a PDF path in `raw/`. Nothing in the body executes it: the digest is done by whichever coding agent the user pastes the prompt into, and PDF text extraction is delegated. An empirical check found that the body's own source page shape fails its own shipped validators: the OKF validator reports four errors for missing governance fields, and the preflight validator rejects the status value and the missing trust fields. So the template is usable as a specification but not as-is with the body's tooling.
 
 **D2 does not** (evidence). The source-record template's field list, with the ingest blueprint's fixed keys and the tolerant frontmatter schema.
 
-```
-- Source ID:
-- Source path or URL:
-- Owner:
-- Date captured:
-- Sensitivity:
-- Checksum:
-- Summary:
-- Supports pages:
-- Restrictions:
-```
+llmwikis.org source-record template at the pin — a fixed nine-field list (Source ID, Source path or URL, Owner, Date captured, Sensitivity, Checksum, Summary, Supports pages, Restrictions); the schema tolerates extra keys but nothing accepts a caller-supplied field list.
 
 Every per-source template in the body has a fixed field list authored by the tool. The schema tolerates extra keys and the agent contract says to preserve unknown frontmatter keys, but no prompt, template or script accepts or fills a caller-supplied field list such as population, concept, context, design, findings or a page locator.
 
 **D3 partial** (evidence). The ingest algorithm's preserve-and-extend and record-contradictions rules, with the shipped navigation surfaces and the typed relation.
 
-```
-- Preserve and extend. Rewrite target pages so new knowledge integrates with prior content without deleting unresolved history.
-
-- Record contradictions. Add unresolved conflicts to wiki/contradictions.md instead of smoothing them over.
-
-- Update navigation. Add or revise index.md entries and append a log.md event.
-```
+llmwikis.org ingest algorithm at the pin — rules to preserve and extend prior content without deleting unresolved history, record contradictions in a dedicated page instead of smoothing them over, and update the index and log on every ingest.
 
 The design is exactly the requirement: concept and synthesis pages, an index and an append-only log shipped as files, a `contradicts` relation in the schema, and an explicit ban on removing disagreement to make text cleaner. Shipped artifacts are real (index, log, concept template, schema relation, a log-order check). The maintaining itself is done by the consuming agent; nothing in the body executes the merge, and the never-delete rule is enforced only as prose plus a lint that checks a relation is present rather than a deletion guard.
 
 **D4 covers** (evidence). The bundle's OKF profile roots, the ingest prompt's read-only rule, and the raw directory's own README.
 
-```
-    "bundle_root": "wiki/",
-    "raw_source_root": "raw/",
-```
+llmwiki starter bundle configuration at the pin — declares `bundle_root: "wiki/"` and `raw_source_root: "raw/"`, keeping capture and digest in separate directories.
 
 Capture and digest are separate layers by construction: `raw/` is an immutable input directory that any process may populate, and the digest prompt consumes a path already in it. The preparation helper is mandatory only above 256 KB, so the tool does not own source-file creation. Conditions found in the scripts: preflight fails any raw file over 256 KB that is not segmented, the preparation command splits such files into byte chunks (meaningless for a PDF binary), and duplicate content hashes across raw, wiki and proposals are a failure, so a Zotero PDF corpus dropped into `raw/` will fail preflight unless those checks are disabled.
 
 **D5 partial** (claim). The two-step pipeline's hash-and-register stage, against the script that turns a duplicate into a failure.
 
-```
-Hash and register
-Detect duplicate or changed source files.
-Path, checksum, source type, intake date.
-Unknown origin, unsafe file, or duplicate already reviewed.
-```
+llmwikis.org pipeline description at the pin — a hash-and-register stage meant to detect duplicate or changed files by path, checksum, source type and intake date, stopping on an unknown-origin, unsafe or already-reviewed duplicate; no shipped script implements the skip.
 
 The no-op-on-unchanged behaviour is prescribed in prose with "duplicate already reviewed" as a stop condition, but no shipped code implements a skip: preflight computes SHA-256 and turns a duplicate into a validation failure, and the preparation command re-copies a source to a hash-suffixed name without checking whether the target already exists. The hash plumbing exists; the idempotent short-circuit does not.
 
 **D6 does not** (evidence). The specification's conformance profiles, with the bundle's file inventory.
 
-```
-Profile A plus AGENTS.md or CLAUDE.md, agent read order, update rules, citation rules, stop conditions, staged-write policy, local route manifest, private-file exclusion, and review checklist.
-```
+llmwikis.org specification at the pin — Profile A requires an `AGENTS.md`/`CLAUDE.md` agent contract with read order, update and citation rules, stop conditions, a staged-write policy, a route manifest, private-file exclusion and a review checklist, none of which is a Claude Code skill or plugin.
 
 Not a Claude Code skill or plugin; the body is harness-agnostic folder-plus-agent, and its only agent contract is a root `AGENTS.md` whose content is a governance schema rather than a skill. There is no skill file, plugin manifest or marketplace manifest anywhere in the bundle. Codex compatibility, recorded separately: the bundle ships `AGENTS.md`, which Codex reads natively; `CLAUDE.md` appears only as an alternative filename in prose and in the preflight allowlist, and none is shipped.
 
 **D7 covers** (evidence). The bundle's agent contract on the OKF profile, with configurable directory names in the preflight configuration and script arguments.
 
-```
-Use `wiki/` as the OKF bundle root. Root `wiki/index.md` is reserved and may contain only `okf_version` in frontmatter; nested `index.md` files should be plain routing files; `wiki/log.md` records newest-first activity. Every other Markdown concept file under `wiki/` needs YAML frontmatter with `type` plus the LLMWikis governance overlay: `llmwiki_status`, `llmwiki_owner`, `llmwiki_source_status`, and `llmwiki_agent_use`.
-```
+llmwikis.org agent contract at the pin — `wiki/` is the OKF bundle root, the root `index.md` may hold only `okf_version`, `log.md` records newest-first activity, and every other markdown file needs `type` plus four governance frontmatter fields (`llmwiki_status`, `llmwiki_owner`, `llmwiki_source_status`, `llmwiki_agent_use`).
 
 Layout requirements are explicit and the folder names are caller-configurable. Hard constraints that bite an existing markdown vault: nested index files must carry no frontmatter, the root index may hold only the OKF version, every other markdown file must carry a type plus four governance fields, and preflight additionally demands owner, status, source status, last-reviewed, canonical URL and typed relations on every page. Empirically the pristine bundle passes its OKF validator with zero errors and six warnings and fails its own preflight with 96 failures under the shipped configuration.
 
 **D8 partial** (evidence). The knowledge-graph page's stable-id rule, against the tool-derived raw filename.
 
-```
-Stable IDs
-Identify pages, sections, entities, claims, sources, contradictions, and review events.
-Do not use titles as permanent IDs.
-```
+llmwikis.org knowledge-graph page at the pin — calls for stable, non-title identifiers across pages, sections, entities, claims, sources, contradictions and review events; no worked example actually propagates a caller-supplied id.
 
 The body wants stable non-title identifiers and provides a free Source ID slot and a free-string checksum-or-source-identity field, so a caller-supplied citekey can be recorded. But every worked example links and traces by raw path, slug or hash prefix, nothing propagates a caller id into wiki links or provenance markers, and the preparation script invents its own hash-based names.
 
 **D9 covers** (evidence). The OKF profile's agent update policy, with the per-page agent-use enum, the staged-proposal quarantine and the pipeline's review stage.
 
-```
-"agent_update_policy": "proposal-only until human review promotes a change",
-```
+llmwiki starter bundle configuration at the pin — declares `agent_update_policy: "proposal-only until human review promotes a change"`, with a per-page agent-use enum and a staged-proposals quarantine backing it.
 
 The review gate is both documented and configurable per page through an agent-use enum of read-only, read-cite, read-cite-propose, proposal-only, human-approval-required and blocked, with a human-review-required flag, a staged-proposals quarantine folder shipped, and a per-source cadence (each source gets an ingest preflight, and the pipeline stages analyse, stage, review, write). Batch review is not named as a mode; it is implicit in staging many proposals before one review pass.
 
 **D10 partial** (claim). The content licence page's first paragraph and its third-party clause, against the absence of any licence in the bundle.
 
-```
-Unless a page states otherwise, LlmWikis.org public explanatory text may be quoted, summarized, and linked with attribution to LlmWikis.org. Starter examples are provided as implementation scaffolds and should preserve source attribution and local project ownership.
-```
+llmwikis.org content-licence page at the pin (repeating the Licence paragraph's quote above) — prose may be quoted/summarised/linked with attribution and scaffolds may be used with attribution, but modification rights are not addressed and the bundle's scripts carry no declared licence at all.
 
 Use is permitted for prose (quote, summarise, link, with attribution) and for the starter scaffolds (attribution and local project ownership preserved, with the manifest expecting examples to be replaced). Modification and derivative rights for the prose are not granted, and the executable half, three Node scripts and the JSON schemas, has no declared licence at all: by the page's own rule that means the scripts fall back to whatever their package, repository or header declares, which is nothing. A floor requirement for use and modification is therefore only partly met.
 
@@ -1948,83 +1881,61 @@ Discovered through the handbook. `https://llmwikis.org/downloads/llm-wiki-starte
 
 **D1 does not** (evidence). The source-record template's two bullets, with the preparation script's text sample.
 
-```
-- Summary:
-- Supports pages:
-```
+llm-wiki starter bundle template at the pin — a blank `Summary:`/`Supports pages:` bullet pair; nothing in the bundle fills them, and above the size limit only a raw byte-and-hash excerpt is produced.
 
 Nothing in the body emits a summary or key points. The only per-source artifacts shipped are a blank template bullet list and, for files above the size limit, an abstract file containing a SHA-256, a byte count and the first 4,096 bytes decoded as text, which is a raw excerpt rather than a digest. The agent contract describes a two-step ingest but assigns the writing to the agent; no prompt, skill or script performs it.
 
 **D2 does not** (evidence). The frontmatter schema's tolerance, against the fixed template field lists.
 
-```
-"additionalProperties": true,
-```
+llm-wiki starter bundle JSON schema at the pin — sets `additionalProperties: true`, so extra frontmatter keys pass validation even though nothing fills them from a source.
 
 Templates carry a fixed, tool-defined field list of 33 required frontmatter keys. The schema tolerates extra keys and the contract says to preserve unknown frontmatter, so caller-added fields would not break validation, but no component reads a caller-supplied field list or fills fields from a source. Filling is absent entirely.
 
 **D3 partial** (evidence). The OKF validator's log-order warning, with the reserved index rule, the typed-relation whitelist and the concept template's relation block.
 
-```
-addWarning('log.md date headings should be newest-first');
-```
+`scripts/llmwiki-okf-validate.js` at the pin — emits a warning when `log.md` date headings are not newest-first; the never-delete-one-side rule itself is prose only, with no implementing check.
 
 Structure is shipped and script-checked: a reserved index and log, log date headings validated newest-first (a prepend-only, that is add-only rather than literally append, ordering), a concept template with a `contradicts` typed relation, and a validator that rejects any relation key outside the five allowed. The never-delete-one-side half is prose only: the forbidden list in the update rules bans removing disagreement to make text cleaner, the knowledge map says to preserve stale, contradicted, blocked and candidate states, and the lint checklist says a contradicted page without a contradiction relation fails, but none of that has implementing code.
 
 **D4 partial** (evidence). The preparation command's arbitrary source argument, with the two-step contract.
 
-```
-const target = path.join(rawDir, `${safeBase}-${hash.slice(0, 8)}${ext}`);
-fs.copyFileSync(source, target);
-```
+llm-wiki starter bundle preparation script at the pin — copies an externally supplied source file into `raw/` under a hash-suffixed name via `fs.copyFileSync`; capture is separable in code, but nothing extracts text from a binary PDF.
 
 Capture is separable in code: preparation copies any externally written file into `raw/` under a hash-suffixed name, and validation scans whatever is already in `raw/` regardless of who wrote it, so the bundle does not own source creation. The integrate half has no code at all. For a Zotero-attachment flow, any file over 256 KB placed in `raw/` by another process fails validation until run through preparation, which byte-chunks it and decodes the first 4 KB as text, meaningless for a binary PDF; the bundle assumes text has already been extracted.
 
 **D5 partial** (evidence). The preflight duplicate check, against the absence of a skip.
 
-```
-report.failures.push(`Duplicate content hash ${hash}: ${relative(report.root, previous)} and ${relative(report.root, file)}`);
-```
+llm-wiki starter bundle preflight script at the pin — pushes a failure (`Duplicate content hash ...`) when the same content hash appears twice under `raw/`/`wiki/`/proposals; re-running on unchanged content is a hard validation stop, not a skip.
 
 Content hashing exists and drives the raw filename, so re-running preparation on an unchanged file rewrites the same target path, which was tested: two runs both reported the same copy. There is no skip branch. The opposite behaviour is what is enforced: the same content under a second name is a validation failure and a documented hard stop.
 
 **D6 does not** (evidence). The validator's agent-scope check, with the bundle inventory.
 
-```
-for (const name of ['AGENTS.md', 'CLAUDE.md']) {
-```
+llm-wiki starter bundle validator at the pin — loops over `['AGENTS.md', 'CLAUDE.md']` when checking for an agent-scope file; the bundle ships only `AGENTS.md`, and neither is packaged as a Claude Code skill or plugin.
 
 Nothing is packaged as a Claude Code skill or plugin. The validator anticipates a `CLAUDE.md` and accepts either name for its scope check, but the bundle ships only `AGENTS.md`. Codex compatibility, recorded separately: `AGENTS.md` is Codex's native project-instruction file, so dropping the bundle into a repository gives Codex its instructions as-is; it is still an instruction file plus CLI scripts rather than a skill for either harness.
 
 **D7 covers** (evidence). The bundle's agent contract on the OKF profile, with the configurable directory names in the preflight configuration and the script's own overrides.
 
-```
-Use `wiki/` as the OKF bundle root. Root `wiki/index.md` is reserved and may contain only `okf_version` in frontmatter; nested `index.md` files should be plain routing files; `wiki/log.md` records newest-first activity. Every other Markdown concept file under `wiki/` needs YAML frontmatter with `type` plus the LLMWikis governance overlay: `llmwiki_status`, `llmwiki_owner`, `llmwiki_source_status`, and `llmwiki_agent_use`.
-```
+llmwiki starter bundle agent contract at the pin (the same text the handbook section quotes) — `wiki/` is the OKF bundle root with reserved index/log files and four governance frontmatter fields required on every other markdown file; directory names are caller-configurable.
 
 Layout requirements are explicit and the wiki, raw and proposal directory names are caller-configurable through the shipped configuration file or command-line flags, and the OKF validator takes any root as its positional argument. The hard constraints are the ones listed in the handbook section: reserved index and log files, a `type` plus four governance fields on every other markdown file, and, from preflight, owner, status, source status, last-reviewed, canonical URL and typed relations on every page. This is the same statement the handbook cites, because the bundle is where it ships.
 
 **D8 partial** (evidence). The source-record template's identifier slot, against the tool-derived filename.
 
-```
-- Source ID:
-```
+llm-wiki starter bundle template at the pin — a free-text `Source ID:` bullet; the only identifier the tooling actually generates is its own basename-plus-hash raw filename, and nothing links or validates by the Source ID.
 
 There are slots for an identifier (a free-text Source ID bullet, a free-string checksum-or-source-identity field, and a `source_for` relation), and the citation rule shows a path-based provenance format. The only identifier the tooling actually generates is its own basename-plus-hash raw filename. There is no citekey concept, and nothing links or validates by the Source ID.
 
 **D9 covers** (evidence). The OKF profile's update policy, with the per-page agent-use enum and the staged-proposals README.
 
-```
-"agent_update_policy": "proposal-only until human review promotes a change",
-```
+llm-wiki starter bundle configuration at the pin (the same declaration the handbook section quotes) — `agent_update_policy: "proposal-only until human review promotes a change"`; no script acts on the value beyond checking it is non-empty.
 
 The gate is documented and declared per page through a schema enum, with a proposals quarantine and a dated log entry template naming source records and reviewer. No script acts on the enum value: the OKF validator only checks the field is non-empty, and the only code enforcement is a regex requiring source-trace or owner-review language near mentions of staged proposals. Per-source versus batch granularity is not addressed; the log template implies dated batches listing several source records.
 
 **D10 undetermined** (evidence). The site's deferral clause, against the absence of any licence in the bundle.
 
-```
-Software files follow the license declared in their package, repository, or file header.
-```
+llmwikis.org content-licence page at the pin — defers software licensing to whatever a package, repository or file header declares; none of the bundle's scripts makes such a declaration, so no licence is affirmed for the code.
 
 No grant exists in the bundle, and the site defers software licensing to a declaration the scripts do not make. The site permits quoting and summarising explanatory text with attribution and calls starter examples implementation scaffolds whose examples should be replaced, which implies modification is anticipated, but neither is a licence. Rights to copy and modify the code cannot be affirmed from the body.
 
@@ -3302,9 +3213,7 @@ Added by the critic pass, which named it as the run's best remaining chance at a
 
 **Licence.** MIT, declared but incompletely papered.
 
-```
-license: MIT
-```
+`SKILL.md:5` at the pin (and `package.json:6`) — declares `license: MIT`; the only full grant text in the tree is `workbench/LICENSE`, in a subtree the installer does not ship, and no `LICENSE` has ever existed at the repository root.
 
 Declared at `SKILL.md` line 5, in the header of the exact artifact a taker would take, and at `package.json` line 6. The only full grant text in the tree is `workbench/LICENSE`, opening "MIT License" and "Copyright (c) 2026 Kiro" at lines 1-3, and its location scopes it to the workbench subtree, which `install.sh` does not ship. The hole: there is no `LICENSE` at the repository root at this pin. The contents API returns 404 for it, and a commit query on that path returns zero, so a root licence has never existed in history, which makes the README badge a link that has always been dead. The GitHub repository API reports the licence as null. IP assertions: attribution of the MIT declaration is coherent, since `workbench/LICENSE` names Kiro and the HEAD co-author is the repository owner. Third-party code ships inside the payload, because `install.sh` includes `deps` in its managed items, and `deps/` vendors d3, marked, DOMPurify and roughjs each with a matching licence text file, Unicode data files, and two whole third-party skills. Neither vendored skill carries a licence field in its frontmatter and neither has a licence file; the reader resolved one upstream out of band to MIT and left the other unresolved.
 
@@ -3320,97 +3229,73 @@ Declared at `SKILL.md` line 5, in the header of the exact artifact a taker would
 
 **D1 covers** (evidence). `templates/source-template.md` line 24, under the key-points heading, with the one-line summary blockquote at line 14 and the mandated section list at `SKILL.md` line 423.
 
-```
-（3-5 个要点，每个要点用 1-2 句话说清楚）
-```
+`templates/source-template.md:24` at the pin — the key-points section asks for three to five points, each explained in one or two sentences, under a shipped one-line summary blockquote.
 
 A shipped template file rather than prose: the per-source page skeleton carries a one-line summary blockquote and a three-to-five key-point section, and step 8 of the full processing flow writes it under `wiki/sources/`. PDF and markdown inputs are first-class core routes rather than adapter-gated: the registry file registers a local PDF route and a local document route as built-in, with the note that providing a file path is enough to enter the main line.
 
 **D2 does not** (evidence). `SKILL.md` line 423, step 8 of the ingest workflow, with line 421 pointing that step at the shipped template.
 
-```
-包含：基本信息、核心观点、关键概念、与其他素材的关联、原文精彩摘录
-```
+`SKILL.md:423` at the pin — hard-codes the five source-page sections (basic info, core points, key concepts, connections to other material, notable excerpts); no caller-supplied field list is read.
 
 The per-source field list is fixed by the tool. Line 423 hard-codes the five sections and line 421 points step 8 at a template inside the installed skill directory rather than at anything under the project. Two near-misses, neither a caller-supplied field list. First, `.wiki-schema.md` is per-project and explicitly user-editable, and it is read at ingest time, but its page-format section prescribes only generic frontmatter plus title, summary, body and related pages, and nothing in the ingest flow parameterises the source page from it. Second, `purpose.md` steers which entities and topics get weight, which is direction rather than fields. A grep for customisation across the skill file and the templates turns up only a customisable path, language, alias table and relation-type vocabulary. No charting field surface exists or can be configured. Floor requirement not met.
 
 **D3 covers** (evidence). `templates/entity-template.md` line 26, with companion evidence in the topic template at line 33 and in the auto-fix script header.
 
-```
-## 不同素材中的观点
-```
+`templates/entity-template.md:26` at the pin — a heading for "views across different materials," the durable section the entity template gives to divergent readings of the same entity instead of overwriting them.
 
 Cross-source pages exist as shipped structure: the initializer creates entity, topic, source, comparison, synthesis, session and query directories, and the digest workflow persists cross-source reports under `wiki/synthesis/`. Index and log are first-class files, both regenerated by the initializer. Contradictions are kept rather than resolved: the entity template gives divergent readings of the same entity a durable section, `SKILL.md` line 441 instructs appending and updating that section rather than overwriting, the topic template parks unresolved conflicts, and the lint workflow reports contradictory information with the source page on each side. The no-delete half is enforced mechanically by the one script that auto-fixes, whose header restricts it to deterministic index repairs and forbids deleting pages or editing content. Two caveats the reader declined to upgrade to evidence: append-only on the log is a model instruction with no script behind it, and the contradictions array validated at step one validates a transient object that the flow deletes, so it is not persistence evidence.
 
 **D4 covers** (evidence). `scripts/source-registry.tsv` lines 2-3, the fallback-hint column for the local PDF and local document routes, with the matching call at `SKILL.md` line 312.
 
-```
-直接提供文件路径即可进入主线
-```
+`scripts/source-registry.tsv:2-3` at the pin — the fallback hint for local PDF and document routes reads "just provide the file path to enter the main line," registering both as built-in with no adapter.
 
 The shipped registry makes caller-provided files a core path with no adapter: local PDF, local document and plain text are all built-in with no adapter name and no dependency, and batch ingest takes a folder and runs ingest per file. So the tool consumes notes another process wrote and does not own their creation, and the URL adapters are strictly optional at install time. One constraint is worth stating: the root finder, duplicated verbatim in two scripts, walks up from the raw file looking for the cache or schema sentinel and hard-fails outside the wiki tree. A note another process wrote must therefore live under the wiki root, or the copy step that saves raw material into the tree becomes load-bearing. For a vault whose PDFs live in Zotero storage, that copy is mandatory.
 
 **D5 covers** (evidence). `scripts/cache.sh` line 128, inside the hashing helper, with the miss branch at lines 220-222 and the skip wired at `SKILL.md` line 367.
 
-```
-digest = hashlib.sha256(relative_path + b"\0" + content).hexdigest()
-```
+`scripts/cache.sh:128` at the pin — hashes the relative path, a null byte and the file content with SHA-256 to key the cache; a rename therefore counts as a miss and re-triggers a full re-digest.
 
 A shipped script that does the thing. The check returns a hit, a repaired hit, or one of four miss reasons against `.wiki-cache.json`; the skill makes the check mandatory before the model step in both the full and the simplified flow, and batch ingest skips cached files outright. Writes go through the page creator, which does an atomic temporary-file rename and then updates the cache, rolling the page back if the cache write fails. Two nuances: the hash covers the relative path as well as the content, so renaming an unchanged file is a miss and re-digests it; and the self-heal adopts an orphaned source page only when both the filename stem and the page's `source_path` frontmatter match, otherwise returning a miss that needs verification.
 
 **D6 covers** (evidence). `platforms/claude/CLAUDE.md` line 25, with the installer usage at `install.sh` line 63.
 
-```
-默认安装位置：`~/.claude/skills/llm-wiki`
-```
+`platforms/claude/CLAUDE.md:25` at the pin — states the default install location as `~/.claude/skills/llm-wiki`, matching the installer's copy of the managed items into the platform skills directory.
 
 A shipped installer, not a claim. It copies a named managed-items set, the skill file, the documentation files, the install scripts, `scripts`, `templates`, `deps`, `platforms` and one JavaScript file, into the platform skill directory; a dry run prints the plan and an upgrade refreshes in place preserving hooks. The skill file carries valid Claude Code frontmatter with explicit trigger and anti-trigger wording. An optional session-start hook ships as a script emitting additional context pointing at the detected wiki. Codex compatibility, recorded separately as the requirement asks, is first-class: the Codex platform file names `~/.codex/skills/llm-wiki` as the default install location with a legacy path auto-detected, and OpenClaw and Hermes targets also ship, both accepting an explicit target directory.
 
 **D7 covers** (evidence). `scripts/wiki-compat.sh` line 2, with the machine-readable layout contract at lines 19-31 and the human-readable tree in the schema template.
 
-```
-# 旧知识库兼容脚本：惰性默认、目录检查、按需创建
-```
+`scripts/wiki-compat.sh:2` at the pin — a header comment describing a legacy-vault compatibility script: lazy defaults, directory checks, create-on-demand; layout itself is fixed rather than configurable.
 
 This satisfies the second limb of D7, stating layout requirements explicitly, not the first. The layout is fixed rather than configurable: the initializer hard-codes the raw subdirectories and the wiki subdirectories, and only the wiki root is caller-chosen. What earns covers is that the requirement is stated in a checkable form: the compatibility script exposes inspect, validate and ensure-source-dir subcommands over an explicit required-paths list, and is written to a stated principle of no required migration with lazy on-demand creation, so an existing markdown vault is adapted rather than migrated. Root discovery is by sentinel, with the working directory winning over the singleton pointer.
 
 **D8 does not** (evidence). `templates/source-template.md` line 7, the frontmatter, with the naming rule in the schema template at line 42.
 
-```
-source_path: {{RAW_PATH}}
-```
+`templates/source-template.md:7` at the pin — frontmatter carries only a derived `source_path` placeholder; no caller-supplied stable id or citekey field exists anywhere in the body.
 
 There is no caller-supplied stable id anywhere in the body. Grepping the skill file, the templates and the scripts for citekey, citation, bibtex, Zotero, unique identifier and slug returns nothing but an unrelated co-citation graph metric. Identity is derived, not supplied: pages are named by date and short title, cross-references are Obsidian wikilinks resolved by title, and the only provenance marker is a frontmatter path pointing at the raw file plus an empty sources list. That makes identity path-coupled and title-coupled, and the cache hash even folds the relative path in, so a rename breaks the link. The repository is aware of this class of problem, but its resolution is filename governance rather than a caller-supplied key.
 
 **D9 partial** (claim). `SKILL.md` line 255, the privacy self-check in the ingest workflow, with the batch behaviour at line 549.
 
-```
-在开始提取或分析任何内容之前，AI **必须**先对用户说下面这句话，然后等待确认：
-```
+`SKILL.md:255` at the pin — instructs the model that before extracting or analysing any content it must say a fixed line to the user and wait for confirmation; this is a prose gate with no script or configuration behind it.
 
 Gates are documented and the per-source versus batch distinction is explicit, but they are prose instructions to the model with no script or configuration behind them, and none of them is a review of the generated pages before integration. What exists: a mandatory yes-or-no privacy self-check before any extraction, with a documented bypass when the user has already consented or when running under batch ingest where it is confirmed once at the top, which is the per-source versus batch documentation D9 asks for; a batch ingest that shows the file list and asks before starting and pauses every five files; a lint that asks which findings to auto-fix; and a delete that requires a second confirmation past five affected pages. What does not exist is any gate between page generation and writing, since step 8 writes unconditionally. Nothing is configurable and there is no setting to switch the gate mode.
 
 **D10 partial** (evidence). `SKILL.md` line 5, the frontmatter of the artifact itself, corroborated at `package.json` line 6 and `workbench/LICENSE` lines 1-3.
 
-```
-license: MIT
-```
+`SKILL.md:5` at the pin (repeating the Licence paragraph's quote above) — declares `license: MIT`, unambiguous in intent but with no root `LICENSE` file ever present at this pin to back it.
 
 MIT permits use and modification and it is declared in the header of the file a taker would take, plus in the repository manifest, so the intent is unambiguous and attributable. The hole, as the critic asked to have recorded: no licence file at the repository root at this pin. The contents API returns 404 and the commit query on that path returns zero, so it never existed, the README badge has always pointed nowhere, and the repository API reports the licence as null. The only full grant text is `workbench/LICENSE`, in a subtree the installer's managed items do not ship, so an installed copy contains a licence string and no licence text. Compounding it, the installer ships `deps/` wholesale, and the two vendored third-party skills there carry no licence field and no licence file of their own; one upstream resolves to MIT out of band and the other is unresolved. Adoptable in practice, but a floor requirement whose paperwork is incomplete, and trivially fixable by asking upstream for a root licence or by vendoring the MIT text alongside a copy.
 
 **C5 covers** (evidence). `SKILL.md` line 239, the init workflow's closing guidance, with a bash runtime throughout.
 
-```
-推荐：用 Obsidian 打开这个文件夹，可以实时看到知识库的构建效果。
-```
+`SKILL.md:239` at the pin — recommends opening the folder in Obsidian to see the wiki build in real time, offered only as a viewing suggestion, not a runtime dependency.
 
 A cross-lane row, recorded because it is genuinely covered. Obsidian is a recommended viewer, never a runtime dependency: nothing in the skill talks to Obsidian, its URI scheme or any plugin API. Everything runs headless from bash, driven by an agent or directly from a shell, and the skill installs to a command-line agent's skills directory on four platforms.
 
 **C4 does not** (evidence). `scripts/source-registry.tsv` line 2, with the routing note in the schema template at line 123.
 
-```
-local_pdf	PDF / 本地 PDF	core_builtin	file	file_ext:.pdf	raw/pdfs	-	-	none	直接提供文件路径即可进入主线
-```
+`scripts/source-registry.tsv:2` at the pin — the `local_pdf` row registers a core built-in route with no adapter and no dependency, confirming no PDF-to-text extractor is invoked anywhere in the scripts.
 
 Recorded to head off a misreading. The schema template's "直接读取", read directly, does not mean local PDF-to-text extraction. It means the file is handed to the model to read through the harness, which is exactly the cloud call C4 excludes. There is no pdftotext, pypdf, mupdf or equivalent anywhere in the scripts or the dependencies, and the registry row for a local PDF has no adapter and no dependency precisely because no extractor is invoked. All other capture requirements have no counterpart in this body at all.
 

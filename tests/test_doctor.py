@@ -710,7 +710,7 @@ def test_doctor_path_shim_skips_a_posix_file_url(tmp_vault, tmp_path, monkeypatc
     fake, client = _doctor_fake(monkeypatch, tmp_path)
     fake.get(
         "/api/users/0/items/D7EJ9FTG/file/view/url",
-        body=b"file:///home/user/Zotero/storage/D7EJ9FTG/a.pdf",
+        body=b"file:///srv/zotero/storage/D7EJ9FTG/a.pdf",
     )
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
 
@@ -724,7 +724,7 @@ def test_doctor_path_shim_skips_a_posix_file_url(tmp_vault, tmp_path, monkeypatc
     assert by["path-shim"].result is Result.SKIPPED
     assert by["path-shim"].reason == (
         "file URL is not a Windows path; the shim resolves Windows file URLs only: "
-        "file:///home/user/Zotero/storage/D7EJ9FTG/a.pdf"
+        "file:///srv/zotero/storage/D7EJ9FTG/a.pdf"
     )
 
 

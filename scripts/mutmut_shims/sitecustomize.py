@@ -14,7 +14,7 @@ benign in-memory Config so import succeeds and trampoline dispatch works.
 Never chdir; never touch processes outside mutmut runs.
 
 Provenance: "mutmut pilot -- knowledge-harness (pre-registered data
-collection)", 2026-08-23, /home/eranr/kh-mutmut-pilot-report.md ("The
+collection)", 2026-08-23, ~/kh-mutmut-pilot-report.md ("The
 blocking defect found in stock mutmut 3.7.0" and "Workaround files"
 sections); upstream defect draft filed in-repo at
 docs/research/2026-08-23-mutmut-defect-reports.md.

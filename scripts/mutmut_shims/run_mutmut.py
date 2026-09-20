@@ -15,7 +15,7 @@ the mutated function pass regardless of the mutant, so the widening is
 semantics-preserving; only wall-clock inflates.
 
 Provenance: "mutmut pilot -- knowledge-harness (pre-registered data
-collection)", 2026-08-23, /home/eranr/kh-mutmut-pilot-report.md (operational
+collection)", 2026-08-23, ~/kh-mutmut-pilot-report.md (operational
 friction log, item 6); upstream defect draft filed in-repo at
 docs/research/2026-08-23-mutmut-defect-reports.md.
 

@@ -52,7 +52,7 @@ symlink to `../../CONTEXT.md`. Delete:
     it. This proves it remains an owned target even though it is not a vault
     template file.
   - Run
-    `/home/eranr/New folder/.venv/bin/python -m pytest tests/test_templates.py tests/test_scaffold.py -q`
+    `~/New folder/.venv/bin/python -m pytest tests/test_templates.py tests/test_scaffold.py -q`
     and confirm these expectations fail for the current implementation.
 
 - [ ] **Step 2: Make `CONTEXT.md` the complete, concise domain glossary.**
@@ -105,7 +105,7 @@ symlink to `../../CONTEXT.md`. Delete:
 
   - Re-run the focused tests from Step 1 until green, then run the complete
     suite with
-    `/home/eranr/New folder/.venv/bin/python -m pytest -q`.
+    `~/New folder/.venv/bin/python -m pytest -q`.
   - Build a wheel into a fresh directory under `/tmp` without changing the
     worktree, inspect it, and prove it contains
     `research_vault/templates/context.md` as regular package data whose bytes

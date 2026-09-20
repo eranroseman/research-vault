@@ -206,3 +206,27 @@ def test_disposition_marker_is_historical_or_superseded(path):
     values = _DISPOSITION.findall(path.read_text(encoding="utf-8"))
     bad = [v for v in values if v.rstrip(":") not in {"historical", "superseded-by"}]
     assert bad == [], f"{path.relative_to(ROOT)}: Disposition {bad}"
+
+
+# A path under a user's home directory is a machine-local fact (AGENTS.md:
+# environment facts are not written down); in a public repository it is also
+# the author's. `~/…` or `$HOME/…` spell the same path without the name.
+_HOME_LITERAL = re.compile(r"/home/[A-Za-z][A-Za-z0-9._-]*")
+
+
+def test_no_home_directory_literal():
+    """#164 (assembly spec §12, precondition 3): no tracked text file names a
+    directory under `/home/<user>`; a placeholder in angle brackets is not a
+    name, and `~` is the spelling that carries the same information."""
+    hits = []
+    for path in _tracked("*"):
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue  # a binary fixture
+        for number, line in enumerate(text.splitlines(), 1):
+            if _HOME_LITERAL.search(line):
+                hits.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()[:100]}")
+    assert hits == [], "\n".join(hits)
