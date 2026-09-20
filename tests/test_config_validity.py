@@ -369,21 +369,46 @@ def _significant_lines_after(text: str, marker: str, count: int) -> list[str]:
     return found
 
 
+def _hook_entries(hook_id: str) -> list[dict]:
+    """Every hook of that id in .pre-commit-config.yaml, parsed the way
+    pre-commit itself reads the file (PyYAML), never by a text slice: a raw
+    slice bounded by the next `- id:` raised an opaque ValueError when the
+    hook was last (#32)."""
+    config = yaml.safe_load(
+        (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    )
+    return [
+        hook
+        for repo in config["repos"]
+        for hook in repo["hooks"]
+        if hook.get("id") == hook_id
+    ]
+
+
+def _one_hook(hook_id: str) -> dict:
+    found = _hook_entries(hook_id)
+    assert len(found) == 1, f"expected exactly one {hook_id} hook, found {len(found)}"
+    return found[0]
+
+
 def test_pyproject_fmt_flags_match_the_hook_the_seam_actually_runs():
     """A test guarding a different flag set than the hook guards nothing.
 
     The coupling is enforced here rather than left to a comment on both sides.
     """
-    config = (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
-    start = config.index("- id: pyproject-fmt")
-    entry = config[start : config.index("- id: ", start + 1)]
-    assert set(re.findall(r"--[a-z-]+", entry)) == {
+    entry = _one_hook("pyproject-fmt")["entry"]
+    tokens = shlex.split(entry)
+    if tokens[:2] == ["bash", "-c"]:
+        tokens = shlex.split(tokens[2])
+    assert tokens[0] == "pyproject-fmt"
+    assert {token for token in tokens if token.startswith("--")} == {
         flag for flag in PYPROJECT_FMT_FLAGS if flag.startswith("--")
     }, (
         "the pyproject-fmt flags in .pre-commit-config.yaml and the flags this file "
         "round-trips with have drifted apart; make them identical again"
     )
-    assert "--table-format long" in " ".join(entry.split())
+    index = tokens.index("--table-format")
+    assert tokens[index + 1] == "long"
 
 
 def test_pyproject_fmt_round_trip_preserves_every_pin_spelling(tmp_path):
@@ -546,10 +571,7 @@ def _resolved_mdformat_hook_paths() -> set[Path]:
     drift from what the hook actually RUNS; only from what it actually
     RESOLVES TO, which is the thing a mirror needs to match.
     """
-    config = yaml.safe_load(
-        (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
-    )
-    (hook,) = (h for h in config["repos"][0]["hooks"] if h["id"] == "mdformat")
+    hook = _one_hook("mdformat")
     return _resolved_paths_for_mdformat_entry(hook["entry"])
 
 
