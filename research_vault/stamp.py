@@ -24,9 +24,10 @@ writing through it could escape the vault boundary), `"unparseable"`
 top-level key — `frontmatter._DuplicateKeyMapping` — since a plain
 `{"type": derived, **data}` spread would silently collapse the repeats to
 last-write-wins), `"outage"` (the file could not be read at all), `"not-utf-8"`
-(the file is not UTF-8, so no frontmatter could be parsed from it), or
-`"no-type"` (no derivation at all — `system/`, root files, non-canonical
-`projects/` files).
+(the file is not UTF-8, so no frontmatter could be parsed from it),
+`"outside"` (the path resolves outside the vault: a symlinked ancestor, an
+absolute path elsewhere, a `..` that lexically passes), or `"no-type"` (no
+derivation at all — `system/`, root files, non-canonical `projects/` files).
 """
 
 from pathlib import Path
@@ -63,6 +64,15 @@ def _write_text(path: Path, text: str) -> None:
         handle.write(text)
 
 
+def _reported_name(path: Path, vault: Path) -> str:
+    """The unresolved spelling: vault-relative where the path lies under the
+    vault lexically, the caller's absolute string otherwise."""
+    try:
+        return path.relative_to(vault).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]]]:
     """Stamp what's fully determined; report the rest. Never raises for content.
 
@@ -70,6 +80,7 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
     docstring for the reason vocabulary.
     """
     vault = Path(vault_root)
+    root = vault.resolve()
     stamped: list[str] = []
     reported: list[tuple[str, str]] = []
     for path in _candidate_paths(vault, paths):
@@ -78,11 +89,19 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
         if path.is_symlink():
             # Refuse to write through a symlink — the target could sit
             # outside the vault boundary entirely. Report, don't edit.
-            reported.append((path.relative_to(vault).as_posix(), "symlink"))
+            reported.append((_reported_name(path, vault), "symlink"))
             continue
         if not path.is_file():
             continue
-        relative = path.relative_to(vault).as_posix()
+        try:
+            path.resolve().relative_to(root)
+        except ValueError:
+            # #107: a real file under a symlinked ancestor, an absolute path
+            # elsewhere, or a `..` that lexically passes: outside the vault,
+            # reported under the spelling the caller gave, never written.
+            reported.append((_reported_name(path, vault), "outside"))
+            continue
+        relative = _reported_name(path, vault)
         if relative == "log.md":
             continue
 

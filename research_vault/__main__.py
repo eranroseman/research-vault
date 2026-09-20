@@ -742,6 +742,10 @@ def cmd_stamp_type(args):
             print(f"skipped {path} — file could not be read")
         elif reason == "not-utf-8":
             print(f"skipped {path} — file is not UTF-8")
+        elif reason == "outside":
+            print(
+                f"skipped {path} — path resolves outside the vault, refusing to write through it"
+            )
         else:
             print(f"skipped {path} — no type could be derived")
     return 0

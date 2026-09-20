@@ -197,3 +197,47 @@ def test_an_unreadable_or_undecodable_file_is_reported_not_stamped(tmp_path, cap
         )
     finally:
         bad.chmod(0o644)
+
+
+def test_a_real_file_under_a_symlinked_ancestor_is_reported_outside(tmp_path):
+    """#107: with explicit paths only the leaf's is_symlink() was checked, so
+    a file inside a symlinked directory was rewritten outside the vault."""
+    vault = tmp_path / "vault"
+    (vault / "inbox").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "idea.md"
+    target.write_text("a thought\n")
+    (vault / "inbox" / "link").symlink_to(outside, target_is_directory=True)
+
+    stamped, reported = stamp.stamp_types(vault, paths=["inbox/link/idea.md"])
+
+    assert (stamped, reported) == ([], [("inbox/link/idea.md", "outside")])
+    assert target.read_text() == "a thought\n"
+
+
+def test_an_absolute_outside_path_and_a_dot_dot_path_are_reported_outside(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / "inbox").mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere.md"
+    elsewhere.write_text("not yours\n")
+
+    stamped, reported = stamp.stamp_types(
+        vault, paths=[str(elsewhere), "inbox/../../elsewhere.md"]
+    )
+
+    assert stamped == []
+    assert reported == sorted(
+        [(str(elsewhere), "outside"), ("inbox/../../elsewhere.md", "outside")]
+    )
+    assert elsewhere.read_text() == "not yours\n"
+
+
+def test_the_reported_string_stays_the_unresolved_one(tmp_path):
+    """`test_stamp.py`'s explicit-paths pin: the person's spelling is what
+    the report names, resolved only for the containment decision."""
+    vault = tmp_path / "vault"
+    (vault / "inbox").mkdir(parents=True)
+    (vault / "inbox" / "idea.md").write_text("a thought\n")
+    stamped, reported = stamp.stamp_types(vault, paths=["inbox/./idea.md"])
+    assert (stamped, reported) == (["inbox/idea.md"], [])
