@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import stat
@@ -46,6 +47,37 @@ def test_an_unparseable_store_is_moved_aside_then_written(tmp_vault, capsys):
     assert err.count("\n") == 1
     assert "zotero-keys.json" in err
     assert "moved aside" in err
+
+
+def test_move_aside_stamps_utc_not_local_time(tmp_vault, monkeypatch):
+    """The `.bad-<stamp>` suffix's own `Z` claims UTC; `datetime.now(None)`
+    would be local time, drifting by the zone offset under a non-UTC TZ — a
+    lie in a filename. Mirrors
+    test_plan_operation_id_is_utc_and_the_format_is_pinned's technique."""
+    import time
+
+    store = tmp_vault / keystore.KEY_STORE
+    store.parent.mkdir(parents=True, exist_ok=True)
+    store.write_text("{not json")
+    monkeypatch.setenv("TZ", "Asia/Kolkata")
+    time.tzset()
+    try:
+        before = datetime.datetime.now(datetime.UTC)
+        keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+        aside = [
+            p
+            for p in store.parent.iterdir()
+            if p.name.startswith("zotero-keys.json.bad-")
+        ]
+        assert len(aside) == 1
+        stamp_text = aside[0].name[len("zotero-keys.json.bad-") :]
+        stamped = datetime.datetime.strptime(stamp_text, "%Y%m%dT%H%M%SZ").replace(
+            tzinfo=datetime.UTC
+        )
+        assert abs((stamped - before).total_seconds()) < 60
+    finally:
+        monkeypatch.delenv("TZ")
+        time.tzset()
 
 
 def test_a_non_object_store_is_moved_aside_the_same_way(tmp_vault, capsys):
