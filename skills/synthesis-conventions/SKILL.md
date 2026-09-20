@@ -29,7 +29,7 @@ The tool's lint requires six keys on every page under `wiki/`: `title`, `type`, 
 
 ## Index registration
 
-Every canonical page create or removal includes an update to `wiki/index.md` in the same transaction — the tool's rule, and the tool performs it. Never edit `wiki/index.md` by hand; it is the one nested index that legitimately carries frontmatter (ADR 0001, second exemption).
+Every canonical page create or removal includes an update to `wiki/index.md` in the same transaction — the tool's rule, and the tool performs it. Never edit `wiki/index.md` by hand; it is the one nested index that legitimately carries frontmatter (the first row of the OKF conformance register, `docs/agents/okf-conformance.md`).
 
 ## What is frozen
 
