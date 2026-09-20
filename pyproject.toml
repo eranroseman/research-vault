@@ -241,6 +241,9 @@ tmp_path_retention_policy = "failed"
 #   CONTEXT.md, README.md     test_templates
 #   .gitignore                test_config_validity's contributor-vault-state test
 #                             (git check-ignore inside mutants/, its own git init)
+#   .github                   test_config_validity's OKF-pin test reads
+#                             .github/okf-pin.json and .github/workflows/quality.yml
+#   ATTRIBUTION.md            the same test reads it for the one-writer assertion
 # pytest_add_cli_args: no .pytest_cache under mutants/ (the tree is hashed and
 # swept by the gate; a cache dir is noise there). -n is never added: mutation
 # runs would nest a pool per mutant (see the pytest-xdist note above).
@@ -257,5 +260,7 @@ also_copy = [
   "CONTEXT.md",
   "README.md",
   ".gitignore",
+  ".github",
+  "ATTRIBUTION.md",
 ]
 pytest_add_cli_args = [ "-p", "no:cacheprovider" ]
