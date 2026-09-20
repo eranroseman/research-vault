@@ -170,7 +170,10 @@ def test_plan_refuses_the_wrong_database_before_any_rename(tmp_vault, monkeypatc
     assert planned is None
     assert refused.result is Result.UNMATCHED
     assert refused.target == "old2020"
-    assert refused.reason.startswith("database-changed — ")
+    assert (
+        refused.reason
+        == "database-changed — Zotero-Server-ID does not match this server"
+    )
     assert (tmp_vault / "literature" / "old2020.md").is_file()
 
 
@@ -259,7 +262,7 @@ def test_apply_refuses_when_the_vault_moved_since_planning(tmp_vault, monkeypatc
     assert not (tmp_vault / "system" / "propagations").exists()
     (wrong,) = propagate.apply(tmp_vault, client, path, "0" * 64)
     assert wrong.result is Result.UNMATCHED
-    assert wrong.reason.startswith("mismatch — approved hash")
+    assert wrong.reason == "mismatch — approved hash does not name this plan"
 
 
 def test_apply_renames_rewrites_recaptures_and_records_the_plan(tmp_vault, monkeypatch):
@@ -275,7 +278,10 @@ def test_apply_renames_rewrites_recaptures_and_records_the_plan(tmp_vault, monke
     outcomes = propagate.apply(tmp_vault, client, path, digest)
     assert outcomes[0].check == "propagation"
     assert outcomes[0].result is Result.MATCHED
-    assert "projects/brief/draft.md" in outcomes[0].reason
+    assert (
+        outcomes[0].reason
+        == "matched — rewrote projects/brief/draft.md, wiki/sources/A.md"
+    )
     assert (tmp_vault / "literature" / "new2020.md").is_file()
     assert not (tmp_vault / "literature" / "old2020.md").exists()
     assert calls == [["E352DFS8"]]
@@ -299,7 +305,7 @@ def test_lint_reports_residue_and_is_quiet_when_clean(tmp_vault, monkeypatch):
     )
     (skipped,) = propagate.lint_propagation(tmp_vault)
     assert skipped.result is Result.SKIPPED
-    _, path, digest = _planned(tmp_vault, client)
+    planned, path, digest = _planned(tmp_vault, client)
     propagate.apply(tmp_vault, client, path, digest)
     (clean,) = propagate.lint_propagation(tmp_vault)
     assert clean.result is Result.MATCHED
@@ -314,12 +320,9 @@ def test_lint_reports_residue_and_is_quiet_when_clean(tmp_vault, monkeypatch):
         "path-bytes:projects/brief/late.md",
         "path-bytes:literature/old2020.md",
     }
-    assert all(
-        o.reason.startswith(
-            "stale-key — names old2020, mapped to new2020 by propagate-"
-        )
-        for o in stale
-    )
+    assert {o.reason for o in stale} == {
+        f"stale-key — names old2020, mapped to new2020 by {planned.operation_id}"
+    }
 
 
 def test_cli_plans_then_applies_only_against_the_printed_hash(
@@ -616,7 +619,10 @@ def test_mapping_from_linter_takes_re_keys_and_blocks_only_on_vault_rows(
     )
     assert mapping == {}
     assert [(o.target, o.result) for o in blocking] == [("vault", Result.UNMATCHED)]
-    assert blocking[0].reason.startswith("database-changed")
+    assert blocking[0].reason == (
+        "database-changed — Zotero-Server-ID does not match this server; "
+        "every recorded version is void"
+    )
 
 
 def _second_item(citation_key):
@@ -944,7 +950,12 @@ def test_apply_rows_an_unreadable_plan_with_its_path(tmp_vault, monkeypatch):
         str(missing),
         Result.UNMATCHED,
     )
-    assert outcome.reason.startswith("schema-violation — unreadable plan: [Errno 2]")
+    # The tail is the OS's; the path it names is the plan the test asked for.
+    assert outcome.reason.split(" — ")[0] == "schema-violation"
+    assert outcome.reason.startswith(
+        "schema-violation — unreadable plan: [Errno 2] No such file or directory: "
+    )
+    assert outcome.reason.endswith(f"'{missing}'")
 
 
 def test_lint_rows_an_unreadable_record_and_reads_surfaces_byte_tolerantly(
@@ -1027,6 +1038,6 @@ def test_lint_reports_a_surface_it_cannot_read_and_judges_the_rest(
         unreadable.chmod(0o644)
     row = by_target["path-bytes:wiki/sources/B.md"]
     assert (row.result, row.reason.split(" — ")[0]) == (Result.UNREACHABLE, "outage")
-    assert by_target["path-bytes:projects/brief/draft.md"].reason.startswith(
-        "stale-key"
+    assert by_target["path-bytes:projects/brief/draft.md"].reason == (
+        f"stale-key — names old2020, mapped to new2020 by {_planned_plan.operation_id}"
     )

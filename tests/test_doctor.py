@@ -519,7 +519,10 @@ def test_doctor_bbt_git_warns_when_better_bibtex_may_run_git(
     by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     assert by["bbt-git"].result is Result.UNMATCHED
-    assert by["bbt-git"].reason.startswith("git=config")
+    assert (
+        by["bbt-git"].reason
+        == "git=config — Better BibTeX may run git inside an export target"
+    )
 
 
 def test_doctor_plugins_fails_on_a_missing_required_addon_and_names_it(
@@ -853,8 +856,9 @@ def test_doctor_path_shim_reports_a_malformed_machine_json_instead_of_raising(
     assert [p.check for p in probes] == PROBE_NAMES
     assert by["machine-config"].result is Result.UNMATCHED
     assert by["path-shim"].result is Result.UNMATCHED
-    # The reason names the file and the fault class, not a bare str(error).
-    assert by["path-shim"].reason.startswith("machine.json path_map: ")
+    # The reason names the file and the fault class, not a bare str(error);
+    # the message after the class is the JSON decoder's.
+    assert by["path-shim"].reason.startswith("machine.json path_map: JSONDecodeError: ")
 
 
 def test_doctor_path_shim_is_skipped_outside_wsl(tmp_vault, tmp_path, monkeypatch):
@@ -995,7 +999,9 @@ def test_doctor_tree_refuses_when_both_roots_exist(tmp_vault, monkeypatch):
     by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     assert by["tree"].result is Result.UNMATCHED
-    assert by["tree"].reason.startswith("stray literatures/: ")
+    assert by["tree"].reason == (
+        "stray literatures/: rename to literature/ by hand, then run capture --all"
+    )
 
 
 def test_doctor_is_its_own_module_and_scaffold_keeps_only_scaffolding():
@@ -1102,7 +1108,7 @@ def test_doctor_write_guard_is_unreachable_on_a_transport_failure(
     monkeypatch.setattr(client, "_http", failing)
     by = {p.check: p for p in doctor.doctor(vault, client=client)}
     assert by["write-guard"].result is Result.UNREACHABLE
-    assert by["write-guard"].reason.startswith("Zotero unreachable")
+    assert by["write-guard"].reason == "Zotero unreachable at http://x: reset"
 
 
 def test_doctor_path_shim_reads_a_non_numeric_total_as_unreported(

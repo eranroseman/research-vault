@@ -595,7 +595,10 @@ def test_disputed_claim_lint_surfaces_only_carrier_and_supported_addresses(
             },
         ),
     ]
-    assert all(out.reason.startswith("disputed-claim") for out in outs)
+    assert [out.reason for out in outs] == [
+        "disputed-claim — mortality-trends#^c-55555555 has standing counter-evidence",
+        "disputed-claim — smith2020#^c-11111111 has standing counter-evidence",
+    ]
 
 
 def test_citing_the_counterevidence_address_is_clean(fixture_vault):
@@ -889,7 +892,7 @@ def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
     finding = next(item for item in outcomes if item.result is Result.UNMATCHED)
     assert finding.check == "evidence-layer"
     assert finding.target_kind == "repo-path"
-    assert finding.reason.startswith("schema-violation")
+    assert finding.reason == "schema-violation — invalid managed-sha256"
 
 
 def _hand_edit_machine_owned_key(text: str, key: str) -> str:
@@ -1471,7 +1474,10 @@ def test_lint_disputed_claim_reports_an_undecodable_page_and_still_judges_the_no
         r for r in rows if r.target == "path-bytes:wiki/concepts/mortality-trends.md"
     ]
     assert (page_row.check, page_row.result) == ("disputed-claim", Result.UNMATCHED)
-    assert page_row.reason.startswith("schema-violation — not UTF-8")
+    # The tail is the codec's; the byte it names is the one the fixture planted.
+    assert page_row.reason.startswith(
+        "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xff"
+    )
 
 
 def test_lint_disputed_claim_reports_an_undecodable_note(fixture_vault):
@@ -1483,4 +1489,6 @@ def test_lint_disputed_claim_reports_an_undecodable_note(fixture_vault):
         "path-bytes:projects/brief/draft.md",
         Result.UNMATCHED,
     )
-    assert row.reason.startswith("schema-violation — not UTF-8")
+    assert row.reason.startswith(
+        "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xff"
+    )

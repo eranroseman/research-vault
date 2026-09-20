@@ -132,7 +132,7 @@ def test_append_and_load(fixture_vault):
 
     assert entries[-1].id == "doi/kind-10:identifier;target-9:smith2020/2026-08-16"
     assert entries[-1].result == "UNMATCHED"
-    assert entries[-1].reason.startswith("mismatch")
+    assert entries[-1].reason == "mismatch — title differs"
     line = (fixture_vault / "inbox" / "review-queue.md").read_text().splitlines()[-1]
     assert line.startswith(
         "- [id:: doi/kind-10:identifier;target-9:smith2020/2026-08-16]"

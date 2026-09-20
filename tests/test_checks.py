@@ -93,7 +93,6 @@ def test_cited_citation_key_requires_literature_note(tmp_vault):
     assert len(outs) == 1
     assert outs[0].result is Result.UNMATCHED
     assert outs[0].check == "citation-key"
-    assert outs[0].reason.startswith("not-captured")
     assert outs[0].reason == "not-captured — cited citation key has no literature note"
 
 
@@ -719,7 +718,7 @@ def test_update_notice_rejects_malformed_crossref_json(net_vault, monkeypatch, p
     )
 
     assert outcome.result is Result.UNREACHABLE
-    assert outcome.reason.startswith("outage")
+    assert outcome.reason == "outage — malformed Crossref notice record"
 
 
 def test_crossref_notices_reads_relation_is_retracted_by_with_no_updated_by():
@@ -1402,7 +1401,9 @@ def test_update_notice_skips_only_when_both_identifiers_are_absent(net_vault):
 
     assert no_identifiers.result is Result.SKIPPED
     assert pmid_only.result is Result.SKIPPED
-    assert "RW batch" in pmid_only.reason
+    assert (
+        pmid_only.reason == "no-identifier — live leg needs a DOI; RW batch covers PMID"
+    )
 
 
 def test_rw_date_accepts_production_formats():
@@ -1826,7 +1827,10 @@ def test_check_citation_keys_reports_an_unreadable_or_undecodable_note(fixture_v
     draft.write_bytes(b"\xff\xfe- (quote) [@smith2020] ^c-1\n")
     (row,) = checks.check_citation_keys(fixture_vault, draft, {"smith2020": {}})
     assert (row.check, row.result) == ("citation-key", Result.UNMATCHED)
-    assert row.reason.startswith("schema-violation — not UTF-8")
+    # The tail is the codec's; the byte it names is the one the fixture planted.
+    assert row.reason.startswith(
+        "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xff"
+    )
     assert row.target == "path-bytes:projects/brief/draft.md"
     draft.write_text("- (quote) [@smith2020] ^c-1\n")
     draft.chmod(0)

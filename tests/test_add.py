@@ -76,7 +76,7 @@ def test_add_refuses_unknown_fields_before_any_network(tmp_vault, monkeypatch):
     fake, client = _fake_for_add(monkeypatch)
     outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "isbn": "x"}])
     assert outcomes[0].result is Result.UNMATCHED
-    assert "unknown field isbn" in outcomes[0].reason
+    assert outcomes[0].reason == "schema-violation — item 0: unknown field isbn"
     assert not [c for c in fake.calls if c[0] == "POST"]
 
 
@@ -88,7 +88,10 @@ def test_add_uses_the_recorded_server_id_when_notes_exist(tmp_vault, monkeypatch
     )
     outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
     assert outcomes[0].result is Result.UNMATCHED
-    assert outcomes[0].reason.startswith("database-changed")
+    assert (
+        outcomes[0].reason
+        == "database-changed — notes record Tdoqsn2J4q4h, Zotero answers 6LpvURP2E933"
+    )
     assert not [c for c in fake.calls if c[0] == "POST" and c[1].endswith("/items")]
 
 
@@ -96,7 +99,7 @@ def test_add_reports_a_denied_dialog_and_a_failed_create(tmp_vault, monkeypatch)
     fake, client = _fake_for_add(monkeypatch)
     fake.post("/api/local/authorize", status=403, body={"denied": True})
     outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
-    assert outcomes[0].reason.startswith("not-admitted — authorization denied")
+    assert outcomes[0].reason == "not-admitted — authorization denied"
     fake.post("/api/local/authorize", body={"key": "k" * 32, "remember": False})
     fake.post(
         "/api/users/0/items",
@@ -107,7 +110,10 @@ def test_add_reports_a_denied_dialog_and_a_failed_create(tmp_vault, monkeypatch)
         },
     )
     outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
-    assert outcomes[0].reason.startswith("mismatch — create failed")
+    assert (
+        outcomes[0].reason
+        == "mismatch — create failed: {'0': {'code': 400, 'message': 'bad'}}"
+    )
 
 
 def test_a_400_from_the_local_api_is_a_refusal_not_an_outage(tmp_vault, monkeypatch):
@@ -120,8 +126,9 @@ def test_a_400_from_the_local_api_is_a_refusal_not_an_outage(tmp_vault, monkeypa
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     (outcome,) = capture.add(tmp_vault, client, [{"itemType": "bogus", "title": "x"}])
     assert outcome.result is Result.UNMATCHED
-    assert outcome.reason.startswith(
-        "not-admitted — local API 400 for /api/users/0/items"
+    assert outcome.reason == (
+        "not-admitted — local API 400 for /api/users/0/items: "
+        "b\"Invalid item type 'bogus'\""
     )
 
 
@@ -138,8 +145,9 @@ def test_a_400_body_containing_the_text_401_is_not_mistaken_for_a_rejected_key(
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     (outcome,) = capture.add(tmp_vault, client, [{"itemType": "bogus", "title": "x"}])
     assert outcome.result is Result.UNMATCHED
-    assert outcome.reason.startswith(
-        "not-admitted — local API 400 for /api/users/0/items"
+    assert outcome.reason == (
+        "not-admitted — local API 400 for /api/users/0/items: "
+        "b'error 401: bogus item type'"
     )
     posts = [c for c in fake.calls if c[0] == "POST"]
     assert [p[1] for p in posts] == ["/api/local/authorize", "/api/users/0/items"]
@@ -156,7 +164,7 @@ def test_store_key_replaces_a_non_object_store(tmp_vault, monkeypatch):
     outcomes = capture.add(
         tmp_vault, client, [{"itemType": "journalArticle", "title": "T"}]
     )
-    assert outcomes[0].reason.startswith("matched — created")
+    assert outcomes[0].reason == "matched — created E352DFS8"
     assert json.loads(store.read_text()) == {"6LpvURP2E933": "k" * 32}
 
 
@@ -191,7 +199,7 @@ def test_add_reauthorizes_once_after_a_401_and_retries(tmp_vault, monkeypatch):
     ]
     # The rejected key must not ride the re-authorize request.
     assert "Zotero-API-Key" not in posts[2][2]
-    assert outcomes[0].reason.startswith("matched — created")
+    assert outcomes[0].reason == "matched — created E352DFS8"
 
 
 def test_add_stops_after_one_retry_when_the_second_create_also_401s(
@@ -208,7 +216,7 @@ def test_add_stops_after_one_retry_when_the_second_create_also_401s(
         "/api/users/0/items",
     ]
     assert outcomes[0].result is Result.UNMATCHED
-    assert outcomes[0].reason.startswith("not-admitted — API key rejected")
+    assert outcomes[0].reason == "not-admitted — API key rejected (401); re-authorize"
 
 
 def test_add_refuses_a_non_list_creators_or_tags_before_any_network(
@@ -219,20 +227,32 @@ def test_add_refuses_a_non_list_creators_or_tags_before_any_network(
         tmp_vault, client, [{"itemType": "book", "creators": "not-a-list"}]
     )
     assert outcomes[0].result is Result.UNMATCHED
-    assert "creators must be a list" in outcomes[0].reason
+    assert outcomes[0].reason == "schema-violation — item 0: creators must be a list"
     outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "tags": "ai"}])
     assert outcomes[0].result is Result.UNMATCHED
-    assert "tags must be a list" in outcomes[0].reason
+    assert outcomes[0].reason == "schema-violation — item 0: tags must be a list"
     assert not [c for c in fake.calls if c[0] == "POST"]
 
 
 @pytest.mark.parametrize(
     ("route", "status", "expected"),
     [
-        ("/api/local/authorize", 412, "database-changed — Zotero-Server-ID"),
-        ("/api/users/0/items", 412, "database-changed — Zotero-Server-ID"),
+        (
+            "/api/local/authorize",
+            412,
+            "database-changed — Zotero-Server-ID does not match this server",
+        ),
+        (
+            "/api/users/0/items",
+            412,
+            "database-changed — Zotero-Server-ID does not match this server",
+        ),
         ("/api/users/0/items", 403, "not-admitted — local API preference is disabled"),
-        ("/api/users/0/items", 500, "outage — local API HTTP 500"),
+        (
+            "/api/users/0/items",
+            500,
+            "outage — local API HTTP 500 for /api/users/0/items",
+        ),
     ],
     ids=["authorize-412", "create-412", "create-403", "create-500"],
 )
@@ -247,7 +267,7 @@ def test_add_routes_every_write_error_through_blocked(
     (outcome,) = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
     assert outcome.target == "add"
     assert outcome.result is (Result.UNREACHABLE if status == 500 else Result.UNMATCHED)
-    assert outcome.reason.startswith(expected)
+    assert outcome.reason == expected
     assert not (tmp_vault / "literature" / "jakesch.etal2023a.md").exists()
 
 
@@ -264,7 +284,7 @@ def test_a_create_envelope_whose_successful_is_not_an_object_is_a_mismatch(
     )
     (outcome,) = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
     assert outcome.result is Result.UNMATCHED
-    assert outcome.reason.startswith("mismatch — create failed")
+    assert outcome.reason == "mismatch — create failed: {}"
 
 
 def _cli_item(tmp_vault, payload):
@@ -392,7 +412,7 @@ def test_add_rows_an_invalid_batch_and_a_failed_server_read_on_add(
         "add",
         Result.UNREACHABLE,
     )
-    assert row.reason.startswith("outage — local API HTTP 500")
+    assert row.reason == "outage — local API HTTP 500 for /api/"
     assert not [c for c in fake.calls if c[0] == "POST"]
 
 
@@ -520,5 +540,5 @@ def test_a_401_forgets_the_rejected_key_before_the_re_grant(tmp_vault, monkeypat
 
     outcomes = capture.add(tmp_vault, client, [{"itemType": "book", "title": "T"}])
 
-    assert outcomes[0].reason.startswith("matched — created")
+    assert outcomes[0].reason == "matched — created E352DFS8"
     assert json.loads(store.read_text()) == {}

@@ -3,6 +3,7 @@ leg needs RV_LIVE_WRITE_BASE too and refuses the production instance."""
 
 import json
 import os
+import re
 import time
 
 import pytest
@@ -62,8 +63,11 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
             }
         ],
     )
-    assert outcomes[0].reason.startswith("matched — created "), outcomes
-    item_key = outcomes[0].reason.split("created ")[1].split(",")[0]
+    # One item was posted, so the reason names exactly one Zotero key (eight
+    # upper-case alphanumerics); the key itself is the instance's to mint.
+    created = re.fullmatch(r"matched — created ([A-Z0-9]{8})", outcomes[0].reason)
+    assert created, outcomes
+    item_key = created.group(1)
     note = next((tmp_vault / "literature").glob("*.md"))
     provenance = literature_notes.read_provenance(note.read_text())
     assert provenance.item_key == item_key
@@ -81,7 +85,7 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
     assert item_key not in trashed_versions
     assert item_key in trash
     (row,) = lifecycle.lint_lifecycle(tmp_vault, client)
-    assert row.reason.startswith("trashed — ")
+    assert row.reason == f"trashed — {item_key}"
     fixture = {
         "live": live_snapshot,
         "trashed_items": {k: v for k, v in trashed_versions.items() if k == item_key},
@@ -94,4 +98,4 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
     status = client.delete_item(item_key, trash[item_key])
     assert status == 204
     (row,) = lifecycle.lint_lifecycle(tmp_vault, client)
-    assert row.reason.startswith("deleted — ")
+    assert row.reason == f"deleted — {item_key}"

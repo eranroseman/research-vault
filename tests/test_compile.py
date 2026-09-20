@@ -327,6 +327,17 @@ def _fake_tool(
     return root
 
 
+# The one line `_fake_tool`'s apply leg prints (with its default changed path);
+# on a non-zero exit with empty stderr it is the detail `compile.apply` reports.
+_FAKE_APPLY_RESULT_LINE = json.dumps(
+    {
+        "schema": "claude-obsidian.transaction-result.v1",
+        "operation_id": "op",
+        "changed_paths": ["wiki/meta/ledgers/source-ledger.json"],
+    }
+)
+
+
 def _calls(root):
     """Every argv the fake tool script received, in call order."""
     return [
@@ -385,7 +396,7 @@ def test_plan_writes_the_bundle_and_apply_reports_four_state(
 
     outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
     assert outcome.result is Result.MATCHED
-    assert "source-ledger.json" in outcome.reason
+    assert outcome.reason == "matched — wiki/meta/ledgers/source-ledger.json"
 
 
 def test_plan_merges_into_an_existing_ledger_and_pins_its_hash(
@@ -865,7 +876,8 @@ def test_apply_maps_tool_exit_codes(tmp_vault, tmp_path, monkeypatch):
     )
     outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
     assert outcome.result is Result.UNMATCHED
-    assert outcome.reason.startswith("mismatch")
+    # stderr is empty, so the detail is the tool's last stdout line verbatim.
+    assert outcome.reason == "mismatch — " + _FAKE_APPLY_RESULT_LINE
     monkeypatch.setattr(compile_mod, "tool_root", lambda vault: None)
     outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
     assert outcome.result is Result.UNREACHABLE
@@ -1161,7 +1173,7 @@ def test_cmd_compile_holds_an_unmatched_apply(tmp_vault, tmp_path, monkeypatch, 
     assert code == 1
     assert "UNMATCHED" in capsys.readouterr().out
     (held,) = [f for f in inbox.load(tmp_vault) if f.check == "compile"]
-    assert held.reason.startswith("mismatch")
+    assert held.reason == "mismatch — " + _FAKE_APPLY_RESULT_LINE
 
 
 def test_cmd_compile_apply_reports_unreachable_as_exit_3(
@@ -1218,7 +1230,7 @@ def test_cmd_compile_reports_an_unknown_key_and_plans_nothing(
     assert not (tmp_vault / ".research-vault" / "compile").exists()
     (held,) = [f for f in inbox.load(tmp_vault) if f.check == "compile"]
     assert held.target == "nosuchkey"
-    assert held.reason.startswith("not-captured")
+    assert held.reason == "not-captured — no literature note; capture it first"
 
 
 def test_cmd_compile_reports_a_captured_key_without_text_and_plans_nothing(
@@ -1365,7 +1377,10 @@ def test_cmd_compile_apply_holds_a_missing_script_as_unreachable(
     )
     (held,) = [f for f in inbox.load(tmp_vault) if f.check == "compile"]
     assert held.result == Result.UNREACHABLE.value
-    assert held.reason.startswith("outage — claude-obsidian script not found: ")
+    assert held.reason == (
+        "outage — claude-obsidian script not found: "
+        f"{root / 'scripts' / 'claude-obsidian.py'}"
+    )
 
 
 def test_compile_refuses_an_approved_hash_without_a_bundle(tmp_vault, capsys):

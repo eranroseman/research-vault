@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -1601,7 +1602,7 @@ def test_file_effects_does_not_refile_an_already_open_skipped_finding(tmp_vault)
     assert [entry.id for entry in inbox.open_entries(tmp_vault)] == [existing.id]
 
 
-def test_warn_dedup_reconstructs_type_and_inbox_is_oldest_first(net_vault, capsys):
+def test_inbox_lists_oldest_first(net_vault, capsys):
     inbox.append_entry(
         net_vault,
         "update-notice",
@@ -1625,16 +1626,40 @@ def test_warn_dedup_reconstructs_type_and_inbox_is_oldest_first(net_vault, capsy
     cmd_inbox(type("Args", (), {"vault": net_vault})())
     lines = capsys.readouterr().out.splitlines()
     assert "2026-08-01" in lines[1]
-    assert (
-        len(
-            [
-                e
-                for e in inbox.open_entries(net_vault)
-                if e.reason == "warn-notice — correction"
-            ]
-        )
-        == 1
+
+
+def test_warn_dedup_collapses_the_re_file_and_keeps_a_competing_notice(
+    net_vault, monkeypatch
+):
+    """#22: the old `== 1` held on a seeded record alone (network off, no
+    rw_csv: nothing minted). The dedup key is (check, target, kind, result,
+    target_hash, notice_class, notice_type, notice_date): a fresh correction
+    filed twice reads one entry; a second run re-filing it (the re-file path)
+    still reads one; a correction with another notice date is a new record."""
+    warning = {"type": "correction", "notice_date": "2026-01-01"}
+    outcome = _outcome(
+        "update-notice", "smith2020", Result.MATCHED, "matched", warn_notices=[warning]
     )
+    _isolate_network_verify(monkeypatch, [outcome])
+
+    def open_corrections():
+        return [
+            e
+            for e in inbox.open_entries(net_vault)
+            if e.reason == "warn-notice — correction"
+        ]
+
+    run_verify(net_vault, network=True)
+    (first,) = open_corrections()
+    run_verify(net_vault, network=True)  # the re-file path: same key, deduplicated
+    assert [e.id for e in open_corrections()] == [first.id]
+    outcome.extra["warn_notices"] = [
+        {"type": "correction", "notice_date": "2026-02-02"}
+    ]
+    run_verify(
+        net_vault, network=True
+    )  # a competing notice under a new date is not a duplicate
+    assert len(open_corrections()) == 2
 
 
 def _isolate_network_verify(monkeypatch, outcomes):
@@ -2129,8 +2154,11 @@ def test_live_drill_wakefield_and_fabricated(net_vault_real_mailto):
         "2026-08-16",
     )
     assert outcome.result is Result.UNMATCHED
-    # Crossref is authoritative; deposits may be re-issued within the month.
-    assert outcome.extra["notice_date"].startswith("2010-02")
+    # Crossref is authoritative and re-issues deposits within the month; the
+    # retraction's month is the stable fact, the day is whatever precision
+    # the deposit carries (Task 19: partial dates keep their precision).
+    assert re.fullmatch(r"2010-02(-\d{2})?", outcome.extra["notice_date"])
+    assert outcome.reason == "retracted — retraction"
     assert (
         checks.registry_agency(net_vault_real_mailto, "10.5281/zenodo.3678326")
         == "DataCite"
@@ -3492,7 +3520,7 @@ def test_network_outcomes_reduce_the_live_leg_with_an_rw_lookup(net_vault, monke
     }
     (outcome,) = verify._network_outcomes(net_vault, entry, "2026-09-07", lookup)
     assert outcome.result is Result.UNMATCHED
-    assert outcome.reason.startswith("retracted")
+    assert outcome.reason == "retracted — retraction"
 
 
 def test_verify_state_defaults_to_the_network_leg(net_vault, monkeypatch):
