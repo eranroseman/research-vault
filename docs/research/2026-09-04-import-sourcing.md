@@ -12,7 +12,7 @@ Disposition: historical (2026-09-06) [should-be-scoping-review]
 
 **Nothing here is a decision.** This note carries findings and, per candidate, one opinion about which treatment that candidate's own evidence points toward. It ranks nothing, shortlists nothing, and names no single answer. The treatments are design's to choose among: install as-is, fork and keep merging, copy frozen, copy plus a delta, author to the design and credit it, or write from scratch.
 
-**Conventions.** Every quote is verbatim from the candidate's body at the pin named in that candidate's section, reproduced with its own punctuation, spelling, and language. Authored text is this note's wording. A finding drawn from what a body says it does, rather than from a shipped script, schema, template, or worked example, is marked `basis: claim`; a finding drawn from an artifact is marked `basis: evidence`. Where a record carries a second, adversarial read, its result appears in that candidate's Verify line. Quotations are reproduced only from candidates whose repository records a licence at the pin (named in each candidate's Licence line); a candidate with no licence found — §10, §12, and §21 as declared-but-unpapered, §11's rendered page — is cited and paraphrased, never quoted (#164, 2026-09-18).
+**Conventions.** Every quote is verbatim from the candidate's body at the pin named in that candidate's section, reproduced with its own punctuation, spelling, and language. Authored text is this note's wording. A finding drawn from what a body says it does, rather than from a shipped script, schema, template, or worked example, is marked `basis: claim`; a finding drawn from an artifact is marked `basis: evidence`. Where a record carries a second, adversarial read, its result appears in that candidate's Verify line. Quotations are reproduced only from candidates whose repository records a licence at the pin (named in each candidate's Licence line); a candidate with no licence found — §10, §12, and §21 as declared-but-unpapered, §11's rendered page — is cited and paraphrased, never reproduced as a block quotation (#164, 2026-09-20).
 
 ______________________________________________________________________
 
@@ -1755,7 +1755,7 @@ Per-source review and batch ingest with less supervision are both documented, an
 
 **D10 undetermined** (claim). Line 5, with the absence of any licence file.
 
-`llm-wiki.md:5` at the pin — the same copy-paste framing quoted at D6, offered here against the absence of any licence file.
+`llm-wiki.md:5` at the pin — the same copy-paste framing cited at D6, offered here against the absence of any licence file.
 
 No licence instrument exists, so default copyright applies. The copy-paste invitation and the instantiate-a-version line signal the author's intent that the pattern be reused and adapted, but an invitation is not a grant of modification rights. Undetermined rather than does-not, because no licence forbids use either; the caller has to judge whether the invitation suffices.
 
@@ -1925,7 +1925,7 @@ Nothing is packaged as a Claude Code skill or plugin. The validator anticipates 
 
 **D7 covers** (evidence). The bundle's agent contract on the OKF profile, with the configurable directory names in the preflight configuration and the script's own overrides.
 
-llmwiki starter bundle agent contract at the pin (the same text the handbook section quotes) — `wiki/` is the OKF bundle root with reserved index/log files and four governance frontmatter fields required on every other markdown file; directory names are caller-configurable.
+llmwiki starter bundle agent contract at the pin (the same text the handbook section cites) — `wiki/` is the OKF bundle root with reserved index/log files and four governance frontmatter fields required on every other markdown file; directory names are caller-configurable.
 
 Layout requirements are explicit and the wiki, raw and proposal directory names are caller-configurable through the shipped configuration file or command-line flags, and the OKF validator takes any root as its positional argument. The hard constraints are the ones listed in the handbook section: reserved index and log files, a `type` plus four governance fields on every other markdown file, and, from preflight, owner, status, source status, last-reviewed, canonical URL and typed relations on every page. This is the same statement the handbook cites, because the bundle is where it ships.
 
@@ -1937,7 +1937,7 @@ There are slots for an identifier (a free-text Source ID bullet, a free-string c
 
 **D9 covers** (evidence). The OKF profile's update policy, with the per-page agent-use enum and the staged-proposals README.
 
-llm-wiki starter bundle configuration at the pin (the same declaration the handbook section quotes) — `agent_update_policy: "proposal-only until human review promotes a change"`; no script acts on the value beyond checking it is non-empty.
+llm-wiki starter bundle configuration at the pin (the same declaration the handbook section cites) — `agent_update_policy: "proposal-only until human review promotes a change"`; no script acts on the value beyond checking it is non-empty.
 
 The gate is documented and declared per page through a schema enum, with a proposals quarantine and a dated log entry template naming source records and reviewer. No script acts on the enum value: the OKF validator only checks the field is non-empty, and the only code enforcement is a regex requiring source-trace or owner-review language near mentions of staged proposals. Per-source versus batch granularity is not addressed; the log template implies dated batches listing several source records.
 

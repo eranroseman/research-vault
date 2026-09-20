@@ -1,12 +1,15 @@
 """The current-state surfaces describe the tree as it is.
 
-Three mechanisms, each the residue of a hand sweep (2026-09-16) that found the
-same defect class over and over: a path a reader cannot open, a name for a
+Four mechanisms. Three are the residue of a hand sweep (2026-09-16) that found
+the same defect class over and over: a path a reader cannot open, a name for a
 mechanism that no longer exists, and a status marker for a workflow that is
 gone. Records under ``docs/research/``, ``docs/product-landscape/`` and the
-executed plans are dated accounts and are out of scope here; the active specs,
-the agent references, the ADRs, the skills, the vault template and the plugin
-manifests are what an agent reads as current, and they are in scope.
+executed plans are dated accounts and are out of scope for those three; the
+active specs, the agent references, the ADRs, the skills, the vault template
+and the plugin manifests are what an agent reads as current, and they are in
+scope. The fourth, the home-literal scan (#164), is not scoped to current
+state at all: it alone runs over every tracked text file, dated accounts
+included, because a leaked home-directory path is exposure wherever it sits.
 """
 
 import re
@@ -212,12 +215,24 @@ def test_disposition_marker_is_historical_or_superseded(path):
 # environment facts are not written down); in a public repository it is also
 # the author's. `~/…` or `$HOME/…` spell the same path without the name.
 _HOME_LITERAL = re.compile(r"/home/[A-Za-z][A-Za-z0-9._-]*")
+# The same fact, spelled the Windows way, natively (`C:\Users\<user>\…`) or
+# through a WSL mount (`/mnt/c/Users/<user>/…`); `C:\Users\<user>\…` or `/mnt/
+# c/Users/<user>/…` is the spelling that carries the same information without
+# the name. Anchored to a drive letter or an `/mnt/<letter>` mount so a bare
+# macOS `/Users/<name>` — not a machine-local fact about this repository, and
+# seen only inside verbatim quotes of licensed third-party docs — is not
+# scanned; that gap is deliberate, not an oversight.
+_WINDOWS_HOME_LITERAL = re.compile(
+    r"(?:[A-Za-z]:|/mnt/[a-z])[/\\]Users[/\\][A-Za-z][A-Za-z0-9._-]*"
+)
 
 
 def test_no_home_directory_literal():
     """#164 (assembly spec §12, precondition 3): no tracked text file names a
-    directory under `/home/<user>`; a placeholder in angle brackets is not a
-    name, and `~` is the spelling that carries the same information."""
+    directory under `/home/<user>` or a Windows/WSL `Users/<user>`; POSIX and
+    Windows spell the same machine-local fact, so both are scanned. A
+    placeholder in angle brackets is not a name, and `~` or `C:\\Users\\
+    <user>\\…` is the spelling that carries the same information."""
     hits = []
     for path in _tracked("*"):
         if not path.is_file():
@@ -227,6 +242,9 @@ def test_no_home_directory_literal():
         except UnicodeDecodeError:
             continue  # a binary fixture
         for number, line in enumerate(text.splitlines(), 1):
-            if _HOME_LITERAL.search(line):
-                hits.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()[:100]}")
+            hits.extend(
+                f"{path.relative_to(ROOT)}:{number}: {pattern.pattern} — {line.strip()[:100]}"
+                for pattern in (_HOME_LITERAL, _WINDOWS_HOME_LITERAL)
+                if pattern.search(line)
+            )
     assert hits == [], "\n".join(hits)
