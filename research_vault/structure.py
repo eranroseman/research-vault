@@ -34,7 +34,7 @@ _FOLDER_TYPES = {
 # duplicate of `fulltext/` if its capture were ever run, and `.vault-meta/` is
 # its runtime state. Both are gitignored and never walked.
 EXCLUDED_DIRS = frozenset({".git", ".raw", ".vault-meta"})
-# ADR 0001, second exemption: the adopted compile tool writes
+# docs/agents/okf-conformance.md's register, first row: the adopted compile tool writes
 # `wiki/index.md` with frontmatter at a hard-coded path; OKF §8 forbids it on
 # a nested index and the tool's own lint requires it. The vault carries the
 # deviation; nothing the vault authors deviates.

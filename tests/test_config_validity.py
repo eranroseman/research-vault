@@ -49,6 +49,7 @@ JSON_MANIFESTS = [
     "hooks/hooks.json",
     ".claude-plugin/plugin.json",
     ".claude-plugin/marketplace.json",
+    ".github/okf-pin.json",
     "research_vault/templates/research-vault/machine.json.example",
 ]
 
@@ -953,3 +954,67 @@ def test_contributor_vault_state_is_ignored_and_untracked():
             check=False,
         )
         assert ignored.returncode == 0, f"{root}/ is not ignored by .gitignore"
+
+
+def test_okf_pin_has_one_writer_and_the_shape_the_job_reads():
+    """#126: the upstream SPEC.md pin lives in one file beside the job that
+    compares it; ADR 0001, the conformance document and ATTRIBUTION.md point
+    at the file. A hand edit that breaks the shape fails the branch's
+    required check."""
+    pin = json.loads((ROOT / ".github" / "okf-pin.json").read_text(encoding="utf-8"))
+    assert set(pin) == {"ref", "sha256", "method", "measured"}
+    assert re.fullmatch(r"[0-9a-f]{64}", pin["sha256"])
+    assert re.fullmatch(r"[0-9a-f]{7,40}", pin["ref"])
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", pin["measured"])
+    assert pin["method"] == "sha256sum of raw SPEC.md at ref"
+    for relative in (
+        ".github/workflows/quality.yml",
+        "docs/adr/0001-vault-outlives-its-tools.md",
+        "docs/agents/okf-conformance.md",
+        "ATTRIBUTION.md",
+    ):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert "okf-pin.json" in text, relative
+        assert pin["sha256"] not in text, relative  # one writer; no second literal
+
+
+def test_okf_conformance_doc_is_the_mechanism_and_the_register():
+    """#163: the ADR keeps the decision; OKF's rules, their discharge and the
+    conformance deviation register live in docs/agents/okf-conformance.md,
+    and the eight OKF-rule rows left terminology.md §3 (the vocabulary rows
+    stay: the declined anchor decides the register)."""
+    doc = (ROOT / "docs" / "agents" / "okf-conformance.md").read_text(encoding="utf-8")
+    adr = (ROOT / "docs" / "adr" / "0001-vault-outlives-its-tools.md").read_text(
+        encoding="utf-8"
+    )
+    terminology = (ROOT / "docs" / "agents" / "terminology.md").read_text(
+        encoding="utf-8"
+    )
+    for rule in (
+        "Every non-reserved `.md` file in the tree contains a parseable YAML frontmatter block.",
+        "Every frontmatter block contains a non-empty `type` field.",
+        "Every reserved filename (`index.md`, `log.md`) follows the structure in §8 and §9",
+    ):
+        assert rule in doc, rule
+        assert rule not in adr, rule
+    assert "okf-conformance.md" in adr
+    assert len(adr.splitlines()) <= 33  # docs/agents/domain.md's ADR shape
+    section_3 = terminology[
+        terminology.index("## 3. Recording a ruling") : terminology.index(
+            "## 4. Governed spellings"
+        )
+    ]
+    for anchor in (
+        "OKF §8 (index files carry no frontmatter)",
+        "OKF §11 rule 1",
+        "OKF untyped lineage",
+        "OKF §5.5 `stale_after`",
+        "OKF §5.2 `{by, at}` event shape",
+        "OKF §5 ISO 8601 datetime with UTC offset",
+        "OKF §6.1 markdown link form",
+        "OKF §10 Attested Computation",
+    ):
+        assert anchor in doc, anchor
+        assert anchor not in section_3, anchor
+    assert "OKF §5.1 footnote attribution" in section_3  # a vocabulary row stays
+    assert "the declined anchor decides" in section_3

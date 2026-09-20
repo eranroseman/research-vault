@@ -26,11 +26,11 @@ of them.
 ## Conformance mechanism
 
 **Open Knowledge Format (OKF)** — GoogleCloudPlatform/open-knowledge-format.
-The vault's survivability guarantee, pinned rather than versioned: v0.2 at
-`open-knowledge-format@ad30107`, `SPEC.md` sha256
-`26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101`. See
-[ADR 0001](docs/adr/0001-vault-outlives-its-tools.md); deviations are priced
-in [docs/agents/terminology.md](docs/agents/terminology.md).
+The vault's survivability guarantee, pinned rather than versioned: the OKF
+commit and the `SPEC.md` digest are recorded once in `.github/okf-pin.json`.
+The decision is [ADR 0001](docs/adr/0001-vault-outlives-its-tools.md); the
+rules, how they are discharged and the conformance deviation register are
+[docs/agents/okf-conformance.md](docs/agents/okf-conformance.md).
 
 ## Adopted components
 
@@ -43,7 +43,7 @@ in [docs/agents/terminology.md](docs/agents/terminology.md).
 **The exit, for the one adoption that writes into the vault:** stop invoking
 `claude-obsidian` and everything under `wiki/` remains ordinary markdown with
 YAML frontmatter, readable without it and OKF-conformant apart from the single
-`wiki/index.md` deviation ADR 0001 records. Nothing to unwind.
+`wiki/index.md` deviation the conformance register records. Nothing to unwind.
 
 ## Vendored source
 

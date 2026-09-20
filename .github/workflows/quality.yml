@@ -174,17 +174,22 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false  # gh authenticates through GH_TOKEN below
+      # The pin has one writer, .github/okf-pin.json (ref, sha256, method,
+      # measured); tests/test_config_validity.py asserts its shape, and
+      # docs/agents/okf-conformance.md says how a mismatch is reconciled.
+      # Nothing in this file repeats the pin.
       - name: Compare upstream SPEC.md against the pin
         env:
           GH_TOKEN: ${{ github.token }}
-          PINNED: 26aa5da029278939f914e578107242d9607d4f2dc5fe153272b82f9ed1030101
         run: |-
           set -euo pipefail
+          ref="$(jq -r .ref .github/okf-pin.json)"
+          pinned="$(jq -r .sha256 .github/okf-pin.json)"
           curl --fail --silent --show-error --location --output /tmp/SPEC.md \
             https://raw.githubusercontent.com/GoogleCloudPlatform/open-knowledge-format/main/SPEC.md
           actual="$(sha256sum /tmp/SPEC.md | cut -d' ' -f1)"
-          if [ "$actual" != "$PINNED" ]; then
-            title="OKF SPEC.md drifted from the ad30107 pin"
+          if [ "$actual" != "$pinned" ]; then
+            title="OKF SPEC.md drifted from the $ref pin"
             if ! gh issue list --state open --search "$title" --json title -q '.[].title' | grep -qF "$title"; then
               # The body is built with printf, never written as a multi-line YAML
               # string. yamlfix rewrites blank lines inside a block scalar to match
@@ -195,7 +200,7 @@ jobs:
               # With no blank line in the YAML there is nothing left to rewrite.
               body=$(printf '%s\n\n%s\n' \
                 "> *Opened automatically by the okf-spec-drift job.*" \
-                "Upstream \`SPEC.md\` sha256 is \`$actual\`; the pin is \`$PINNED\` (\`open-knowledge-format@ad30107\`). Reconcile per ADR 0001: read the diff, decide adopt/deviate, move the pin deliberately.")
+                "Upstream \`SPEC.md\` sha256 is \`$actual\`; the pin is \`$pinned\` (\`open-knowledge-format@$ref\`, .github/okf-pin.json). Reconcile per docs/agents/okf-conformance.md: read the diff, decide adopt/deviate, move the pin deliberately.")
               gh issue create --title "$title" --label needs-triage --body "$body"
             fi
           fi

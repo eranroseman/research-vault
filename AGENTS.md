@@ -41,6 +41,10 @@ How a name is chosen, and the governed spellings not owned by CONTEXT.md or an A
 
 Components are chosen by a sourcing screen; the build bar is tiered. See `docs/agents/sourcing.md`.
 
+### OKF conformance
+
+The vault outlives its tools by OKF conformance: the rules, how they are discharged, and the deviation register. See `docs/agents/okf-conformance.md`.
+
 ### Domain docs
 
 Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
