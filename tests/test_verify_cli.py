@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -18,7 +19,9 @@ from research_vault import (
     events,
     frontmatter,
     gitstate,
+    identify,
     inbox,
+    lints,
     literature_notes,
     markers,
     verify,
@@ -31,6 +34,7 @@ from research_vault.verify import (
     DEFAULT_BASE,
     _apply_state_transitions,
     _citation_key_hash,
+    _claim_bytes_from_text,
     _file_effects,
     _note_bytes,
     _target_hash,
@@ -3348,3 +3352,1584 @@ def test_marker_walk_skips_an_undecodable_note_and_continues(net_vault):
     assert markers.clear_marker_for(net_vault, "quote", "missing#^c-1") is True
     assert "[failed-verification" not in good.read_text()
     assert bad.read_bytes() == b"\xff\xfe- (quote) x [@missing] ^c-1\n"
+
+
+# --- the survivor triage: kills the spec located (pre-lane-2 §6.2) ------------
+
+
+def test_identifier_hash_of_a_bare_bibliography_entry_is_its_sorted_canonical_json(
+    net_vault,
+):
+    """An identifier with no note falls through to its bibliography entry:
+    canonical JSON with sorted keys and no spaces, sixteen hex characters.
+    The entry's keys are written out of order so `sort_keys=True` is load-
+    bearing; the literal length kills the `[:17]` shape at every return."""
+    path = net_vault / "system" / "bibliography.json"
+    entries = json.loads(path.read_text())
+    entry = {"title": "Admitted entry", "id": "noted-yet", "DOI": "10.1/z"}
+    entries.append(entry)
+    path.write_text(json.dumps(entries))
+    outcome = _outcome("update-notice", "noted-yet", Result.UNMATCHED, "retracted — x")
+    expected = hashlib.sha256(
+        json.dumps(entry, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()[:16]
+    assert _target_hash(net_vault, outcome) == expected
+    assert len(expected) == 16
+
+
+@pytest.mark.parametrize("plane", ["origin", "origin_image"])
+def test_identifier_hash_of_a_witness_less_note_reads_the_note_through_its_origin(
+    net_vault, plane
+):
+    """A note whose `managed-sha256` is absent is not identified by its
+    witness (`_citation_key_hash` answers None) but by its bytes, through
+    the origin path (no candidate snapshot) or the origin image (with one)."""
+    source = net_vault / "literature" / "smith2020.md"
+    text = source.read_text()
+    witness_line = next(
+        line for line in text.splitlines() if line.startswith("managed-sha256:")
+    )
+    source.write_text(must_replace(text, witness_line + "\n", ""))
+    outcome = _outcome(
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "retracted — x",
+        note_path="literature/smith2020.md",
+    )
+    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+    if plane == "origin":
+        assert _target_hash(net_vault, outcome) == expected
+    else:
+        snapshot = gitstate.snapshot_worktree(net_vault)
+        assert _target_hash(net_vault, outcome, candidate_snapshot=snapshot) == expected
+
+
+def test_identifier_hash_of_a_deleted_note_holds_from_the_base_snapshot(net_vault):
+    source = net_vault / "literature" / "smith2020.md"
+    before = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+    base = gitstate.snapshot_worktree(net_vault)
+    source.unlink()
+    outcome = _outcome(
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "retracted — x",
+        note_path="literature/smith2020.md",
+    )
+    assert _target_hash(net_vault, outcome, base_snapshot=base) == before
+    assert len(before) == 16
+
+
+def test_verify_state_refuses_an_index_candidate_whose_destination_differs_live(
+    net_vault, monkeypatch
+):
+    """`_candidate_destinations_match_live` through its product caller: an
+    index candidate (the pre-commit hook's shape) with a worktree that
+    differs from the index at a planned output path."""
+    # The retracted notice files a `failed-verification` event on the note:
+    # `literature/smith2020.md` is a planned output. Staged as the fixture
+    # committed it, then changed in the worktree only.
+    source = net_vault / "literature" / "smith2020.md"
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    source.write_text(source.read_text() + "\n")
+    _isolate_network_verify(
+        monkeypatch,
+        [_outcome("update-notice", "smith2020", Result.UNMATCHED, "retracted — x")],
+    )
+    with pytest.raises(
+        gitstate.GitStateError,
+        match="selected candidate differs from live projection destination",
+    ):
+        verify_state(net_vault, network=True, git_candidate="index")
+
+
+def test_network_outcomes_reduce_the_live_leg_with_an_rw_lookup(net_vault, monkeypatch):
+    """The only direct test call passed `notice_lookup=None`; with a lookup
+    the RW leg runs and the reduction sees both."""
+    monkeypatch.setattr(
+        checks,
+        "check_update_notice",
+        lambda vault, entry, date: checks.Outcome(
+            "update-notice", entry["id"], Result.MATCHED, "matched"
+        ),
+    )
+    entry = {"id": "smith2020", "DOI": "10.1000/xyz"}
+    lookup = {
+        "doi": {"10.1000/xyz": [{"type": "Retraction", "notice_date": "2026-01-01"}]},
+        "pmid": {},
+    }
+    (outcome,) = verify._network_outcomes(net_vault, entry, "2026-09-07", lookup)
+    assert outcome.result is Result.UNMATCHED
+    assert outcome.reason.startswith("retracted")
+
+
+def test_verify_state_defaults_to_the_network_leg(net_vault, monkeypatch):
+    """`network=True` is the default of `verify_state` and `_plan_state`: the
+    lifecycle leg runs (and, under the offline suite's socket block, files
+    its outage); `network=False` files the synthetic offline row instead.
+
+    Deviation from the brief's printed text: `check_update_notice` is
+    stubbed here. Unlike the Zotero client (autouse-faked into a clean
+    `ZoteroError` every offline run), a live DOI registry lookup is not
+    autouse-mocked, and `webapi`'s narrow `except OSError` does not catch
+    the socket guard's deliberately-not-`OSError` block — so the real
+    `smith2020`/`gone2019` DOIs would otherwise leak a live socket connect
+    through this test rather than exercising the lifecycle leg this test is
+    about."""
+    monkeypatch.setattr(
+        checks,
+        "check_update_notice",
+        lambda vault, entry, date: checks.Outcome(
+            "update-notice", entry["id"], Result.SKIPPED, "no-identifier — stubbed"
+        ),
+    )
+    report, _effective, _hashes, _warnings = verify_state(net_vault)
+    lifecycle_rows = [o for o in report["outcomes"] if o.check == "lifecycle"]
+    assert lifecycle_rows
+    assert all(o.extra.get("synthetic_offline") is not True for o in lifecycle_rows)
+    report, _effective, _hashes, _warnings = verify_state(net_vault, network=False)
+    (row,) = [o for o in report["outcomes"] if o.check == "lifecycle"]
+    assert row.extra.get("synthetic_offline") is True
+
+
+def test_plan_state_reports_an_unparseable_bibliography_as_a_citation_key_row(
+    net_vault,
+):
+    """`bibliography.load`'s schema failure becomes one `citation-key` row
+    targeting the bibliography file's own repo path, not a crash — the
+    `_plan_state` group's first prose test (pre-lane-2 §6.2)."""
+    bib_path = net_vault / "system" / "bibliography.json"
+    bib_path.write_text("not json")
+    report = run_verify(net_vault, network=False)
+    (row,) = [o for o in report["outcomes"] if o.check == "citation-key"]
+    assert row.target == encode_repo_path(os.fsencode(bibliography.BIB_PATH))
+    assert row.result is Result.UNMATCHED
+    assert row.reason == "schema-violation — bibliography JSON/schema invalid"
+
+
+def test_plan_state_forwards_a_discovered_doi_to_the_update_notice_check(
+    net_vault, monkeypatch
+):
+    """A bibliography entry with no DOI, under `network=True`: whatever
+    `identify.discover` puts in `extra["identifiers"]` reaches
+    `check_update_notice` on the very same entry, not the pre-discovery one
+    — the `_plan_state` group's second prose test (pre-lane-2 §6.2)."""
+    bib_path = net_vault / "system" / "bibliography.json"
+    entries = json.loads(bib_path.read_text())
+    entries.append({"id": "undoid2020", "title": "No DOI yet"})
+    bib_path.write_text(json.dumps(entries))
+    monkeypatch.setattr(
+        identify,
+        "discover",
+        lambda vault, entry: checks.Outcome(
+            "identifier-discovery",
+            entry["id"],
+            Result.MATCHED,
+            "matched",
+            {"identifiers": {"DOI": "10.1/found"}},
+        ),
+    )
+    seen = []
+
+    def record(vault, entry, date):
+        seen.append(entry)
+        return checks.Outcome("update-notice", entry["id"], Result.MATCHED, "matched")
+
+    monkeypatch.setattr(checks, "check_update_notice", record)
+    monkeypatch.setattr("research_vault.lifecycle.lint_lifecycle", lambda *_args: [])
+    run_verify(net_vault, network=True, detection_date="2026-09-07")
+    (entry,) = [e for e in seen if e["id"] == "undoid2020"]
+    assert entry["DOI"] == "10.1/found"
+
+
+def test_plan_state_counts_match_a_hand_tallied_counter_of_effective_results(
+    net_vault,
+):
+    """`counts` is exactly a tally of `effective`'s results, not `raw`'s —
+    the `_plan_state` group's third prose test (pre-lane-2 §6.2)."""
+    report, effective, _hashes, _warnings = verify_state(
+        net_vault, network=False, detection_date="2026-09-07"
+    )
+    assert report["counts"] == dict(Counter(o.result.value for o in effective))
+
+
+def test_plan_state_forwards_repository_root_to_lint_append_only(
+    net_vault, monkeypatch, tmp_path
+):
+    """`repository_root` is the real repo `verify_state` is publishing to,
+    not the temporary materialized planning directory `_plan_state` itself
+    scans notes from — `lint_append_only` must see the caller's value
+    verbatim, not the planning directory — the `_plan_state` group's fourth
+    prose test (pre-lane-2 §6.2)."""
+    seen = []
+
+    def record(repository, base_snapshot, candidate_snapshot):
+        seen.append(repository)
+        return []
+
+    monkeypatch.setattr(lints, "lint_append_only", record)
+    monkeypatch.setattr(lints, "lint_claim_immutability", lambda *_args: [])
+    monkeypatch.setattr(lints, "lint_published_drift", lambda *_args: [])
+    snapshots = gitstate.resolve_snapshots(net_vault)
+    marker_repo = tmp_path / "elsewhere"
+    marker_repo.mkdir()
+    verify._plan_state(
+        net_vault,
+        network=False,
+        detection_date="2026-09-07",
+        repository_root=marker_repo,
+        snapshots=snapshots,
+    )
+    assert seen == [marker_repo]
+
+
+# --- the survivor triage: the rest of the inventory, verify.py (§6.2 continued) --
+
+
+def test_apply_state_transitions_stamps_the_verified_event_with_detection_date(
+    net_vault,
+):
+    """The `at=detection_date` argument to `events.record_pass` is load-
+    bearing: `record_pass` defaults a missing `at` to `clock.today()`, so a
+    `detection_date` that is not today's real date is the only thing that
+    tells the two apart."""
+    outcome = checks.Outcome("update-notice", "smith2020", Result.MATCHED, "matched")
+    _apply_state_transitions(net_vault, [outcome], "2020-01-01", stamp=[outcome])
+    source = (net_vault / "literature" / "smith2020.md").read_text()
+    (event,) = [
+        e for e in events.verified_checks(source) if e["check"] == "update-notice"
+    ]
+    assert event["at"] == "2020-01-01"
+
+
+def test_apply_state_transitions_skips_a_projection_whose_citation_key_is_invalid(
+    net_vault,
+):
+    """`_note_for_citation_key` returns `None` for a citation key
+    `note_path` rejects (an embedded `/`); the guard's `and` must short-
+    circuit before `note.is_file()` — an `or` would call `.is_file()` on
+    `None` and crash."""
+    outcome = checks.Outcome(
+        "update-notice", "evil/key", Result.UNMATCHED, "outage — x"
+    )
+    _apply_state_transitions(net_vault, [outcome], "2026-08-16", stamp=[])
+
+
+def test_apply_state_transitions_leaves_an_unreachable_outcomes_marker_alone(
+    net_vault,
+):
+    """Only a genuine MATCHED clears a marker: `is not Result.MATCHED` would
+    also fire for UNREACHABLE, which the branch above does not touch."""
+    note = net_vault / "literature" / "smith2020.md"
+    marked = must_replace(
+        note.read_text(),
+        "^c-11111111",
+        "[failed-verification:: quote/2026-08-16] ^c-11111111",
+    )
+    note.write_text(marked)
+    outcome = _outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNREACHABLE,
+        "outage — x",
+        note_path="literature/smith2020.md",
+        claim_id="c-11111111",
+    )
+    _apply_state_transitions(net_vault, [outcome], "2026-08-16", stamp=[])
+    assert "[failed-verification:: quote/2026-08-16]" in note.read_text()
+
+
+def test_verify_state_accepts_an_index_candidate_whose_destination_matches_live(
+    net_vault, monkeypatch
+):
+    """The pass twin of the refusal above: staged and worktree agree at the
+    one output path this run touches (`literature/smith2020.md`, via the
+    retraction's `record_failure`), so nothing raises — and the loop must
+    have actually compared real images, not a stray `None`, for that to be
+    meaningful."""
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    _isolate_network_verify(
+        monkeypatch,
+        [_outcome("update-notice", "smith2020", Result.UNMATCHED, "retracted — x")],
+    )
+    report, _effective, _hashes, _warnings = verify_state(
+        net_vault, network=True, git_candidate="index"
+    )
+    assert report["outcomes"]
+
+
+def test_mutate_marker_skips_an_origin_whose_safe_path_is_none(net_vault, tmp_path):
+    """A `note_path` naming a symlink that escapes the vault resolves
+    through `_safe_relative` to `None`. The guard's `or` must short-circuit
+    before reaching `path.is_file()` — an `and` here evaluates
+    `None.is_file()` and crashes instead of quietly skipping the origin."""
+    outside_root = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside_root.mkdir()
+    outside = outside_root / "outside.md"
+    outside.write_text("outside remains private\n")
+    link = net_vault / "projects" / "brief" / "escape-marker.md"
+    link.symlink_to(outside)
+    outcome = _outcome(
+        "quote",
+        "missing#^c-1",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="projects/brief/escape-marker.md",
+        claim_id="c-1",
+    )
+    _mutate_marker(net_vault, outcome, "2026-08-16")  # must not raise
+    assert outside.read_text() == "outside remains private\n"
+
+
+def test_claim_anchor_hash_reads_the_candidate_image_through_surrogateescape(
+    net_vault,
+):
+    """The origin-image plane's own decode: invalid UTF-8 forces the
+    surrogateescape handler (a mis-cased or wrong handler name crashes only
+    when a byte actually needs it — this one does), `or b""` only guards a
+    genuinely absent image (discarding real bytes to `and` would lose the
+    claim), and the claim id it searches for is the literal second
+    argument — dropping, losing, or nulling any of the three changes the
+    hash or crashes."""
+    note = net_vault / "projects" / "brief" / "invalid-claim.md"
+    claim_bytes = b"- (quote) invalid \xff [@missing] ^c-invalid\n"
+    note.write_bytes(claim_bytes)
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
+    outcome = _outcome(
+        "quote",
+        "missing#^c-invalid",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="projects/brief/invalid-claim.md",
+        claim_id="c-invalid",
+    )
+    expected = hashlib.sha256(claim_bytes).hexdigest()[:16]
+    assert (
+        _target_hash(net_vault, outcome, candidate_snapshot=candidate_snapshot)
+        == expected
+    )
+
+
+def test_claim_anchor_hash_of_a_deleted_note_holds_from_the_base_snapshot(net_vault):
+    """The claim-anchor's own base-snapshot leg: the candidate lacks the
+    note (deleted), the origin plane is forced off by the candidate
+    snapshot's presence — the claim's bytes come from the base image, keyed
+    by the base snapshot the caller passed, at the real raw origin, read as
+    a real `"file"`-kind image from a real `"HEAD"`."""
+    source = net_vault / "literature" / "smith2020.md"
+    text = source.read_text()
+    claim_bytes = _claim_bytes_from_text(text, "c-11111111")
+    expected = hashlib.sha256(claim_bytes).hexdigest()[:16]
+    base = gitstate.snapshot_worktree(net_vault)
+    source.unlink()
+    candidate = gitstate.snapshot_worktree(net_vault)
+    outcome = _outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="literature/smith2020.md",
+        claim_id="c-11111111",
+    )
+    assert (
+        _target_hash(
+            net_vault, outcome, base_snapshot=base, candidate_snapshot=candidate
+        )
+        == expected
+    )
+
+
+def test_claim_anchor_hash_stays_gone_when_base_snapshot_also_lacks_the_note(
+    net_vault,
+):
+    """`head`'s HEAD-blob fallback is gated on `base_snapshot is None`; with
+    an explicit (post-deletion) base snapshot that also lacks the note, the
+    claim is genuinely gone — not recoverable from git HEAD behind the
+    snapshot's back."""
+    source = net_vault / "literature" / "smith2020.md"
+    source.unlink()
+    base = gitstate.snapshot_worktree(net_vault)
+    candidate = gitstate.snapshot_worktree(net_vault)
+    outcome = _outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="literature/smith2020.md",
+        claim_id="c-11111111",
+    )
+    assert (
+        _target_hash(
+            net_vault, outcome, base_snapshot=base, candidate_snapshot=candidate
+        )
+        is None
+    )
+
+
+def test_claim_anchor_hash_uses_the_real_candidate_snapshot_for_the_citation_key_lookup(
+    net_vault,
+):
+    """`_citation_key_hash`'s own `candidate_snapshot` argument must be the
+    one this call received, not a stray `None`: a candidate snapshot that
+    still has the note (even though the worktree has since lost it) must
+    short-circuit on the candidate's witness, not fall through to a
+    worktree-based absence that no longer holds."""
+    source = net_vault / "literature" / "smith2020.md"
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)  # note still present
+    source.unlink()  # the worktree loses it; candidate_snapshot does not
+    outcome = _outcome(
+        "quote",
+        "smith2020#^c-11111111",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="literature/smith2020.md",
+        claim_id="c-11111111",
+    )
+    digest = _citation_key_hash(
+        net_vault, "smith2020", candidate_snapshot=candidate_snapshot
+    )
+    assert digest is not None
+    assert (
+        _target_hash(net_vault, outcome, candidate_snapshot=candidate_snapshot)
+        == digest
+    )
+
+
+def test_claim_anchor_hash_crashes_are_confined_to_the_citation_key_note_lookup(
+    net_vault,
+):
+    """The last-resort plane (citation key has no note of its own anywhere,
+    origin and base/HEAD both come up empty, no candidate snapshot): its own
+    `_note_for_citation_key` and `_claim_bytes` calls must receive the real
+    `vault_root`/`citation_key`/`note`, not a dropped or nulled argument —
+    a wrong shape here raises `TypeError` where the real calls return
+    `None` cleanly."""
+    outcome = _outcome(
+        "quote",
+        "phantom2020#^c-1",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="projects/brief/never-existed.md",
+        claim_id="c-1",
+    )
+    assert _target_hash(net_vault, outcome) is None
+
+
+def test_claim_anchor_hash_does_not_re_derive_a_plane_the_origin_already_answered(
+    net_vault,
+):
+    """Once the origin (worktree) plane has the claim's bytes, the base/HEAD
+    leg must not run at all: a stale base snapshot that predates the claim
+    would silently discard a good answer if the gate's `and`/`is None`
+    conditions let it re-derive."""
+    draft = net_vault / "projects" / "brief" / "draft.md"
+    stale_base = gitstate.snapshot_worktree(net_vault)
+    draft.write_text(
+        draft.read_text()
+        + "- (inference) Uncommitted claim [@fabricated2020] ^c-uncommitted\n"
+    )
+    outcome = _outcome(
+        "quote",
+        "fabricated2020#^c-uncommitted",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="projects/brief/draft.md",
+        claim_id="c-uncommitted",
+    )
+    claim_bytes = _claim_bytes_from_text(draft.read_text(), "c-uncommitted")
+    expected = hashlib.sha256(claim_bytes).hexdigest()[:16]
+    assert _target_hash(net_vault, outcome, base_snapshot=stale_base) == expected
+
+
+def test_clear_marker_for_continues_past_a_guarded_candidate_to_a_later_one(net_vault):
+    """`_claim_notes` can list a candidate the guard skips (a broken symlink,
+    sorted first) before a real one carrying the marker to clear —
+    `continue` must move on to it, not `break` the whole walk."""
+    broken = net_vault / "projects" / "brief" / "aaa-broken.md"
+    broken.symlink_to(net_vault / "projects" / "brief" / "does-not-exist.md")
+    draft = net_vault / "projects" / "brief" / "draft.md"
+    marked = must_replace(
+        draft.read_text(),
+        "^c-77777777",
+        "[failed-verification:: citation-key/2026-09-07] ^c-77777777",
+    )
+    draft.write_text(marked)
+    assert markers.clear_marker_for(net_vault, "citation-key", "fabricated2020") is True
+    assert "[failed-verification" not in draft.read_text()
+
+
+def test_clear_marker_for_skips_a_path_bytes_target_whose_safe_path_is_none(
+    net_vault, tmp_path
+):
+    """A `path-bytes:` target naming a symlink that escapes the vault
+    resolves through `_safe_relative` to `None`; the guard's `or` must
+    short-circuit before `path.is_file()` — an `and` would crash on
+    `None.is_file()` instead of returning `False` quietly."""
+    outside_root = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside_root.mkdir()
+    outside = outside_root / "outside.md"
+    outside.write_text("outside remains private\n")
+    link = net_vault / "projects" / "brief" / "escape-clear.md"
+    link.symlink_to(outside)
+    assert (
+        markers.clear_marker_for(
+            net_vault, "quote", "path-bytes:projects/brief/escape-clear.md"
+        )
+        is False
+    )
+
+
+def test_identifier_hash_reads_the_candidate_image_when_no_citation_key_note_exists(
+    net_vault,
+):
+    """An identifier whose citation key has no note of its own reads its
+    origin through the candidate image: `or b""` only guards a genuinely
+    absent image (discarding real bytes to `and` would lose the note), and
+    only a real `"file"`-kind image counts."""
+    note = net_vault / "projects" / "brief" / "orphan-note.md"
+    note.write_text("some content for an orphan identifier\n")
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
+    outcome = _outcome(
+        "update-notice",
+        "orphan2020",
+        Result.UNMATCHED,
+        "retracted — x",
+        note_path="projects/brief/orphan-note.md",
+    )
+    expected = hashlib.sha256(_note_bytes(note.read_bytes())).hexdigest()[:16]
+    assert (
+        _target_hash(net_vault, outcome, candidate_snapshot=candidate_snapshot)
+        == expected
+    )
+
+
+def test_identifier_hash_of_an_empty_origin_image_hashes_true_empty_bytes(net_vault):
+    """`origin_image.data or b""` only substitutes when the image itself
+    carries no bytes — the substitute must be the true empty string, not a
+    stray filler that becomes the hashed content."""
+    note = net_vault / "projects" / "brief" / "empty-orphan.md"
+    note.write_text("")
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)
+    outcome = _outcome(
+        "update-notice",
+        "emptyorphan2020",
+        Result.UNMATCHED,
+        "retracted — x",
+        note_path="projects/brief/empty-orphan.md",
+    )
+    expected = hashlib.sha256(_note_bytes(b"")).hexdigest()[:16]
+    assert (
+        _target_hash(net_vault, outcome, candidate_snapshot=candidate_snapshot)
+        == expected
+    )
+
+
+def test_identifier_hash_stays_gone_when_base_snapshot_also_lacks_the_orphan_note(
+    net_vault,
+):
+    """`base_image is not None and base_image.kind == "file"` must
+    short-circuit before `.kind`: an `or` here evaluates `None.kind` and
+    crashes. And with `base_image` genuinely `None`, the HEAD-blob fallback
+    stays gated on `base_snapshot is None` — a real (committed) HEAD is not
+    read behind an explicit base snapshot's back."""
+    note = net_vault / "projects" / "brief" / "orphan-gone.md"
+    note.write_text("will be gone everywhere\n")
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    subprocess.run(["git", "commit", "-qm", "add orphan"], cwd=net_vault, check=True)
+    note.unlink()
+    base = gitstate.snapshot_worktree(net_vault)  # taken after deletion too
+    candidate = gitstate.snapshot_worktree(net_vault)
+    outcome = _outcome(
+        "update-notice",
+        "orphan2023",
+        Result.UNMATCHED,
+        "retracted — x",
+        note_path="projects/brief/orphan-gone.md",
+    )
+    assert (
+        _target_hash(
+            net_vault, outcome, base_snapshot=base, candidate_snapshot=candidate
+        )
+        is None
+    )
+
+
+def test_identifier_hash_of_a_deleted_orphan_note_holds_from_head_without_base_snapshot(
+    net_vault,
+):
+    """With no `base_snapshot` at all, the HEAD-blob fallback reads the real
+    `vault_root`/`"HEAD"`/`raw_origin` — a dropped, `None`d, or wrong-cased
+    argument returns nothing or crashes instead of the committed content."""
+    note = net_vault / "projects" / "brief" / "orphan-head.md"
+    note.write_text("orphan content from head\n")
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "add orphan head"], cwd=net_vault, check=True
+    )
+    note.unlink()
+    expected = hashlib.sha256(_note_bytes(b"orphan content from head\n")).hexdigest()[
+        :16
+    ]
+    outcome = _outcome(
+        "update-notice",
+        "orphan2024",
+        Result.UNMATCHED,
+        "retracted — x",
+        note_path="projects/brief/orphan-head.md",
+    )
+    assert _target_hash(net_vault, outcome) == expected
+
+
+def test_identifier_hash_uses_the_real_candidate_snapshot_for_the_citation_key_lookup(
+    net_vault,
+):
+    """`_citation_key_hash`'s own `candidate_snapshot` argument must be the
+    one this call received, not a stray `None`: a candidate snapshot that
+    still has the note (even though the worktree has since lost it) must
+    short-circuit on the candidate's witness, not fall through to the
+    bibliography entry's JSON."""
+    source = net_vault / "literature" / "smith2020.md"
+    candidate_snapshot = gitstate.snapshot_worktree(net_vault)  # note still present
+    source.unlink()  # the worktree loses it; candidate_snapshot does not
+    outcome = _outcome("update-notice", "smith2020", Result.UNMATCHED, "retracted — x")
+    digest = _citation_key_hash(
+        net_vault, "smith2020", candidate_snapshot=candidate_snapshot
+    )
+    assert digest is not None
+    assert (
+        _target_hash(net_vault, outcome, candidate_snapshot=candidate_snapshot)
+        == digest
+    )
+
+
+def test_identifier_hash_returns_none_when_bibliography_universe_is_explicitly_none(
+    net_vault,
+):
+    """`bibliography_universe=None` (as opposed to `_target_hash`'s omitted-
+    sentinel default) must land on `entry = None`, not a stray truthy
+    placeholder that would still hash."""
+    outcome = _outcome(
+        "update-notice", "totally-unknown-id", Result.UNMATCHED, "retracted — x"
+    )
+    assert _target_hash(net_vault, outcome, None) is None
+
+
+def test_identifier_hash_uses_the_explicit_bibliography_universe_when_given(net_vault):
+    """A real (non-sentinel, non-`None`) `bibliography_universe` is read
+    through its own `.get(target)`, not the loaded file's and not a stray
+    `None`/wrong key."""
+    entry = {"id": "explicit-id", "title": "Explicit"}
+    universe = {"explicit-id": entry}
+    outcome = _outcome(
+        "update-notice", "explicit-id", Result.UNMATCHED, "retracted — x"
+    )
+    expected = hashlib.sha256(
+        json.dumps(entry, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()[:16]
+    assert _target_hash(net_vault, outcome, universe) == expected
+
+
+def test_plan_state_forwards_the_real_base_snapshot_to_target_hash(
+    net_vault, monkeypatch
+):
+    """The `hashes` dict's `_target_hash` call must receive `_plan_state`'s
+    own `base_snapshot`, not a stray `None` — a deleted note's update-notice
+    hash must still resolve from HEAD's base image, not the bibliography
+    entry's JSON fallback."""
+    _isolate_network_verify(
+        monkeypatch,
+        [
+            _outcome(
+                "update-notice",
+                "smith2020",
+                Result.UNMATCHED,
+                "retracted — x",
+                note_path="literature/smith2020.md",
+            )
+        ],
+    )
+    source = net_vault / "literature" / "smith2020.md"
+    expected = hashlib.sha256(_note_bytes(source.read_bytes())).hexdigest()[:16]
+    source.unlink()
+    report, _effective, hashes, _warnings = verify_state(
+        net_vault, network=True, detection_date="2026-09-07"
+    )
+    (outcome,) = [
+        o
+        for o in report["outcomes"]
+        if o.check == "update-notice" and o.target == "smith2020"
+    ]
+    assert hashes[id(outcome)] == expected
+
+
+def test_plan_state_forwards_the_real_candidate_snapshot_to_target_hash(
+    net_vault, monkeypatch
+):
+    """The `hashes` dict's `_target_hash` call must receive `_plan_state`'s
+    own `candidate_snapshot`, not a stray `None` — a candidate snapshot
+    whose note differs from the worktree's is the only way to tell "the
+    real candidate" apart from "a worktree-based re-derivation"."""
+    import dataclasses
+
+    _isolate_network_verify(
+        monkeypatch,
+        [
+            _outcome(
+                "update-notice",
+                "smith2020",
+                Result.UNMATCHED,
+                "retracted — x",
+                note_path="literature/smith2020.md",
+            )
+        ],
+    )
+    source = net_vault / "literature" / "smith2020.md"
+    real_snapshot = gitstate.snapshot_worktree(net_vault)  # taken before deletion
+    digest = _citation_key_hash(
+        net_vault, "smith2020", candidate_snapshot=real_snapshot
+    )
+    assert digest is not None
+    source.unlink()  # a None-forced re-derivation would see this deletion instead
+    snapshots = gitstate.resolve_snapshots(net_vault, candidate="worktree")
+    forced_snapshots = dataclasses.replace(snapshots, candidate=real_snapshot)
+    report, _effective, hashes, _warnings = verify._plan_state(
+        net_vault,
+        network=True,
+        detection_date="2026-09-07",
+        repository_root=net_vault,
+        snapshots=forced_snapshots,
+    )
+    (outcome,) = [
+        o
+        for o in report["outcomes"]
+        if o.check == "update-notice" and o.target == "smith2020"
+    ]
+    assert hashes[id(outcome)] == digest
+
+
+def test_plan_state_forwards_the_loaded_bibliography_universe_to_target_hash(
+    net_vault, monkeypatch
+):
+    """The `hashes` dict's `_target_hash` call must receive `_plan_state`'s
+    own loaded `bibliography_universe`, not a stray `None` — a bibliography
+    entry with no note of its own hashes its canonical JSON only when that
+    universe reaches `_identifier_hash`."""
+    bib_path = net_vault / "system" / "bibliography.json"
+    entries = json.loads(bib_path.read_text())
+    entry = {"id": "noted-yet2", "title": "No note yet"}
+    entries.append(entry)
+    bib_path.write_text(json.dumps(entries))
+    _isolate_network_verify(
+        monkeypatch,
+        [_outcome("update-notice", "noted-yet2", Result.UNMATCHED, "retracted — x")],
+    )
+    expected = hashlib.sha256(
+        json.dumps(entry, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()[:16]
+    report, _effective, hashes, _warnings = verify_state(
+        net_vault, network=True, detection_date="2026-09-07"
+    )
+    (outcome,) = [
+        o
+        for o in report["outcomes"]
+        if o.check == "update-notice" and o.target == "noted-yet2"
+    ]
+    assert hashes[id(outcome)] == expected
+
+
+def test_plan_state_continues_past_index_and_log_to_check_later_notes(net_vault):
+    """`index.md`/`log.md` are skipped by name inside the frontmatter walk;
+    `continue` must move on to check the rest, not `break` the whole scan."""
+    bad = net_vault / "zz-bad-frontmatter.md"
+    bad.write_text("---\nnot: [valid, frontmatter\n---\nbody\n")
+    report = run_verify(net_vault, network=False, detection_date="2026-09-07")
+    assert any(
+        o.check == "okf-frontmatter" and "zz-bad-frontmatter.md" in str(o.target)
+        for o in report["outcomes"]
+    )
+
+
+def test_plan_state_forwards_the_real_vault_and_entry_to_identify_discover(
+    net_vault, monkeypatch
+):
+    bib_path = net_vault / "system" / "bibliography.json"
+    entries = json.loads(bib_path.read_text())
+    entries.append({"id": "nodoi2020", "title": "No DOI"})
+    bib_path.write_text(json.dumps(entries))
+    seen = []
+
+    def record(vault, entry):
+        seen.append((vault, entry))
+        return checks.Outcome(
+            "identifier-discovery",
+            entry["id"],
+            Result.SKIPPED,
+            "no-identifier — x",
+            {"identifiers": {}},
+        )
+
+    monkeypatch.setattr(identify, "discover", record)
+    monkeypatch.setattr(
+        checks,
+        "check_update_notice",
+        lambda vault, entry, date: checks.Outcome(
+            "update-notice", entry["id"], Result.MATCHED, "matched"
+        ),
+    )
+    monkeypatch.setattr("research_vault.lifecycle.lint_lifecycle", lambda *_args: [])
+    run_verify(net_vault, network=True, detection_date="2026-09-07")
+    (vault_seen, entry_seen) = next((v, e) for v, e in seen if e["id"] == "nodoi2020")
+    # `_plan_state` runs against the materialized planning directory, not
+    # `net_vault` itself — the mutation under test replaces this argument
+    # with `None`, so a real (non-`None`) path is what distinguishes it.
+    assert vault_seen is not None
+    assert "research-vault-verification-plan-" in str(vault_seen)
+    assert entry_seen["id"] == "nodoi2020"
+
+
+def test_plan_state_forwards_vault_detection_date_and_notice_lookup_to_network_outcomes(
+    net_vault, monkeypatch, tmp_path
+):
+    seen = []
+
+    def record(vault, entry, detection_date, notice_lookup):
+        seen.append((vault, entry, detection_date, notice_lookup))
+        return []
+
+    monkeypatch.setattr(verify, "_network_outcomes", record)
+    monkeypatch.setattr("research_vault.lifecycle.lint_lifecycle", lambda *_args: [])
+    csv = tmp_path / "rw.csv"
+    csv.write_text(
+        "OriginalPaperDOI,RetractionNature,RetractionDate,OriginalPaperPubMedID\n"
+    )
+    run_verify(net_vault, network=True, detection_date="2026-09-07", rw_csv=str(csv))
+    assert seen
+    vault_seen, _entry, date_seen, lookup_seen = seen[0]
+    assert vault_seen is not None
+    assert "research-vault-verification-plan-" in str(vault_seen)
+    assert date_seen == "2026-09-07"
+    assert lookup_seen is not None
+
+
+def test_plan_state_forwards_detection_date_to_offline_network_outcomes(
+    net_vault, monkeypatch, tmp_path
+):
+    """`network=False`'s own leg forwards `detection_date` to
+    `_offline_network_outcomes`, which reaches `check_rw_batch`'s
+    `_blocking_outcome` the same way the live leg does."""
+    csv = tmp_path.parent / f"{tmp_path.name}-rw.csv"
+    csv.write_text(
+        "OriginalPaperDOI,RetractionNature,RetractionDate,OriginalPaperPubMedID\n"
+        "10.1000/xyz,Retraction,2026-01-01,\n"
+    )
+    monkeypatch.setattr(
+        verify,
+        "_bibliography_entries",
+        lambda _: [{"id": "smith2020", "DOI": "10.1000/xyz"}],
+    )
+    report = run_verify(
+        net_vault, network=False, detection_date="2026-09-07", rw_csv=str(csv)
+    )
+    (outcome,) = [
+        o
+        for o in report["outcomes"]
+        if o.check == "update-notice" and o.target == "smith2020"
+    ]
+    assert outcome.extra.get("detection_date") == "2026-09-07"
+
+
+def test_plan_state_scans_wiki_notes_for_citation_key_and_quote_checks(net_vault):
+    """`for folder in ("wiki", "projects")` must glob the real `wiki/`
+    directory — a mistyped or wrong-cased name silently stops scanning it,
+    and any citation a wiki note carries goes unchecked."""
+    concept = net_vault / "wiki" / "concepts" / "new-wiki-note.md"
+    concept.write_text(
+        '---\ntitle: "New"\ntype: "concept"\nstatus: "draft"\n'
+        'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}\n---\n'
+        "- (inference) test claim [@fabricated-wiki-key] ^c-wikitest\n"
+    )
+    report = run_verify(net_vault, network=False, detection_date="2026-09-07")
+    assert any(
+        o.check == "citation-key" and o.target == "fabricated-wiki-key"
+        for o in report["outcomes"]
+    )
+
+
+def test_plan_state_scans_literature_notes_for_citation_key_and_quote_checks(
+    net_vault,
+):
+    """`(vault / "literature").glob("*.md")` must find the real directory
+    and the real case-sensitive `"*.md"` suffix — a mistyped name or suffix
+    silently stops scanning it, and any citation a literature note itself
+    carries goes unchecked."""
+    source = net_vault / "literature" / "smith2020.md"
+    text = source.read_text()
+    source.write_text(
+        must_replace(
+            text,
+            "# Mortality decline\n",
+            "# Mortality decline\n\n"
+            "- (inference) stray claim [@fabricated-lit-key] ^c-littest\n",
+        )
+    )
+    report = run_verify(net_vault, network=False, detection_date="2026-09-07")
+    assert any(
+        o.check == "citation-key" and o.target == "fabricated-lit-key"
+        for o in report["outcomes"]
+    )
+
+
+def test_plan_state_skips_discovery_for_a_lowercase_doi_entry(net_vault, monkeypatch):
+    """`entry.get("DOI") or entry.get("doi")` must check both spellings and
+    take the true one: a lowercase-only `doi`, with `and` instead of `or` or
+    a wrong/dropped key on the "doi" side, would wrongly run discovery
+    instead of skipping it."""
+    bib_path = net_vault / "system" / "bibliography.json"
+    entries = json.loads(bib_path.read_text())
+    entries.append({"id": "lowerdoi2020", "title": "Lower", "doi": "10.1/lower"})
+    bib_path.write_text(json.dumps(entries))
+    called = []
+
+    def record(vault, entry):
+        called.append(entry)
+        return checks.Outcome(
+            "identifier-discovery",
+            entry["id"],
+            Result.SKIPPED,
+            "no-identifier — x",
+            {"identifiers": {}},
+        )
+
+    monkeypatch.setattr(identify, "discover", record)
+    monkeypatch.setattr(
+        checks,
+        "check_update_notice",
+        lambda vault, entry, date: checks.Outcome(
+            "update-notice", entry["id"], Result.MATCHED, "matched"
+        ),
+    )
+    monkeypatch.setattr("research_vault.lifecycle.lint_lifecycle", lambda *_args: [])
+    run_verify(net_vault, network=True, detection_date="2026-09-07")
+    assert not any(e["id"] == "lowerdoi2020" for e in called)
+
+
+def test_plan_state_skips_discovery_for_an_uppercase_doi_entry(net_vault, monkeypatch):
+    """The "DOI" side of the same check, isolated the same way — a wrong or
+    dropped key on the "DOI" side must not fall back to a stray lowercase-
+    only lookup."""
+    bib_path = net_vault / "system" / "bibliography.json"
+    entries = json.loads(bib_path.read_text())
+    entries.append({"id": "upperdoi2020", "title": "Upper", "DOI": "10.1/upper"})
+    bib_path.write_text(json.dumps(entries))
+    called = []
+
+    def record(vault, entry):
+        called.append(entry)
+        return checks.Outcome(
+            "identifier-discovery",
+            entry["id"],
+            Result.SKIPPED,
+            "no-identifier — x",
+            {"identifiers": {}},
+        )
+
+    monkeypatch.setattr(identify, "discover", record)
+    monkeypatch.setattr(
+        checks,
+        "check_update_notice",
+        lambda vault, entry, date: checks.Outcome(
+            "update-notice", entry["id"], Result.MATCHED, "matched"
+        ),
+    )
+    monkeypatch.setattr("research_vault.lifecycle.lint_lifecycle", lambda *_args: [])
+    run_verify(net_vault, network=True, detection_date="2026-09-07")
+    assert not any(e["id"] == "upperdoi2020" for e in called)
+
+
+def test_plan_state_forwards_repository_and_snapshots_to_the_repo_lints(
+    net_vault, monkeypatch
+):
+    """`repository`, `base_snapshot` and `candidate_snapshot` must reach
+    `lint_append_only`, `lint_claim_immutability` and `lint_published_drift`
+    exactly as `_plan_state` holds them — a dropped kwarg falls back to
+    that lint's own default (`None`), and a dropped positional shifts the
+    next argument into its slot."""
+    (net_vault / "projects" / "brief" / "draft.md").write_text(
+        (net_vault / "projects" / "brief" / "draft.md").read_text() + "uncommitted\n"
+    )
+    seen = {}
+
+    def record_append_only(repository, base_snapshot, candidate_snapshot):
+        seen["append_only"] = (repository, base_snapshot, candidate_snapshot)
+        return []
+
+    def record_claim_immutability(repository, base_snapshot, candidate_snapshot):
+        seen["claim_immutability"] = (repository, base_snapshot, candidate_snapshot)
+        return []
+
+    def record_published_drift(repository, candidate_snapshot):
+        seen["published_drift"] = (repository, candidate_snapshot)
+        return []
+
+    monkeypatch.setattr(lints, "lint_append_only", record_append_only)
+    monkeypatch.setattr(lints, "lint_claim_immutability", record_claim_immutability)
+    monkeypatch.setattr(lints, "lint_published_drift", record_published_drift)
+    snapshots = gitstate.resolve_snapshots(net_vault)
+    verify._plan_state(
+        net_vault,
+        network=False,
+        detection_date="2026-09-07",
+        repository_root=net_vault,
+        snapshots=snapshots,
+    )
+    assert seen["append_only"] == (Path(net_vault), snapshots.base, snapshots.candidate)
+    assert seen["claim_immutability"] == (
+        Path(net_vault),
+        snapshots.base,
+        snapshots.candidate,
+    )
+    assert seen["published_drift"] == (Path(net_vault), snapshots.candidate)
+
+
+def test_plan_state_forwards_detection_date_to_file_effects(net_vault, monkeypatch):
+    seen = []
+
+    def record(vault, effective, hashes, warning_effective, detection_date):
+        seen.append(detection_date)
+        return
+
+    monkeypatch.setattr(verify, "_file_effects", record)
+    run_verify(net_vault, network=False, detection_date="2026-09-07")
+    assert seen == ["2026-09-07"]
+
+
+def test_plan_state_own_network_parameter_defaults_to_true(net_vault, monkeypatch):
+    """`_plan_state`'s own `network` default (its one production caller,
+    `verify_state`, always forwards the value explicitly, so only a direct
+    call exercises this default) must be `True`, matching `verify_state`'s."""
+    monkeypatch.setattr(
+        checks,
+        "check_update_notice",
+        lambda vault, entry, date: checks.Outcome(
+            "update-notice", entry["id"], Result.SKIPPED, "no-identifier — stubbed"
+        ),
+    )
+    snapshots = gitstate.resolve_snapshots(net_vault)
+    report, _effective, _hashes, _warnings = verify._plan_state(
+        net_vault, detection_date="2026-09-07", snapshots=snapshots
+    )
+    (row,) = [o for o in report["outcomes"] if o.check == "lifecycle"]
+    assert row.extra.get("synthetic_offline") is not True
+
+
+def test_plan_state_forwards_detection_date_as_of_to_lint_captured_set(
+    net_vault, monkeypatch
+):
+    from research_vault import captured as captured_module
+
+    seen = []
+
+    def record(vault, as_of=None):
+        seen.append(as_of)
+        return []
+
+    monkeypatch.setattr(captured_module, "lint_captured_set", record)
+    run_verify(net_vault, network=False, detection_date="2026-09-07")
+    assert seen == ["2026-09-07"]
+
+
+def test_claim_bytes_from_text_collects_quote_and_comment_continuations_verbatim():
+    """The block is the terminal-anchored line plus every immediately
+    following continuation (a `  > ` quote line or a `  <!-- rv-selector`
+    comment line) up to the first line that is neither — joined with no
+    separator, both continuation prefixes case-sensitive, starting exactly
+    one line after the anchor. A hard-coded expectation, not the function's
+    own output, is the oracle: mutations inside this function cannot be
+    caught by a test that recomputes its expectation through the same
+    (equally mutated) call."""
+    text = (
+        "- (quote) [@k] ^c-1\n"
+        "  > first quote line\n"
+        "  <!-- rv-selector stuff -->\n"
+        "- (quote) next claim [@k] ^c-2\n"
+    )
+    result = _claim_bytes_from_text(text, "c-1")
+    assert result == (
+        b"- (quote) [@k] ^c-1\n  > first quote line\n  <!-- rv-selector stuff -->\n"
+    )
+
+
+def test_target_hash_forwards_the_real_base_snapshot_to_the_claim_anchor_leg(
+    net_vault,
+):
+    """`_target_hash` must pass its own `base_snapshot` argument through to
+    `_claim_anchor_hash`, not a stray `None` — a base snapshot with content
+    HEAD never had (an uncommitted claim) is the only way to tell "the real
+    base_snapshot" apart from "silently falling back to HEAD"."""
+    draft = net_vault / "projects" / "brief" / "draft.md"
+    draft.write_text(
+        draft.read_text()
+        + "- (inference) Base-only claim [@fabricated2020] ^c-baseonly\n"
+    )
+    claim_bytes = _claim_bytes_from_text(draft.read_text(), "c-baseonly")
+    expected = hashlib.sha256(claim_bytes).hexdigest()[:16]
+    real_base = gitstate.snapshot_worktree(net_vault)  # has the uncommitted claim
+    draft.unlink()  # origin (worktree) no longer has it either
+    candidate = gitstate.snapshot_worktree(net_vault)  # candidate lacks it too
+    outcome = _outcome(
+        "quote",
+        "fabricated2020#^c-baseonly",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="projects/brief/draft.md",
+        claim_id="c-baseonly",
+    )
+    assert (
+        _target_hash(
+            net_vault, outcome, base_snapshot=real_base, candidate_snapshot=candidate
+        )
+        == expected
+    )
+
+
+def test_surface_decision_counts_a_warning_effective_by_its_own_index(net_vault):
+    """`warning_effective.get((id(outcome), index), ...)` — a per-index
+    entry answers before the per-outcome fallback is even consulted."""
+    outcome = _outcome(
+        "citation-key",
+        "k",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "correction"}],
+    )
+    _code, blockers = verify.surface_decision(
+        "commit", [outcome], {(id(outcome), 0): True}
+    )
+    assert any("warn-notice — correction" in b for b in blockers)
+
+
+def test_surface_decision_falls_back_to_the_outcome_level_effectiveness(net_vault):
+    """No per-index entry: the per-outcome fallback (`id(outcome)` alone,
+    not a stray `None`/wrong key) decides."""
+    outcome = _outcome(
+        "citation-key",
+        "k",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "correction"}],
+    )
+    _code, blockers = verify.surface_decision("commit", [outcome], {id(outcome): True})
+    assert any("warn-notice — correction" in b for b in blockers)
+
+
+def test_surface_decision_defaults_a_missing_warning_effectiveness_to_false(net_vault):
+    """Neither entry present: the innermost default must stay falsy, not a
+    stray `True`."""
+    outcome = _outcome(
+        "citation-key",
+        "k",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "correction"}],
+    )
+    _code, blockers = verify.surface_decision("commit", [outcome], {})
+    assert blockers == ()
+
+
+def test_surface_decision_continues_past_an_ineffective_warning_to_a_later_one(
+    net_vault,
+):
+    """Two warnings on one outcome, the first ineffective: `continue` must
+    move on to the second, not `break` the whole per-outcome walk."""
+    outcome = _outcome(
+        "citation-key",
+        "k",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "correction"}, {"type": "retraction"}],
+    )
+    _code, blockers = verify.surface_decision(
+        "commit", [outcome], {(id(outcome), 0): False, (id(outcome), 1): True}
+    )
+    assert any("warn-notice — retraction" in b for b in blockers)
+    assert not any("warn-notice — correction" in b for b in blockers)
+
+
+def test_surface_decision_excludes_synthetic_offline_outcomes_from_genuine(net_vault):
+    """`genuine` filters on the literal `"synthetic_offline"` key and `is
+    not True`: a wrong key never matches (everything stays "genuine") and
+    `is not False` also keeps a real synthetic row in — either way the
+    synthetic outage leaks into the reported unreachable list."""
+    real = _outcome("lifecycle", "vault", Result.UNREACHABLE, "outage — real")
+    synthetic = _outcome(
+        "lifecycle",
+        "vault",
+        Result.UNREACHABLE,
+        "outage — network disabled",
+        synthetic_offline=True,
+    )
+    code, unreachable = verify.surface_decision("commit", [real, synthetic], {})
+    assert code == 3
+    assert len(unreachable) == 1
+    assert "outage — real" in unreachable[0]
+
+
+def test_network_outcomes_forwards_vault_root_and_detection_date_to_check_update_notice(
+    net_vault, monkeypatch
+):
+    seen = {}
+
+    def record(vault, entry, date):
+        seen["vault"] = vault
+        seen["date"] = date
+        return checks.Outcome("update-notice", entry["id"], Result.MATCHED, "matched")
+
+    monkeypatch.setattr(checks, "check_update_notice", record)
+    entry = {"id": "smith2020", "DOI": "10.1000/xyz"}
+    verify._network_outcomes(net_vault, entry, "2026-09-07", None)
+    assert seen == {"vault": net_vault, "date": "2026-09-07"}
+
+
+def test_network_outcomes_forwards_detection_date_to_the_rw_leg(net_vault, monkeypatch):
+    monkeypatch.setattr(
+        checks,
+        "check_update_notice",
+        lambda vault, entry, date: checks.Outcome(
+            "update-notice", entry["id"], Result.MATCHED, "matched"
+        ),
+    )
+    entry = {"id": "smith2020", "DOI": "10.1000/xyz"}
+    lookup = {
+        "doi": {"10.1000/xyz": [{"type": "Retraction", "notice_date": "2026-01-01"}]},
+        "pmid": {},
+    }
+    (outcome,) = verify._network_outcomes(net_vault, entry, "2026-09-07", lookup)
+    assert outcome.extra.get("detection_date") == "2026-09-07"
+
+
+def test_network_outcomes_uses_a_lowercase_doi_to_skip_the_synthetic_outage(
+    net_vault, monkeypatch
+):
+    """`entry.get("DOI") or entry.get("doi")` must check both spellings and
+    take the true one: a lowercase-only `doi`, with `and` instead of `or` or
+    a wrong/dropped key on the "doi" side, would wrongly file the synthetic
+    discovery-outage instead of running the real check."""
+    seen = []
+
+    def record(vault, entry, date):
+        seen.append(entry)
+        return checks.Outcome("update-notice", entry["id"], Result.MATCHED, "matched")
+
+    monkeypatch.setattr(checks, "check_update_notice", record)
+    entry = {"id": "x2020", "_discovery_unreachable": True, "doi": "10.1/found"}
+    (outcome,) = verify._network_outcomes(net_vault, entry, "2026-09-07", None)
+    assert seen == [entry]
+    assert outcome.result is Result.MATCHED
+
+
+def test_verify_state_rollback_forwards_the_real_arguments_on_manifest_failure(
+    net_vault, monkeypatch, tmp_path
+):
+    """A manifest-audit failure rolls back with the real vault, live
+    snapshot and outputs — not a dropped or `None` argument — and re-raises
+    the original error chained, naming the rollback failure too."""
+    _isolate_network_verify(
+        monkeypatch,
+        [_outcome("update-notice", "smith2020", Result.UNMATCHED, "retracted — x")],
+    )
+    manifest = tmp_path.parent / f"{tmp_path.name}-changed.manifest"
+    primary = gitstate.GitStateError("manifest audit failed")
+
+    def fail_audit(*_args, **_kwargs):
+        raise primary
+
+    monkeypatch.setattr(gitstate, "audit_and_write_manifest", fail_audit)
+    seen = {}
+
+    def record_rollback(vault, live, outputs):
+        seen["vault"] = vault
+        seen["live"] = live
+        seen["outputs"] = outputs
+        raise gitstate.GitStateError("rollback also failed")
+
+    monkeypatch.setattr(gitstate, "rollback_outputs", record_rollback)
+    with pytest.raises(
+        gitstate.GitStateError, match="manifest audit failed; rollback also failed"
+    ):
+        verify_state(net_vault, network=True, changed_paths_file=str(manifest))
+    assert seen["vault"] == net_vault
+    assert seen["outputs"]
+
+
+def test_verify_state_forwards_the_real_vault_as_repository_root(
+    net_vault, monkeypatch
+):
+    """`_plan_state`'s `repository_root` must be `verify_state`'s own
+    `vault`, not a stray `None` (nor the kwarg dropped, which is the same
+    thing) — the temporary materialized planning directory `_plan_state`
+    itself scans notes from is a different path entirely."""
+    seen = []
+
+    def record(repository, base_snapshot, candidate_snapshot):
+        seen.append(repository)
+        return []
+
+    monkeypatch.setattr(lints, "lint_append_only", record)
+    verify_state(net_vault, network=False, detection_date="2026-09-07")
+    assert seen == [Path(net_vault)]
+
+
+def test_verify_state_forwards_git_base_and_candidate_to_resolve_snapshots(
+    net_vault, monkeypatch
+):
+    """`git_base`/`git_candidate` must reach `resolve_snapshots` verbatim —
+    a dropped kwarg falls back to that function's own default, which is
+    indistinguishable from a stray `None`/`"worktree"` only when the
+    caller's real value happens to already be the default."""
+    seen = {}
+    real_resolve = gitstate.resolve_snapshots
+
+    def record(vault, *, git_base=None, candidate="worktree"):
+        seen["git_base"] = git_base
+        seen["candidate"] = candidate
+        return real_resolve(vault, git_base=git_base, candidate=candidate)
+
+    monkeypatch.setattr(gitstate, "resolve_snapshots", record)
+    verify_state(
+        net_vault,
+        network=False,
+        detection_date="2026-09-07",
+        git_base="HEAD",
+        git_candidate="index",
+    )
+    assert seen == {"git_base": "HEAD", "candidate": "index"}
+
+
+def test_verify_state_publishes_the_real_outputs_without_a_manifest(
+    net_vault, monkeypatch
+):
+    """Without a changed-paths manifest, `captured` stays `outputs` itself —
+    the value `publish_outputs` receives must be the real captured set, not
+    a stray `None`."""
+    _isolate_network_verify(
+        monkeypatch,
+        [_outcome("update-notice", "smith2020", Result.UNMATCHED, "retracted — x")],
+    )
+    verify_state(net_vault, network=True, commit_projected="snapshot projection")
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=net_vault,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+    changed = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", head],
+        cwd=net_vault,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.split()
+    assert "literature/smith2020.md" in changed
+
+
+def test_file_effects_files_an_update_notice_finding_with_its_own_detection_date(
+    net_vault,
+):
+    """The filed finding's `detection_date` is the outcome's own recorded
+    value when it has a notice fingerprint — read through the literal key
+    `"detection_date"`, with `_file_effects`'s own `detection_date`
+    argument only as the fallback a differing recorded value must never
+    fall through to."""
+    outcome = _outcome(
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "retracted — retraction",
+        **{
+            "class": "blocking",
+            "type": "retraction",
+            "notice_date": "2026-01-01",
+            "detection_date": "2020-01-01",
+        },
+    )
+    hashes = {id(outcome): "aa11"}
+    _file_effects(net_vault, [outcome], hashes, {}, "2026-09-07")
+    (finding,) = [e for e in inbox.open_entries(net_vault) if e.target == "smith2020"]
+    assert finding.detection_date == "2020-01-01"
+    assert finding.date == "2026-09-07"
+    assert finding.notice_date == "2026-01-01"
+
+
+def test_file_effects_falls_back_to_its_own_detection_date_when_the_outcome_has_none(
+    net_vault,
+):
+    outcome = _outcome(
+        "update-notice",
+        "smith2020",
+        Result.UNMATCHED,
+        "retracted — retraction",
+        **{"class": "blocking", "type": "retraction", "notice_date": "2026-01-01"},
+    )
+    hashes = {id(outcome): "aa11"}
+    _file_effects(net_vault, [outcome], hashes, {}, "2026-09-07")
+    (finding,) = [e for e in inbox.open_entries(net_vault) if e.target == "smith2020"]
+    assert finding.detection_date == "2026-09-07"
+
+
+def test_file_effects_files_a_warn_notice_finding_with_its_own_detection_date(
+    net_vault,
+):
+    outcome = _outcome(
+        "update-notice",
+        "gone2019",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[
+            {
+                "type": "correction",
+                "notice_date": "2026-02-01",
+                "detection_date": "2020-02-02",
+            }
+        ],
+    )
+    hashes = {id(outcome): "bb22"}
+    warning_effective = {(id(outcome), 0): True}
+    _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
+    (finding,) = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
+    assert finding.detection_date == "2020-02-02"
+    assert finding.notice_date == "2026-02-01"
+
+
+def test_file_effects_falls_back_to_its_own_detection_date_for_a_warn_notice(
+    net_vault,
+):
+    outcome = _outcome(
+        "update-notice",
+        "gone2019",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "correction", "notice_date": "2026-02-01"}],
+    )
+    hashes = {id(outcome): "bb22"}
+    warning_effective = {(id(outcome), 0): True}
+    _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
+    (finding,) = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
+    assert finding.detection_date == "2026-09-07"
+
+
+def test_file_effects_files_the_real_target_kind_not_the_append_entry_default(
+    net_vault,
+):
+    """`target_kind=outcome.target_kind` is load-bearing: dropping it falls
+    back to `append_entry`'s own `"identifier"` default, which is wrong for
+    a repo-path outcome like `append-only`'s."""
+    outcome = _outcome(
+        "append-only", "log/2026-08-16.md", Result.UNMATCHED, "drift — file"
+    )
+    hashes = {id(outcome): "cc33"}
+    _file_effects(net_vault, [outcome], hashes, {}, "2026-09-07")
+    (finding,) = [e for e in inbox.open_entries(net_vault) if e.check == "append-only"]
+    assert finding.target_kind == "repo-path"
+
+
+def test_file_effects_does_not_refile_an_open_warn_notice_finding(net_vault):
+    """The warn branch's own dedup key must use the literal `"warn"` class:
+    a wrong-cased or mangled copy never matches an already-open finding's
+    real `notice_class`, so a second run would refile it."""
+    outcome = _outcome(
+        "update-notice",
+        "gone2019",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[{"type": "correction", "notice_date": "2026-02-01"}],
+    )
+    hashes = {id(outcome): "bb22"}
+    warning_effective = {(id(outcome), 0): True}
+    _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
+    _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
+    findings = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
+    assert len(findings) == 1
+
+
+def test_file_effects_continues_past_an_ineffective_warning_to_a_later_one(net_vault):
+    """Two warnings on one outcome, the first ineffective: `continue` must
+    move on to the second, not `break` the whole per-outcome walk."""
+    outcome = _outcome(
+        "update-notice",
+        "gone2019",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[
+            {"type": "correction", "notice_date": "2026-02-01"},
+            {"type": "erratum", "notice_date": "2026-03-01"},
+        ],
+    )
+    hashes = {id(outcome): "bb22"}
+    warning_effective = {(id(outcome), 0): False, (id(outcome), 1): True}
+    _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
+    findings = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
+    assert any(f.notice_type == "erratum" for f in findings)
+    assert not any(f.notice_type == "correction" for f in findings)
+
+
+def test_file_effects_deduplicates_two_identical_warn_notices_in_one_call(net_vault):
+    """`open_keys.add(key)` must add the real composite key, not a stray
+    `None` every duplicate would equally match — two identical warnings in
+    one call must file only once."""
+    outcome = _outcome(
+        "update-notice",
+        "gone2019",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[
+            {"type": "correction", "notice_date": "2026-02-01"},
+            {"type": "correction", "notice_date": "2026-02-01"},
+        ],
+    )
+    hashes = {id(outcome): "bb22"}
+    warning_effective = {(id(outcome), 0): True, (id(outcome), 1): True}
+    _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
+    findings = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
+    assert len(findings) == 1
+
+
+def test_file_effects_files_two_distinct_warn_notices_independently(net_vault):
+    """The dedup `key` must be the real composite tuple, not a stray `None`
+    every warning would equally match — two genuinely distinct warnings in
+    one call must both file."""
+    outcome = _outcome(
+        "update-notice",
+        "gone2019",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[
+            {"type": "correction", "notice_date": "2026-02-01"},
+            {"type": "erratum", "notice_date": "2026-03-01"},
+        ],
+    )
+    hashes = {id(outcome): "bb22"}
+    warning_effective = {(id(outcome), 0): True, (id(outcome), 1): True}
+    _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
+    findings = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
+    assert len(findings) == 2
+
+
+def test_network_outcomes_uses_an_uppercase_doi_to_skip_the_synthetic_outage(
+    net_vault, monkeypatch
+):
+    """The "DOI" side of the same check, isolated the same way — a wrong or
+    dropped key on the "DOI" side must not fall back to a stray lowercase-
+    only lookup."""
+    seen = []
+
+    def record(vault, entry, date):
+        seen.append(entry)
+        return checks.Outcome("update-notice", entry["id"], Result.MATCHED, "matched")
+
+    monkeypatch.setattr(checks, "check_update_notice", record)
+    entry = {"id": "y2020", "_discovery_unreachable": True, "DOI": "10.1/upper"}
+    (outcome,) = verify._network_outcomes(net_vault, entry, "2026-09-07", None)
+    assert seen == [entry]
+    assert outcome.result is Result.MATCHED

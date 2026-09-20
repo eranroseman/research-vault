@@ -1879,6 +1879,7 @@ research_vault/verify.py::func/_append_only_basis::-        return image.data or
 research_vault/verify.py::func/_append_only_basis::-    return gitstate.blob_bytes(vault_root, "HEAD", raw_path) or b""\n+    return gitstate.blob_bytes(vault_root, "HEAD", raw_path) or b"XXXX"
 research_vault/verify.py::func/_apply_state_transitions::-                            at=detection_date,\n+                            at=None,
 research_vault/verify.py::func/_apply_state_transitions::-                            at=detection_date,\n-                        )\n+                            )
+# reason: never-read-back literal: _rewrite_marker_lines's clear branch never reads date -- only the stamp branch's marker text does
 research_vault/verify.py::func/_apply_state_transitions::-            _mutate_marker(vault_root, outcome, detection_date, clear=True)\n+            _mutate_marker(vault_root, outcome, None, clear=True)
 research_vault/verify.py::func/_apply_state_transitions::-            if note and note.is_file():\n+            if note or note.is_file():
 research_vault/verify.py::func/_apply_state_transitions::-        elif outcome.result is Result.MATCHED:\n+        elif outcome.result is not Result.MATCHED:
@@ -1890,7 +1891,9 @@ research_vault/verify.py::func/_candidate_destinations_match_live::-            
 research_vault/verify.py::func/_candidate_destinations_match_live::-        if snapshots.candidate.image(output.raw_path) != snapshots.live.image(\n+        if snapshots.candidate.image(None) != snapshots.live.image(
 research_vault/verify.py::func/_candidate_destinations_match_live::-        if snapshots.candidate.image(output.raw_path) != snapshots.live.image(\n+        if snapshots.candidate.image(output.raw_path) == snapshots.live.image(
 research_vault/verify.py::func/_candidate_destinations_match_live::-    if snapshots.candidate_name == "worktree":\n+    if snapshots.candidate_name != "worktree":
+# reason: equivalent on the grammar: resolve_snapshots sets candidate_snapshot = live for the real "worktree" candidate, so the loop's per-output comparison is always False regardless of whether this guard short-circuits
 research_vault/verify.py::func/_candidate_destinations_match_live::-    if snapshots.candidate_name == "worktree":\n+    if snapshots.candidate_name == "WORKTREE":
+# reason: equivalent on the grammar: resolve_snapshots sets candidate_snapshot = live for the real "worktree" candidate, so the loop's per-output comparison is always False regardless of whether this guard short-circuits
 research_vault/verify.py::func/_candidate_destinations_match_live::-    if snapshots.candidate_name == "worktree":\n+    if snapshots.candidate_name == "XXworktreeXX":
 research_vault/verify.py::func/_citation_key_hash::-            data = {}\n+            data = None
 research_vault/verify.py::func/_citation_key_hash::-            data, _ = frontmatter.parse(raw.decode(errors="surrogateescape"))\n+            data, _ = frontmatter.parse(raw.decode(errors="SURROGATEESCAPE"))
@@ -1902,6 +1905,7 @@ research_vault/verify.py::func/_claim_anchor_hash::-            (origin_image.da
 research_vault/verify.py::func/_claim_anchor_hash::-            (origin_image.data or b"").decode(errors="surrogateescape"), claim_id\n+            (origin_image.data or b"").decode(errors="XXsurrogateescapeXX"), claim_id
 research_vault/verify.py::func/_claim_anchor_hash::-            (origin_image.data or b"").decode(errors="surrogateescape"), claim_id\n+            (origin_image.data or b"").decode(errors="surrogateescape"), None
 research_vault/verify.py::func/_claim_anchor_hash::-            (origin_image.data or b"").decode(errors="surrogateescape"), claim_id\n+            (origin_image.data or b"").decode(errors=None), claim_id
+# reason: never-read-back literal: origin_image.data's None/empty fallback feeds _claim_bytes_from_text, whose anchor search returns None for any filler that is not the literal claim line -- the empty-string default and any other filler come back identical
 research_vault/verify.py::func/_claim_anchor_hash::-            (origin_image.data or b"").decode(errors="surrogateescape"), claim_id\n+            (origin_image.data or b"XXXX").decode(errors="surrogateescape"), claim_id
 research_vault/verify.py::func/_claim_anchor_hash::-            (origin_image.data or b"").decode(errors="surrogateescape"), claim_id\n+            None, claim_id
 research_vault/verify.py::func/_claim_anchor_hash::-            (origin_image.data or b"").decode(errors="surrogateescape"), claim_id\n+            claim_id
@@ -1916,10 +1920,12 @@ research_vault/verify.py::func/_claim_anchor_hash::-            if base_image is
 research_vault/verify.py::func/_claim_anchor_hash::-            if base_image is not None and base_image.kind == "file"\n+            if base_image is not None and base_image.kind == "XXfileXX"
 research_vault/verify.py::func/_claim_anchor_hash::-            if base_snapshot is None\n+            if base_snapshot is not None
 research_vault/verify.py::func/_claim_anchor_hash::-        base_image = (\n-            base_snapshot.image(raw_origin) if base_snapshot is not None else None\n-        )\n+        base_image = None
+# reason: equivalent on the grammar: this fallback only runs once _citation_key_hash's identical note lookup has already excluded any note that exists as a file, so _claim_bytes always meets a missing path and returns None regardless of this ternary's shape
 research_vault/verify.py::func/_claim_anchor_hash::-        data = _claim_bytes(note, claim_id) if note else None\n+        data = None
 research_vault/verify.py::func/_claim_anchor_hash::-        data = _claim_bytes(note, claim_id) if note else None\n+        data = _claim_bytes(None, claim_id) if note else None
 research_vault/verify.py::func/_claim_anchor_hash::-        data = _claim_bytes(note, claim_id) if note else None\n+        data = _claim_bytes(claim_id) if note else None
 research_vault/verify.py::func/_claim_anchor_hash::-        data = _claim_bytes(note, claim_id) if note else None\n+        data = _claim_bytes(note, ) if note else None
+# reason: equivalent on the grammar: by the time this call runs the note is never a real file (see the key above), so _read_note_text's OSError fires before claim_id is ever read
 research_vault/verify.py::func/_claim_anchor_hash::-        data = _claim_bytes(note, claim_id) if note else None\n+        data = _claim_bytes(note, None) if note else None
 research_vault/verify.py::func/_claim_anchor_hash::-        else _claim_bytes(origin, claim_id)\n+        else _claim_bytes(origin, None)
 research_vault/verify.py::func/_claim_anchor_hash::-        head = (\n-            base_image.data\n-            if base_image is not None and base_image.kind == "file"\n-            else gitstate.blob_bytes(vault_root, "HEAD", raw_origin)\n-            if base_snapshot is None\n-            else None\n-        )\n+        head = None
@@ -1927,15 +1933,20 @@ research_vault/verify.py::func/_claim_anchor_hash::-        if head is not None:
 research_vault/verify.py::func/_claim_anchor_hash::-        if origin_image is not None and origin_image.kind == "file"\n+        if origin_image is not None and origin_image.kind != "file"
 research_vault/verify.py::func/_claim_anchor_hash::-        if origin_image is not None and origin_image.kind == "file"\n+        if origin_image is not None and origin_image.kind == "FILE"
 research_vault/verify.py::func/_claim_anchor_hash::-        if origin_image is not None and origin_image.kind == "file"\n+        if origin_image is not None and origin_image.kind == "XXfileXX"
+# reason: equivalent on the grammar: whether note is None or the real (always-nonexistent-here) _note_for_citation_key result, the ternary below always lands on the same terminal None
 research_vault/verify.py::func/_claim_anchor_hash::-        note = _note_for_citation_key(vault_root, citation_key)\n+        note = None
 research_vault/verify.py::func/_claim_anchor_hash::-        note = _note_for_citation_key(vault_root, citation_key)\n+        note = _note_for_citation_key(None, citation_key)
 research_vault/verify.py::func/_claim_anchor_hash::-        note = _note_for_citation_key(vault_root, citation_key)\n+        note = _note_for_citation_key(citation_key)
 research_vault/verify.py::func/_claim_anchor_hash::-        note = _note_for_citation_key(vault_root, citation_key)\n+        note = _note_for_citation_key(vault_root, )
+# reason: equivalent on the grammar: an invalid citation_key here still yields a None note, the same terminal value as the real call -- see the key above
 research_vault/verify.py::func/_claim_anchor_hash::-        note = _note_for_citation_key(vault_root, citation_key)\n+        note = _note_for_citation_key(vault_root, None)
 research_vault/verify.py::func/_claim_anchor_hash::-        vault_root, citation_key, candidate_snapshot=candidate_snapshot\n+        vault_root, citation_key, candidate_snapshot=None
 research_vault/verify.py::func/_claim_anchor_hash::-        vault_root, citation_key, candidate_snapshot=candidate_snapshot\n-    )\n+        vault_root, citation_key, )
+# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/verify.py::func/_claim_anchor_hash::-    citation_key, claim_id = target.split("#^", 1)\n+    citation_key, claim_id = target.rsplit("#^", 1)
+# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/verify.py::func/_claim_anchor_hash::-    citation_key, claim_id = target.split("#^", 1)\n+    citation_key, claim_id = target.split("#^", )
+# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/verify.py::func/_claim_anchor_hash::-    citation_key, claim_id = target.split("#^", 1)\n+    citation_key, claim_id = target.split("#^", 2)
 research_vault/verify.py::func/_claim_anchor_hash::-    data = (\n-        _claim_bytes_from_text(\n-            (origin_image.data or b"").decode(errors="surrogateescape"), claim_id\n-        )\n-        if origin_image is not None and origin_image.kind == "file"\n-        else _claim_bytes(origin, claim_id)\n-        if origin\n-        else None\n-    )\n+    data = None
 research_vault/verify.py::func/_claim_anchor_hash::-    if data is None and candidate_snapshot is None:\n+    if data is None and candidate_snapshot is not None:
@@ -2027,6 +2038,7 @@ research_vault/verify.py::func/_identifier_hash::-    if origin_image is not Non
 research_vault/verify.py::func/_identifier_hash::-    if origin_image is not None and origin_image.kind == "file":\n+    if origin_image is not None and origin_image.kind == "FILE":
 research_vault/verify.py::func/_identifier_hash::-    if origin_image is not None and origin_image.kind == "file":\n+    if origin_image is not None and origin_image.kind == "XXfileXX":
 research_vault/verify.py::func/_identifier_hash::-    if raw_origin is not None:\n+    if raw_origin is None:
+# reason: equivalent on the grammar: _origins yields every claim under one shared note_path for a single outcome, so the guard's condition is invariant across the loop -- continue and break skip the same origins either way
 research_vault/verify.py::func/_mutate_marker::-            continue\n+            break
 research_vault/verify.py::func/_mutate_marker::-        if path is None or not path.is_file():\n+        if path is None and not path.is_file():
 research_vault/verify.py::func/_mutate_marker::-        if path.relative_to(Path(vault_root)).parts[0] == "wiki":\n+        if path.relative_to(Path(vault_root)).parts[0] == "WIKI":
@@ -2059,7 +2071,9 @@ research_vault/verify.py::func/_origins::-                line_no = claim.get("l
 research_vault/verify.py::func/_origins::-                line_no = claim.get("line_no")\n+                line_no = claim.get("LINE_NO")
 research_vault/verify.py::func/_origins::-                line_no = claim.get("line_no")\n+                line_no = claim.get("XXline_noXX")
 research_vault/verify.py::func/_origins::-                line_no = claim.get("line_no")\n+                line_no = claim.get(None)
+# reason: prose to a human: this synthetic outage row carries synthetic_offline=True, so it is excluded from authoritative/genuine/effective (and from the hashes dict) before target is ever compared -- it exists only for a person reading the raw outcomes dump
 research_vault/verify.py::func/_plan_state::-                "vault",\n+                "VAULT",
+# reason: prose to a human: this synthetic outage row carries synthetic_offline=True, so it is excluded from authoritative/genuine/effective (and from the hashes dict) before target is ever compared -- it exists only for a person reading the raw outcomes dump
 research_vault/verify.py::func/_plan_state::-                "vault",\n+                "XXvaultXX",
 research_vault/verify.py::func/_plan_state::-            "schema-violation — bibliography JSON/schema invalid"\n+            "schema-violation — bibliography json/schema invalid"
 research_vault/verify.py::func/_plan_state::-            base_snapshot=base_snapshot,
@@ -2075,7 +2089,9 @@ research_vault/verify.py::func/_plan_state::-            discovery = identify.di
 research_vault/verify.py::func/_plan_state::-            identifiers = discovery.extra.get("identifiers", {})\n+            identifiers = None
 research_vault/verify.py::func/_plan_state::-            identifiers = discovery.extra.get("identifiers", {})\n+            identifiers = discovery.extra.get("IDENTIFIERS", {})
 research_vault/verify.py::func/_plan_state::-            identifiers = discovery.extra.get("identifiers", {})\n+            identifiers = discovery.extra.get("XXidentifiersXX", {})
+# reason: never-read-back literal: this fallback only matters when isinstance(identifiers, Mapping) gates entry.update(...) -- an empty-dict default (updates nothing) and a None default (skips the update) leave entry equally unchanged
 research_vault/verify.py::func/_plan_state::-            identifiers = discovery.extra.get("identifiers", {})\n+            identifiers = discovery.extra.get("identifiers", )
+# reason: never-read-back literal: this fallback only matters when isinstance(identifiers, Mapping) gates entry.update(...) -- an empty-dict default (updates nothing) and a None default (skips the update) leave entry equally unchanged
 research_vault/verify.py::func/_plan_state::-            identifiers = discovery.extra.get("identifiers", {})\n+            identifiers = discovery.extra.get("identifiers", None)
 research_vault/verify.py::func/_plan_state::-            identifiers = discovery.extra.get("identifiers", {})\n+            identifiers = discovery.extra.get(None, {})
 research_vault/verify.py::func/_plan_state::-            raw.extend(_network_outcomes(vault, entry, detection_date, notice_lookup))\n+            raw.extend(_network_outcomes(None, entry, detection_date, notice_lookup))
@@ -2157,15 +2173,20 @@ research_vault/verify.py::func/_write_note_text::-    with Path(path).open("w", 
 research_vault/verify.py::func/_write_note_text::-    with Path(path).open("w", encoding="utf-8", newline="") as note:\n+    with Path(path).open("w", newline="") as note:
 research_vault/verify.py::func/clear_marker_for::-            continue\n+            break
 research_vault/verify.py::func/clear_marker_for::-        changed = False\n+        changed = None
+# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/verify.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.rsplit("#^", 1)[1]
+# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/verify.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.split("#^", )[1]
+# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/verify.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.split("#^", 2)[1]
 research_vault/verify.py::func/clear_marker_for::-        if path is None or not path.is_file():\n+        if path is None and not path.is_file():
 research_vault/verify.py::func/surface_decision::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n+                (id(outcome), index), None
 research_vault/verify.py::func/surface_decision::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n+                (id(outcome), index), warning_effective.get(False)
 research_vault/verify.py::func/surface_decision::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n+                (id(outcome), index), warning_effective.get(None, False)
 research_vault/verify.py::func/surface_decision::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n+                (id(outcome), index), warning_effective.get(id(None), False)
+# reason: never-read-back literal: this fallback's value only ever reaches an outer `not (...)` truthiness check — an explicit False default and dict.get's own implicit None-when-absent are equally falsy, so dropping or nulling the default is unobservable
 research_vault/verify.py::func/surface_decision::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n+                (id(outcome), index), warning_effective.get(id(outcome), )
+# reason: never-read-back literal: this fallback's value only ever reaches an outer `not (...)` truthiness check — an explicit False default and dict.get's own implicit None-when-absent are equally falsy, so dropping or nulling the default is unobservable
 research_vault/verify.py::func/surface_decision::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n+                (id(outcome), index), warning_effective.get(id(outcome), None)
 research_vault/verify.py::func/surface_decision::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n+                (id(outcome), index), warning_effective.get(id(outcome), True)
 research_vault/verify.py::func/surface_decision::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n-            ):\n+                (id(outcome), index), ):
@@ -2184,8 +2205,11 @@ research_vault/verify.py::func/verify_state::-            _rollback_prepublicati
 research_vault/verify.py::func/verify_state::-            _rollback_prepublication(vault, snapshots, outputs, error)\n+            _rollback_prepublication(vault, snapshots, outputs, None)
 research_vault/verify.py::func/verify_state::-            repository_root=vault,
 research_vault/verify.py::func/verify_state::-            repository_root=vault,\n+            repository_root=None,
+# reason: never-read-back literal: tempfile.TemporaryDirectory's prefix only names the throwaway directory on disk -- planning = Path(temporary) uses whatever real path tempfile returns, and no code compares the prefix string
 research_vault/verify.py::func/verify_state::-        prefix="research-vault-verification-plan-"\n+        prefix="RESEARCH-VAULT-VERIFICATION-PLAN-"
+# reason: never-read-back literal: tempfile.TemporaryDirectory's prefix only names the throwaway directory on disk -- planning = Path(temporary) uses whatever real path tempfile returns, and no code compares the prefix string
 research_vault/verify.py::func/verify_state::-        prefix="research-vault-verification-plan-"\n+        prefix="XXresearch-vault-verification-plan-XX"
+# reason: never-read-back literal: tempfile.TemporaryDirectory's prefix only names the throwaway directory on disk -- prefix=None is that parameter's own documented default (an unprefixed system temp name), not a crash, and still unread by any comparison
 research_vault/verify.py::func/verify_state::-        prefix="research-vault-verification-plan-"\n+        prefix=None
 research_vault/verify.py::func/verify_state::-        vault, git_base=git_base, candidate=git_candidate\n+        vault, candidate=git_candidate
 research_vault/verify.py::func/verify_state::-        vault, git_base=git_base, candidate=git_candidate\n+        vault, git_base=None, candidate=git_candidate
