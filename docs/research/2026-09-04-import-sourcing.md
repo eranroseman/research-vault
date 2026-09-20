@@ -1779,7 +1779,15 @@ Seeded ("update discipline statement"). `https://llmwikis.org`. Pin: no reposito
 
 **Licence.** Found, and split. The rendered page carries no licence notice; the content licence page states:
 
-`llmwikis.org` content-licence page at the pin — public explanatory text may be quoted, summarised and linked with attribution to LlmWikis.org (modification not addressed); third-party excerpts, code and logos keep their own licence terms, and software follows whatever licence its package, repository or file header declares.
+```
+Unless a page states otherwise, LlmWikis.org public explanatory text may be quoted, summarized, and linked with attribution to LlmWikis.org. Starter examples are provided as implementation scaffolds and should preserve source attribution and local project ownership.
+
+## Third-party material
+
+Source excerpts, package metadata, logos, code, and linked third-party references retain their original ownership and license terms. Software files follow the license declared in their package, repository, or file header.
+```
+
+The content licence page is the one place in this candidate's record where quotation is licensed (it grants quoting public explanatory text with attribution); every other fence in this section quoted the rendered handbook pages, which carry no such notice, and is cited and paraphrased instead.
 
 Looked for a software licence and found none: no licence file in the bundle root or scripts directory, no licence header in any of the three Node scripts, no licence key in the bundle manifest or the site specification, and a recursive grep of the unpacked bundle for licence, copyright, MIT, Apache and CC returned nothing. So the prose may be quoted, summarised and linked with attribution (modification is not addressed), the scaffolds may be used with attribution, and the scripts have no declared licence at all.
 
@@ -3283,7 +3291,7 @@ Gates are documented and the per-source versus batch distinction is explicit, bu
 
 **D10 partial** (evidence). `SKILL.md` line 5, the frontmatter of the artifact itself, corroborated at `package.json` line 6 and `workbench/LICENSE` lines 1-3.
 
-`SKILL.md:5` at the pin (repeating the Licence paragraph's quote above) — declares `license: MIT`, unambiguous in intent but with no root `LICENSE` file ever present at this pin to back it.
+`SKILL.md:5` at the pin (as the Licence paragraph above also states) — declares `license: MIT`, unambiguous in intent but with no root `LICENSE` file ever present at this pin to back it.
 
 MIT permits use and modification and it is declared in the header of the file a taker would take, plus in the repository manifest, so the intent is unambiguous and attributable. The hole, as the critic asked to have recorded: no licence file at the repository root at this pin. The contents API returns 404 and the commit query on that path returns zero, so it never existed, the README badge has always pointed nowhere, and the repository API reports the licence as null. The only full grant text is `workbench/LICENSE`, in a subtree the installer's managed items do not ship, so an installed copy contains a licence string and no licence text. Compounding it, the installer ships `deps/` wholesale, and the two vendored third-party skills there carry no licence field and no licence file of their own; one upstream resolves to MIT out of band and the other is unresolved. Adoptable in practice, but a floor requirement whose paperwork is incomplete, and trivially fixable by asking upstream for a root licence or by vendoring the MIT text alongside a copy.
 
