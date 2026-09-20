@@ -147,6 +147,20 @@ def project_note(vault, project) -> Path:
     return found[0]
 
 
+def _note_text_or_refuse(note: Path) -> str:
+    """The disposition reads, guarded: a note nobody can read refuses, naming it.
+
+    ``project_note`` skips such a note while it hunts for the one ``type:
+    project`` block, so a disposition that got this far met a readable note a
+    moment ago; this is the same refusal for every later shape of the fault —
+    exit 2 through ``_run_disposition``, never a traceback.
+    """
+    try:
+        return _read_note_text(note)
+    except (OSError, UnicodeError) as error:
+        raise PublishError(f"{note}: {error}") from error
+
+
 def flag_path(vault) -> Path:
     """The Stop gate's state flag; the gate is inert while it is absent."""
     return Path(vault) / ".research-vault" / FLAG_NAME
@@ -369,7 +383,7 @@ def _publish(vault, project, status, *, base, date, message) -> Disposition:
         raise PublishError(f"tag already exists: {tag}")
 
     updated = record_pass(
-        _set_status(_read_note_text(note), status),
+        _set_status(_note_text_or_refuse(note), status),
         PUBLISH_CHECK,
         Result.MATCHED,
         at=date,
@@ -463,7 +477,7 @@ def mark_withdrawn(vault, project, *, date=None) -> Disposition:
     date = _resolved_date(date, now=now)
     _require_published(vault, project)
     note = project_note(vault, project)
-    _write_note_text(note, _set_status(_read_note_text(note), "withdrawn"))
+    _write_note_text(note, _set_status(_note_text_or_refuse(note), "withdrawn"))
     _append_log(vault, f"withdrew {PROJECTS}/{project}", date=date, now=now)
     return Disposition(project, 0, (), "withdrawn")
 
@@ -475,5 +489,5 @@ def mark_parked(vault, project) -> Disposition:
     """
     _require_unpublished(vault, project)
     note = project_note(vault, project)
-    _write_note_text(note, _set_status(_read_note_text(note), "parked"))
+    _write_note_text(note, _set_status(_note_text_or_refuse(note), "parked"))
     return Disposition(project, 0, (), "parked")

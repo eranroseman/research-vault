@@ -268,7 +268,10 @@ def _file(vault) -> Path:
 def _body(queue: Path) -> str:
     if not queue.exists():
         return ""
-    text = queue.read_text()
+    try:
+        text = queue.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise InboxError(f"{queue}: {error}") from error
     if not text:
         return ""
     try:

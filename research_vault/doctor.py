@@ -27,7 +27,7 @@ class Probe(NamedTuple):
 def _machine_config(vault: Path) -> tuple[dict, Probe]:
     path = vault / ".research-vault" / "machine.json"
     try:
-        config = json.loads(path.read_text())
+        config = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(config, dict):
             raise ValueError("expected an object")
     except (OSError, UnicodeError, ValueError) as error:
@@ -251,9 +251,15 @@ def _plugins_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
         )
     except (UnicodeError, ValueError, KeyError, AttributeError, TypeError) as error:
         return Probe("plugins", Result.UNMATCHED, f"extensions.json malformed: {error}")
+    try:
+        declared = addons.declared()
+    except (OSError, ValueError) as error:
+        return Probe(
+            "plugins", Result.UNMATCHED, f"add-on declaration malformed: {error}"
+        )
     failures: list[str] = []
     notes_out: list[str] = []
-    for addon in addons.declared():
+    for addon in declared:
         seen = observed.get(addon.addon_id)
         if seen is None:
             state = "missing"

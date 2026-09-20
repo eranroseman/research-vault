@@ -23,11 +23,20 @@ class Addon(NamedTuple):
 
 
 def declared() -> list[Addon]:
-    text = (
-        resources.files("research_vault")
-        .joinpath("templates/zotero-addons.md")
-        .read_text(encoding="utf-8")
+    """The packaged declaration, or the named failure that stopped it.
+
+    Packaged beside the code, so a file that will not decode is a broken
+    install, not a vault fault: ``ValueError`` naming it (an ``OSError`` for a
+    file that cannot be opened at all passes through as itself), which
+    ``doctor._plugins_probe`` turns into one ``plugins`` row.
+    """
+    declaration = resources.files("research_vault").joinpath(
+        "templates/zotero-addons.md"
     )
+    try:
+        text = declaration.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError(f"zotero-addons.md: not UTF-8: {error}") from error
     rows = []
     for line in text.splitlines():
         match = _ROW.match(line.strip())

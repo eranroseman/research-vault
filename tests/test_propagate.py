@@ -3,6 +3,8 @@ import hashlib
 import json
 import os
 
+import pytest
+
 from research_vault import Result, propagate, zotero
 from research_vault.outcome import Outcome
 from tests.fakes import ITEM, FakeZotero, canned_item
@@ -947,3 +949,33 @@ def test_lint_rows_an_unreadable_record_and_reads_surfaces_byte_tolerantly(
     assert [(o.target, o.reason.split(",")[0]) for o in stale] == [
         ("path-bytes:wiki/sources/C.md", "stale-key — names other2020")
     ]
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads everything")
+def test_lint_reports_a_surface_it_cannot_read_and_judges_the_rest(
+    tmp_vault, monkeypatch
+):
+    """After an applied plan, `lint_propagation` reads every surface; one it
+    cannot read gets its own row and the others are still judged.
+
+    A page it cannot *decode* is a different answer here and deliberately so:
+    the read is byte-tolerant, so the stray byte costs the page nothing and
+    its residue verdict still stands (``test_lint_rows_an_unreadable_record_
+    and_reads_surfaces_byte_tolerantly``).
+    """
+    _seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    _planned_plan, path, digest = _planned(tmp_vault, client)
+    propagate.apply(tmp_vault, client, path, digest)
+    (tmp_vault / "projects" / "brief" / "draft.md").write_text("[[old2020]]\n")
+    unreadable = tmp_vault / "wiki" / "sources" / "B.md"
+    unreadable.chmod(0)
+    try:
+        by_target = {r.target: r for r in propagate.lint_propagation(tmp_vault)}
+    finally:
+        unreadable.chmod(0o644)
+    row = by_target["path-bytes:wiki/sources/B.md"]
+    assert (row.result, row.reason.split(" — ")[0]) == (Result.UNREACHABLE, "outage")
+    assert by_target["path-bytes:projects/brief/draft.md"].reason.startswith(
+        "stale-key"
+    )

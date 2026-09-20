@@ -1447,3 +1447,20 @@ def test_resolve_keys_skips_a_top_item_whose_data_is_not_an_object(
         "jakesch.etal2023a": "E352DFS8",
         "other": None,
     }
+
+
+def test_capture_reports_an_undecodable_existing_note_and_writes_nothing_over_it(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
+    note.write_bytes(b"\xff\xfe")
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (outcomes[0].target, outcomes[0].result) == (
+        "jakesch.etal2023a",
+        Result.UNMATCHED,
+    )
+    assert outcomes[0].reason.startswith("schema-violation — not UTF-8")
+    assert note.read_bytes() == b"\xff\xfe"

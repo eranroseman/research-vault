@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from research_vault import Result, doctor, paths, scaffold, zotero
+from research_vault import Result, addons, doctor, paths, scaffold, zotero
 from tests.conftest import package_ast
 from tests.fakes import FakeZotero
 
@@ -1149,3 +1149,16 @@ def test_doctor_path_shim_reads_total_results_case_insensitively(
     monkeypatch.setattr(paths, "_running_in_wsl", lambda: True)
     by = {p.check: p for p in doctor.doctor(vault, client=client)}
     assert by["path-shim"].reason == "no stored attachment among the first 1 of 1"
+
+
+def test_doctor_plugins_reports_a_malformed_addon_declaration(
+    tmp_vault, tmp_path, monkeypatch
+):
+    package = tmp_path / "pkg"
+    (package / "templates").mkdir(parents=True)
+    (package / "templates" / "zotero-addons.md").write_bytes(b"\xff\xfe")
+    monkeypatch.setattr(addons.resources, "files", lambda _name: package)
+    vault = _profiled_vault(tmp_vault, tmp_path, _profile(tmp_path))
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].result is Result.UNMATCHED
+    assert by["plugins"].reason.startswith("add-on declaration malformed: ")

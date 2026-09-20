@@ -1058,3 +1058,12 @@ def test_retraction_ack_field_has_one_definition_site():
     ).read_text()  # tests/test_publish.py names the root REPO
     assert f"[{publish.RETRACTION_ACK_FIELD}:: <code>" in skill
     assert publish.RETRACTION_ACK_FIELD == "retraction-ack"
+
+
+def test_a_disposition_on_an_undecodable_project_note_is_a_publish_error(fixture_vault):
+    """`project_note` already skips a note it cannot read and refuses for want
+    of one; the later reads at the disposition sites are guarded the same
+    way, so no shape of an unreadable note reaches a traceback."""
+    (fixture_vault / "projects" / "brief" / "draft.md").write_bytes(b"\xff\xfe")
+    with pytest.raises(publish.PublishError):
+        publish.mark_parked(fixture_vault, "brief")

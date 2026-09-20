@@ -432,12 +432,30 @@ def lint_propagation(vault_root) -> list[Outcome]:
                 "no-identifier — no applied propagation plan",
             )
         ]
-    texts = [
-        (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))
-        for path, relative in _surfaces(vault)
-    ]
-    recorded = {path.name: p for path, p in lifecycle._provenances(vault)}
+    texts: list[tuple[str, str]] = []
     outcomes: list[Outcome] = []
+    for path, relative in _surfaces(vault):
+        # One surface nobody can read is a row against that surface, not the
+        # end of the walk: the rest of the vault is still judged for residue.
+        # surrogateescape, not a schema-violation row: a stray byte in one page
+        # must not cost the page its residue verdict, and that tolerance is this
+        # lint's own tested decision (test_lint_rows_an_unreadable_record_and_
+        # reads_surfaces_byte_tolerantly). A decode fault therefore cannot reach
+        # here; a read the filesystem refuses can, and it is that page's row.
+        try:
+            texts.append(
+                (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))
+            )
+        except OSError as error:
+            outcomes.append(
+                Outcome(
+                    CHECK,
+                    RepoPath(os.fsencode(relative)),
+                    Result.UNREACHABLE,
+                    f"outage — {error}",
+                )
+            )
+    recorded = {path.name: p for path, p in lifecycle._provenances(vault)}
     for old, (new, operation_id, item_key) in _stale_keys(records).items():
         provenance = recorded.get(f"{old}.md")
         if (

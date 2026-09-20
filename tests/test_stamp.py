@@ -1,3 +1,7 @@
+import os
+
+import pytest
+
 from research_vault import frontmatter, stamp
 
 
@@ -170,3 +174,26 @@ def test_explicit_paths_skip_git_and_index_but_stamp_the_rest(tmp_path):
     assert (tmp_path / ".git" / "hooks" / "note.md").read_text() == "hook\n"
     assert (tmp_path / "inbox" / "index.md").read_text() == "an index\n"
     assert (tmp_path / "inbox" / "other.md").read_text() == "not named\n"
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads everything")
+def test_an_unreadable_or_undecodable_file_is_reported_not_stamped(tmp_path, capsys):
+    from research_vault.__main__ import main
+
+    (tmp_path / "inbox").mkdir(parents=True)
+    bad = tmp_path / "inbox" / "bad.md"
+    bad.write_bytes(b"\xff\xfe")
+    assert stamp.stamp_types(tmp_path) == ([], [("inbox/bad.md", "not-utf-8")])
+    assert bad.read_bytes() == b"\xff\xfe"
+    assert main(["stamp-type", "--vault", str(tmp_path)]) == 0
+    assert "skipped inbox/bad.md — file is not UTF-8" in capsys.readouterr().out
+    bad.write_text("x\n")
+    bad.chmod(0)
+    try:
+        assert stamp.stamp_types(tmp_path) == ([], [("inbox/bad.md", "outage")])
+        assert main(["stamp-type", "--vault", str(tmp_path)]) == 0
+        assert (
+            "skipped inbox/bad.md — file could not be read" in capsys.readouterr().out
+        )
+    finally:
+        bad.chmod(0o644)

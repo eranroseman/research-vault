@@ -7,7 +7,7 @@ import urllib.parse
 import urllib.request
 
 from . import Result, __version__
-from .paths import load_machine_config
+from .paths import PathError, load_machine_config
 
 _HEAD_FALLBACK_STATUSES = {403, 405, 501}
 
@@ -26,7 +26,7 @@ def mailto(vault_root) -> str:
     """Return the required contact address for polite third-party requests."""
     try:
         config = load_machine_config(vault_root)
-    except (OSError, TypeError, ValueError) as error:
+    except (OSError, TypeError, ValueError, PathError) as error:
         raise ApiError(
             "invalid .research-vault/machine.json mailto configuration"
         ) from error

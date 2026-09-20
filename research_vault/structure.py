@@ -78,7 +78,7 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
     if is_fleeting(relative):
         return []
     try:
-        data, _body = frontmatter.parse(Path(path).read_text())
+        data, _body = frontmatter.parse(Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
         return [
             Outcome(
@@ -143,7 +143,7 @@ def check_reserved(vault_root) -> list[Outcome]:
         relative = path.relative_to(vault).as_posix()
         if path.name == "index.md":
             try:
-                data, _body = frontmatter.parse(path.read_text())
+                data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))
             except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
                 problems.append((relative, f"unreadable ({error})"))
                 continue
@@ -164,7 +164,7 @@ def check_reserved(vault_root) -> list[Outcome]:
                 problems.append((relative, "nested index.md must be frontmatter-free"))
         elif path.name == "log.md":
             try:
-                text = path.read_text()
+                text = path.read_text(encoding="utf-8")
             except (OSError, UnicodeError) as error:
                 problems.append((relative, f"unreadable ({error})"))
                 continue

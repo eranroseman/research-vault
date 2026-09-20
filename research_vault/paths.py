@@ -40,10 +40,21 @@ def to_bbt_host(path: str | Path) -> str:
 
 
 def load_machine_config(vault_root: Path) -> dict:
+    """The machine config, or a ``PathError`` naming the file nobody could read.
+
+    Guarded here rather than at each of the four call sites so all four agree:
+    a file that cannot be read or decoded is a ``PathError``, while a file that
+    reads but is not JSON stays a ``ValueError`` — the shape every caller's
+    existing handler is already written against.
+    """
     f = Path(vault_root) / ".research-vault" / "machine.json"
     if not f.is_file():
         return {}
-    return json.loads(f.read_text())
+    try:
+        text = f.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise PathError(f"{f}: {error}") from error
+    return json.loads(text)
 
 
 def to_local(path: str, vault_root: Path) -> Path:

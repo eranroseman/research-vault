@@ -1432,3 +1432,11 @@ def test_run_invokes_the_tool_with_the_exact_argv(tmp_vault, tmp_path, monkeypat
         "--vault",
         str(tmp_vault),
     ]
+
+
+def test_cli_compile_exits_2_naming_an_undecodable_machine_config(tmp_vault, capsys):
+    config = tmp_vault / ".research-vault" / "machine.json"
+    config.parent.mkdir(exist_ok=True)
+    config.write_bytes(b"\xff\xfe")
+    assert main(["compile", "--all", "--vault", str(tmp_vault)]) == 2
+    assert "machine.json" in capsys.readouterr().err

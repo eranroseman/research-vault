@@ -189,8 +189,24 @@ def _capture_one(
     )
     existing = None
     if path.is_file():
-        with path.open("r", encoding="utf-8", newline="") as handle:
-            existing = handle.read()
+        # The note that is already there is a record: one nobody can read is
+        # this item's own row, and nothing is written over it.
+        try:
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                existing = handle.read()
+        except OSError as error:
+            return [
+                Outcome(CHECK, citation_key, Result.UNREACHABLE, f"outage — {error}")
+            ]
+        except UnicodeError as error:
+            return [
+                Outcome(
+                    CHECK,
+                    citation_key,
+                    Result.UNMATCHED,
+                    f"schema-violation — not UTF-8: {error}",
+                )
+            ]
     child_notes = [
         c for c in read.children if c.get("data", {}).get("itemType") == "note"
     ]

@@ -1,3 +1,7 @@
+import os
+
+import pytest
+
 from research_vault import Result, quotes
 from research_vault.checks import Outcome
 from research_vault.pathcodec import RepoPath
@@ -276,3 +280,34 @@ def test_kind_is_not_inferred_from_slash_or_prefix_text():
     assert path_outcome.target == identifier.target
     assert path_outcome.target_kind == "repo-path"
     assert identifier.target_kind == slash_identifier.target_kind == "identifier"
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads everything")
+def test_check_all_quotes_reports_an_undecodable_or_unreadable_note(fixture_vault):
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    draft.write_bytes(b"\xff\xfe- (quote) [@smith2020, p. 1] ^c-1\n")
+    (row,) = quotes.check_all_quotes(fixture_vault, draft)
+    assert (row.check, row.result) == ("quote", Result.UNMATCHED)
+    assert row.reason.startswith("schema-violation — not UTF-8")
+    assert row.target == "path-bytes:projects/brief/draft.md"
+    draft.write_text("- (quote) [@smith2020, p. 1] ^c-1\n  > x\n")
+    draft.chmod(0)
+    try:
+        (row,) = quotes.check_all_quotes(fixture_vault, draft)
+    finally:
+        draft.chmod(0o644)
+    assert (row.result, row.reason.split(" — ")[0]) == (Result.UNREACHABLE, "outage")
+
+
+def test_check_all_quotes_reports_an_undecodable_source_note_on_the_claim(
+    fixture_vault,
+):
+    """The literature note a quote claim cites cannot be read: that claim's
+    row says so, under the claim link, and the other claims are judged."""
+    (fixture_vault / "literature" / "smith2020.md").write_bytes(b"\xff\xfe")
+    rows = quotes.check_all_quotes(
+        fixture_vault, fixture_vault / "projects" / "brief" / "draft.md"
+    )
+    assert rows
+    assert all(r.reason.startswith("schema-violation — not UTF-8") for r in rows)
+    assert all(str(r.target).startswith("smith2020#^") for r in rows)

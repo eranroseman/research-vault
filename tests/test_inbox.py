@@ -1635,3 +1635,10 @@ def test_a_legacy_update_notice_is_closed_only_by_an_ack_naming_it(fixture_vault
         "oldest": "2026-08-17",
         "oldest_age_days": _age_days("2026-08-17"),
     }
+
+
+def test_load_names_an_undecodable_queue(tmp_vault):
+    queue = tmp_vault / "inbox" / "review-queue.md"
+    queue.write_bytes(b"\xff\xfe")
+    with pytest.raises(inbox.InboxError, match=r"review-queue\.md"):
+        inbox.load(tmp_vault)

@@ -150,3 +150,15 @@ def test_wsl_detection_uses_environment_or_kernel_release(monkeypatch):
         paths.platform, "release", lambda: "6.6.87.2-microsoft-standard-WSL2"
     )
     assert paths._running_in_wsl() is True
+
+
+def test_load_machine_config_raises_path_error_for_an_undecodable_file(tmp_vault):
+    config = tmp_vault / ".research-vault" / "machine.json"
+    config.parent.mkdir(exist_ok=True)
+    config.write_bytes(b"\xff\xfe")
+    with pytest.raises(paths.PathError, match=r"machine\.json"):
+        paths.load_machine_config(tmp_vault)
+    config.write_text("{not json")
+    # a JSONDecodeError stays a ValueError for the four callers
+    with pytest.raises(ValueError, match="Expecting"):
+        paths.load_machine_config(tmp_vault)

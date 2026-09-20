@@ -409,3 +409,28 @@ def test_factcheck_is_reachable_through_the_one_binary_cli(tmp_vault):
 
     payload = json.loads(completed.stdout)
     assert len(payload["selected"]) == 1
+
+
+def test_run_lists_an_undecodable_literature_note_and_counts_it_unverified(tmp_vault):
+    _write_vault(
+        tmp_vault,
+        {"smith2020": _note("smith2020", "body")},
+        "- (paraphrase) x [@smith2020, p. 1] ^c-1\n",
+    )
+    (tmp_vault / "literature" / "smith2020.md").write_bytes(b"\xff\xfe")
+    report = factcheck.run(tmp_vault, tmp_vault / "projects" / "brief" / "draft.md")
+    assert report["unreadable"] == ["literature/smith2020.md"]
+    assert [ref["claim_link"] for ref in report["selected"]] == ["smith2020#^c-1"]
+
+
+def test_cli_factcheck_exits_2_naming_an_undecodable_draft(tmp_vault, capsys):
+    draft = tmp_vault / "projects" / "brief" / "draft.md"
+    draft.parent.mkdir(parents=True, exist_ok=True)
+    draft.write_bytes(b"\xff\xfe")
+    code = main(
+        ["factcheck", "--vault", str(tmp_vault), "--draft", "projects/brief/draft.md"]
+    )
+    assert code == 2
+    err = capsys.readouterr().err
+    assert err.startswith("selection unavailable: ")
+    assert "draft.md" in err

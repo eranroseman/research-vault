@@ -1,4 +1,5 @@
 import dataclasses
+import os
 
 import pytest
 
@@ -1817,3 +1818,20 @@ def test_rw_date_treats_only_none_and_blank_strings_as_absent():
     assert checks._rw_date("   ") is None
     assert checks._rw_date(20230102) is checks._INVALID
     assert checks._rw_date("") is None
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads everything")
+def test_check_citation_keys_reports_an_unreadable_or_undecodable_note(fixture_vault):
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    draft.write_bytes(b"\xff\xfe- (quote) [@smith2020] ^c-1\n")
+    (row,) = checks.check_citation_keys(fixture_vault, draft, {"smith2020": {}})
+    assert (row.check, row.result) == ("citation-key", Result.UNMATCHED)
+    assert row.reason.startswith("schema-violation — not UTF-8")
+    assert row.target == "path-bytes:projects/brief/draft.md"
+    draft.write_text("- (quote) [@smith2020] ^c-1\n")
+    draft.chmod(0)
+    try:
+        (row,) = checks.check_citation_keys(fixture_vault, draft, {"smith2020": {}})
+    finally:
+        draft.chmod(0o644)
+    assert (row.result, row.reason.split(" — ")[0]) == (Result.UNREACHABLE, "outage")

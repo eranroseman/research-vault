@@ -30,16 +30,29 @@ def levenshtein_ratio(a: str, b: str) -> float:
     return 1.0 - previous[-1] / max(len(a), len(b))
 
 
-def _source_quotes(vault_root, citation_key: str) -> dict[str | None, str]:
-    """Return the source note's quote claims keyed by their claim IDs."""
+def _source_quotes(
+    vault_root, citation_key: str
+) -> tuple[dict[str | None, str], tuple[Result, str] | None]:
+    """The source note's quote claims by claim ID, and the problem that stopped the read.
+
+    ``problem`` is ``None`` or one ``(Result, reason)`` pair — the source note
+    a quote claim cites is a record like any other, so a note nobody can read
+    is that claim's own row, never the end of the walk.
+    """
     source = note_path(vault_root, citation_key)
     if not source.is_file():
-        return {}
+        return {}, None
+    try:
+        text = source.read_text(encoding="utf-8")
+    except OSError as error:
+        return {}, (Result.UNREACHABLE, f"outage — {error}")
+    except UnicodeError as error:
+        return {}, (Result.UNMATCHED, f"schema-violation — not UTF-8: {error}")
     return {
         claim.claim_id: claim.quote_text
-        for claim in claims_mod.parse_claims(source.read_text())
+        for claim in claims_mod.parse_claims(text)
         if claim.tag == "quote" and claim.quote_text
-    }
+    }, None
 
 
 def _extra(claim, checked_note_path: RepoPath | None) -> dict:
@@ -80,7 +93,10 @@ def check_quote(
         )
 
     claim_link = claims_mod.claim_link(source_citation_key, claim.claim_id)
-    source_quotes = _source_quotes(vault_root, source_citation_key)
+    source_quotes, problem = _source_quotes(vault_root, source_citation_key)
+    if problem is not None:
+        result, reason = problem
+        return Outcome("quote", claim_link, result, reason, extra=extra)
     if claim.claim_id in source_quotes:
         candidates = [source_quotes[claim.claim_id]]
     else:
@@ -125,10 +141,30 @@ def check_all_quotes(vault_root, note_file: Path) -> list[Outcome]:
     vault = Path(vault_root).resolve()
     note = Path(note_file).resolve()
     relative_note_path = RepoPath(os.fsencode(note.relative_to(vault)))
+    try:
+        text = note.read_text(encoding="utf-8")
+    except OSError as error:
+        return [
+            Outcome(
+                "quote",
+                relative_note_path,
+                Result.UNREACHABLE,
+                f"outage — {error}",
+                extra={"target": "managed-region"},
+            )
+        ]
+    except UnicodeError as error:
+        return [
+            Outcome(
+                "quote",
+                relative_note_path,
+                Result.UNMATCHED,
+                f"schema-violation — not UTF-8: {error}",
+                extra={"target": "managed-region"},
+            )
+        ]
     quote_claims = [
-        claim
-        for claim in claims_mod.parse_claims(note.read_text())
-        if claim.tag == "quote"
+        claim for claim in claims_mod.parse_claims(text) if claim.tag == "quote"
     ]
     if not quote_claims:
         return [

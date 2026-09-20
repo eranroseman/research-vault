@@ -7,7 +7,7 @@ from . import frontmatter
 
 def _day_lines(day_file: Path) -> list[str]:
     try:
-        _data, body = frontmatter.parse(day_file.read_text())
+        _data, body = frontmatter.parse(day_file.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, frontmatter.FrontmatterError):
         # A malformed or unreadable day file (hand-edited by a human) must
         # not crash regeneration for every other, well-formed day file — the

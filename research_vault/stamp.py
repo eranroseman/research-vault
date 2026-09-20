@@ -23,8 +23,10 @@ writing through it could escape the vault boundary), `"unparseable"`
 (unparseable YAML-shaped frontmatter, or frontmatter with a duplicate
 top-level key — `frontmatter._DuplicateKeyMapping` — since a plain
 `{"type": derived, **data}` spread would silently collapse the repeats to
-last-write-wins), or `"no-type"` (no derivation at all — `system/`, root
-files, non-canonical `projects/` files).
+last-write-wins), `"outage"` (the file could not be read at all), `"not-utf-8"`
+(the file is not UTF-8, so no frontmatter could be parsed from it), or
+`"no-type"` (no derivation at all — `system/`, root files, non-canonical
+`projects/` files).
 """
 
 from pathlib import Path
@@ -84,7 +86,14 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
         if relative == "log.md":
             continue
 
-        text = _read_text(path)
+        try:
+            text = _read_text(path)
+        except OSError:
+            reported.append((relative, "outage"))
+            continue
+        except UnicodeError:
+            reported.append((relative, "not-utf-8"))
+            continue
         has_delimiter = _has_delimiter(text)
         try:
             data, body = frontmatter.parse(text)

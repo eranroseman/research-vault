@@ -136,7 +136,26 @@ def check_citation_keys(
     vault = Path(vault_root).resolve()
     note = Path(note_path).resolve()
     relative_raw = os.fsencode(note.relative_to(vault))
-    note_text = note.read_text()
+    try:
+        note_text = note.read_text(encoding="utf-8")
+    except OSError as error:
+        return [
+            Outcome(
+                "citation-key",
+                RepoPath(relative_raw),
+                Result.UNREACHABLE,
+                f"outage — {error}",
+            )
+        ]
+    except UnicodeError as error:
+        return [
+            Outcome(
+                "citation-key",
+                RepoPath(relative_raw),
+                Result.UNMATCHED,
+                f"schema-violation — not UTF-8: {error}",
+            )
+        ]
     cited = sorted({match.group("key") for match in claims.CITE_RE.finditer(note_text)})
     if not cited:
         return [

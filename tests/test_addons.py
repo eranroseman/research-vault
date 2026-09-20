@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from research_vault import addons
 
 
@@ -141,3 +143,12 @@ def test_a_foreign_addon_and_a_stray_line_are_passed_over_not_the_end_of_the_wal
 def test_observe_reads_an_extensions_file_without_an_addons_list_as_empty(tmp_path):
     (tmp_path / "extensions.json").write_text(json.dumps({"schemaVersion": 35}))
     assert addons.observe(tmp_path) == {}
+
+
+def test_declared_names_a_non_utf8_declaration(monkeypatch, tmp_path):
+    package = tmp_path / "pkg"
+    (package / "templates").mkdir(parents=True)
+    (package / "templates" / "zotero-addons.md").write_bytes(b"\xff\xfe")
+    monkeypatch.setattr(addons.resources, "files", lambda _name: package)
+    with pytest.raises(ValueError, match=r"zotero-addons\.md: not UTF-8"):
+        addons.declared()

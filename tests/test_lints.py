@@ -1325,16 +1325,22 @@ def test_origin_targets_the_claim_link_only_with_a_key_and_an_anchor(tmp_vault):
     note.write_text('---\ncitationKey: "brief2020"\n---\n')
     anchored = claims_mod.Claim("inference", "smith2020", None, "c-1", 4)
     unanchored = claims_mod.Claim("inference", "smith2020", None, None, 4)
-    target, extra = lints._origin(tmp_vault, note, anchored)
+    target, extra = lints._origin(
+        tmp_vault, note, anchored, note.read_text(encoding="utf-8")
+    )
     assert target == "brief2020#^c-1"
     assert extra == {
         "note_path": RepoPath(b"projects/brief/draft.md"),
         "claim_id": "c-1",
     }
-    target, _extra = lints._origin(tmp_vault, note, unanchored)
+    target, _extra = lints._origin(
+        tmp_vault, note, unanchored, note.read_text(encoding="utf-8")
+    )
     assert target == RepoPath(b"projects/brief/draft.md")
     note.write_text('---\ncitationKey: ""\n---\n')
-    target, _extra = lints._origin(tmp_vault, note, anchored)
+    target, _extra = lints._origin(
+        tmp_vault, note, anchored, note.read_text(encoding="utf-8")
+    )
     assert target == RepoPath(b"projects/brief/draft.md")
 
 
@@ -1451,3 +1457,30 @@ def test_a_duplicate_in_the_base_that_capture_cleaned_is_not_a_finding(fixture_v
     _refresh_body_witness(source)
 
     assert _evidence_rows(fixture_vault, base) == []
+
+
+def test_lint_disputed_claim_reports_an_undecodable_page_and_still_judges_the_note(
+    fixture_vault,
+):
+    page = fixture_vault / "wiki" / "concepts" / "mortality-trends.md"
+    page.write_bytes(b"\xff\xfe")
+    rows = lints.lint_disputed_claim(
+        fixture_vault, fixture_vault / "projects" / "brief" / "draft.md"
+    )
+    (page_row,) = [
+        r for r in rows if r.target == "path-bytes:wiki/concepts/mortality-trends.md"
+    ]
+    assert (page_row.check, page_row.result) == ("disputed-claim", Result.UNMATCHED)
+    assert page_row.reason.startswith("schema-violation — not UTF-8")
+
+
+def test_lint_disputed_claim_reports_an_undecodable_note(fixture_vault):
+    draft = fixture_vault / "projects" / "brief" / "draft.md"
+    draft.write_bytes(b"\xff\xfe")
+    (row,) = lints.lint_disputed_claim(fixture_vault, draft)
+    assert (row.check, row.target, row.result) == (
+        "disputed-claim",
+        "path-bytes:projects/brief/draft.md",
+        Result.UNMATCHED,
+    )
+    assert row.reason.startswith("schema-violation — not UTF-8")

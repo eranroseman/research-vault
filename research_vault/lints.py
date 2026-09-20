@@ -473,12 +473,18 @@ def lint_published_drift(
     return _deduplicate(outcomes)
 
 
-def _origin(vault_root: Path, note_file: Path, claim) -> tuple[str | RepoPath, dict]:
-    """The claim's target — its anchor link, else the note's repo path — and its origin extra."""
+def _origin(
+    vault_root: Path, note_file: Path, claim, text: str
+) -> tuple[str | RepoPath, dict]:
+    """The claim's target — its anchor link, else the note's repo path — and its origin extra.
+
+    ``text`` is the note's already-read text: the one read is the caller's, so
+    a note nobody can read is reported once, by the caller, not here.
+    """
     vault = Path(vault_root)
     note = Path(note_file)
     rel = _relative(vault, note)
-    data, parsed = _parse_frontmatter(note.read_text())
+    data, parsed = _parse_frontmatter(text)
     citation_key = data.get("citationKey") if parsed else None
     target: str | RepoPath
     if claim.claim_id and isinstance(citation_key, str) and citation_key:
@@ -499,7 +505,28 @@ def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
         else []
     ):
         rel = _relative(vault_root, path)
-        text = path.read_text()
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as error:
+            outcomes.append(
+                Outcome(
+                    "disputed-claim",
+                    RepoPath(rel),
+                    Result.UNREACHABLE,
+                    f"outage — {error}",
+                )
+            )
+            continue
+        except UnicodeError as error:
+            outcomes.append(
+                Outcome(
+                    "disputed-claim",
+                    RepoPath(rel),
+                    Result.UNMATCHED,
+                    f"schema-violation — not UTF-8: {error}",
+                )
+            )
+            continue
         data, parsed = _parse_frontmatter(text)
         if not parsed:
             outcomes.append(_schema_outcome("disputed-claim", RepoPath(rel)))
@@ -518,9 +545,30 @@ def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
 def lint_disputed_claim(vault_root, note_file) -> list[Outcome]:
     vault, note = Path(vault_root), Path(note_file)
     disputed, outcomes = disputed_claim_links(vault)
-    text = note.read_text()
+    try:
+        text = note.read_text(encoding="utf-8")
+    except OSError as error:
+        outcomes.append(
+            Outcome(
+                "disputed-claim",
+                RepoPath(_relative(vault, note)),
+                Result.UNREACHABLE,
+                f"outage — {error}",
+            )
+        )
+        return _deduplicate(outcomes)
+    except UnicodeError as error:
+        outcomes.append(
+            Outcome(
+                "disputed-claim",
+                RepoPath(_relative(vault, note)),
+                Result.UNMATCHED,
+                f"schema-violation — not UTF-8: {error}",
+            )
+        )
+        return _deduplicate(outcomes)
     for claim in claims_mod.parse_claims(text):
-        _target, extra = _origin(vault, note, claim)
+        _target, extra = _origin(vault, note, claim, text)
         for claim_link in CLAIM_LINK.findall(claim.fields.get("supports", "")):
             if claim_link in disputed:
                 outcomes.append(

@@ -3365,3 +3365,30 @@ def test_mutate_marker_never_writes_under_wiki_when_the_vault_is_dot(
     )
     markers._mutate_marker(".", outcome, "2026-09-17")
     assert page.read_bytes() == before
+
+
+def test_marker_walk_skips_an_undecodable_note_and_continues(net_vault):
+    from research_vault import markers
+
+    bad = net_vault / "projects" / "brief" / "bad.md"
+    bad.write_bytes(b"\xff\xfe- (quote) x [@missing] ^c-1\n")
+    good = net_vault / "projects" / "brief" / "good.md"
+    good.write_text("- (quote) y [@missing] ^c-1\n")
+    for name in ("bad.md", "good.md"):
+        markers._mutate_marker(
+            net_vault,
+            _outcome(
+                "quote",
+                "missing#^c-1",
+                Result.UNMATCHED,
+                "mismatch — x",
+                note_path=f"projects/brief/{name}",
+                claim_id="c-1",
+            ),
+            "2026-09-17",
+        )
+    assert bad.read_bytes() == b"\xff\xfe- (quote) x [@missing] ^c-1\n"
+    assert "[failed-verification:: quote/2026-09-17]" in good.read_text()
+    assert markers.clear_marker_for(net_vault, "quote", "missing#^c-1") is True
+    assert "[failed-verification" not in good.read_text()
+    assert bad.read_bytes() == b"\xff\xfe- (quote) x [@missing] ^c-1\n"

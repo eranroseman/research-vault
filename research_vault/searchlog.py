@@ -90,7 +90,10 @@ def search_log_path(vault, project) -> Path:
 def _body(path: Path) -> str:
     if not path.exists():
         return ""
-    text = path.read_text()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise SearchLogError(f"{path}: {error}") from error
     if not text:
         return ""
     try:

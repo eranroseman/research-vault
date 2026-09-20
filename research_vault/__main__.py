@@ -18,6 +18,7 @@ from . import (
     gitstate,
     inbox,
     literature_notes,
+    paths,
     propagate,
     publish,
     scaffold,
@@ -60,9 +61,6 @@ DOCTOR_WARN_ONLY = {
 # their own four-state handling (`verify`, `capture`, `add`, `compile`): each
 # answers exit 2 — "could not run" — with one stderr line. A bare ValueError
 # here would dress an implementation bug as a tidy exit 2 with no traceback.
-# UnicodeDecodeError is the stopgap for the unguarded `read_text()` sites the
-# whole-branch review left to an issue: a non-UTF-8 record is exit 2, not a
-# traceback, until each site files its own row.
 _NAMED_FAILURES = (
     gitstate.GitStateError,
     PathCodecError,
@@ -71,8 +69,8 @@ _NAMED_FAILURES = (
     frontmatter.FrontmatterError,
     literature_notes.InvalidCitationKeyError,
     literature_notes.LedgerUnreadableError,
+    paths.PathError,
     OSError,
-    UnicodeDecodeError,
 )
 
 
@@ -740,6 +738,10 @@ def cmd_stamp_type(args):
             print(f"skipped {path} — frontmatter is unparseable")
         elif reason == "symlink":
             print(f"skipped {path} — path is a symlink, refusing to write through it")
+        elif reason == "outage":
+            print(f"skipped {path} — file could not be read")
+        elif reason == "not-utf-8":
+            print(f"skipped {path} — file is not UTF-8")
         else:
             print(f"skipped {path} — no type could be derived")
     return 0

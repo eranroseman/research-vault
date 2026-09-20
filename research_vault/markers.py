@@ -105,8 +105,12 @@ def _rewrite_marker_lines(path, check, matcher, *, clear, first_only, date=None)
     ``check`` is cleared (``clear``) or stamped (dated ``date``) — before the
     terminal anchor when the line has one, at the end otherwise. With
     ``first_only`` the walk stops at the first selected line whether or not
-    it changed. Writes once, at the end; returns whether anything changed."""
-    lines = _read_note_text(path).splitlines(keepends=True)
+    it changed. Writes once, at the end; returns whether anything changed — a
+    note this cannot read changes nothing, and the caller's walk continues."""
+    try:
+        lines = _read_note_text(path).splitlines(keepends=True)
+    except (OSError, UnicodeError):
+        return False
     changed = False
     for index, line in enumerate(lines):
         content, ending = _split_line_ending(line)

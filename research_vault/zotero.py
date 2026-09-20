@@ -113,7 +113,7 @@ def base_for(vault_root, override: str | None = None, *, strict: bool = True) ->
         config: object = paths.load_machine_config(Path(vault_root))
         if not isinstance(config, Mapping):
             raise ValueError("expected an object")
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, paths.PathError) as error:
         if strict:
             raise ZoteroError(
                 f"machine.json unreadable: {error}", Result.UNMATCHED

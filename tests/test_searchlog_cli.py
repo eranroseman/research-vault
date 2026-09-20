@@ -27,22 +27,22 @@ def _log_path(vault, project="brief"):
     return vault / "projects" / project / "search-log.md"
 
 
+# One well-formed search-run leg, so a test about something else (a log the
+# verb cannot read) does not restate the flags it does not care about.
+SEARCH_RUN_FLAGS = [
+    "--project",
+    "brief",
+    "--query",
+    "(mortality[Title]) AND 2020:2026[dp]",
+    "--source",
+    "PubMed",
+    "--hits",
+    "12",
+]
+
+
 def test_search_log_appends_a_search_entry_and_prints_a_summary(fixture_vault, capsys):
-    code = main(
-        [
-            "search-log",
-            "--vault",
-            str(fixture_vault),
-            "--project",
-            "brief",
-            "--query",
-            "(mortality[Title]) AND 2020:2026[dp]",
-            "--source",
-            "PubMed",
-            "--hits",
-            "12",
-        ]
-    )
+    code = main(["search-log", "--vault", str(fixture_vault), *SEARCH_RUN_FLAGS])
 
     assert code == 0
     out = capsys.readouterr().out
@@ -599,3 +599,11 @@ def test_find_sources_skill_never_applies_check_result_vocabulary_to_a_search():
             f"{occurrences} times — it must appear only in the sentence "
             "explaining that this vocabulary does not apply to a search"
         )
+
+
+def test_an_undecodable_search_log_exits_2_naming_the_path(fixture_vault, capsys):
+    _log_path(fixture_vault).parent.mkdir(parents=True, exist_ok=True)
+    _log_path(fixture_vault).write_bytes(b"\xff\xfe")
+    argv = ["search-log", "--vault", str(fixture_vault)]
+    assert main([*argv, *SEARCH_RUN_FLAGS]) == 2
+    assert "search-log.md" in capsys.readouterr().err

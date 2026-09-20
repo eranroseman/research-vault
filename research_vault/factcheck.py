@@ -54,6 +54,19 @@ def _claim_source_text(lines: list[str], claim: claims_mod.Claim) -> str:
     return "\n".join(block)
 
 
+def _draft_text(draft_path) -> str:
+    """The draft the run was pointed at, read or refused by name.
+
+    The draft is this verb's one run input, not a record it walks: a draft
+    nobody can read leaves nothing to select from, so it is a ValueError
+    naming the path — ``cmd_factcheck``'s exit 2 — never a partial report.
+    """
+    try:
+        return Path(draft_path).read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise ValueError(f"{draft_path}: {error}") from error
+
+
 def eligible_claims(vault_root, draft_path) -> list[ClaimRef]:
     """Return quote/paraphrase/inference claims with a resolvable citation key.
 
@@ -64,7 +77,7 @@ def eligible_claims(vault_root, draft_path) -> list[ClaimRef]:
     defect). Returned in document order.
     """
     vault = Path(vault_root)
-    text = Path(draft_path).read_text(encoding="utf-8")
+    text = _draft_text(draft_path)
     lines = text.splitlines()
     refs = []
     for claim in claims_mod.parse_claims(text):
@@ -89,12 +102,26 @@ def eligible_claims(vault_root, draft_path) -> list[ClaimRef]:
     return refs
 
 
-def _has_verified_event(vault_root, citation_key: str) -> bool:
-    """Verified-evidence-only counting: never assume a note is backed."""
+def _has_verified_event(
+    vault_root, citation_key: str, unreadable: list[str] | None = None
+) -> bool:
+    """Verified-evidence-only counting: never assume a note is backed.
+
+    A note nobody can read carries no evidence anyone can see, so it counts as
+    unverified — and its vault-relative path is appended to ``unreadable``,
+    which ``run`` reports, so the answer never turns on an unread file in
+    silence.
+    """
     note = Path(vault_root) / "literature" / f"{citation_key}.md"
     if not note.is_file():
         return False
-    return bool(events.verified_checks(note.read_text(encoding="utf-8")))
+    try:
+        text = note.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        if unreadable is not None:
+            unreadable.append(f"literature/{citation_key}.md")
+        return False
+    return bool(events.verified_checks(text))
 
 
 def contested_adjacent_links(vault_root, draft_path) -> set[str]:
@@ -109,7 +136,7 @@ def contested_adjacent_links(vault_root, draft_path) -> set[str]:
     a factored-verification pass would actually schedule.
     """
     disputed, _schema_outcomes = lints.disputed_claim_links(Path(vault_root))
-    text = Path(draft_path).read_text(encoding="utf-8")
+    text = _draft_text(draft_path)
     contested = set()
     for claim in claims_mod.parse_claims(text):
         if not claim.citation_key or not claim.claim_id:
@@ -135,6 +162,7 @@ def select_claims(
     refs: list[ClaimRef],
     contested: set[str],
     cap: int = DEFAULT_CAP,
+    unreadable: list[str] | None = None,
 ) -> tuple[list[ClaimRef], list[ClaimRef]]:
     """Deterministically order and cap claims for one factored-verification pass.
 
@@ -143,7 +171,9 @@ def select_claims(
     contested-adjacent claims boosted, quote claims last (already
     deterministically covered by the quote checker). Ties within a bucket
     keep document order. Returns (selected, skipped); `skipped` is never
-    silently dropped — the caller records it via the `finding` verb.
+    silently dropped — the caller records it via the `finding` verb. Any
+    literature note the verified-event read could not take is appended to
+    ``unreadable`` rather than passed over in silence.
     """
     if cap < 0:
         raise ValueError("cap must be non-negative")
@@ -152,7 +182,9 @@ def select_claims(
     def has_verified_event(claim_link: str) -> bool:
         citation_key = claim_link.split("#^", 1)[0]
         if citation_key not in verified_cache:
-            verified_cache[citation_key] = _has_verified_event(vault_root, citation_key)
+            verified_cache[citation_key] = _has_verified_event(
+                vault_root, citation_key, unreadable
+            )
         return verified_cache[citation_key]
 
     ordered = sorted(
@@ -188,10 +220,12 @@ def run(vault_root, draft_path, cap: int = DEFAULT_CAP) -> dict:
     """
     refs = eligible_claims(vault_root, draft_path)
     contested = contested_adjacent_links(vault_root, draft_path)
-    selected, skipped = select_claims(vault_root, refs, contested, cap)
+    unreadable: list[str] = []
+    selected, skipped = select_claims(vault_root, refs, contested, cap, unreadable)
     return {
         "cap": cap,
         "selected": [asdict(ref) for ref in selected],
         "skipped": [asdict(ref) for ref in skipped],
         "skipped_sha256": skipped_sha256(skipped) if skipped else None,
+        "unreadable": sorted(set(unreadable)),
     }
