@@ -87,6 +87,12 @@ research_vault/addons.py::func/declared::-        .read_text(encoding="utf-8")\n
 research_vault/addons.py::func/declared::-        .read_text(encoding="utf-8")\n+        .read_text(encoding=None)
 research_vault/addons.py::func/declared::-        resources.files("research_vault")\n+        resources.files(None)
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/addons.py::func/declared::-        text = declaration.read_text(encoding="utf-8")\n+        text = declaration.read_text(encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
+research_vault/addons.py::func/declared::-        text = declaration.read_text(encoding="utf-8")\n+        text = declaration.read_text(encoding=None)
+# reason: equivalent on the grammar: importlib.resources.files(anchor=None) defaults to the calling module's own package, and declared() is defined in research_vault.addons whose __package__ is exactly "research_vault" -- the literal string argument and the None default resolve to the identical anchor
+research_vault/addons.py::func/declared::-    declaration = resources.files("research_vault").joinpath(\n+    declaration = resources.files(None).joinpath(
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/addons.py::func/observe::-        (Path(profile_dir) / "extensions.json").read_text(encoding="utf-8")\n+        (Path(profile_dir) / "extensions.json").read_text(encoding="UTF-8")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/addons.py::func/observe::-        (Path(profile_dir) / "extensions.json").read_text(encoding="utf-8")\n+        (Path(profile_dir) / "extensions.json").read_text(encoding=None)
@@ -163,6 +169,14 @@ research_vault/capture.py::func/_best_attachment::-    href = ((item.get("links"
 research_vault/capture.py::func/_best_attachment::-    href = ((item.get("links") or {}).get("attachment") or {}).get("href", "")\n+    href = ((item.get("links") or {}).get("attachment") or {}).get("href", )
 # reason: equivalent on the grammar: href's only downstream use is the truthiness test `if href else None`, and "" and None are both falsy
 research_vault/capture.py::func/_best_attachment::-    href = ((item.get("links") or {}).get("attachment") or {}).get("href", "")\n+    href = ((item.get("links") or {}).get("attachment") or {}).get("href", None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/capture.py::func/_capture_one::-            with path.open("r", encoding="utf-8", newline="") as handle:\n+            with path.open("r", encoding="UTF-8", newline="") as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
+research_vault/capture.py::func/_capture_one::-            with path.open("r", encoding="utf-8", newline="") as handle:\n+            with path.open("r", encoding=None, newline="") as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
+research_vault/capture.py::func/_capture_one::-            with path.open("r", encoding="utf-8", newline="") as handle:\n+            with path.open("r", newline="") as handle:
+# reason: equivalent on the grammar: Path.open's own default mode is "r", so dropping the literal changes nothing
+research_vault/capture.py::func/_capture_one::-            with path.open("r", encoding="utf-8", newline="") as handle:\n+            with path.open(encoding="utf-8", newline="") as handle:
 research_vault/capture.py::func/_capture_one::-        path.parent.mkdir(parents=True, exist_ok=True)\n+        path.parent.mkdir(exist_ok=True)
 research_vault/capture.py::func/_capture_one::-        path.parent.mkdir(parents=True, exist_ok=True)\n+        path.parent.mkdir(parents=False, exist_ok=True)
 research_vault/capture.py::func/_capture_one::-        path.parent.mkdir(parents=True, exist_ok=True)\n+        path.parent.mkdir(parents=None, exist_ok=True)
@@ -194,6 +208,24 @@ research_vault/capture.py::func/_every_note::-            data, _body = frontmat
 research_vault/capture.py::func/_load_key::-        return json.loads(path.read_text(encoding="utf-8")).get(server_id)\n+        return json.loads(path.read_text(encoding="UTF-8")).get(server_id)
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_load_key::-        return json.loads(path.read_text(encoding="utf-8")).get(server_id)\n+        return json.loads(path.read_text(encoding=None)).get(server_id)
+# reason: equivalent on the grammar: the reason text is `<old> → <new>` optionally suffixed `; run propagate` (_refused's own literal, at most once), and a citation key is [A-Za-z0-9_.:-]+ -- it contains neither ";" nor " → ", so ";" occurs 0 or 1 times and " → " occurs exactly once, and every split/rsplit/maxsplit/index variant agrees
+research_vault/capture.py::func/_re_key_target::-    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]\n+    return prior.reason[len("re-keyed — ") :].rsplit(";", 1)[0].split(" → ", 1)[-1]
+# reason: equivalent on the grammar: the reason text is `<old> → <new>` optionally suffixed `; run propagate` (_refused's own literal, at most once), and a citation key is [A-Za-z0-9_.:-]+ -- it contains neither ";" nor " → ", so ";" occurs 0 or 1 times and " → " occurs exactly once, and every split/rsplit/maxsplit/index variant agrees
+research_vault/capture.py::func/_re_key_target::-    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]\n+    return prior.reason[len("re-keyed — ") :].split(";", )[0].split(" → ", 1)[-1]
+# reason: equivalent on the grammar: the reason text is `<old> → <new>` optionally suffixed `; run propagate` (_refused's own literal, at most once), and a citation key is [A-Za-z0-9_.:-]+ -- it contains neither ";" nor " → ", so ";" occurs 0 or 1 times and " → " occurs exactly once, and every split/rsplit/maxsplit/index variant agrees
+research_vault/capture.py::func/_re_key_target::-    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]\n+    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].rsplit(" → ", 1)[-1]
+# reason: equivalent on the grammar: the reason text is `<old> → <new>` optionally suffixed `; run propagate` (_refused's own literal, at most once), and a citation key is [A-Za-z0-9_.:-]+ -- it contains neither ";" nor " → ", so ";" occurs 0 or 1 times and " → " occurs exactly once, and every split/rsplit/maxsplit/index variant agrees
+research_vault/capture.py::func/_re_key_target::-    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]\n+    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", )[-1]
+# reason: equivalent on the grammar: the reason text is `<old> → <new>` optionally suffixed `; run propagate` (_refused's own literal, at most once), and a citation key is [A-Za-z0-9_.:-]+ -- it contains neither ";" nor " → ", so ";" occurs 0 or 1 times and " → " occurs exactly once, and every split/rsplit/maxsplit/index variant agrees
+research_vault/capture.py::func/_re_key_target::-    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]\n+    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[+1]
+# reason: equivalent on the grammar: the reason text is `<old> → <new>` optionally suffixed `; run propagate` (_refused's own literal, at most once), and a citation key is [A-Za-z0-9_.:-]+ -- it contains neither ";" nor " → ", so ";" occurs 0 or 1 times and " → " occurs exactly once, and every split/rsplit/maxsplit/index variant agrees
+research_vault/capture.py::func/_re_key_target::-    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]\n+    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 2)[-1]
+# reason: equivalent on the grammar: the reason text is `<old> → <new>` optionally suffixed `; run propagate` (_refused's own literal, at most once), and a citation key is [A-Za-z0-9_.:-]+ -- it contains neither ";" nor " → ", so ";" occurs 0 or 1 times and " → " occurs exactly once, and every split/rsplit/maxsplit/index variant agrees
+research_vault/capture.py::func/_re_key_target::-    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]\n+    return prior.reason[len("re-keyed — ") :].split(";", 2)[0].split(" → ", 1)[-1]
+# reason: equivalent on the grammar: the reason text is `<old> → <new>` optionally suffixed `; run propagate` (_refused's own literal, at most once), and a citation key is [A-Za-z0-9_.:-]+ -- it contains neither ";" nor " → ", so ";" occurs 0 or 1 times and " → " occurs exactly once, and every split/rsplit/maxsplit/index variant agrees
+research_vault/capture.py::func/_re_key_target::-    return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]\n+    return prior.reason[len("re-keyed — ") :].split("XX;XX", 1)[0].split(" → ", 1)[-1]
+# reason: equivalent on the grammar: Path.__eq__ never equates to None or the empty string, so `path != target` is True either way for every real existing-note path in existing
+research_vault/capture.py::func/_refused::-        target = None\n+        target = ""
 # reason: equivalent on the grammar: every refusal code (_REFUSED's members, re-keyed) is one hyphenated word with no internal whitespace, so `split(" — ")[0]` and the default whitespace `split(None)[0]` land on the same first token
 research_vault/capture.py::func/_refused::-    code = prior.reason.split(" — ")[0]\n+    code = prior.reason.split(None)[0]
 research_vault/capture.py::func/_standing_by_item_key::-        item_key_of.get(outcome.target, outcome.target): outcome\n+        item_key_of.get(outcome.target): outcome
@@ -1153,6 +1185,10 @@ research_vault/inbox.py::func/validate_reason::-        or "\0" in reason\n+    
 # reason: equivalent on the grammar: text_changed's only use is the truthiness test `if text_changed else ""`, and None/False are both falsy
 research_vault/lifecycle.py::func/_drift_detail::-        text_changed = False\n+        text_changed = None
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/lifecycle.py::func/_provenances::-                path.read_text(encoding="utf-8")\n+                path.read_text(encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
+research_vault/lifecycle.py::func/_provenances::-                path.read_text(encoding="utf-8")\n+                path.read_text(encoding=None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/lifecycle.py::func/_provenances::-            provenance = notes.read_provenance(path.read_text(encoding="utf-8"))\n+            provenance = notes.read_provenance(path.read_text(encoding="UTF-8"))
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/lifecycle.py::func/_provenances::-            provenance = notes.read_provenance(path.read_text(encoding="utf-8"))\n+            provenance = notes.read_provenance(path.read_text(encoding=None))
@@ -1271,6 +1307,16 @@ research_vault/lints.py::func/lint_published_drift::-            vault, project_
 research_vault/lints.py::func/lint_published_drift::-            watched = bool(prior_statuses & WATCHED_PUBLICATION_STATUSES)\n+            watched = bool(prior_statuses | WATCHED_PUBLICATION_STATUSES)
 research_vault/lints.py::func/lint_published_drift::-        if not _project_differs(vault, tag, project_dir, candidate_snapshot):\n+        if not _project_differs(vault, tag, project_dir, ):
 research_vault/lints.py::func/lint_published_drift::-        if not _project_differs(vault, tag, project_dir, candidate_snapshot):\n+        if not _project_differs(vault, tag, project_dir, None):
+# reason: equivalent on the grammar: _origins yields every claim of a single outcome under one shared note_path, so the guard's condition is invariant across the loop; continue and break skip the same origins either way
+research_vault/markers.py::func/_mutate_marker::-            continue\n+            break
+# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
+research_vault/markers.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.rsplit("#^", 1)[1]
+# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
+research_vault/markers.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.split("#^", )[1]
+# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
+research_vault/markers.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.split("#^", 2)[1]
+# reason: equivalent on the grammar: first_only is only read via a truthiness test (if first_only: break), and False and None are equally falsy
+research_vault/markers.py::func/clear_marker_for::-        if _rewrite_marker_lines(path, check, matcher, clear=True, first_only=False):\n+        if _rewrite_marker_lines(path, check, matcher, clear=True, first_only=None):
 research_vault/notes.py::func/_attachment_line::-    data = child.get("data", {})\n+    data = child.get("data", )
 research_vault/notes.py::func/_attachment_line::-    data = child.get("data", {})\n+    data = child.get("data", None)
 research_vault/notes.py::func/_attachment_line::-    key = child.get("key", "")\n+    key = child.get("key", "XXXX")
@@ -1361,6 +1407,10 @@ research_vault/pathcodec.py::func/encode_repo_path::-    return PATH_BYTES_PREFI
 research_vault/pathcodec.py::func/encode_repo_path::-    return PATH_BYTES_PREFIX + quote(_validate_raw(raw), safe="/")\n+    return PATH_BYTES_PREFIX + quote(_validate_raw(raw), safe="XX/XX")
 research_vault/paths.py::func/_running_in_wsl::-    return bool(os.environ.get("WSL_INTEROP") or os.environ.get("WSL_DISTRO_NAME")) or (\n+    return bool(os.environ.get("WSL_INTEROP") or os.environ.get("XXWSL_DISTRO_NAMEXX")) or (
 research_vault/paths.py::func/_running_in_wsl::-    return bool(os.environ.get("WSL_INTEROP") or os.environ.get("WSL_DISTRO_NAME")) or (\n+    return bool(os.environ.get("WSL_INTEROP") or os.environ.get("wsl_distro_name")) or (
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/paths.py::func/load_machine_config::-        text = f.read_text(encoding="utf-8")\n+        text = f.read_text(encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
+research_vault/paths.py::func/load_machine_config::-        text = f.read_text(encoding="utf-8")\n+        text = f.read_text(encoding=None)
 research_vault/paths.py::func/to_bbt_host::-            f"cannot translate BBT target through wslpath: {error}"\n+            None
 research_vault/paths.py::func/to_bbt_host::-        raise PathError("cannot translate BBT target through wslpath -w")\n+        raise PathError("CANNOT TRANSLATE BBT TARGET THROUGH WSLPATH -W")
 research_vault/paths.py::func/to_bbt_host::-        raise PathError("cannot translate BBT target through wslpath -w")\n+        raise PathError("XXcannot translate BBT target through wslpath -wXX")
@@ -1388,6 +1438,12 @@ research_vault/propagate.py::func/apply::-    record.write_text(_canonical(docum
 research_vault/propagate.py::func/apply::-    record.write_text(_canonical(document), encoding="utf-8")\n+    record.write_text(_canonical(document), encoding="UTF-8")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/apply::-    record.write_text(_canonical(document), encoding="utf-8")\n+    record.write_text(_canonical(document), encoding=None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/propagate.py::func/lint_propagation::-                (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+                (relative, path.read_text(encoding="UTF-8", errors="surrogateescape"))
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
+research_vault/propagate.py::func/lint_propagation::-                (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+                (relative, path.read_text(encoding=None, errors="surrogateescape"))
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
+research_vault/propagate.py::func/lint_propagation::-                (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+                (relative, path.read_text(errors="surrogateescape"))
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/lint_propagation::-        (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+        (relative, path.read_text(encoding="UTF-8", errors="surrogateescape"))
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
@@ -2059,6 +2115,7 @@ research_vault/verify.py::func/_claim_anchor_hash::-    citation_key, claim_id =
 # reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/verify.py::func/_claim_anchor_hash::-    citation_key, claim_id = target.split("#^", 1)\n+    citation_key, claim_id = target.split("#^", 2)
 research_vault/verify.py::func/_claim_anchor_hash::-    data = (\n-        _claim_bytes_from_text(\n-            (origin_image.data or b"").decode(errors="surrogateescape"), claim_id\n-        )\n-        if origin_image is not None and origin_image.kind == "file"\n-        else _claim_bytes(origin, claim_id)\n-        if origin\n-        else None\n-    )\n+    data = None
+# reason: equivalent on the grammar: by the time this guard runs, the top-level _citation_key_hash call has already run the identical _note_for_citation_key + is_file() lookup for this same citation_key (via the candidate_snapshot-is-None else branch) and returned non-None whenever a real note exists there, returning early -- so reaching this line already means no such note exists, and the last-resort _note_for_citation_key/_claim_bytes calls below always meet the same missing path regardless of the guard's polarity
 research_vault/verify.py::func/_claim_anchor_hash::-    if data is None and candidate_snapshot is None:\n+    if data is None and candidate_snapshot is not None:
 research_vault/verify.py::func/_claim_anchor_hash::-    if data is None and candidate_snapshot is None:\n+    if data is None or candidate_snapshot is None:
 research_vault/verify.py::func/_claim_anchor_hash::-    if data is None and candidate_snapshot is None:\n+    if data is not None and candidate_snapshot is None:

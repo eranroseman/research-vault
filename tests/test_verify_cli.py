@@ -1050,9 +1050,16 @@ def test_deleted_claim_and_append_only_inbox_hashes_are_stable(net_vault):
 
 
 def test_deleted_claim_with_invalid_utf8_has_a_stable_target_hash(net_vault):
+    """A leading, unrelated bullet makes the committed note bigger than the
+    one claim: without it, `_target_hash`'s fallthrough to `_identifier_hash`
+    (which hashes the whole note through the very same `"HEAD"` blob lookup
+    once `_claim_anchor_hash` gives up) would coincidentally reproduce a
+    single-bullet file's hash regardless of whether the claim-anchor leg's
+    own `vault_root`/`"HEAD"`/`raw_origin` arguments are the real ones."""
     note = net_vault / "projects" / "brief" / "invalid-utf8.md"
+    other_bytes = b"- (quote) unrelated bullet [@missing] ^c-other\n"
     claim_bytes = b"- (quote) invalid \xff [@missing] ^c-invalid\n"
-    note.write_bytes(claim_bytes)
+    note.write_bytes(other_bytes + claim_bytes)
     subprocess.run(["git", "add", note], cwd=net_vault, check=True)
     subprocess.run(
         ["git", "commit", "-m", "add invalid utf8 claim"],
@@ -1219,6 +1226,29 @@ def test_marker_mutation_preserves_crlf_and_exact_claim_spacing(net_vault):
     _mutate_marker(net_vault, line_only, "2026-08-16", clear=True)
     assert note.read_bytes() == original
     assert _target_hash(net_vault, line_only) == line_hash
+
+
+def test_mutate_marker_stamps_only_the_first_of_two_matching_lines(net_vault):
+    """`_rewrite_marker_lines`'s own `first_only=True` is a real argument
+    `_mutate_marker` must pass, not a stray `False`/`None`: two lines that
+    both match the same claim anchor (an unusual note, but the rewriter
+    itself does not police uniqueness) must only have the first stamped —
+    `first_only`'s own `break` would otherwise stamp both."""
+    note = net_vault / "projects" / "brief" / "duplicate-anchor.md"
+    original = b"- (quote) first [@missing] ^c-1\n- (quote) second [@missing] ^c-1\n"
+    note.write_bytes(original)
+    outcome = _outcome(
+        "citation-key",
+        "missing",
+        Result.UNMATCHED,
+        "mismatch — citation key not in bibliography",
+        note_path="projects/brief/duplicate-anchor.md",
+        claims=[{"claim_id": "c-1"}],
+    )
+    _mutate_marker(net_vault, outcome, "2026-08-16")
+    lines = note.read_bytes().splitlines()
+    assert b"[failed-verification:: citation-key/2026-08-16]" in lines[0]
+    assert b"[failed-verification:: citation-key/2026-08-16]" not in lines[1]
 
 
 def test_marker_preserves_legal_trailing_anchor_whitespace(net_vault):
@@ -3437,11 +3467,12 @@ def test_verify_state_refuses_an_index_candidate_whose_destination_differs_live(
         monkeypatch,
         [_outcome("update-notice", "smith2020", Result.UNMATCHED, "retracted — x")],
     )
-    with pytest.raises(
-        gitstate.GitStateError,
-        match="selected candidate differs from live projection destination",
-    ):
+    with pytest.raises(gitstate.GitStateError) as excinfo:
         verify_state(net_vault, network=True, git_candidate="index")
+    assert str(excinfo.value) == (
+        "selected candidate differs from live projection destination: "
+        "path-bytes:literature/smith2020.md"
+    )
 
 
 def test_network_outcomes_reduce_the_live_leg_with_an_rw_lookup(net_vault, monkeypatch):
@@ -3691,10 +3722,15 @@ def test_claim_anchor_hash_reads_the_candidate_image_through_surrogateescape(
     genuinely absent image (discarding real bytes to `and` would lose the
     claim), and the claim id it searches for is the literal second
     argument — dropping, losing, or nulling any of the three changes the
-    hash or crashes."""
+    hash or crashes. A leading, unrelated bullet makes the file bigger than
+    the one claim: `_target_hash`'s fallthrough to `_identifier_hash` hashes
+    the *whole* note when the anchor plane comes up empty, which would
+    coincidentally reproduce a single-bullet file's hash — the second
+    bullet makes that fallback answer provably wrong instead."""
     note = net_vault / "projects" / "brief" / "invalid-claim.md"
+    other_bytes = b"- (quote) unrelated bullet [@missing] ^c-other\n"
     claim_bytes = b"- (quote) invalid \xff [@missing] ^c-invalid\n"
-    note.write_bytes(claim_bytes)
+    note.write_bytes(other_bytes + claim_bytes)
     candidate_snapshot = gitstate.snapshot_worktree(net_vault)
     outcome = _outcome(
         "quote",
@@ -3880,6 +3916,43 @@ def test_clear_marker_for_skips_a_path_bytes_target_whose_safe_path_is_none(
     )
 
 
+def test_clear_marker_for_claim_id_leaves_an_unanchored_lines_own_marker_alone(
+    net_vault,
+):
+    """The `claim_id` matcher's own `(False, None)` for a line without the
+    target claim's anchor must stay `False` — a stray `True` would make
+    every line in the note "selected", so an unrelated line's own
+    general-form marker (stamped by a different, no-anchor origin) would be
+    cleared as collateral damage alongside the real target."""
+    note = net_vault / "projects" / "brief" / "collateral.md"
+    note.write_text(
+        "- (quote) target [@missing] [failed-verification:: quote/2026-08-16] ^c-target\n"
+        "- (quote) unrelated [@missing] [failed-verification:: quote/2026-08-16]\n"
+    )
+    assert markers.clear_marker_for(net_vault, "quote", "missing#^c-target") is True
+    lines = note.read_text().splitlines()
+    assert "[failed-verification" not in lines[0]
+    assert "[failed-verification:: quote/2026-08-16]" in lines[1]
+
+
+def test_clear_marker_for_citation_key_leaves_a_non_citing_lines_own_marker_alone(
+    net_vault,
+):
+    """The `citation_key` matcher's own `(False, None)` for a line that
+    does not cite the target key must stay `False` — a stray `True` would
+    select every line in the note, clearing an unrelated citation's own
+    general-form marker as collateral damage."""
+    note = net_vault / "projects" / "brief" / "collateral-citation.md"
+    note.write_text(
+        "- (quote) cites [@smith2020, p. 1] [failed-verification:: citation-key/2026-08-16]\n"
+        "- (quote) does not cite [@gone2019, p. 1] [failed-verification:: citation-key/2026-08-16]\n"
+    )
+    assert markers.clear_marker_for(net_vault, "citation-key", "smith2020") is True
+    lines = note.read_text().splitlines()
+    assert "[failed-verification" not in lines[0]
+    assert "[failed-verification:: citation-key/2026-08-16]" in lines[1]
+
+
 def test_identifier_hash_reads_the_candidate_image_when_no_citation_key_note_exists(
     net_vault,
 ):
@@ -3902,6 +3975,28 @@ def test_identifier_hash_reads_the_candidate_image_when_no_citation_key_note_exi
         _target_hash(net_vault, outcome, candidate_snapshot=candidate_snapshot)
         == expected
     )
+
+
+def test_identifier_hash_reads_the_worktree_origin_without_a_candidate_snapshot(
+    net_vault,
+):
+    """No candidate snapshot at all: `origin_image` is never built (its own
+    guard needs one), so `_identifier_hash`'s `origin and origin.is_file()`
+    plane must read the real worktree `Path` directly. Distinct from the
+    origin-image tests above, and from `_citation_key_hash`'s own
+    witness-less fallback (this identifier has no note under its own
+    citation key anywhere, so that fallback never fires first)."""
+    note = net_vault / "projects" / "brief" / "orphan-worktree.md"
+    note.write_text("some content for an orphan identifier read from the worktree\n")
+    outcome = _outcome(
+        "update-notice",
+        "orphanworktree2020",
+        Result.UNMATCHED,
+        "retracted — x",
+        note_path="projects/brief/orphan-worktree.md",
+    )
+    expected = hashlib.sha256(_note_bytes(note.read_bytes())).hexdigest()[:16]
+    assert _target_hash(net_vault, outcome) == expected
 
 
 def test_identifier_hash_of_an_empty_origin_image_hashes_true_empty_bytes(net_vault):
@@ -4141,6 +4236,25 @@ def test_plan_state_forwards_the_loaded_bibliography_universe_to_target_hash(
 def test_plan_state_continues_past_index_and_log_to_check_later_notes(net_vault):
     """`index.md`/`log.md` are skipped by name inside the frontmatter walk;
     `continue` must move on to check the rest, not `break` the whole scan."""
+    bad = net_vault / "zz-bad-frontmatter.md"
+    bad.write_text("---\nnot: [valid, frontmatter\n---\nbody\n")
+    report = run_verify(net_vault, network=False, detection_date="2026-09-07")
+    assert any(
+        o.check == "okf-frontmatter" and "zz-bad-frontmatter.md" in str(o.target)
+        for o in report["outcomes"]
+    )
+
+
+def test_plan_state_continues_past_an_excluded_directory_to_check_later_notes(
+    net_vault,
+):
+    """`structure.is_excluded` is checked first in the same loop, on its own
+    `continue`: a `.md` under `.raw/` (an excluded dir, sorted well before
+    the rest of the walk) must not stop the scan from reaching a later,
+    genuinely bad note."""
+    excluded_dir = net_vault / ".raw"
+    excluded_dir.mkdir(exist_ok=True)
+    (excluded_dir / "aa-excluded.md").write_text("not frontmatter at all\n")
     bad = net_vault / "zz-bad-frontmatter.md"
     bad.write_text("---\nnot: [valid, frontmatter\n---\nbody\n")
     report = run_verify(net_vault, network=False, detection_date="2026-09-07")
@@ -4800,6 +4914,7 @@ def test_file_effects_files_a_warn_notice_finding_with_its_own_detection_date(
     (finding,) = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
     assert finding.detection_date == "2020-02-02"
     assert finding.notice_date == "2026-02-01"
+    assert finding.date == "2026-09-07"
 
 
 def test_file_effects_falls_back_to_its_own_detection_date_for_a_warn_notice(
@@ -4914,6 +5029,75 @@ def test_file_effects_files_two_distinct_warn_notices_independently(net_vault):
     _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
     findings = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
     assert len(findings) == 2
+
+
+def test_file_effects_files_a_warn_notice_finding_with_the_real_target_kind(
+    net_vault,
+):
+    """`target_kind=outcome.target_kind` is load-bearing in the warn branch
+    too (mirrors the primary branch's own test): a repo-path-targeted
+    outcome carrying a warn notice must file that notice's finding with
+    `target_kind="repo-path"`, not `append_entry`'s own `"identifier"`
+    default. `update-notice` is the only check a notice fingerprint is
+    valid for, so the repo-path target is built directly rather than
+    through `_outcome`'s `append-only`-only wrapping."""
+    outcome = checks.Outcome(
+        "update-notice",
+        RepoPath(os.fsencode("log/2026-08-16.md")),
+        Result.MATCHED,
+        "matched",
+        {"warn_notices": [{"type": "correction", "notice_date": "2026-02-01"}]},
+    )
+    hashes = {id(outcome): "cc33"}
+    warning_effective = {(id(outcome), 0): True}
+    _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
+    (finding,) = [
+        e for e in inbox.open_entries(net_vault) if e.notice_type == "correction"
+    ]
+    assert finding.target_kind == "repo-path"
+
+
+def test_file_effects_continues_past_a_non_string_warning_type_to_a_later_one(
+    net_vault,
+):
+    """A second `continue` guards the walk: a warning whose `type` is not a
+    string (no `"type"` key at all, here) must not stop the loop — a
+    `break` there would silently drop every later, well-formed warning."""
+    outcome = _outcome(
+        "update-notice",
+        "gone2019",
+        Result.MATCHED,
+        "matched",
+        warn_notices=[
+            {"notice_date": "2026-01-01"},
+            {"type": "erratum", "notice_date": "2026-03-01"},
+        ],
+    )
+    hashes = {id(outcome): "bb22"}
+    warning_effective = {(id(outcome), 0): True, (id(outcome), 1): True}
+    _file_effects(net_vault, [outcome], hashes, warning_effective, "2026-09-07")
+    findings = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
+    assert any(f.notice_type == "erratum" for f in findings)
+    assert not any(f.notice_class == "warn" and f.notice_type is None for f in findings)
+
+
+def test_file_effects_deduplicates_two_identical_primary_findings_in_one_call(
+    net_vault,
+):
+    """The primary branch's own dedup key must use the real composite
+    tuple, not a stray `None` every duplicate would equally match — two
+    Outcomes with an identical check/target/result/hash in one call must
+    file only once."""
+    outcome_a = _outcome(
+        "update-notice", "gone2019", Result.UNMATCHED, "retracted — retraction"
+    )
+    outcome_b = _outcome(
+        "update-notice", "gone2019", Result.UNMATCHED, "retracted — retraction"
+    )
+    hashes = {id(outcome_a): "dd44", id(outcome_b): "dd44"}
+    _file_effects(net_vault, [outcome_a, outcome_b], hashes, {}, "2026-09-07")
+    findings = [e for e in inbox.open_entries(net_vault) if e.target == "gone2019"]
+    assert len(findings) == 1
 
 
 def test_network_outcomes_uses_an_uppercase_doi_to_skip_the_synthetic_outage(

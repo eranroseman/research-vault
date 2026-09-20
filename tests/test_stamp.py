@@ -183,14 +183,26 @@ def test_an_unreadable_or_undecodable_file_is_reported_not_stamped(tmp_path, cap
     (tmp_path / "inbox").mkdir(parents=True)
     bad = tmp_path / "inbox" / "bad.md"
     bad.write_bytes(b"\xff\xfe")
-    assert stamp.stamp_types(tmp_path) == ([], [("inbox/bad.md", "not-utf-8")])
+    (tmp_path / "projects" / "p").mkdir(parents=True)
+    later = tmp_path / "projects" / "p" / "draft.md"
+    later.write_text("the draft\n")
+    # "inbox" sorts before "projects": each bad-read case below must still
+    # `continue` on to stamp this later note, not `break` the whole walk.
+    assert stamp.stamp_types(tmp_path) == (
+        ["projects/p/draft.md"],
+        [("inbox/bad.md", "not-utf-8")],
+    )
     assert bad.read_bytes() == b"\xff\xfe"
     assert main(["stamp-type", "--vault", str(tmp_path)]) == 0
     assert "skipped inbox/bad.md — file is not UTF-8" in capsys.readouterr().out
+    later.write_text("the draft\n")  # stamp_types above already stamped it once
     bad.write_text("x\n")
     bad.chmod(0)
     try:
-        assert stamp.stamp_types(tmp_path) == ([], [("inbox/bad.md", "outage")])
+        assert stamp.stamp_types(tmp_path) == (
+            ["projects/p/draft.md"],
+            [("inbox/bad.md", "outage")],
+        )
         assert main(["stamp-type", "--vault", str(tmp_path)]) == 0
         assert (
             "skipped inbox/bad.md — file could not be read" in capsys.readouterr().out

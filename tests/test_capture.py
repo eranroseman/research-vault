@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -171,6 +172,35 @@ def test_an_unreadable_ledger_holds_the_item_and_leaves_the_note_alone(
     assert (
         note.read_text() == before
     )  # not rewritten from a view that could not be read
+
+
+def test_an_unreadable_existing_note_is_an_outage_not_a_schema_violation(
+    tmp_vault, monkeypatch
+):
+    """The read-path `path.open(...)` failing (permissions, a transient
+    disk fault reading the note that is already there) is UNREACHABLE,
+    never a schema-violation misreading a fault as an encoding problem —
+    and the outage names the real check, citation key, and error text, not
+    a `None` any of the four positional `Outcome(...)` arguments could
+    quietly become."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
+    assert note.is_file()
+    real_open = Path.open
+
+    def failing_open(self, *args, **kwargs):
+        if self == note:
+            raise OSError(13, "Permission denied")
+        return real_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", failing_open)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    (outcome,) = [o for o in outcomes if o.target == "jakesch.etal2023a"]
+    assert outcome.check == "capture"
+    assert outcome.result is Result.UNREACHABLE
+    assert outcome.reason == "outage — [Errno 13] Permission denied"
 
 
 def test_read_restarts_when_the_item_moves_mid_read(tmp_vault, monkeypatch):
@@ -580,6 +610,44 @@ def test_a_trashed_source_requested_by_citation_key_reports_trashed_not_not_admi
     )  # resolved through the tuple, not through /items/top
     refreshed = capture.capture(tmp_vault, client, [], refresh_all=True)
     assert refreshed[0].reason.startswith("trashed — ")
+
+
+def test_a_trashed_refusal_does_not_skip_its_key_from_csl_regeneration(
+    tmp_vault, monkeypatch
+):
+    """`re_keyed` must gain an entry only for an actually re-keyed refusal:
+    `_refused` refuses a trashed item too, but by a different reason code
+    (`_REFUSED`, not `re-keyed`). An `and`/`or` slip on the guard would fold
+    every kind of refusal into the CSL regeneration `skip` set, not just
+    re-keyed ones — so the trashed item's own citation key must still reach
+    `export_csl`."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.rpc("item.export", LIBRARY)
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"D7EJ9FTG": 551},
+        headers={"Last-Modified-Version": "566"},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[],
+        headers={"Last-Modified-Version": "566"},
+    )
+    fake.calls.clear()
+    seen = []
+    real_export_csl = client.export_csl
+
+    def recording_export_csl(keys):
+        seen.append(list(keys))
+        return real_export_csl(keys)
+
+    monkeypatch.setattr(client, "export_csl", recording_export_csl)
+    capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert seen
+    assert "jakesch.etal2023a" in seen[-1]
 
 
 def test_csl_regeneration_needs_no_library_name_when_nothing_was_read(
