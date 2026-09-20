@@ -36,6 +36,7 @@ ENTRY_SKILLS = {
     "project-flow",
     "capture-source",
     "find-sources",
+    "paper-critical-analysis",
 }
 
 # A bare kebab-case token in backticks, e.g. `` `evidence-conventions` `` —

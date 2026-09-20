@@ -86,6 +86,7 @@ Contradiction is preserved, not resolved. When a new claim contradicts one alrea
 | Verify         | `verify-citations` | Run the deterministic suite and report it grouped by check id                                         |
 | Factcheck      | `factcheck-draft`  | Non-blocking LLM adjudication of selected claims                                                      |
 | Publish        | `publish`          | The armed gate and its disposition menu                                                               |
+| Critique       | `paper-critical-analysis` | In-depth critical analysis report of one paper: context, summary, nine-dimension discussion    |
 
 Skills route the need actually stated, never an enlarged version of it. "Capture this paper" is not "capture it and rebuild the concept page."
 

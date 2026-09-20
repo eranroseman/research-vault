@@ -10,7 +10,7 @@ Evidence is added to Zotero and projected into `literature/` — evidence notes 
 
 Prefer the two model-invocable research-vault skills over generic drafting, even for free-form requests: run `evidence-conventions` for claim syntax and `synthesis-conventions` for the rules of the compiled layer.
 
-These seven are the user-invoked entry points — type the name to run one; an agent cannot reach them on its own:
+These eight are the user-invoked entry points — type the name to run one; an agent cannot reach them on its own:
 
 | Skill              | Use it to                                                      |
 | ------------------ | -------------------------------------------------------------- |
@@ -21,6 +21,7 @@ These seven are the user-invoked entry points — type the name to run one; an a
 | `verify-citations` | verify citations and run the citation checks                   |
 | `factcheck-draft`  | factcheck a draft against its sources before review            |
 | `publish`          | publish, park, correct, or withdraw a project                  |
+| `paper-critical-analysis` | write an in-depth critical analysis report of one paper |
 
 Literature notes are wholly machine-written: `capture` regenerates the whole note from Zotero on every run, so per-source prose belongs in a Zotero child note, which capture renders.
 

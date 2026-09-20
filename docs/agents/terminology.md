@@ -124,7 +124,7 @@ names do not persist in vault records and may be renamed outright.
 
 Governed skill names are `setup-vault`, `project-flow`, `find-sources`,
 `capture-source`, `verify-citations`, `factcheck-draft`, `publish`,
-`evidence-conventions`, and `synthesis-conventions`.
+`paper-critical-analysis`, `evidence-conventions`, and `synthesis-conventions`.
 
 ### 4.4 Identifier inventory
 
