@@ -1060,10 +1060,35 @@ def test_retraction_ack_field_has_one_definition_site():
     assert publish.RETRACTION_ACK_FIELD == "retraction-ack"
 
 
-def test_a_disposition_on_an_undecodable_project_note_is_a_publish_error(fixture_vault):
-    """`project_note` already skips a note it cannot read and refuses for want
-    of one; the later reads at the disposition sites are guarded the same
-    way, so no shape of an unreadable note reaches a traceback."""
-    (fixture_vault / "projects" / "brief" / "draft.md").write_bytes(b"\xff\xfe")
-    with pytest.raises(publish.PublishError):
+def test_a_disposition_on_an_undecodable_project_note_is_a_publish_error(
+    fixture_vault, monkeypatch
+):
+    """`project_note` already refuses a note it cannot read; the later reads at
+    the disposition sites are guarded the same way, so no shape of an
+    unreadable note reaches a traceback.
+
+    The fault is driven at the read, not at the file on disk: a note corrupted
+    before the call never reaches a disposition read at all, because
+    ``project_note`` hunts for the one ``type: project`` block first and
+    refuses for want of one — an assertion that would pass with the
+    disposition guard deleted. What is pinned here is the read *after* that
+    refusal, the note that parsed a moment ago and cannot be read now, so the
+    first call (``project_note``'s own hunt) is the real reader and every
+    later one is the fault. All three disposition reads go through
+    ``_note_text_or_refuse``, so pinning it at one call site pins the guard.
+    """
+    real_read = publish._read_note_text
+    reads = []
+
+    def undecodable_after_project_note(path):
+        reads.append(path)
+        if len(reads) == 1:
+            return real_read(path)
+        raise UnicodeDecodeError("utf-8", b"\xff\xfe", 0, 1, "invalid start byte")
+
+    monkeypatch.setattr(publish, "_read_note_text", undecodable_after_project_note)
+    with pytest.raises(publish.PublishError, match="invalid start byte"):
         publish.mark_parked(fixture_vault, "brief")
+    # The disposition's own read happened: without it the refusal above would
+    # be `project_note`'s, and the guard would go untested.
+    assert len(reads) == 2
