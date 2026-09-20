@@ -3852,6 +3852,37 @@ def test_claim_anchor_hash_crashes_are_confined_to_the_citation_key_note_lookup(
     assert _target_hash(net_vault, outcome) is None
 
 
+def test_target_hash_of_an_index_candidate_never_reads_a_claim_from_the_worktree(
+    net_vault,
+):
+    """The last-resort citation-key note lookup (`_note_for_citation_key` +
+    `_claim_bytes`) reads straight off the worktree, bypassing whatever
+    snapshot the caller supplied — so its guard, `candidate_snapshot is
+    None`, must gate it strictly to the no-candidate case. An index
+    candidate (the pre-commit hook's shape) that omits a note — here, one
+    never staged or committed at all, so neither the candidate nor base/HEAD
+    plane can see it — must not let this fallback leak the worktree's claim
+    bytes back in as if the candidate had verified them."""
+    note = net_vault / "literature" / "leaked2020.md"
+    note.write_text("- (quote) leaked [@leaked2020, p. 1] ^c-1\n")
+    claim_bytes = _claim_bytes_from_text(note.read_text(), "c-1")
+    leaked_hash = hashlib.sha256(claim_bytes).hexdigest()[:16]
+    outcome = _outcome(
+        "quote",
+        "leaked2020#^c-1",
+        Result.UNMATCHED,
+        "mismatch — quote",
+        note_path="literature/leaked2020.md",
+        claim_id="c-1",
+    )
+    snapshots = gitstate.resolve_snapshots(net_vault, candidate="index")
+    result = _target_hash(net_vault, outcome, candidate_snapshot=snapshots.candidate)
+    assert (
+        result is None
+    )  # neither the candidate nor _identifier_hash's own legs see it
+    assert result != leaked_hash
+
+
 def test_claim_anchor_hash_does_not_re_derive_a_plane_the_origin_already_answered(
     net_vault,
 ):
