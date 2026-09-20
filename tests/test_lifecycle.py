@@ -645,3 +645,17 @@ def test_read_live_skips_a_null_top_item_row():
 
     live = lifecycle.read_live(Stub())
     assert list(live.top) == ["E352DFS8"]
+
+
+def test_replaces_keys_takes_the_last_segment_and_a_bare_key_is_itself():
+    assert lifecycle.replaces_keys("http://zotero.org/users/1/items/ABCD1234") == {
+        "ABCD1234"
+    }
+    assert lifecycle.replaces_keys(
+        ["http://zotero.org/users/1/items/ABCD1234/", "EFGH5678"]
+    ) == {
+        "ABCD1234",
+        "EFGH5678",
+    }
+    assert lifecycle.replaces_keys(None) == set()
+    assert lifecycle.replaces_keys(["", 7]) == set()

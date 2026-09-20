@@ -152,3 +152,15 @@ def test_declared_names_a_non_utf8_declaration(monkeypatch, tmp_path):
     monkeypatch.setattr(addons.resources, "files", lambda _name: package)
     with pytest.raises(ValueError, match=r"zotero-addons\.md: not UTF-8"):
         addons.declared()
+
+
+def test_read_prefs_reads_a_negative_number_not_a_quoted_token(tmp_path):
+    """`raw.lstrip("-")` decides the branch: a `lstrip(None)`
+    (whitespace-strip) or `rstrip("-")` mutant leaves the leading `-` in
+    place, `isdigit()` then reads False, and the value falls through to
+    `_string_pref`'s raw-token path instead of `int()`."""
+    (tmp_path / "prefs.js").write_text(
+        'user_pref("extensions.zotero.some.negative", -5);\n'
+    )
+    prefs = addons.read_prefs(tmp_path)
+    assert prefs == {"extensions.zotero.some.negative": -5}

@@ -190,6 +190,29 @@ def test_read_restarts_when_the_item_moves_mid_read(tmp_vault, monkeypatch):
     assert read.item["data"]["citationKey"] == "jakesch.etal2023a"
 
 
+def test_read_item_raises_after_max_restarts_are_exhausted(tmp_vault, monkeypatch):
+    """A mutant that discards this message into a bare `None` still raises
+    `ZoteroError`, so only the message text distinguishes it."""
+    import itertools
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    versions = itertools.count(544)
+    real_item = client.item
+
+    def always_moving_item(key):
+        envelope = json.loads(json.dumps(real_item(key)))
+        envelope["version"] = envelope["data"]["version"] = next(versions)
+        return envelope
+
+    monkeypatch.setattr(client, "item", always_moving_item)
+    with pytest.raises(
+        zotero.ZoteroError,
+        match=r"item E352DFS8 moved during 3 consecutive read passes",
+    ):
+        capture.read_item(client, "E352DFS8")
+
+
 def test_no_usable_text_writes_the_note_and_files_no_fulltext(tmp_vault, monkeypatch):
     partial = {"content": "x" * 900, "indexedPages": 100, "totalPages": 143}
     fake = _canned_run(canned_item(FakeZotero(), fulltext=partial))
@@ -991,6 +1014,13 @@ def test_best_attachment_follows_the_item_link_when_usable_else_the_first_usable
     assert capture._best_attachment({"links": {"attachment": {}}}, []) is None
 
 
+def test_best_attachment_reads_a_slashless_href_whole():
+    """`.rsplit("/", 1)[-1]` on an href with no "/" returns the href itself;
+    `[+1]` would IndexError on the single-element list rsplit leaves."""
+    link = {"links": {"attachment": {"href": "BBBB2222"}}}
+    assert capture._best_attachment(link, ["BBBB2222"]) == "BBBB2222"
+
+
 def _second_attachment(key="A2ND0002"):
     child = json.loads(json.dumps(ATTACHMENT))
     child["key"] = child["data"]["key"] = key
@@ -1464,3 +1494,28 @@ def test_capture_reports_an_undecodable_existing_note_and_writes_nothing_over_it
     )
     assert outcomes[0].reason.startswith("schema-violation — not UTF-8")
     assert note.read_bytes() == b"\xff\xfe"
+
+
+def test_capture_one_creates_a_multi_level_missing_vault_directory(tmp_path):
+    """`literature/` is scaffolded before any real vault-level command runs,
+    but `_capture_one`'s own `mkdir(parents=True, exist_ok=True)` still
+    creates both missing levels when called directly against a vault that
+    was never scaffolded at all."""
+    import datetime
+
+    vault = tmp_path / "missing" / "vault"
+    read = capture.ItemRead(ITEM, [], {}, 544)
+    now = datetime.datetime(2026, 9, 17, tzinfo=datetime.UTC)
+    capture._capture_one(vault, read, "6LpvURP2E933", now)
+    assert (vault / "literature" / "jakesch.etal2023a.md").is_file()
+
+
+def test_standing_by_item_key_keys_an_unjoined_target_by_itself():
+    """A `linted` outcome whose target has no item-key match stays keyed by
+    its own target string, not folded to `None` alongside every other
+    unjoined target."""
+    linted = [
+        capture.Outcome(capture.CHECK, "unjoined-key", Result.UNMATCHED, "trashed — x")
+    ]
+    standing = capture._standing_by_item_key(linted, {})
+    assert standing == {"unjoined-key": linted[0]}

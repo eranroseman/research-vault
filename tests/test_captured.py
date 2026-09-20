@@ -339,6 +339,19 @@ def test_clock_today_is_the_utc_date_even_when_the_local_day_differs(monkeypatch
     assert clock.today() == "2026-09-14"
 
 
+def test_clock_today_names_the_bad_value_in_a_shape_refusal():
+    """The shape check's own `ValueError` names the value: a mutant that
+    discards the message into a bare `ValueError(None)` still raises
+    `ValueError`, so only the message text distinguishes it — the existing
+    `except ValueError: continue` shape test above does not check it."""
+    import pytest
+
+    from research_vault import clock
+
+    with pytest.raises(ValueError, match=r"--as-of must be YYYY-MM-DD, got '2026-1-2'"):
+        clock.today("2026-1-2")
+
+
 def test_a_stray_byte_under_wiki_is_a_row_not_a_traceback(tmp_vault):
     """verify's except tuple excludes ValueError, so a UnicodeDecodeError out of
     this lint would end the run with a traceback instead of a finding."""
@@ -568,3 +581,26 @@ def test_textual_half_walks_past_an_excluded_page_and_an_unreadable_one(tmp_vaul
             "not-captured — wiki/c.md links [[nowhere]], not a page and not in the captured set",
         ),
     ]
+
+
+def test_aliases_collects_titles_and_aliases_and_tolerates_their_absence(tmp_vault):
+    """`_aliases`: a note with both, a note with neither; the set is exact so
+    a `None` added for a missing title, an upper-cased key, or a `None`
+    default for `aliases` each fail."""
+    literature = tmp_vault / "literature"
+    literature.mkdir(exist_ok=True)
+    tuple_lines = (
+        'zotero-server-id: "6LpvURP2E933"\nzotero-item-key: "{key}"\n'
+        'zotero-item-version: 1\ncitationKey: "{cite}"\nattachments:\nfulltext:\n'
+    )
+    (literature / "both.md").write_text(
+        '---\ntype: "literature"\ntitle: "Both"\naliases:\n  - "Alias One"\n  - 7\n'
+        + tuple_lines.format(key="BOTH0001", cite="both")
+        + "---\n"
+    )
+    (literature / "neither.md").write_text(
+        '---\ntype: "literature"\n'
+        + tuple_lines.format(key="NONE0001", cite="neither")
+        + "---\n"
+    )
+    assert captured._aliases(tmp_vault) == {"Both", "Alias One"}

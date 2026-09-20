@@ -81,13 +81,20 @@ research_vault/__main__.py::func/record_finding::-            "record it"\n+    
 research_vault/__main__.py::func/record_finding::-            reason,\n+            None,
 research_vault/__main__.py::func/record_finding::-            reason,\n-        )\n+            )
 research_vault/__main__.py::func/record_finding::-        return 2, str(error)\n+        return 2, str(None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/addons.py::func/declared::-        .read_text(encoding="utf-8")\n+        .read_text(encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/addons.py::func/declared::-        .read_text(encoding="utf-8")\n+        .read_text(encoding=None)
 research_vault/addons.py::func/declared::-        resources.files("research_vault")\n+        resources.files(None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/addons.py::func/observe::-        (Path(profile_dir) / "extensions.json").read_text(encoding="utf-8")\n+        (Path(profile_dir) / "extensions.json").read_text(encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/addons.py::func/observe::-        (Path(profile_dir) / "extensions.json").read_text(encoding="utf-8")\n+        (Path(profile_dir) / "extensions.json").read_text(encoding=None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/addons.py::func/read_prefs::-        (Path(profile_dir) / "prefs.js").read_text(encoding="utf-8").splitlines()\n+        (Path(profile_dir) / "prefs.js").read_text(encoding="UTF-8").splitlines()
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/addons.py::func/read_prefs::-        (Path(profile_dir) / "prefs.js").read_text(encoding="utf-8").splitlines()\n+        (Path(profile_dir) / "prefs.js").read_text(encoding=None).splitlines()
+# reason: equivalent on the grammar: a prefs.js numeric literal reaching this branch starts with a digit or "-", never "X", so wrapping the strip charset with X changes nothing
 research_vault/addons.py::func/read_prefs::-        elif raw.lstrip("-").isdigit():\n+        elif raw.lstrip("XX-XX").isdigit():
 research_vault/addons.py::func/read_prefs::-        elif raw.lstrip("-").isdigit():\n+        elif raw.lstrip(None).isdigit():
 research_vault/addons.py::func/read_prefs::-        elif raw.lstrip("-").isdigit():\n+        elif raw.rstrip("-").isdigit():
@@ -145,55 +152,91 @@ research_vault/bibliography.py::func/write::-        json.dumps(ordered, indent=
 research_vault/bibliography.py::func/write::-    target.parent.mkdir(parents=True, exist_ok=True)\n+    target.parent.mkdir(exist_ok=True)
 research_vault/bibliography.py::func/write::-    target.parent.mkdir(parents=True, exist_ok=True)\n+    target.parent.mkdir(parents=False, exist_ok=True)
 research_vault/bibliography.py::func/write::-    target.parent.mkdir(parents=True, exist_ok=True)\n+    target.parent.mkdir(parents=None, exist_ok=True)
+# reason: equivalent on the grammar: [-1] on an rsplit("/", n) result names the same trailing segment for any n >= 1 or unbounded, so the maxsplit value never changes the answer
 research_vault/capture.py::func/_best_attachment::-    best = href.rstrip("/").rsplit("/", 1)[-1] if href else None\n+    best = href.rstrip("/").rsplit("/", )[-1] if href else None
 research_vault/capture.py::func/_best_attachment::-    best = href.rstrip("/").rsplit("/", 1)[-1] if href else None\n+    best = href.rstrip("/").rsplit("/", 1)[+1] if href else None
+# reason: equivalent on the grammar: [-1] on an rsplit("/", n) result names the same trailing segment for any n >= 1 or unbounded, so the maxsplit value never changes the answer
 research_vault/capture.py::func/_best_attachment::-    best = href.rstrip("/").rsplit("/", 1)[-1] if href else None\n+    best = href.rstrip("/").rsplit("/", 2)[-1] if href else None
+# reason: never-read-back literal: the fallback lands in best, but no real attachment key in usable is ever the literal "XXXX", so `best in usable` is False either way and the run falls through identically
 research_vault/capture.py::func/_best_attachment::-    href = ((item.get("links") or {}).get("attachment") or {}).get("href", "")\n+    href = ((item.get("links") or {}).get("attachment") or {}).get("href", "XXXX")
+# reason: equivalent on the grammar: href's only downstream use is the truthiness test `if href else None`, and "" and None are both falsy
 research_vault/capture.py::func/_best_attachment::-    href = ((item.get("links") or {}).get("attachment") or {}).get("href", "")\n+    href = ((item.get("links") or {}).get("attachment") or {}).get("href", )
+# reason: equivalent on the grammar: href's only downstream use is the truthiness test `if href else None`, and "" and None are both falsy
 research_vault/capture.py::func/_best_attachment::-    href = ((item.get("links") or {}).get("attachment") or {}).get("href", "")\n+    href = ((item.get("links") or {}).get("attachment") or {}).get("href", None)
 research_vault/capture.py::func/_capture_one::-        path.parent.mkdir(parents=True, exist_ok=True)\n+        path.parent.mkdir(exist_ok=True)
 research_vault/capture.py::func/_capture_one::-        path.parent.mkdir(parents=True, exist_ok=True)\n+        path.parent.mkdir(parents=False, exist_ok=True)
 research_vault/capture.py::func/_capture_one::-        path.parent.mkdir(parents=True, exist_ok=True)\n+        path.parent.mkdir(parents=None, exist_ok=True)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/capture.py::func/_capture_one::-        with path.open("r", encoding="utf-8", newline="") as handle:\n+        with path.open("r", encoding="UTF-8", newline="") as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_capture_one::-        with path.open("r", encoding="utf-8", newline="") as handle:\n+        with path.open("r", encoding=None, newline="") as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_capture_one::-        with path.open("r", encoding="utf-8", newline="") as handle:\n+        with path.open("r", newline="") as handle:
+# reason: equivalent on the grammar: Path.open's own default mode is "r", so dropping the literal changes nothing
 research_vault/capture.py::func/_capture_one::-        with path.open("r", encoding="utf-8", newline="") as handle:\n+        with path.open(encoding="utf-8", newline="") as handle:
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/capture.py::func/_capture_one::-        with path.open("w", encoding="utf-8", newline="") as handle:\n+        with path.open("w", encoding="UTF-8", newline="") as handle:
+# reason: locale default: the fixtures use \n line endings only, so universal-newline translation and the raw newline="" read identically
 research_vault/capture.py::func/_capture_one::-        with path.open("w", encoding="utf-8", newline="") as handle:\n+        with path.open("w", encoding="utf-8", ) as handle:
+# reason: locale default: the fixtures use \n line endings only, so universal-newline translation and the raw newline="" read identically
 research_vault/capture.py::func/_capture_one::-        with path.open("w", encoding="utf-8", newline="") as handle:\n+        with path.open("w", encoding="utf-8", newline=None) as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_capture_one::-        with path.open("w", encoding="utf-8", newline="") as handle:\n+        with path.open("w", encoding=None, newline="") as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_capture_one::-        with path.open("w", encoding="utf-8", newline="") as handle:\n+        with path.open("w", newline="") as handle:
+# reason: equivalent on the grammar: existing's only `is not None` use is immediately conjoined with a content-equality check (content_changed / the projection comparison) that a freshly captured item's real content can never satisfy against empty prior state, so None and "" reach the same else branch
 research_vault/capture.py::func/_capture_one::-    existing = None\n+    existing = ""
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/capture.py::func/_every_note::-            data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))\n+            data, _body = frontmatter.parse(path.read_text(encoding="UTF-8"))
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_every_note::-            data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))\n+            data, _body = frontmatter.parse(path.read_text(encoding=None))
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/capture.py::func/_load_key::-        return json.loads(path.read_text(encoding="utf-8")).get(server_id)\n+        return json.loads(path.read_text(encoding="UTF-8")).get(server_id)
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_load_key::-        return json.loads(path.read_text(encoding="utf-8")).get(server_id)\n+        return json.loads(path.read_text(encoding=None)).get(server_id)
+# reason: equivalent on the grammar: every refusal code (_REFUSED's members, re-keyed) is one hyphenated word with no internal whitespace, so `split(" — ")[0]` and the default whitespace `split(None)[0]` land on the same first token
 research_vault/capture.py::func/_refused::-    code = prior.reason.split(" — ")[0]\n+    code = prior.reason.split(None)[0]
 research_vault/capture.py::func/_standing_by_item_key::-        item_key_of.get(outcome.target, outcome.target): outcome\n+        item_key_of.get(outcome.target): outcome
 research_vault/capture.py::func/_standing_by_item_key::-        item_key_of.get(outcome.target, outcome.target): outcome\n+        item_key_of.get(outcome.target, ): outcome
 research_vault/capture.py::func/_standing_by_item_key::-        item_key_of.get(outcome.target, outcome.target): outcome\n+        item_key_of.get(outcome.target, None): outcome
 research_vault/capture.py::func/_store_key::-        current = json.loads(path.read_text(encoding="utf-8"))\n+        current = None
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/capture.py::func/_store_key::-        current = json.loads(path.read_text(encoding="utf-8"))\n+        current = json.loads(path.read_text(encoding="UTF-8"))
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_store_key::-        current = json.loads(path.read_text(encoding="utf-8"))\n+        current = json.loads(path.read_text(encoding=None))
+# reason: equivalent on the grammar: the very next line, `current = current or {}`, unconditionally coerces None back to {}, so the two assignments reach the same value
 research_vault/capture.py::func/_store_key::-        current = {}\n+        current = None
 research_vault/capture.py::func/_store_key::-    path.parent.mkdir(parents=True, exist_ok=True)\n+    path.parent.mkdir(exist_ok=True)
 research_vault/capture.py::func/_store_key::-    path.parent.mkdir(parents=True, exist_ok=True)\n+    path.parent.mkdir(parents=False, exist_ok=True)
 research_vault/capture.py::func/_store_key::-    path.parent.mkdir(parents=True, exist_ok=True)\n+    path.parent.mkdir(parents=None, exist_ok=True)
+# reason: equivalent on the grammar: Path.touch's own default exist_ok is True, so dropping the literal changes nothing
 research_vault/capture.py::func/_store_key::-    path.touch(mode=0o600, exist_ok=True)\n+    path.touch(mode=0o600, )
 research_vault/capture.py::func/_store_key::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, ) + "\n", encoding="utf-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_store_key::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=2) + "\n", )
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/capture.py::func/_store_key::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=2) + "\n", encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/capture.py::func/_store_key::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=2) + "\n", encoding=None)
 research_vault/capture.py::func/_store_key::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=3) + "\n", encoding="utf-8")
 research_vault/capture.py::func/_store_key::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=None) + "\n", encoding="utf-8")
+# reason: equivalent on the grammar: itemType is also a member of _ITEM_FIELDS (literature_notes.SNAPSHOT_FIELDS lists it), so the != guard is redundant for every case variant of the literal -- no other Zotero field name equals any of these variants either
 research_vault/capture.py::func/_validate_items::-            if field_name != "itemType" and field_name not in _ITEM_FIELDS:\n+            if field_name != "ITEMTYPE" and field_name not in _ITEM_FIELDS:
+# reason: equivalent on the grammar: itemType is also a member of _ITEM_FIELDS (literature_notes.SNAPSHOT_FIELDS lists it), so the != guard is redundant for every case variant of the literal -- no other Zotero field name equals any of these variants either
 research_vault/capture.py::func/_validate_items::-            if field_name != "itemType" and field_name not in _ITEM_FIELDS:\n+            if field_name != "XXitemTypeXX" and field_name not in _ITEM_FIELDS:
+# reason: equivalent on the grammar: itemType is also a member of _ITEM_FIELDS (literature_notes.SNAPSHOT_FIELDS lists it), so the != guard is redundant for every case variant of the literal -- no other Zotero field name equals any of these variants either
 research_vault/capture.py::func/_validate_items::-            if field_name != "itemType" and field_name not in _ITEM_FIELDS:\n+            if field_name != "itemtype" and field_name not in _ITEM_FIELDS:
+# reason: never-read-back literal: client.api_key is unconditionally reassigned to the fresh key at the top of the next loop iteration before anything reads it in between
 research_vault/capture.py::func/add::-                client.api_key = None\n+                client.api_key = ""
+# reason: equivalent on the grammar: attempt is only ever compared via `attempt == 1`, never read as a count, and both tuples have exactly two elements starting with 1, so the second value's identity never matters
 research_vault/capture.py::func/add::-    for attempt in (1, 2):\n+    for attempt in (1, 3):
+# reason: never-read-back literal: the stamp writer re-zeroes the microsecond before anything reads it, and accessed only ever reads now's date (see test_capture_without_now_stamps_a_utc_second_resolution_instant's own docstring)
 research_vault/capture.py::func/capture::-    now = now or datetime.datetime.now(datetime.UTC).replace(microsecond=0)\n+    now = now or datetime.datetime.now(datetime.UTC).replace(microsecond=1)
+# reason: equivalent on the grammar: lint_lifecycle (called above) sets client.server_id from the recorded notes and blocks the whole run with a vault-targeted database-changed outcome whenever that id doesn't match the server actually answering, so by this line client.server_id already equals info["server_id"] -- the same server client.server_info() read -- and or/and/either dict key are equivalent
 research_vault/capture.py::func/capture::-    server_id = client.server_id or info["server_id"]\n+    server_id = client.server_id and info["server_id"]
+# reason: equivalent on the grammar: lint_lifecycle (called above) sets client.server_id from the recorded notes and blocks the whole run with a vault-targeted database-changed outcome whenever that id doesn't match the server actually answering, so by this line client.server_id already equals info["server_id"] -- the same server client.server_info() read -- and or/and/either dict key are equivalent
 research_vault/capture.py::func/capture::-    server_id = client.server_id or info["server_id"]\n+    server_id = client.server_id or info["SERVER_ID"]
+# reason: equivalent on the grammar: lint_lifecycle (called above) sets client.server_id from the recorded notes and blocks the whole run with a vault-targeted database-changed outcome whenever that id doesn't match the server actually answering, so by this line client.server_id already equals info["server_id"] -- the same server client.server_info() read -- and or/and/either dict key are equivalent
 research_vault/capture.py::func/capture::-    server_id = client.server_id or info["server_id"]\n+    server_id = client.server_id or info["XXserver_idXX"]
 research_vault/capture.py::func/read_item::-        f"item {item_key} moved during {MAX_READ_RESTARTS} consecutive read passes"\n+        None
 research_vault/captured.py::func/_aliases::-            names.add(title)\n+            names.add(None)
@@ -206,15 +249,25 @@ research_vault/captured.py::func/_aliases::-        title = data.get("title")\n+
 research_vault/captured.py::func/_aliases::-        title = data.get("title")\n+        title = data.get("TITLE")
 research_vault/captured.py::func/_aliases::-        title = data.get("title")\n+        title = data.get("XXtitleXX")
 research_vault/captured.py::func/_aliases::-        title = data.get("title")\n+        title = data.get(None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/captured.py::func/_read_notes::-            text = path.read_text(encoding="utf-8")\n+            text = path.read_text(encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/captured.py::func/_read_notes::-            text = path.read_text(encoding="utf-8")\n+            text = path.read_text(encoding=None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/captured.py::func/_reportable::-    decoded = text.encode("utf-8", "surrogateescape").decode("utf-8", "replace")\n+    decoded = text.encode("UTF-8", "surrogateescape").decode("utf-8", "replace")
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/captured.py::func/_reportable::-    decoded = text.encode("utf-8", "surrogateescape").decode("utf-8", "replace")\n+    decoded = text.encode("utf-8", "surrogateescape").decode("UTF-8", "replace")
+# reason: never-read-back literal: the fixtures' first ten characters agree, so the slice length is unobservable
 research_vault/captured.py::func/_structural::-                or due[:10] < instant\n+                or due[:11] < instant
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/captured.py::func/_structural::-        text = ledger.read_text(encoding="utf-8")\n+        text = ledger.read_text(encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/captured.py::func/_structural::-        text = ledger.read_text(encoding="utf-8")\n+        text = ledger.read_text(encoding=None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/captured.py::func/_textual::-            text = path.read_text(encoding="utf-8", errors="surrogateescape")\n+            text = path.read_text(encoding="UTF-8", errors="surrogateescape")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/captured.py::func/_textual::-            text = path.read_text(encoding="utf-8", errors="surrogateescape")\n+            text = path.read_text(encoding=None, errors="surrogateescape")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/captured.py::func/_textual::-            text = path.read_text(encoding="utf-8", errors="surrogateescape")\n+            text = path.read_text(errors="surrogateescape")
 research_vault/checks.py::func/_arxiv_base_identity::-        or not parts.path.startswith("/abs/")\n-        or parts.query\n+        or not parts.path.startswith("/abs/") and parts.query
 research_vault/checks.py::func/_arxiv_base_identity::-        or parts.netloc.casefold() != "arxiv.org"\n-        or not parts.path.startswith("/abs/")\n+        or parts.netloc.casefold() != "arxiv.org" and not parts.path.startswith("/abs/")
@@ -1097,13 +1150,18 @@ research_vault/inbox.py::func/scope_id::-        b"\x00".join(part.encode("utf-8
 research_vault/inbox.py::func/scope_id::-    parts = (check, str(target), target_hash or "")\n+    parts = (check, str(target), target_hash or "XXXX")
 research_vault/inbox.py::func/validate_reason::-            "reason must be a supported code, optionally followed by free text: "\n+            "XXreason must be a supported code, optionally followed by free text: XX"
 research_vault/inbox.py::func/validate_reason::-        or "\0" in reason\n+        or "XX\0XX" in reason
+# reason: equivalent on the grammar: text_changed's only use is the truthiness test `if text_changed else ""`, and None/False are both falsy
 research_vault/lifecycle.py::func/_drift_detail::-        text_changed = False\n+        text_changed = None
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/lifecycle.py::func/_provenances::-            provenance = notes.read_provenance(path.read_text(encoding="utf-8"))\n+            provenance = notes.read_provenance(path.read_text(encoding="UTF-8"))
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/lifecycle.py::func/_provenances::-            provenance = notes.read_provenance(path.read_text(encoding="utf-8"))\n+            provenance = notes.read_provenance(path.read_text(encoding=None))
 research_vault/lifecycle.py::func/classify::-    live_key = live.top.get(key, {}).get("citationKey")\n+    live_key = live.top.get(key, ).get("citationKey")
 research_vault/lifecycle.py::func/classify::-    live_key = live.top.get(key, {}).get("citationKey")\n+    live_key = live.top.get(key, None).get("citationKey")
+# reason: equivalent on the grammar: only the last segment is read
 research_vault/lifecycle.py::func/replaces_keys::-        str(v).rstrip("/").rsplit("/", 1)[-1]\n+        str(v).rstrip("/").rsplit("/", )[-1]
 research_vault/lifecycle.py::func/replaces_keys::-        str(v).rstrip("/").rsplit("/", 1)[-1]\n+        str(v).rstrip("/").rsplit("/", 1)[+1]
+# reason: equivalent on the grammar: only the last segment is read
 research_vault/lifecycle.py::func/replaces_keys::-        str(v).rstrip("/").rsplit("/", 1)[-1]\n+        str(v).rstrip("/").rsplit("/", 2)[-1]
 research_vault/lints.py::func/_body_bytes::-        return notes.note_body(text).encode("utf-8")\n+        return notes.note_body(text).encode("UTF-8")
 research_vault/lints.py::func/_body_bytes::-        text = (image.data or b"").decode("utf-8")\n+        text = (image.data or b"").decode("UTF-8")
@@ -1309,57 +1367,100 @@ research_vault/paths.py::func/to_bbt_host::-        raise PathError("cannot tran
 research_vault/paths.py::func/to_bbt_host::-        raise PathError("cannot translate BBT target through wslpath -w")\n+        raise PathError("cannot translate bbt target through wslpath -w")
 research_vault/paths.py::func/to_bbt_host::-        raise PathError("cannot translate BBT target through wslpath -w")\n+        raise PathError(None)
 research_vault/paths.py::func/to_local::-    raise PathError(f"cannot resolve {path!r}: no path_map match, wslpath unavailable")\n+    raise PathError(None)
+# reason: equivalent on the grammar: json.dumps's ensure_ascii check is a plain truthiness test, and None/False are both falsy, so they encode identically (verified: json.dumps({"a": "e"}, ensure_ascii=None) == json.dumps({"a": "e"}, ensure_ascii=False))
 research_vault/propagate.py::func/_canonical::-    return json.dumps(document, sort_keys=True, indent=2, ensure_ascii=False) + "\n"\n+    return json.dumps(document, sort_keys=True, indent=2, ensure_ascii=None) + "\n"
+# reason: equivalent on the grammar: a citation key carries no whitespace, so the re-keyed reason holds exactly one arrow
 research_vault/propagate.py::func/_mapping_from_linter::-            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", 1)\n+            old, new = outcome.reason[len("re-keyed — ") :].rsplit(" → ", 1)
+# reason: equivalent on the grammar: a citation key carries no whitespace, so the re-keyed reason holds exactly one arrow
 research_vault/propagate.py::func/_mapping_from_linter::-            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", 1)\n+            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", )
+# reason: equivalent on the grammar: a citation key carries no whitespace, so the re-keyed reason holds exactly one arrow
 research_vault/propagate.py::func/_mapping_from_linter::-            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", 1)\n+            old, new = outcome.reason[len("re-keyed — ") :].split(" → ", 2)
 research_vault/propagate.py::func/_sources::-                _refusal(old, f"no note under literature/ records citationKey {old}")\n+                _refusal(old, None)
 research_vault/propagate.py::func/apply::-                "computed; run propagate again",\n+                "COMPUTED; RUN PROPAGATE AGAIN",
 research_vault/propagate.py::func/apply::-                "computed; run propagate again",\n+                "XXcomputed; run propagate againXX",
+# reason: never-read-back literal: the recomputed plan's operation_id/date -- the only fields now feeds -- are immediately overwritten by `_replace(operation_id=approved.operation_id, date=approved.date)`
 research_vault/propagate.py::func/apply::-    current, outcomes = plan(vault, client, approved.mapping, now=now)\n+    current, outcomes = plan(vault, client, approved.mapping, )
+# reason: never-read-back literal: the recomputed plan's operation_id/date -- the only fields now feeds -- are immediately overwritten by `_replace(operation_id=approved.operation_id, date=approved.date)`
 research_vault/propagate.py::func/apply::-    current, outcomes = plan(vault, client, approved.mapping, now=now)\n+    current, outcomes = plan(vault, client, approved.mapping, now=None)
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/apply::-    record.write_text(_canonical(document), encoding="utf-8")\n+    record.write_text(_canonical(document), )
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/apply::-    record.write_text(_canonical(document), encoding="utf-8")\n+    record.write_text(_canonical(document), encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/apply::-    record.write_text(_canonical(document), encoding="utf-8")\n+    record.write_text(_canonical(document), encoding=None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/lint_propagation::-        (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+        (relative, path.read_text(encoding="UTF-8", errors="surrogateescape"))
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/lint_propagation::-        (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+        (relative, path.read_text(encoding=None, errors="surrogateescape"))
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/lint_propagation::-        (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+        (relative, path.read_text(errors="surrogateescape"))
 research_vault/propagate.py::func/plan::-            outcomes.append(_refusal(old, str(error)))\n+            outcomes.append(_refusal(old, None))
 research_vault/propagate.py::func/plan::-            outcomes.append(_refusal(old, str(error)))\n+            outcomes.append(_refusal(old, str(None)))
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/plan::-            relative.encode("utf-8")\n+            relative.encode("UTF-8")
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/plan::-        text = data.decode("utf-8", errors="surrogateescape")\n+        text = data.decode("UTF-8", errors="surrogateescape")
+# reason: locale default: the fixtures never carry a byte requiring the surrogateescape handler, so strict's default and surrogateescape decode identically
 research_vault/propagate.py::func/plan::-        text = data.decode("utf-8", errors="surrogateescape")\n+        text = data.decode("utf-8", )
+# reason: locale default: the fixtures never carry a byte surrogateescape must handle, so the error-handler name is never looked up
 research_vault/propagate.py::func/plan::-        text = data.decode("utf-8", errors="surrogateescape")\n+        text = data.decode("utf-8", errors="SURROGATEESCAPE")
+# reason: locale default: the fixtures never carry a byte surrogateescape must handle, so the error-handler name is never looked up
 research_vault/propagate.py::func/plan::-        text = data.decode("utf-8", errors="surrogateescape")\n+        text = data.decode("utf-8", errors="XXsurrogateescapeXX")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/plan::-        text = data.decode("utf-8", errors="surrogateescape")\n+        text = data.decode(errors="surrogateescape")
 research_vault/propagate.py::func/plan::-    now = now or datetime.datetime.now(datetime.UTC)\n+    now = now or datetime.datetime.now(None)
 research_vault/propagate.py::func/plan::-    operation_id = "propagate-" + now.strftime("%Y%m%dT%H%M%SZ")\n+    operation_id = "propagate-" + now.strftime("%y%m%dt%h%m%sz")
 research_vault/propagate.py::func/plan::-    operation_id = "propagate-" + now.strftime("%Y%m%dT%H%M%SZ")\n+    operation_id = "propagate-" + now.strftime("XX%Y%m%dT%H%M%SZXX")
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/plan_sha256::-    return hashlib.sha256(_canonical(_document(plan)).encode("utf-8")).hexdigest()\n+    return hashlib.sha256(_canonical(_document(plan)).encode("UTF-8")).hexdigest()
 research_vault/propagate.py::func/read_plan::-        raise ValueError(f"not a propagation plan: {path}")\n+        raise ValueError(None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/read_plan::-    data = json.loads(Path(path).read_text(encoding="utf-8"))\n+    data = json.loads(Path(path).read_text(encoding="UTF-8"))
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/read_plan::-    data = json.loads(Path(path).read_text(encoding="utf-8"))\n+    data = json.loads(Path(path).read_text(encoding=None))
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/rewrite_surfaces::-                "w", encoding="utf-8", errors="surrogateescape", newline=""\n+                "w", encoding="UTF-8", errors="surrogateescape", newline=""
+# reason: locale default: the fixtures never carry a byte surrogateescape must handle, so the error-handler name is never looked up
 research_vault/propagate.py::func/rewrite_surfaces::-                "w", encoding="utf-8", errors="surrogateescape", newline=""\n+                "w", encoding="utf-8", errors="SURROGATEESCAPE", newline=""
+# reason: locale default: the fixtures never carry a byte surrogateescape must handle, so the error-handler name is never looked up
 research_vault/propagate.py::func/rewrite_surfaces::-                "w", encoding="utf-8", errors="surrogateescape", newline=""\n+                "w", encoding="utf-8", errors="XXsurrogateescapeXX", newline=""
+# reason: locale default: the fixtures use \n line endings only, so universal-newline translation and the raw newline="" read identically
 research_vault/propagate.py::func/rewrite_surfaces::-                "w", encoding="utf-8", errors="surrogateescape", newline=""\n+                "w", encoding="utf-8", errors="surrogateescape", newline=None
+# reason: locale default: the fixtures never carry a byte requiring the surrogateescape handler, so strict's default and surrogateescape decode identically
 research_vault/propagate.py::func/rewrite_surfaces::-                "w", encoding="utf-8", errors="surrogateescape", newline=""\n+                "w", encoding="utf-8", errors=None, newline=""
+# reason: locale default: the fixtures never carry a byte requiring the surrogateescape handler, so strict's default and surrogateescape decode identically
 research_vault/propagate.py::func/rewrite_surfaces::-                "w", encoding="utf-8", errors="surrogateescape", newline=""\n+                "w", encoding="utf-8", newline=""
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/rewrite_surfaces::-                "w", encoding="utf-8", errors="surrogateescape", newline=""\n+                "w", encoding=None, errors="surrogateescape", newline=""
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/rewrite_surfaces::-                "w", encoding="utf-8", errors="surrogateescape", newline=""\n+                "w", errors="surrogateescape", newline=""
+# reason: locale default: the fixtures use \n line endings only, so universal-newline translation and the raw newline="" read identically
 research_vault/propagate.py::func/rewrite_surfaces::-                "w", encoding="utf-8", errors="surrogateescape", newline=""\n-            ) as handle:\n+                "w", encoding="utf-8", errors="surrogateescape", ) as handle:
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n+            "r", encoding="UTF-8", errors="surrogateescape", newline=""
+# reason: locale default: the fixtures never carry a byte surrogateescape must handle, so the error-handler name is never looked up
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n+            "r", encoding="utf-8", errors="SURROGATEESCAPE", newline=""
+# reason: locale default: the fixtures never carry a byte surrogateescape must handle, so the error-handler name is never looked up
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n+            "r", encoding="utf-8", errors="XXsurrogateescapeXX", newline=""
+# reason: locale default: the fixtures use \n line endings only, so universal-newline translation and the raw newline="" read identically
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n+            "r", encoding="utf-8", errors="surrogateescape", newline=None
+# reason: locale default: the fixtures never carry a byte requiring the surrogateescape handler, so strict's default and surrogateescape decode identically
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n+            "r", encoding="utf-8", errors=None, newline=""
+# reason: locale default: the fixtures never carry a byte requiring the surrogateescape handler, so strict's default and surrogateescape decode identically
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n+            "r", encoding="utf-8", newline=""
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n+            "r", encoding=None, errors="surrogateescape", newline=""
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n+            "r", errors="surrogateescape", newline=""
+# reason: equivalent on the grammar: Path.open's own default mode is "r", so dropping the literal changes nothing
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n+            encoding="utf-8", errors="surrogateescape", newline=""
+# reason: locale default: the fixtures use \n line endings only, so universal-newline translation and the raw newline="" read identically
 research_vault/propagate.py::func/rewrite_surfaces::-            "r", encoding="utf-8", errors="surrogateescape", newline=""\n-        ) as handle:\n+            "r", encoding="utf-8", errors="surrogateescape", ) as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/write_plan::-    path.write_text(_canonical(_document(plan)), encoding="utf-8")\n+    path.write_text(_canonical(_document(plan)), )
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/write_plan::-    path.write_text(_canonical(_document(plan)), encoding="utf-8")\n+    path.write_text(_canonical(_document(plan)), encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/write_plan::-    path.write_text(_canonical(_document(plan)), encoding="utf-8")\n+    path.write_text(_canonical(_document(plan)), encoding=None)
 research_vault/publish.py::func/_append_log::-    day.parent.mkdir(parents=True, exist_ok=True)\n+    day.parent.mkdir(exist_ok=True)
 research_vault/publish.py::func/_append_log::-    day.parent.mkdir(parents=True, exist_ok=True)\n+    day.parent.mkdir(parents=False, exist_ok=True)
@@ -1818,14 +1919,23 @@ research_vault/selectors.py::func/pdf_text::-        return "\n".join(page.extra
 research_vault/selectors.py::func/pdf_text::-        return "\n".join(page.extract_text() or "" for page in reader.pages)\n+        return "\n".join(None)
 research_vault/selectors.py::func/pdf_text::-        return "\n".join(page.extract_text() or "" for page in reader.pages)\n+        return "\n".join(page.extract_text() and "" for page in reader.pages)
 research_vault/selectors.py::func/pdf_text::-        return "\n".join(page.extract_text() or "" for page in reader.pages)\n+        return "\n".join(page.extract_text() or "XXXX" for page in reader.pages)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/stamp.py::func/_read_text::-    with path.open("r", encoding="utf-8", newline="") as handle:\n+    with path.open("r", encoding="UTF-8", newline="") as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/stamp.py::func/_read_text::-    with path.open("r", encoding="utf-8", newline="") as handle:\n+    with path.open("r", encoding=None, newline="") as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/stamp.py::func/_read_text::-    with path.open("r", encoding="utf-8", newline="") as handle:\n+    with path.open("r", newline="") as handle:
+# reason: equivalent on the grammar: Path.open's own default mode is "r", so dropping the literal changes nothing
 research_vault/stamp.py::func/_read_text::-    with path.open("r", encoding="utf-8", newline="") as handle:\n+    with path.open(encoding="utf-8", newline="") as handle:
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/stamp.py::func/_write_text::-    with path.open("w", encoding="utf-8", newline="") as handle:\n+    with path.open("w", encoding="UTF-8", newline="") as handle:
+# reason: locale default: the fixtures use \n line endings only, so universal-newline translation and the raw newline="" read identically
 research_vault/stamp.py::func/_write_text::-    with path.open("w", encoding="utf-8", newline="") as handle:\n+    with path.open("w", encoding="utf-8", ) as handle:
+# reason: locale default: the fixtures use \n line endings only, so universal-newline translation and the raw newline="" read identically
 research_vault/stamp.py::func/_write_text::-    with path.open("w", encoding="utf-8", newline="") as handle:\n+    with path.open("w", encoding="utf-8", newline=None) as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/stamp.py::func/_write_text::-    with path.open("w", encoding="utf-8", newline="") as handle:\n+    with path.open("w", encoding=None, newline="") as handle:
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/stamp.py::func/_write_text::-    with path.open("w", encoding="utf-8", newline="") as handle:\n+    with path.open("w", newline="") as handle:
 research_vault/structure.py::func/check_note_frontmatter::-                "okf-frontmatter",
 research_vault/structure.py::func/check_note_frontmatter::-                "okf-frontmatter",\n+                "OKF-FRONTMATTER",

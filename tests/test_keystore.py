@@ -74,6 +74,35 @@ def test_load_key_answers_none_for_an_absent_unparseable_or_shapeless_store(tmp_
     )
 
 
+def test_store_key_preserves_an_existing_valid_entry_when_adding_another(tmp_vault):
+    """A real existing store is read, not discarded: `_read_store` forced to
+    `None` regardless of the file's content would wrongly treat a valid
+    store as corrupt and move it aside, losing the first key."""
+    keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+    keystore._store_key(tmp_vault, "OTHER0000000", "j" * 32)
+    store = tmp_vault / keystore.KEY_STORE
+    assert json.loads(store.read_text()) == {
+        "6LpvURP2E933": "k" * 32,
+        "OTHER0000000": "j" * 32,
+    }
+    assert not any(
+        p.name.startswith("zotero-keys.json.bad-") for p in store.parent.iterdir()
+    )
+
+
+def test_store_key_creates_a_multi_level_missing_vault_directory(tmp_path):
+    vault = tmp_path / "missing" / "vault"
+    keystore._store_key(vault, "6LpvURP2E933", "k" * 32)
+    store = vault / keystore.KEY_STORE
+    assert store.is_file()
+
+
+def test_store_key_writes_pretty_printed_two_space_json(tmp_vault):
+    keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+    store = tmp_vault / keystore.KEY_STORE
+    assert store.read_text() == '{\n  "6LpvURP2E933": "' + "k" * 32 + '"\n}\n'
+
+
 def test_forget_key_drops_one_entry_and_tolerates_an_absent_store(tmp_vault):
     keystore._forget_key(tmp_vault, "6LpvURP2E933")  # no store: nothing to forget
     keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)

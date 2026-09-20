@@ -53,6 +53,44 @@ def _planned(vault, client, mapping=(("old2020", "new2020"),), now=None):
     return planned, propagate.write_plan(vault, planned), propagate.plan_sha256(planned)
 
 
+def test_plan_operation_id_is_utc_and_the_format_is_pinned(tmp_vault, monkeypatch):
+    """`datetime.now(None)` would be local time: under a non-UTC TZ the id
+    drifts by the offset; an explicit `now` pins the strftime format."""
+    import time
+
+    _seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    explicit = datetime.datetime(2026, 9, 17, 10, 20, 30, tzinfo=datetime.UTC)
+    planned, _path, _digest = _planned(tmp_vault, client, now=explicit)
+    assert planned.operation_id == "propagate-20260917T102030Z"
+    monkeypatch.setenv("TZ", "Asia/Kolkata")
+    time.tzset()
+    try:
+        before = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
+        planned, _path, _digest = _planned(tmp_vault, client)
+        stamped = datetime.datetime.strptime(
+            planned.operation_id[len("propagate-") :], "%Y%m%dT%H%M%SZ"
+        ).replace(tzinfo=datetime.UTC)
+        assert abs((stamped - before).total_seconds()) < 60
+    finally:
+        monkeypatch.delenv("TZ")
+        time.tzset()
+
+
+def test_plan_refuses_an_unsafe_new_key_by_the_real_validation_error(
+    tmp_vault, monkeypatch
+):
+    """`literature_notes.note_path`'s `InvalidCitationKeyError` names the
+    problem; a mutant that discards it into a bare `None` (or `str(None)`,
+    the same text either way) would still refuse but say nothing true about
+    why."""
+    _seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    planned, outcomes = propagate.plan(tmp_vault, client, {"old2020": "new/2020"})
+    assert planned is None
+    assert outcomes[0].reason == "schema-violation — unsafe citation key: 'new/2020'"
+
+
 def test_plan_refuses_a_mapping_zotero_does_not_carry(tmp_vault, monkeypatch):
     """A typo in --map never becomes a rename: the note's item must carry the new name live."""
     _seed(tmp_vault)
@@ -158,6 +196,14 @@ def test_plan_lists_the_mapping_the_item_key_and_the_hashed_surfaces(
     assert json.loads(path.read_text())["schema"] == "research-vault.propagation.v1"
 
 
+def test_read_plan_refuses_a_file_that_is_not_a_propagation_plan(tmp_vault):
+    path = tmp_vault / "not-a-plan.json"
+    path.write_text(json.dumps({"schema": "something-else"}))
+    with pytest.raises(ValueError, match=r"^not a propagation plan: ") as excinfo:
+        propagate.read_plan(path)
+    assert str(excinfo.value) == f"not a propagation plan: {path}"
+
+
 def test_plan_refuses_a_missing_note_and_never_reads_an_outage_as_nothing_to_do(
     tmp_vault, monkeypatch
 ):
@@ -166,7 +212,9 @@ def test_plan_refuses_a_missing_note_and_never_reads_an_outage_as_nothing_to_do(
     )
     assert planned is None
     assert outcomes[0].result is Result.UNMATCHED
-    assert outcomes[0].reason.startswith("schema-violation")
+    assert outcomes[0].reason == (
+        "schema-violation — no note under literature/ records citationKey ghost2020"
+    )
     monkeypatch.setattr(
         propagate.lifecycle,
         "lint_lifecycle",
@@ -203,7 +251,10 @@ def test_apply_refuses_when_the_vault_moved_since_planning(tmp_vault, monkeypatc
     )
     (refused,) = propagate.apply(tmp_vault, client, path, digest)
     assert refused.result is Result.UNMATCHED
-    assert refused.reason.startswith("mismatch — plan changed")
+    assert refused.reason == (
+        "mismatch — plan changed: the vault moved since this plan was "
+        "computed; run propagate again"
+    )
     assert (tmp_vault / "literature" / "old2020.md").is_file()
     assert not (tmp_vault / "system" / "propagations").exists()
     (wrong,) = propagate.apply(tmp_vault, client, path, "0" * 64)

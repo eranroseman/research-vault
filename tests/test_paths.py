@@ -44,8 +44,11 @@ def test_unresolvable_raises(tmp_vault, monkeypatch):
         raise FileNotFoundError("wslpath missing")
 
     monkeypatch.setattr(subprocess, "run", boom)
-    with pytest.raises(paths.PathError):
+    with pytest.raises(paths.PathError) as excinfo:
         paths.to_local("D:\\x.pdf", tmp_vault)
+    assert str(excinfo.value) == (
+        r"cannot resolve 'D:\\x.pdf': no path_map match, wslpath unavailable"
+    )
 
 
 def test_wslpath_is_run_captured_as_text_and_unchecked_and_both_answers_must_hold(
@@ -120,8 +123,9 @@ def test_bbt_host_translation_refuses_failed_wslpath_output(
         ),
     )
 
-    with pytest.raises(paths.PathError):
+    with pytest.raises(paths.PathError) as excinfo:
         paths.to_bbt_host("/vault/system/bibliography.json")
+    assert str(excinfo.value) == "cannot translate BBT target through wslpath -w"
 
 
 def test_bbt_host_translation_refuses_a_wslpath_that_cannot_launch(monkeypatch):
@@ -132,8 +136,23 @@ def test_bbt_host_translation_refuses_a_wslpath_that_cannot_launch(monkeypatch):
 
     monkeypatch.setattr(paths.subprocess, "run", unavailable)
 
-    with pytest.raises(paths.PathError):
+    with pytest.raises(paths.PathError) as excinfo:
         paths.to_bbt_host("/vault/system/bibliography.json")
+    assert str(excinfo.value) == (
+        "cannot translate BBT target through wslpath: wslpath missing"
+    )
+
+
+def test_running_in_wsl_reads_both_environment_names_exactly(monkeypatch):
+    monkeypatch.setattr(paths.platform, "release", lambda: "5.15.0-generic")
+    monkeypatch.delenv("WSL_INTEROP", raising=False)
+    monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
+    assert paths._running_in_wsl() is False
+    monkeypatch.setenv("WSL_DISTRO_NAME", "Ubuntu")
+    assert paths._running_in_wsl() is True
+    monkeypatch.delenv("WSL_DISTRO_NAME")
+    monkeypatch.setenv("WSL_INTEROP", "/run/WSL/1_interop")
+    assert paths._running_in_wsl() is True
 
 
 def test_wsl_detection_uses_environment_or_kernel_release(monkeypatch):
