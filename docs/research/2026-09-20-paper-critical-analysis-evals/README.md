@@ -19,6 +19,8 @@ Test paper: Abbonato (2026), "CheckIfExist: Detecting Citation Hallucinations in
 
 | 2026-09-23-sharpened-bounds-C.md | c7e2cdf, one judge, Assumptions and Scalability bounds sharpened | 11310 + 3415 appendix | 58 points returned, 1 dropped for inadmissible evidence, 57 carried; stage 4 collapsed 4 duplicate groups and corrected six derived numbers, one of which rested on a figure the paper never gives; verifier checked 310 items and flagged 3, all corrected. Reached all three findings that had previously needed a dedicated Assumptions judge. |
 
+| 2026-09-23-bounds-tested-D.md | bf87e47, one judge, verdict bound and stage 4 relevance test both live | 8853 + 3166 appendix | 57 points returned, 1 dropped for citing an unnumbered extraction field, 1 downgraded at assembly for resting on outside knowledge; stage 4 removed 3 of 55 (two duplicates, one hedge) and the relevance rule removed none; verifier checked 278 items and flagged 7, all corrected. Verdict sentences 20-31 words, median 29, against run A's median 57. |
+
 Same prompt for every run: read the paper, write the report, no web access, no fresh-context subagent.
 
 ## The fan-out experiment (2026-09-23)
@@ -42,3 +44,17 @@ One judge under the sharpened bounds reached all three. Assumptions went from fo
 The run also vindicated the derived-number recompute added to stage 4 the same morning: it corrected six numbers the judge had produced, one built on a per-paper reference count the paper never states and one that read the 800 ms batch interval as a per-call delay. Stage 5 does not check derived numbers by design, so all six would have shipped.
 
 Five skill defects the run exposed, since fixed: front matter had no addressable Location, so a true finding about the identifier stamp was dropped as inadmissible; stage 1 claims were handed to the judge as material but were not admissible evidence; stage 4's protection of verdict sentences read as binding stage 5 too; the claimed-scale rule was unsatisfiable where the paper states no multiplier; and the dimension bullets spelled the background files differently from the brief's own input list.
+
+## The verdict bound and the relevance test (2026-09-23)
+
+Both were added after five reports on one paper showed two separate inflations: the verdict sentence grew from a median of 30 words under the old word ceiling to 57 without it, and the "Why it matters" field grew from 20 words to 51 and then 86 for the same defects. Run D tested both at once, which is sound because they act on different surfaces: the bound acts inside the judge subagent on verdicts, the relevance test in the main context on points, and stage 4 protects verdict sentences so it cannot shorten one. The stage 3 return was archived before stage 4 ran, so the effects stay attributable.
+
+**The verdict bound works.** Nine verdicts at 20 to 31 words, median 29, every one a single sentence. Points returned held at 57 against run C's 58 on the same sharpened bounds, so nothing was displaced from the verdict down into the points.
+
+**The relevance test failed, and could not have succeeded.** It removed nothing. The judge brief requires a "Why it matters" field on every point, so "moves no verdict" is a claim that can never be made about a point the brief accepted. A filter in the pruning stage cannot undo a demand made in the writing stage. The rule is removed, and the bound it was reaching for now sits in the brief: Observation and Why it matters are one sentence each.
+
+**Stage 4's first rule was a landmine.** Read literally, "a Discussion sentence that restates the paper without carrying a judgment" removes every point, because each point's Observation field restates the paper by design with the judgment quarantined in "Why it matters". Run D noticed, chose the narrow reading, and said so; a different reader empties the Discussion. The rule now names free-standing prose only and puts Observation fields explicitly out of scope.
+
+Three smaller ambiguities the run resolved by judgment, since fixed: whether an unnumbered stage 1 extraction field counts as evidence where the rule admits numbered claims (it does not, and the fact it carries has a paper Location of its own); which stage catches a returned point resting on knowledge the paper never states (assembly, which moves it to the did-not-check section); and the appendix heading disagreeing with the body sentence about what the appendix holds.
+
+The derived-number recompute caught a third error in three runs: a claim that the paper's claimed scales sit "one to four orders of magnitude" beyond its throughput, where the same 800 ms figure gives 0.85 days for a conference-scale job and 9 days for a million references, under one order.

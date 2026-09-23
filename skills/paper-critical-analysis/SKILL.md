@@ -68,17 +68,16 @@ Both lists go in the report's appendix.
 
 **Fresh context, required.** Run stage 3 in a subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. That brief is the judging contract, holding the verdict form, the four fields a point carries, what counts as evidence, and the four kinds a point can be. Edit it there, not here.
 
-The subagent returns the nine subsections. On return, drop every point whose Evidence field contains no Location, no N- or C- entry, and no stage 1 claim; a background-file criterion may sit alongside one of those but never stands in for it. Note the count dropped in the appendix. The main context assembles the report, downgrading a finding where warranted and leaving de-duplication to stage 4; the subagent's return is the Discussion's only source of findings.
+The subagent returns the nine subsections. On return, drop every point whose Evidence field contains no Location, no N- or C- entry, and no numbered stage 1 claim; an unnumbered extraction field does not count, since the fact it carries has a Location of its own, and a background-file criterion may sit alongside one of those but never stands in for it. Note the count dropped in the appendix. The main context assembles the report, leaving de-duplication to stage 4; the subagent's return is the Discussion's only source of findings. A returned point that rests on anything the paper does not state, however true, moves here to "What this report did not check" rather than standing as a finding.
 
 ## Stage 4 — Tighten the assembled report
 
 Once, in the main context, after the report is assembled and before it is verified. Read every point in the Discussion and rule on it: kept, or removed for one of the reasons below. Recompute every number the report labels "derived" and correct it; stage 5 does not check those. Then remove:
 
-- a Discussion sentence that restates the paper without carrying a judgment (the Context and Summary slots restate the paper by design and are untouched);
+- a free-standing Discussion sentence that restates the paper without carrying a judgment. The Context and Summary slots, and every point's Observation field, restate the paper by design; none of them is in scope here;
 - a point whose Location and Observation repeat another point's, keeping the copy under the dimension it bears on most and leaving a one-line cross-reference in the other;
 - a point with no Location;
-- a hedge that repeats an entry in "What this report did not check";
-- a point that neither moves its dimension's verdict nor changes what a reader would do with the paper.
+- a hedge that repeats an entry in "What this report did not check".
 
 Remove a failing point whole; a point shaved to a clause still carries its load. Slots, verdict sentences, and appendix entries survive this stage; stage 5 still corrects one it flags. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
 
@@ -132,7 +131,7 @@ Nine subsections, in this order. Each subsection opens with its one-sentence ver
 
 Required, even when empty. One line each for: web-dependent slots skipped; parts of the paper not read or not readable (appendices, supplements, code); proofs or analyses not followed in detail; any statement in the report that rests on recall rather than the paper, quarantined here rather than presented as a finding.
 
-### Appendix: not-stated list, inconsistency list, verifier list
+### Appendix: not-stated list, inconsistency list, return accounting, verifier list
 
 The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 3 return accounting (points returned, points dropped for missing evidence, duplicate groups stage 4 collapsed); the stage 5 verifier's list with each item's disposition. Those three and no further commentary.
 
