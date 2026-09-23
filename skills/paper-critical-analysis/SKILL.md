@@ -1,6 +1,6 @@
 ---
 name: paper-critical-analysis
-description: In-depth critical analysis report of one research paper (context, summary, nine-dimension discussion), with a fresh-context judgment pass and a verifier pass.
+description: In-depth critical analysis of one research paper, written for a reader deciding whether to trust it rather than an editor deciding whether to publish it. Extract, list what the paper does not say, judge nine named dimensions in a fresh context, tighten, then verify every cited location against the paper.
 disable-model-invocation: true
 ---
 
@@ -8,15 +8,19 @@ disable-model-invocation: true
 
 Thoroughness is the constraint here, token cost is not.
 
+Create a todo per stage before starting, and close each as its artifact exists. All five stages run on every paper.
+
 ## Input and output
 
 Input: one paper, read in full. **PDF**: the Read tool, page range by page range. If Read cannot render it, extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages that carry figures or pseudocode to images — stage 5's verifier gets those renders; with no tool available, ask for the text.
 
-Output: one markdown file in the outline under "The report", written beside the input unless told otherwise; stage 4's tightening pass sets its length. Ask up front whether web access is allowed — several Context slots depend on it. In a non-interactive run, take the answer from the request; absent one, treat it as no.
+Output: one markdown file in the outline under "The report", named for the paper and written beside the input unless told otherwise; stage 4's tightening pass sets its length. Ask up front whether web access is allowed — several Context slots depend on it. In a non-interactive run, take the answer from the request; absent one, treat it as no.
 
 ## Stage 1 — Extract, in the authors' frame
 
-Record, as the paper presents it:
+Open the report file first, at the path above, carrying the headings under "The report" and nothing beneath them. Every later stage writes into it, and the two briefs are handed its path.
+
+Then record, as the paper presents it:
 
 | Field | Description |
 |-------|-------------|
@@ -62,7 +66,7 @@ A **Location** is the section, then the paragraph counted from the start of that
 
 Every quote, citation, statistic, and methodological detail in either list, and in the report, comes from the paper text; what the text does not say is a not-stated entry.
 
-Both lists go in the report's appendix.
+Both lists go in the report's appendix, written there now so stage 3's brief can point at them.
 
 ## Stage 3 — Judge, in the reader's frame
 
@@ -72,14 +76,14 @@ The subagent returns the nine subsections. On return, drop every point whose Evi
 
 ## Stage 4 — Tighten the assembled report
 
-Once, in the main context, after the report is assembled and before it is verified. Read every point in the Discussion and rule on it: kept, or removed for one of the reasons below. Recompute every number the report labels "derived" and correct it; stage 5 does not check those. Then remove:
+Run this once, in the main context, after the report is assembled and before it is verified. Read every point in the Discussion and rule on it: kept, or removed for one of the reasons below. Recompute every number the report labels "derived" and correct it; stage 5 does not check those. Then remove:
 
 - a free-standing Discussion sentence that restates the paper without carrying a judgment. The Context and Summary slots, and every point's Observation field, restate the paper by design; none of them is in scope here;
 - a point whose Location and Observation repeat another point's, keeping the copy under the dimension it bears on most and leaving a one-line cross-reference in the other;
 - a point with no Location;
 - a hedge that repeats an entry in "What this report did not check".
 
-Remove a failing point whole; a point shaved to a clause still carries its load. Slots, verdict sentences, and appendix entries survive this stage; stage 5 still corrects one it flags. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
+Remove a failing point whole; a point shaved to a clause still carries its load. Then read the Discussion once against the test the judge worked under: a report that finds nothing wrong with a non-trivial paper is a failed report. If these removals have left one, the removals were wrong. Slots, verdict sentences, and appendix entries survive this stage; stage 5 still corrects one it flags. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
 
 ## Stage 5 — Verify the report against the paper
 

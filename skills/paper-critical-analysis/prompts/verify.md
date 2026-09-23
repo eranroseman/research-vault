@@ -10,6 +10,10 @@ You are checking a report against the paper it describes. You form no opinion of
 - Paper: {PAPER_PATH} (text) and {PAGE_RENDERS} (images of pages carrying figures or pseudocode; "none" if none).
 - Report: {REPORT_PATH}
 
+## Delegation
+
+Do this work yourself. Never spawn a subagent: the report is already the product of a pipeline that fills every seat, and an agent you spawned would re-read the skill and fan out again.
+
 ## What you check
 
 Every **Location** field in the report's body and in its appendix lists; every quoted passage; every number the report attributes to the paper. A number the report labels "derived" is outside your scope.
