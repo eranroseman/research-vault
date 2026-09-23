@@ -10,15 +10,13 @@ Thoroughness is the constraint here, token cost is not.
 
 ## Input and output
 
-Input: one paper. Read the whole thing. **PDF**: use the Read tool with the `pages` parameter for large documents. If the Read tool cannot render the PDF, extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages that carry figures or pseudocode to images; if no tool is available, ask for the text.
+Input: one paper, read in full. **PDF**: the Read tool, page range by page range. If Read cannot render it, extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages that carry figures or pseudocode to images — stage 5's verifier gets those renders; with no tool available, ask for the text.
 
-Output: one markdown file in the outline under "The report", written beside the input unless told otherwise; the tightening pass in stage 4 controls its length, not a ceiling. Ask up front whether web access is allowed: three Context slots depend on it. In a non-interactive run, take the answer from the request; absent one, treat it as no. Without it, the report names what its absence cost.
+Output: one markdown file in the outline under "The report", written beside the input unless told otherwise; stage 4's tightening pass sets its length. Ask up front whether web access is allowed — several Context slots depend on it. In a non-interactive run, take the answer from the request; absent one, treat it as no.
 
 ## Stage 1 — Extract, in the authors' frame
 
-A part that is absent or merged is itself a stage 2 entry.
-
-No judgment yet. Record:
+Record, as the paper presents it:
 
 | Field | Description |
 |-------|-------------|
@@ -29,83 +27,89 @@ No judgment yet. Record:
 | **Domain** | Research field and subfield |
 | **Paper Type** | Empirical, theoretical, survey, position paper, systems paper, etc. |
 
-Create a short neutral map: research question; population or system; design and unit; intervention, exposure, test, or model; comparator/reference; outcomes and timing; principal claims. Do not write an assessment. Identify what evidence would be needed to evaluate each claim.
+A short neutral map: research question; population or system; design and unit; intervention, exposure, test, or model; comparator/reference; outcomes and timing; principal claims.
 
-List the paper's main claims explicitly:
+Every principal claim, explicitly:
 
 ```
-Claim 1: [Specific claim about contribution or finding]
-Evidence: [What evidence supports this claim in the paper]
+Claim 1: [the claim, as the paper states it]
+Evidence: [what the paper offers for it]
+Needed: [what evidence would settle it]
 ```
 
-Separate: what the paper explicitly claims; what the evidence demonstrates; what remains plausible but untested; what was expected of the paper but never claimed. Do not penalize a paper for failing to answer a different research question unless the mismatch undermines its stated contribution.
+Keep four things apart: what the paper claims; what its evidence demonstrates; what is plausible but untested; what a reader would expect the paper to claim but it never does.
 
 **Long papers.** If the paper exceeds 30 pages including appendices and supplements, this stage runs one subagent per section, each returning these fields for its section; stage 2 runs in the main context over the merged extraction.
 
 ## Stage 2 — List what the paper does not say
 
-Walk the background files that apply, and write two numbered lists, kept apart:
-
-- **Not-stated list** (N1, N2, …): every item the report will need that the paper does not give (participants, selection, consent, variable definitions, test assumptions, denominators, calibration data, code, thresholds, and so on).
-- **Inconsistency list** (C1, C2, …): every place where two locations in the paper conflict.
-
-Concepts the report needs that the paper uses without defining go on the not-stated list too; with web access, look them up before stage 3, and say in the report that you did.
-
-Run the consistency checks here, systematically: numbers across text, tables, and figures; statistical consistency (do p-values, confidence intervals, and effect sizes align? are sample sizes consistent throughout?); calculations (verify percentages, averages, sums; check that reported improvements match the actual numbers); internal references; acronyms defined on first use; terminology consistency; citations (is citation style uniform? whether they exist is a web check: without web access, "not checked"). Each mismatch goes on the inconsistency list with both locations.
-
-Ground every claim in the paper text. Do not invent quotes, citations, statistics, or methodological details that are not present. If something is unclear or missing from the text, say so explicitly — that itself is a reviewable issue.
-
-The two lists go in the report's appendix.
-
-Background files, walked here and reached again from the slots that name them:
+Walk the background files that apply — in full here, and again from the slots that name them:
 
 - The source types and the method menu at the end of this file — every paper.
+- `references/research-integrity.md` — every paper.
 - `references/experiment-design.md` and `references/quantitative-results.md` — a paper with an experiment, a measurement, or a statistical analysis.
 - `references/qualitative-methods.md` — a qualitative or mixed-methods paper.
-- `references/research-integrity.md` — every paper.
 - `references/participants.md` — a paper in which people took part.
 
-When no method family fits, walk all six.
+When no method family fits, walk every file.
+
+Write two numbered lists, kept apart:
+
+- **Not-stated list** (N1, N2, …): every item the report will need that the paper does not give — participants, selection, consent, variable definitions, test assumptions, denominators, calibration data, code, thresholds, and so on; a part of the paper that is absent or merged into another; a concept the report needs that the paper uses without defining (with web access, look it up before stage 3, and say in the report that you did).
+- **Inconsistency list** (C1, C2, …): every place where two locations in the paper conflict. Check systematically: numbers across text, tables, and figures; p-values, confidence intervals, and effect sizes against each other; sample sizes throughout; percentages, averages, sums, and claimed improvements against the numbers they rest on; internal references; acronyms defined on first use; terminology; citation style (whether a citation exists is a web check: without web access, "not checked"). Each mismatch is one entry carrying both locations.
+
+A **Location** is the section, then the paragraph counted from the start of that section (add the page when the section spans pages), or the algorithm line, figure, table, or equation number. Every list entry, and every point in the report, uses this convention.
+
+Every quote, citation, statistic, and methodological detail in either list, and in the report, comes from the paper text; what the text does not say is a not-stated entry.
+
+Both lists go in the report's appendix.
 
 ## Stage 3 — Judge, in the reader's frame
 
-Only now. Each of the nine dimensions gets a verdict with evidence. The verdict is one sentence, no scale and no fixed labels: what a reader should make of the paper on that dimension. A dimension that does not apply gets the sentence "not assessable from the paper" and the reason. A dimension with applicable and inapplicable parts gets a verdict on the applicable parts, with the rest named as inapplicable inside the subsection.
+Each of the nine dimensions gets a verdict with evidence. The verdict is one prose sentence in the writer's own words: what a reader should make of the paper on that dimension. A dimension that does not apply gets the sentence "not assessable from the paper" and the reason. A dimension with applicable and inapplicable parts gets a verdict on the applicable parts, with the rest named as inapplicable inside the subsection.
 
-Evidence for a verdict is a location in the paper or a numbered entry from the appendix lists (N- or C-). Nothing else counts. Each substantive point carries **Location**, **Observation**, **Evidence or criterion**, **Why it matters**. A Location is the section, then the paragraph counted from the start of that section (add the page when the section spans pages), or the algorithm line, figure, table, or equation number. Stage 2 entries use the same convention.
+Evidence for a verdict is a Location in the paper or a numbered entry from the appendix lists (N- or C-). Nothing else counts. Each substantive point carries **Location**, **Observation**, **Evidence or criterion**, **Why it matters**.
 
-**Fresh context, required.** Run stage 3 in a subagent given only the paper, the stage 1 extraction, the two stage 2 lists, this stage's four-field rule, the Discussion outline below (the nine dimensions and the Principles; not the did-not-check section), and the paths of the background files its subsections name, not the conversation that wrote them. The subagent returns the nine subsections. The main context assembles the report and may downgrade or de-duplicate the subagent's findings; it may not invent a new blocker. A report that finds nothing wrong with a non-trivial paper is a failed report.
+Every point is one of four things, and they do not substitute for one another — a missing reporting item is not evidence of misconduct, poor quality, or merit:
+
+- **Not reported** — the paper does not give enough information to assess the point.
+- **Potential design or analysis problem** — the reported method may not answer the stated question.
+- **Demonstrated inconsistency** — two locations in the paper conflict.
+- **Integrity concern** — credible evidence, described neutrally, worded as `references/research-integrity.md` requires.
+
+**Fresh context, required.** Run stage 3 in a subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. The subagent returns the nine subsections. On return, drop every point whose Evidence field contains no Location and no N- or C- entry; a background-file criterion may sit alongside one but never stands in for it. Note the count dropped in the appendix. The main context assembles the report, downgrading a finding where warranted and leaving de-duplication to stage 4; the subagent's return is the Discussion's only source of findings. A report that finds nothing wrong with a non-trivial paper is a failed report.
 
 ## Stage 4 — Tighten the assembled report
 
-Once, in the main context, after the report is assembled and before it is verified. Read it top to bottom and remove:
+Once, in the main context, after the report is assembled and before it is verified. Read every point in the Discussion and rule on it: kept, or removed for one of the reasons below. Recompute every number the report labels "derived" and correct it; stage 5 does not check those. Then remove:
 
-- a sentence that restates the paper without filling a slot or carrying a judgment;
+- a Discussion sentence that restates the paper without carrying a judgment (the Context and Summary slots restate the paper by design and are untouched);
 - a point whose Location and Observation repeat another point's, keeping the copy under the dimension it bears on most and leaving a one-line cross-reference in the other;
 - a point with no Location;
 - a hedge that repeats an entry in "What this report did not check".
 
-Never remove a slot, a verdict sentence, or an appendix entry.
+Slots, verdict sentences, and appendix entries stay. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
 
 ## Stage 5 — Verify the report against the paper
 
-After tightening and before delivery, a second subagent receives only the paper (its text and any page renders used for figures or pseudocode) and the report. It checks every **Location** field in the body and in the appendix lists, every quoted passage, and every number the report attributes to the paper against the paper (a number the report derives is labeled "derived" in the report and is outside the verifier's scope), and returns a list of items it could not find or that read differently in the paper, each with the report line and the paper location it checked. It does not rewrite the report and it forms no opinion of the paper. The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, is appended to the report's appendix.
+After tightening and before delivery, a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, and the report. It returns the list of items it could not find or that read differently in the paper. The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, is appended to the report's appendix.
 
 ## The report
 
-Three sections in this order, headings fixed, every slot filled or marked "not assessable from the paper" or "not checked". The report is written for a reader deciding whether to trust and use the paper, not for an editor deciding whether to publish it: no accept/reject verdict, no questions for the authors, no revision requests.
+Three sections in this order, headings fixed, every slot filled or marked "not assessable from the paper" or "not checked". The report is written for a reader deciding whether to trust and use the paper; a referee's concerns — publishability, questions and revision requests to the authors — are out of scope.
 
 ### 1. Context
 
 - **Title**: is it short and to the point? Do you know what to expect from it?
-- **Authors and affiliations**: how many people were involved, and what does the order tell you? One or many institutions, which departments? Well-known places? Keep in mind the authors could be students; evaluate the merits regardless of affiliation. What is their field, and what have they done before in the same area?
+- **Authors and affiliations**: how many people were involved, and what does the order tell you? One or many institutions, which departments? Well-known places? What is their field, and what have they done before in the same area?
 - **Venue**: conference, journal, workshop, technical report, or preprint (see Source types below), and what that implies about how rigorously it was reviewed.
 - **Motivation**: why is the problem important? Does the paper motivate the research, state the contribution, and give an overview of the rest of the paper?
-- **Related work**: does it cover related work, discuss relevant related research, and establish a gap? Two comprehensiveness checks:
+- **Related work**: does it cover relevant prior work, synthesize it rather than list it, balance recent and foundational sources, and identify the gap accurately? Two comprehensiveness checks:
   - Tree backward: follow the paper's own reference list to the works it's built on — are those the field's recognized foundational references, or oddly idiosyncratic ones?
   - Tree forward: pick one of the paper's key cited references and check, via a citation index, whether more recent work citing that same reference is conspicuously missing — keeping in mind that research typically takes a few years to reach journal publication, so missing only the very latest work isn't necessarily a gap.
-- **References check**: how many references? What kinds of sources (see Source types below)? How many include at least one of the authors? How many are for work by people at the same institution as the authors? Do you recognize any of the papers? What is the span, in years, of the papers cited? Recognition, here and in tree backward, is recall by construction: label it as recall in the slot and list it under "did not check".
+- **References check**: how many references? What kinds of sources (see Source types below), and are reviews and preprints labeled as such? What is the span, in years, of the papers cited? How many include at least one of the authors? How many are for work by people at the same institution as the authors? Are primary sources used where possible? Do cited papers support the claims attached to them? Are citation metadata and links correct? Do you recognize any of the papers? Recognition, here and in tree backward, is recall by construction: label it as recall in the slot and list it under "did not check".
 
-With web access, search: `"[paper topic] state of the art [current year]"`, `"[key method name] comparison benchmark"`, `"[authors] previous work [topic]"`, `"[specific technique] limitations criticism"`. Read, or at least skim, the most relevant related work before stage 3. Without web access, the author-background, tree-forward and same-institution-count slots read "not checked: no web access".
+With web access, search: `"[paper topic] state of the art [current year]"`, `"[key method name] comparison benchmark"`, `"[authors] previous work [topic]"`, `"[specific technique] limitations criticism"`. Read, or at least skim, the most relevant related work before stage 3. Without web access, the author-background, tree-forward, same-institution-count, and citation-link slots read "not checked: no web access".
 
 ### 2. Summary
 
@@ -120,13 +124,13 @@ At greater length than an abstract, in the paper's own order:
 
 Nine subsections, in this order. Each subsection opens with its one-sentence verdict, then its points, each point carrying the four fields from stage 3. The questions below are prompts, not a form: answer those that bear on the paper, in whatever order the evidence suggests.
 
-- **Importance** — Is the problem being studied important? How significant is the contribution? What are the big ideas of this paper? Does the question match the claimed contribution?
-- **Credibility** — Do you trust the methods that were used? How likely is it that the conclusions are correct? Don't let the authors' affiliation alone earn your trust. Weigh the venue's review rigor into how much you trust the paper, but a rigorous venue doesn't excuse skipping the other checks. The checks: validity threats and reporting red flags in `references/experiment-design.md`; the assessment order, claim–evidence mismatches and analysis biases in `references/quantitative-results.md`; validation of findings in `references/qualitative-methods.md` for a qualitative study; questionable practices in `references/research-integrity.md`; demand characteristics in `references/participants.md`.
-- **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? Is it incremental work, or something very different from what has been done? What is genuinely new vs. incremental improvement?
+- **Importance** — Is the problem being studied important? How significant is the contribution? What are the big ideas of this paper? Does the question match the claimed contribution? Judge the paper against its own question; a mismatch with some other question counts only when it undermines the stated contribution.
+- **Credibility** — Do you trust the methods that were used? How likely is it that the conclusions are correct? Affiliation and seniority carry no weight; the venue's review rigor carries some, and every check below runs regardless. The checks: validity threats and reporting red flags in `references/experiment-design.md`; the assessment order, claim–evidence mismatches and analysis biases in `references/quantitative-results.md`; trustworthiness and the self-audit in `references/qualitative-methods.md` for a qualitative study; questionable practices in `references/research-integrity.md`; demand characteristics in `references/participants.md`.
+- **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? Is it incremental work, or something very different from what has been done? What is genuinely new vs. incremental improvement? A novelty claim broader than the search or the cited literature supports is a claim–evidence mismatch.
 - **Applicability** — What are the practical applications of the work presented in the paper? Can you apply the information to your own projects? Do you think other researchers or practitioners may be able to apply the information?
 - **Generalizability** — Do the results apply only to the situation presented in the paper, or to a wider set of circumstances? External validity questions in `references/experiment-design.md`; for a qualitative study, case selection and claimed reach in `references/qualitative-methods.md`.
 - **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed?
-- **Assumptions** — What assumptions do the authors make? Are these realistic? Are scope and assumptions explicit? Statistical-test assumptions in `references/quantitative-results.md`; design assumptions and variable definitions in `references/experiment-design.md`.
+- **Assumptions** — What assumptions do the authors make? Are these realistic? Are scope and assumptions explicit? Statistical-test assumptions in `references/quantitative-results.md`; the counterfactual, design checks, and variable definitions in `references/experiment-design.md`.
 - **Readability** — How difficult was it to understand? Were individual sentences and paragraphs well-written? Was the paper well-structured, did it flow well, was it logically organized? Was it culturally neutral? Did it use words you'd only find in the GRE verbal section? Are definitions and notation clear? Is the tone precise and scholarly? Readability moves no other verdict.
 - **Ethics** — Is the work a good idea? Could it lead to potentially harmful outcomes? Are the authors aware of potentially negative consequences? The integrity questions in `references/research-integrity.md`; when people took part, the questions in `references/participants.md`.
 
@@ -136,11 +140,11 @@ Required, even when empty. One line each for: web-dependent slots skipped; parts
 
 ### Appendix: not-stated list, inconsistency list, verifier list
 
-The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; then the stage 5 verifier's list with each item's disposition. Stage 1's extraction is not reproduced.
+The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 3 return accounting (points returned, points dropped for missing evidence, duplicate groups stage 4 collapsed); the stage 5 verifier's list with each item's disposition; nothing else.
 
 ## Source types
 
-### Source types, by currency and review rigor
+### By currency and review rigor
 
 - Books — summarize research from the start of the field up to roughly 13 years before publication; useful for foundational grounding, but less rigorously peer-reviewed than journals
 - Review articles and edited-book chapters — typically within 5-8 years of current research; still not always peer-reviewed as rigorously as journal articles
@@ -153,75 +157,28 @@ The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C-
 
 If the venue is unfamiliar, check whether it is indexed (Scopus, Web of Science, PubMed, DOAJ) and a COPE member before weighing its review rigor. Think. Check. Submit. (thinkchecksubmit.org) is the field's checklist.
 
-### Citation questions
-
-- Do cited papers support the claims attached to them?
-- Are primary sources used where possible?
-- Are reviews labeled as reviews?
-- Are preprints labeled as preprints?
-- Are citation metadata and links correct?
-
-### Literature and context questions
-
-- Is relevant prior work covered?
-- Does the paper synthesize rather than merely list sources?
-- Are gaps accurately identified?
-- Are recent and foundational sources balanced?
-
 ### Red flags in the paper's sourcing and context
 
-Reporting red flags:
-
-- No conflicts of interest statement
 - Cherry-picked citations
-
-Context red flags:
-
-- Industry funding without independence
-- Single study in isolation
-- Contradicts preponderance of evidence
-- No replication
-- Published in predatory journal
+- A single study in isolation, with no replication
+- Contradicts the preponderance of evidence
 - Press release before peer review
-
-Novelty claims that are broader than the search or cited literature supports are a claim–evidence mismatch.
 
 ## Method menu
 
 ### The menu
 
-- **Experimental method** (quantitative)
-- **Correlational observation** (quantitative) — Doesn't prove causality.
-- **Surveys** (quantitative) — there's no direct observation, only self-report.
-- **Archival research** (quantitative) — can show relationships between variables but not causes; the records may not be reliable. Meta-analyses and systematic reviews (most widely via PRISMA) are archival research over publications.
-- **Qualitative designs** — inductive studies, ethnographies, naturalistic observation, case histories.
-
-### Hierarchy of evidence for causal claims
-
-1. RCT (random assignment)
-2. Quasi-experiment (natural treatment + control, no random assignment) — diff-in-diff, regression discontinuity, interrupted time series.
-3. Instrumental variable / propensity score — observational with strong assumptions.
-4. Cross-sectional regression — control for confounders.
-
-For each, the **counterfactual** should be articulated: what would have happened to the treated group absent treatment?
+- **Experimental method** (quantitative) — random assignment supports a causal claim; every other route to one is ranked in `references/experiment-design.md`.
+- **Correlational observation** (quantitative) — shows association, not cause.
+- **Surveys** (quantitative) — self-report only, no direct observation.
+- **Archival research** (quantitative) — relationships between variables, not causes; the records may be unreliable. Meta-analyses and systematic reviews (most widely via PRISMA) are archival research over publications.
+- **Qualitative designs** — inductive studies, ethnographies, naturalistic observation, case histories; the traditions, and what each should report, in `references/qualitative-methods.md`.
 
 ### Sampling
 
 - **Probability** (random, stratified, cluster, multistage) — needed for population inference.
 - **Non-probability** (convenience, snowball, purposive, quota) — fine for exploratory or qualitative work; the results should not be generalized beyond the sample.
 - The sampling frame and any selection bias should be documented.
-
-### Qualitative traditions
-
-| Tradition | What it asks | Data | Analysis |
-|-----------|--------------|------|----------|
-| **Phenomenology / IPA** | What is the lived experience of X? | In-depth interviews | Detailed interpretive coding of meaning units |
-| **Grounded theory** | What theory explains this process? | Interviews + observation | Open → axial → selective coding, constant comparison |
-| **Ethnography** | What is going on in this culture/setting? | Participant observation, field notes | Thick description, cultural pattern analysis |
-| **Narrative inquiry** | What stories do people tell? | Life histories, narrative interviews | Structural + thematic narrative analysis |
-| **Case study (qual)** | How and why does X happen here? | Multiple sources within bounded case | Within-case + cross-case analysis |
-| **Thematic analysis** | What themes recur in the data? | Any qualitative data | Inductive or deductive coding (Braun & Clarke) |
-| **Discourse / content analysis** | How is X talked about / represented? | Texts, transcripts, media | Coding of language patterns or content categories |
 
 ### Calibrate to the paper type
 
@@ -233,8 +190,4 @@ For each, the **counterfactual** should be articulated: what would have happened
 | **Systems** | Architecture decisions, scalability evidence, real-world deployment, engineering contributions |
 | **Position** | Argument coherence, evidence for claims, impact potential, fairness of characterizations |
 
-Do not require SOTA gains for every method, experiments for self-contained theory, novelty for a replication, positive results for a negative-results paper, or statistical testing unsupported by the design.
-
-## Principles
-
-- Do NOT dismiss work based on author reputation or affiliation. Evaluate the work on its own merits.
+Hold each paper to its own type's bar: a method to its stated claim rather than to state-of-the-art gains; self-contained theory to its proofs rather than to experiments; a replication to fidelity rather than novelty; a negative-results paper to its design rather than its direction; statistical testing only where the design supports it.

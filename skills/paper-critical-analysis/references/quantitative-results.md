@@ -8,8 +8,7 @@ Assess methods and statistics in this order: question and target quantity; desig
 
 - Charts: error bars typically span two standard errors. Watch for distorted axes or a truncated y-axis exaggerating differences.
 - For factorial designs, check main effects and interactions.
-- Type I error — concluding there's a difference when there isn't. Type II error — concluding there's no difference when there is.
-- A result is conventionally called statistically significant if p ≤ 0.05; good practice is to report all p values regardless. Say "statistically significant," not just "significant": a statistically significant result can still have no significant practical implications.
+- All p values should be reported, not only those below a threshold, and the wording should be "statistically significant": a statistically significant result can still carry no practical consequence.
 
 ## Analysis–design alignment
 
@@ -38,7 +37,7 @@ Prefer, in the paper's reporting:
 
 ## Sample size, multiplicity, missing data
 
-Sample size and precision — look for: prospective calculation or precision rationale; target effect or interval width; variance, event rate, prevalence, or accuracy assumptions; Type I error, power, sidedness, and multiplicity when applicable; design effect, clustering, attrition, noncompliance, and missingness. Do not request observed/post hoc power as a remedy for an imprecise result. Examine the estimate and uncertainty.
+Sample size and precision — look for: prospective calculation or precision rationale; target effect or interval width; variance, event rate, prevalence, or accuracy assumptions; Type I error, power, sidedness, and multiplicity when applicable; design effect, clustering, attrition, noncompliance, and missingness. An imprecise result is read off the estimate and its uncertainty; observed or post hoc power answers nothing here.
 
 Multiplicity — identify the inferential family before expecting adjustment: multiple primary outcomes; multiple intervention arms or contrasts; repeated time points; subgroups and interactions; interim analyses; high-dimensional features; model selection.
 
@@ -48,7 +47,7 @@ Missing data — check: missingness by group, variable, outcome, and time; reaso
 
 For each model: linearity, normality (residuals), homoscedasticity, independence; multicollinearity (VIF); influential observations (Cook's distance, leverage); was the appropriate model used?
 
-Parametric tests (t-test, ANOVA) assume a normally distributed population (some also require sphericity). If a parametric test was used, did the authors check the assumption it depends on?
+Parametric tests (t-test, ANOVA) assume a normally distributed population, and some also require sphericity. Where a parametric test was used, look for the check of the assumption it depends on.
 
 ## Claim–evidence mismatches
 
@@ -62,8 +61,8 @@ Parametric tests (t-test, ANOVA) assume a normally distributed population (some 
 
 ## Analysis biases to watch for
 
-- **P-hacking** — collecting data until significance reached; testing multiple outcomes, reporting only significant ones; trying multiple analysis methods; excluding "outliers" to reach significance; subgroup analyses until finding significance. Detection: suspiciously perfect p-values (just below .05); many researcher degrees of freedom; undisclosed analyses.
+- **P-hacking** — collecting data until significance is reached; testing multiple outcomes and reporting only the significant ones; trying multiple analysis methods; excluding "outliers" to reach significance; slicing subgroups until one is significant. Detection: p-values suspiciously just below .05; many researcher degrees of freedom; undisclosed analyses.
 - **HARKing** — presenting post hoc hypotheses as if they were predicted a priori.
 - **Base rate neglect** — ignoring prior probability when evaluating evidence.
 - **Regression to the mean** — treatment effects in extreme groups may be regression artifacts.
-- **Texas sharpshooter fallacy** — selecting data after seeing patterns.
+- **Texas sharpshooter fallacy** — selecting the data after seeing the pattern.
