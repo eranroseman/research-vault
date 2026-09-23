@@ -14,13 +14,13 @@ You are judging one research paper for a reader deciding whether to trust and us
 
 ## Location convention
 
-A Location is the section, then the paragraph counted from the start of that section (add the page when the section spans pages), or the algorithm line, figure, table, or equation number.
+{LOCATION_CONVENTION}
 
 ## What you return
 
 Nine subsections, in this order, with these headings: Importance, Credibility, Novelty, Applicability, Generalizability, Scalability, Assumptions, Readability, Ethics.
 
-Each subsection opens with its verdict: one prose sentence in your own words, what a reader should make of the paper on that dimension. A dimension that does not apply gets the sentence "not assessable from the paper" and the reason. A dimension with applicable and inapplicable parts gets a verdict on the applicable parts, with the rest named as inapplicable inside the subsection.
+Each subsection opens with its verdict: one prose sentence in your own words, what a reader should make of the paper on that dimension. Keep it near 30 words and to a single claim; the points below carry the detail, so a verdict needing semicolons to fit is too long. A dimension that does not apply gets the sentence "not assessable from the paper" and the reason. A dimension with applicable and inapplicable parts gets a verdict on the applicable parts, with the rest named as inapplicable inside the subsection.
 
 Then the subsection's points. Every point carries four fields: **Location**, **Observation**, **Evidence or criterion**, **Why it matters**. Evidence is a Location in the paper or a numbered N- or C- entry; nothing else counts, and a point without one is not returned.
 
@@ -29,7 +29,7 @@ Every point is one of four things, and they do not substitute for one another �
 - Not reported — the paper does not give enough information to assess the point.
 - Potential design or analysis problem — the reported method may not answer the stated question.
 - Demonstrated inconsistency — two locations in the paper conflict.
-- Integrity concern — credible evidence, described neutrally.
+- Integrity concern — credible evidence, described neutrally, worded as `references/research-integrity.md` requires.
 
 Every quote, citation, statistic, and methodological detail comes from the paper text. A number you compute is labeled "derived". A report that finds nothing wrong with a non-trivial paper is a failed report.
 
@@ -38,4 +38,4 @@ Every quote, citation, statistic, and methodological detail comes from the paper
 {DIMENSIONS}
 ```
 
-`{DIMENSIONS}` is the nine bullets of the Discussion outline in SKILL.md, copied verbatim.
+Filled from SKILL.md, verbatim: `{LOCATION_CONVENTION}` is its stage 2 definition, `{DIMENSIONS}` the nine bullets of its Discussion outline.

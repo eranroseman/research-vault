@@ -66,18 +66,9 @@ Both lists go in the report's appendix.
 
 ## Stage 3 — Judge, in the reader's frame
 
-Each of the nine dimensions gets a verdict with evidence. The verdict is one prose sentence in the writer's own words: what a reader should make of the paper on that dimension. A dimension that does not apply gets the sentence "not assessable from the paper" and the reason. A dimension with applicable and inapplicable parts gets a verdict on the applicable parts, with the rest named as inapplicable inside the subsection.
+**Fresh context, required.** Run stage 3 in a subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. That brief is the judging contract, holding the verdict form, the four fields a point carries, what counts as evidence, and the four kinds a point can be. Edit it there, not here.
 
-Evidence for a verdict is a Location in the paper or a numbered entry from the appendix lists (N- or C-). Nothing else counts. Each substantive point carries **Location**, **Observation**, **Evidence or criterion**, **Why it matters**.
-
-Every point is one of four things, and they do not substitute for one another — a missing reporting item is not evidence of misconduct, poor quality, or merit:
-
-- **Not reported** — the paper does not give enough information to assess the point.
-- **Potential design or analysis problem** — the reported method may not answer the stated question.
-- **Demonstrated inconsistency** — two locations in the paper conflict.
-- **Integrity concern** — credible evidence, described neutrally, worded as `references/research-integrity.md` requires.
-
-**Fresh context, required.** Run stage 3 in a subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. The subagent returns the nine subsections. On return, drop every point whose Evidence field contains no Location and no N- or C- entry; a background-file criterion may sit alongside one but never stands in for it. Note the count dropped in the appendix. The main context assembles the report, downgrading a finding where warranted and leaving de-duplication to stage 4; the subagent's return is the Discussion's only source of findings. A report that finds nothing wrong with a non-trivial paper is a failed report.
+The subagent returns the nine subsections. On return, drop every point whose Evidence field contains no Location and no N- or C- entry; a background-file criterion may sit alongside one but never stands in for it. Note the count dropped in the appendix. The main context assembles the report, downgrading a finding where warranted and leaving de-duplication to stage 4; the subagent's return is the Discussion's only source of findings.
 
 ## Stage 4 — Tighten the assembled report
 
@@ -86,13 +77,16 @@ Once, in the main context, after the report is assembled and before it is verifi
 - a Discussion sentence that restates the paper without carrying a judgment (the Context and Summary slots restate the paper by design and are untouched);
 - a point whose Location and Observation repeat another point's, keeping the copy under the dimension it bears on most and leaving a one-line cross-reference in the other;
 - a point with no Location;
-- a hedge that repeats an entry in "What this report did not check".
+- a hedge that repeats an entry in "What this report did not check";
+- a point that neither moves its dimension's verdict nor changes what a reader would do with the paper.
 
-Slots, verdict sentences, and appendix entries stay. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
+Remove a failing point whole; a point shaved to a clause still carries its load. Slots, verdict sentences, and appendix entries stay. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
 
 ## Stage 5 — Verify the report against the paper
 
-After tightening and before delivery, a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, and the report. It returns the list of items it could not find or that read differently in the paper. The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, is appended to the report's appendix.
+After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, and the report. That brief is the verification contract, holding what gets checked, what passing looks like, and the shape of the return. Edit it there, not here.
+
+The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, is appended to the report's appendix.
 
 ## The report
 
@@ -129,8 +123,8 @@ Nine subsections, in this order. Each subsection opens with its one-sentence ver
 - **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? Is it incremental work, or something very different from what has been done? What is genuinely new vs. incremental improvement? A novelty claim broader than the search or the cited literature supports is a claim–evidence mismatch.
 - **Applicability** — What are the practical applications of the work presented in the paper? Can you apply the information to your own projects? Do you think other researchers or practitioners may be able to apply the information?
 - **Generalizability** — Do the results apply only to the situation presented in the paper, or to a wider set of circumstances? External validity questions in `references/experiment-design.md`; for a qualitative study, case selection and claimed reach in `references/qualitative-methods.md`.
-- **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed?
-- **Assumptions** — What assumptions do the authors make? Are these realistic? Are scope and assumptions explicit? Statistical-test assumptions in `references/quantitative-results.md`; the counterfactual, design checks, and variable definitions in `references/experiment-design.md`.
+- **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed? Every scale the paper claims is checked against a rate computed from the figures the paper gives, and the computation is shown and labeled "derived"; a claimed scale the paper gives no figures to check reads as unsupported.
+- **Assumptions** — What assumptions do the authors make? Are these realistic? Are scope and assumptions explicit? Every premise the method depends on carries the Location of the step, line, equation, or condition that depends on it, and says whether the paper states it; walk the method's steps to find them rather than reading the premises off its prose. Statistical-test assumptions in `references/quantitative-results.md`; the counterfactual, design checks, and variable definitions in `references/experiment-design.md`.
 - **Readability** — How difficult was it to understand? Were individual sentences and paragraphs well-written? Was the paper well-structured, did it flow well, was it logically organized? Was it culturally neutral? Did it use words you'd only find in the GRE verbal section? Are definitions and notation clear? Is the tone precise and scholarly? Readability moves no other verdict.
 - **Ethics** — Is the work a good idea? Could it lead to potentially harmful outcomes? Are the authors aware of potentially negative consequences? The integrity questions in `references/research-integrity.md`; when people took part, the questions in `references/participants.md`.
 
