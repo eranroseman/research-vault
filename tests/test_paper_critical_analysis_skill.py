@@ -181,3 +181,34 @@ def test_the_appendix_carries_every_list_stage_2_writes():
         assert name.lower() in heading.lower(), (
             f"stage 2 writes the {name} and the appendix never names it"
         )
+
+
+_WORD_NUMBERS = {"three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
+
+
+def test_the_kind_values_match_the_count_the_brief_states():
+    """The brief states the count twice and then lists the values, so a value
+    added or removed leaves two numbers stale. That happened once in the other
+    direction: SKILL.md's screen was told there were four admissible kinds when
+    the contract it defers to lists three."""
+    brief = _judge_brief()
+    stated = re.findall(r"Kind is one of (?:the )?([a-z]+)", brief)
+    assert stated and len(set(stated)) == 1, f"the brief states the Kind count as {stated}"
+    start = brief.index("Kind is one of", brief.index("Kind is one of") + 1)
+    listed = re.findall(r"^- ([A-Z][^—]*)—", brief[start : brief.index("Every quote", start)], re.MULTILINE)
+    assert len(listed) == _WORD_NUMBERS[stated[0]], (
+        f"the brief lists {len(listed)} Kind values and calls them {stated[0]}: {listed}"
+    )
+
+
+def test_every_section_the_judge_returns_has_a_destination():
+    """The judge returns the nine dimension subsections and a Recalled section,
+    and stage 4 discards anything it does not recognise. A section the brief asks
+    for and the screen does not name is thrown away with the run's disclosure in
+    it."""
+    brief = _judge_brief()
+    returned = brief[brief.index("## What you return") : brief.index("## Delegation")]
+    assert "Recalled" in returned, "judge.md no longer asks for the Recalled section"
+    screen = _skill_text()
+    screen = screen[screen.index(STAGES[3]) : screen.index(STAGES[4])]
+    assert "Recalled" in screen, "stage 4 never says what becomes of the Recalled section"

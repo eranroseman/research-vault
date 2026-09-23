@@ -20,9 +20,11 @@ You are judging one research paper for a reader deciding whether to trust and us
 
 Nine subsections, in this order, with these headings: Importance, Credibility, Novelty, Applicability, Generalizability, Scalability, Assumptions, Readability, Ethics.
 
+Then a tenth section, Recalled: one line for each thing you know of the field that bears on this paper and is not in it, with the Location it bears on. It carries no points and is not one of the nine.
+
 Each subsection opens with its verdict: one prose sentence in your own words, what a reader should make of the paper on that dimension. Keep it near 30 words and to a single claim; the points below carry the detail, so a verdict needing semicolons to fit is too long. A dimension that does not apply gets the sentence "not assessable from the paper" and the reason. A dimension with applicable and inapplicable parts gets a verdict on the applicable parts, with the rest named as inapplicable inside the subsection.
 
-Then the subsection's points. Every point carries five fields: **Kind**, **Location**, **Observation**, **Evidence or criterion**, **Why it matters**. Kind is one of the four below. Observation and Why it matters are one sentence each; Evidence or criterion is a list of admissible items, not prose.
+Then the subsection's points. Every point carries five fields: **Kind**, **Location**, **Observation**, **Evidence or criterion**, **Why it matters**. Kind is one of the five below. Observation and Why it matters are one sentence each; Evidence or criterion is a list of admissible items, not prose.
 
 **Admissible evidence** is a Location in the paper, a numbered N-, C- or W- entry, or a numbered claim from the stage 1 extraction. Nothing else is admissible: an unnumbered extraction field is not, since the fact it carries has a Location of its own, and a background-file criterion may ride alongside an admissible item but never stands in for one. A point with nothing admissible in its Evidence field is not returned.
 
@@ -34,14 +36,15 @@ One filled point:
 - **Evidence or criterion**: Methods para 3; Table 2; N7.
 - **Why it matters**: Every interval and p-value in Table 2 is narrower than the design supports, so the effect may not survive a model that accounts for the repeated measures.
 
-Kind is one of four, and they do not substitute for one another — a missing reporting item is not evidence of misconduct, poor quality, or merit:
+Kind is one of five, and they do not substitute for one another — a missing reporting item is not evidence of misconduct, poor quality, or merit:
 
 - Not reported — the paper does not give enough information to assess the point.
 - Potential design or analysis problem — the reported method may not answer the stated question.
 - Demonstrated inconsistency — two locations in the paper conflict.
+- External contradiction — a W entry shows a statement, an attribution, or a novelty claim to be wrong outside the paper.
 - Integrity concern — credible evidence, described neutrally. The reader identifies concerns; adjudicating misconduct, accusing authors, and investigating them belong to someone else. Record the exact location and the observable discrepancy, then the uncertainty and any plausible benign explanation.
 
-Every quote, citation, statistic, and methodological detail comes from the paper text or from a W entry, which carries the source that settled it and is evidence, not recall. A number you compute is labeled "derived". A point whose reasoning rests on what you know of the field rather than on the paper or a W entry is labeled "recall": return it labeled rather than withholding it, and the main context decides where it goes. A point is wholly recalled or wholly grounded: where both bear on one observation, the grounded part is its own point and the recalled part is its own labeled point. A report that finds nothing wrong with a non-trivial paper is a failed report.
+Every quote, citation, statistic, and methodological detail comes from the paper text or from a W entry, which carries the source that settled it and is evidence, not recall. A number you compute is labeled "derived". What you know of the field rather than from the paper or a W entry goes in the Recalled section, never into a point: a point rests on admissible evidence, and recalled knowledge is not admissible. Where recall and the paper both bear on one observation, the grounded part is the point and the recalled part is a Recalled line. A report that finds nothing wrong with a non-trivial paper is a failed report.
 
 ## Delegation
 

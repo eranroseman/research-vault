@@ -75,7 +75,7 @@ Write three numbered lists, kept apart:
 - **Inconsistency list** (C1, C2, …): every place where two locations in the paper conflict. Check systematically: numbers across text, tables, and figures; p-values, confidence intervals, and effect sizes against each other; sample sizes throughout; percentages, averages, sums, and claimed improvements against the numbers they rest on; internal references; acronyms defined on first use; terminology; citation style. Each mismatch is one entry carrying both locations.
 - **External-check list** (W1, W2, …): with web access, one entry per check, each carrying the claim checked, the source consulted, and what that source said, with every search composed in the vocabulary of the paper's own field. Run every Context slot the paper cannot answer, and three checks no slot names: the paper's load-bearing external claim followed back to its primary source rather than the account it cites; work the paper does not cite that already does what it claims is new; a concept the paper uses and never defines. Read, or at least skim, the most relevant related work while filling this list. Without web access the list is empty.
 
-A **Location** is the section, then the paragraph counted from the start of that section (add the page when the section spans pages), or the algorithm line, figure, table, or equation number, or a named part of the front matter (title, author block, affiliation, abstract, keywords, identifier stamp, footnote n). Every list entry, and every point in the report, uses this convention.
+A **Location** is one of four forms. The section, then the paragraph counted from the start of that section, with the page appended where the section spans pages: `Section 3, paragraph 7 (p. 6)` is the section's seventh paragraph, which happens to be the second one on page 6 — the page is appended and never restarts the count. An algorithm line, figure, table, or equation number. A named part of the front matter: title, author block, affiliation, abstract, keywords, identifier stamp, footnote n. Or `whole paper`, for something absent throughout. A displayed equation, and the unindented text that follows it, belong to the paragraph that introduced them. Every list entry, and every point in the report, uses this convention.
 
 Every quote, citation, statistic, and methodological detail in the not-stated and inconsistency lists, and in the report, comes from the paper text; what the text does not say is a not-stated entry, and what a source outside the paper settles is an external-check entry.
 
@@ -85,13 +85,13 @@ Write all three lists into the report's appendix now, so stage 3's brief can poi
 
 **Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the three stage 2 lists, the Location convention from stage 2, and the background file paths the load table assigns. Not the conversation that wrote them. That brief is the judging contract. Edit it there, not here.
 
-It returns the nine subsections, and they are the Discussion's only source of findings.
+It returns the nine subsections and a Recalled section; the nine are the Discussion's only source of findings.
 
 ## Stage 4 — Assemble the report
 
 Run this in the main context, in this order. Nothing here adds a finding, and nothing here removes one for length.
 
-1. **Screen the return.** Drop every point whose Evidence field carries nothing admissible; the judging contract defines the four admissible kinds. Move every point the judge labeled "recall", and any unlabeled point that rests on anything the paper does not state, however true, to "What this report did not check" rather than letting it stand as a finding. Discard anything returned that is not one of the nine subsections.
+1. **Screen the return.** Drop every point whose Evidence field carries nothing admissible; the judging contract defines what is admissible. The Recalled section becomes lines in "What this report did not check". Discard anything returned that is neither one of the nine subsections nor the Recalled section.
 2. **Project stage 1 into Context and Summary.** The field table fills the Title, Authors and Venue slots; the neutral map and the claim blocks fill Problem, Method, Results and the authors' own Discussion. Go back to the paper only for a slot the extraction does not cover.
 3. **Place the nine subsections** in the Discussion, in the outline's order, each keeping its verdict sentence.
 4. **Write the tail.** "What this report did not check", then the appendix, with the verifier's list left empty for stage 6.
@@ -169,11 +169,11 @@ The nine, in order: Importance, Credibility, Novelty, Applicability, Generalizab
 
 ### What this report did not check
 
-Required, even when empty. One line each for: web-dependent slots skipped; parts of the paper not read or not readable (appendices, supplements, code); proofs or analyses not followed in detail; any statement in the report that rests on recall rather than the paper, quarantined here rather than presented as a finding.
+Required, even when empty. One line each for: web-dependent slots skipped; parts of the paper not read or not readable (appendices, supplements, code); proofs or analyses not followed in detail; the judge's Recalled section, one line each, disclosed here rather than presented as a finding.
 
-### Appendix: not-stated list, inconsistency list, external-check list, return accounting, verifier list
+### Appendix: not-stated list, inconsistency list, external-check list, stage 1 claims, return accounting, verifier list
 
-The three stage 2 lists, numbered, so the Discussion's evidence can cite N-, C- and W- entries; the stage 4 return accounting (points returned, points dropped as inadmissible, points moved as recall, duplicate groups stage 5 collapsed); the stage 6 verifier's list with each item's disposition. Those five and no further commentary.
+The three stage 2 lists, numbered, so the Discussion's evidence can cite N-, C- and W- entries; stage 1's numbered claim blocks, cited the same way; the stage 4 return accounting (points returned, points dropped as inadmissible, points moved as recall, duplicate groups stage 5 collapsed); the stage 6 verifier's list with each item's disposition. Those six and no further commentary.
 
 ## Method menu
 
