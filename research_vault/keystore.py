@@ -57,7 +57,6 @@ def store_key(vault: Path, server_id: str, key: str) -> None:
     if current is None and path.exists():
         # Row 47(a): the bytes are kept for the person, the grant is not lost.
         _move_aside(path)
-        current = {}
     current = current or {}
     current[server_id] = key
     _write_store(path, current)

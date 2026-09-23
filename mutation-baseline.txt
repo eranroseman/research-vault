@@ -1238,6 +1238,12 @@ research_vault/keystore.py::func/_write_store::-    path.write_text(json.dumps(c
 research_vault/keystore.py::func/_write_store::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=2) + "\n", encoding="UTF-8")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/keystore.py::func/_write_store::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=2) + "\n", encoding=None)
+# reason: locale default: the store holds ASCII item keys, so the platform codec and utf-8 write the same bytes
+research_vault/keystore.py::func/_write_store::-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:\n+    with os.fdopen(descriptor, "w", ) as handle:
+# reason: encoding alias
+research_vault/keystore.py::func/_write_store::-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:\n+    with os.fdopen(descriptor, "w", encoding="UTF-8") as handle:
+# reason: locale default: the store holds ASCII item keys, so the platform codec and utf-8 write the same bytes
+research_vault/keystore.py::func/_write_store::-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:\n+    with os.fdopen(descriptor, "w", encoding=None) as handle:
 # reason: equivalent on the grammar: text_changed's only use is the truthiness test `if text_changed else ""`, and None/False are both falsy
 research_vault/lifecycle.py::func/_drift_detail::-        text_changed = False\n+        text_changed = None
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
