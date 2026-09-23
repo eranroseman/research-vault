@@ -2158,7 +2158,13 @@ def test_live_drill_wakefield_and_fabricated(net_vault_real_mailto):
     # retraction's month is the stable fact, the day is whatever precision
     # the deposit carries (Task 19: partial dates keep their precision).
     assert re.fullmatch(r"2010-02(-\d{2})?", outcome.extra["notice_date"])
-    assert outcome.reason == "retracted — retraction"
+    # The notice type is Crossref's `updated-by[].type`, normalised but never
+    # mapped (`checks.py:256-261`), so re-depositing this notice as
+    # `partial_retraction` is the provider's to do: pin the shape and the
+    # blocking class, never the word (#22 — a provider-written value is not
+    # this check's to assert).
+    assert outcome.reason.startswith("retracted — ")
+    assert outcome.reason.removeprefix("retracted — ") in checks.BLOCKING_TYPES
     assert (
         checks.registry_agency(net_vault_real_mailto, "10.5281/zenodo.3678326")
         == "DataCite"

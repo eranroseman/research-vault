@@ -868,7 +868,11 @@ def test_prose_appended_below_the_note_is_drift_with_or_without_a_fresh_witness(
     source.write_text(source.read_text() + "hand-written prose\n")
 
     stale = {item.reason for item in _evidence_rows(fixture_vault, base)}
-    assert any(reason.startswith("schema-violation") for reason in stale), stale
+    # Exact: four strings share the `schema-violation` prefix on this path
+    # (`literature_notes.py:124-131`, missing/duplicate/invalid/stale), so the
+    # prefix cannot tell the stale witness this test is named for from the
+    # other three (#22).
+    assert "schema-violation — stale managed-sha256" in stale, stale
 
     _refresh_body_witness(source)
     fresh = {item.reason for item in _evidence_rows(fixture_vault, base)}
