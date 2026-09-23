@@ -31,6 +31,23 @@ def _age_days(date_str: str) -> int:
     ).days
 
 
+def test_the_inbox_verb_exits_2_naming_an_unreadable_queue(tmp_vault, capsys):
+    """The queue is a run input: an unreadable one leaves nothing to list, so
+    the verb exits 2 naming the path rather than raising through `main`. Every
+    other reader of the queue already agrees (`ack`, `record_finding`, the
+    disposition verbs); this one had no handler at all and tracebacked."""
+    from research_vault.__main__ import main
+
+    (tmp_vault / "inbox").mkdir(exist_ok=True)
+    queue = tmp_vault / "inbox" / "review-queue.md"
+    queue.write_bytes(INBOX_HEADER.encode() + b"- [id:: \xff]\n")
+
+    assert main(["inbox", "--vault", str(tmp_vault)]) == 2
+    error = capsys.readouterr().err
+    assert error.startswith("inbox unavailable: ")
+    assert str(queue) in error
+
+
 def test_new_inbox_is_typed_and_append_preserves_header_bytes(tmp_vault):
     (tmp_vault / "inbox").mkdir(exist_ok=True)
 
