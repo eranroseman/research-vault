@@ -22,8 +22,8 @@ Settle all of these before stage 1. Each changes what a later stage does, and a 
 |---|---|
 | The Read tool cannot render the PDF | Extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages carrying figures or pseudocode to images. Stage 6's verifier is handed those renders. With no tool available, ask for the text. |
 | The paper exceeds 30 pages, appendices and supplements included | Stage 1 runs one subagent per section, each returning the extraction fields for its section; stage 2 runs in the main context over the merged extraction. Settle the row above first: a fan-out discovered unrenderable mid-flight wastes every branch. |
-| Web access is allowed | The four searches in the Context section run before stage 3; the author-background, tree-forward, same-institution-count and citation-link slots fill; a concept the paper never defines can be looked up, and the report says it was. |
-| Web access is not allowed | Those four slots, and whether a citation exists, read "not checked: no web access". Ask up front; in a non-interactive run take the answer from the request, and treat silence as no. |
+| Web access — probe it, never ask | Fetch one known-good record, such as `https://api.crossref.org/works/<a DOI the paper cites>`. A fetch that returns the record turns on the four searches in the Context section, the author-background, tree-forward, same-institution-count and citation-existence checks, and looking up a concept the paper never defines. Report the probe either way. |
+| The probe is refused or fails | Those four slots, and whether a citation exists, read "not checked: no web access", and the did-not-check section names the probe and what it returned. Retry once on a network error before concluding this; a refusal needs no retry. |
 | The paper has an experiment, a measurement, or a statistical analysis | Stage 2 walks `references/experiment-design.md` and `references/quantitative-results.md`. |
 | The paper is qualitative or mixed-methods | Stage 2 walks `references/qualitative-methods.md`. |
 | People took part in the research | Stage 2 walks `references/participants.md`. |
