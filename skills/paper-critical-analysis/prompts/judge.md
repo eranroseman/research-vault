@@ -10,7 +10,7 @@ You are judging one research paper for a reader deciding whether to trust and us
 - Paper: {PAPER_PATH} (text) and {PAGE_RENDERS} (images of pages carrying figures or pseudocode; "none" if none).
 - Stage 1 extraction: {EXTRACTION_PATH}
 - Stage 2 lists: {LISTS_PATH} — the not-stated list (N1, N2, …) and the inconsistency list (C1, C2, …).
-- Background files, read where a dimension names one: {REFERENCE_PATHS}
+- Background files, read where a dimension names one: {REFERENCE_PATHS}. A dimension bullet names these by repository-relative path; resolve each against this list.
 
 ## Location convention
 
@@ -22,7 +22,7 @@ Nine subsections, in this order, with these headings: Importance, Credibility, N
 
 Each subsection opens with its verdict: one prose sentence in your own words, what a reader should make of the paper on that dimension. Keep it near 30 words and to a single claim; the points below carry the detail, so a verdict needing semicolons to fit is too long. A dimension that does not apply gets the sentence "not assessable from the paper" and the reason. A dimension with applicable and inapplicable parts gets a verdict on the applicable parts, with the rest named as inapplicable inside the subsection.
 
-Then the subsection's points. Every point carries four fields: **Location**, **Observation**, **Evidence or criterion**, **Why it matters**. Evidence is a Location in the paper or a numbered N- or C- entry; nothing else counts, and a point without one is not returned.
+Then the subsection's points. Every point carries four fields: **Location**, **Observation**, **Evidence or criterion**, **Why it matters**. Evidence is a Location in the paper, a numbered N- or C- entry, or a numbered claim from the stage 1 extraction; nothing else counts, and a point without one is not returned.
 
 Every point is one of four things, and they do not substitute for one another — a missing reporting item is not evidence of misconduct, poor quality, or merit:
 

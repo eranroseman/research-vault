@@ -58,7 +58,7 @@ Write two numbered lists, kept apart:
 - **Not-stated list** (N1, N2, …): every item the report will need that the paper does not give — participants, selection, consent, variable definitions, test assumptions, denominators, calibration data, code, thresholds, and so on; a part of the paper that is absent or merged into another; a concept the report needs that the paper uses without defining (with web access, look it up before stage 3, and say in the report that you did).
 - **Inconsistency list** (C1, C2, …): every place where two locations in the paper conflict. Check systematically: numbers across text, tables, and figures; p-values, confidence intervals, and effect sizes against each other; sample sizes throughout; percentages, averages, sums, and claimed improvements against the numbers they rest on; internal references; acronyms defined on first use; terminology; citation style (whether a citation exists is a web check: without web access, "not checked"). Each mismatch is one entry carrying both locations.
 
-A **Location** is the section, then the paragraph counted from the start of that section (add the page when the section spans pages), or the algorithm line, figure, table, or equation number. Every list entry, and every point in the report, uses this convention.
+A **Location** is the section, then the paragraph counted from the start of that section (add the page when the section spans pages), or the algorithm line, figure, table, or equation number, or a named part of the front matter (title, author block, affiliation, abstract, keywords, identifier stamp, footnote n). Every list entry, and every point in the report, uses this convention.
 
 Every quote, citation, statistic, and methodological detail in either list, and in the report, comes from the paper text; what the text does not say is a not-stated entry.
 
@@ -68,7 +68,7 @@ Both lists go in the report's appendix.
 
 **Fresh context, required.** Run stage 3 in a subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. That brief is the judging contract, holding the verdict form, the four fields a point carries, what counts as evidence, and the four kinds a point can be. Edit it there, not here.
 
-The subagent returns the nine subsections. On return, drop every point whose Evidence field contains no Location and no N- or C- entry; a background-file criterion may sit alongside one but never stands in for it. Note the count dropped in the appendix. The main context assembles the report, downgrading a finding where warranted and leaving de-duplication to stage 4; the subagent's return is the Discussion's only source of findings.
+The subagent returns the nine subsections. On return, drop every point whose Evidence field contains no Location, no N- or C- entry, and no stage 1 claim; a background-file criterion may sit alongside one of those but never stands in for it. Note the count dropped in the appendix. The main context assembles the report, downgrading a finding where warranted and leaving de-duplication to stage 4; the subagent's return is the Discussion's only source of findings.
 
 ## Stage 4 — Tighten the assembled report
 
@@ -80,7 +80,7 @@ Once, in the main context, after the report is assembled and before it is verifi
 - a hedge that repeats an entry in "What this report did not check";
 - a point that neither moves its dimension's verdict nor changes what a reader would do with the paper.
 
-Remove a failing point whole; a point shaved to a clause still carries its load. Slots, verdict sentences, and appendix entries stay. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
+Remove a failing point whole; a point shaved to a clause still carries its load. Slots, verdict sentences, and appendix entries survive this stage; stage 5 still corrects one it flags. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
 
 ## Stage 5 — Verify the report against the paper
 
@@ -123,7 +123,7 @@ Nine subsections, in this order. Each subsection opens with its one-sentence ver
 - **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? Is it incremental work, or something very different from what has been done? What is genuinely new vs. incremental improvement? A novelty claim broader than the search or the cited literature supports is a claim–evidence mismatch.
 - **Applicability** — What are the practical applications of the work presented in the paper? Can you apply the information to your own projects? Do you think other researchers or practitioners may be able to apply the information?
 - **Generalizability** — Do the results apply only to the situation presented in the paper, or to a wider set of circumstances? External validity questions in `references/experiment-design.md`; for a qualitative study, case selection and claimed reach in `references/qualitative-methods.md`.
-- **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed? Every scale the paper claims is checked against a rate computed from the figures the paper gives, and the computation is shown and labeled "derived"; a claimed scale the paper gives no figures to check reads as unsupported.
+- **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed? Every scale the paper claims is checked against a rate computed from the figures the paper gives, and the computation is shown and labeled "derived". Where the paper states no multiplier, take one from elsewhere in the paper, name what you took and from where; a claimed scale with no in-paper figure to build a rate from reads as unsupported, and says so.
 - **Assumptions** — What assumptions do the authors make? Are these realistic? Are scope and assumptions explicit? Every premise the method depends on carries the Location of the step, line, equation, or condition that depends on it, and says whether the paper states it; walk the method's steps to find them rather than reading the premises off its prose. Statistical-test assumptions in `references/quantitative-results.md`; the counterfactual, design checks, and variable definitions in `references/experiment-design.md`.
 - **Readability** — How difficult was it to understand? Were individual sentences and paragraphs well-written? Was the paper well-structured, did it flow well, was it logically organized? Was it culturally neutral? Did it use words you'd only find in the GRE verbal section? Are definitions and notation clear? Is the tone precise and scholarly? Readability moves no other verdict.
 - **Ethics** — Is the work a good idea? Could it lead to potentially harmful outcomes? Are the authors aware of potentially negative consequences? The integrity questions in `references/research-integrity.md`; when people took part, the questions in `references/participants.md`.
@@ -134,7 +134,7 @@ Required, even when empty. One line each for: web-dependent slots skipped; parts
 
 ### Appendix: not-stated list, inconsistency list, verifier list
 
-The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 3 return accounting (points returned, points dropped for missing evidence, duplicate groups stage 4 collapsed); the stage 5 verifier's list with each item's disposition; nothing else.
+The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 3 return accounting (points returned, points dropped for missing evidence, duplicate groups stage 4 collapsed); the stage 5 verifier's list with each item's disposition. Those three and no further commentary.
 
 ## Source types
 

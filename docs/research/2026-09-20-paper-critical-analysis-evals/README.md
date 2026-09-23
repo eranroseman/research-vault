@@ -17,6 +17,8 @@ Test paper: Abbonato (2026), "CheckIfExist: Detecting Citation Hallucinations in
 | 2026-09-23-single-judge-A.md | v15, one stage 3 subagent (the skill as written) | 7240 + 2965 appendix | 48 points returned, 0 dropped by the new return-time evidence screen; stage 4 collapsed 4 duplicate groups; verifier checked 340 items and flagged 3, all corrected. |
 | 2026-09-23-nine-judges-B.md | v15, nine stage 3 subagents, one per dimension (deliberate deviation) | 15127 + 2646 appendix | 93 points returned across nine judges, 0 dropped, 71 of 93 duplicated across dimensions in 23 groups; stage 4 collapsed 48; 45 points remained, against A's 44 from one judge. Verifier checked 319 items and flagged 3, all corrected. Unique to fan-out: throughput arithmetic, a figure and heading audit, and three mechanical findings A missed (OpenAlex derives from CrossRef so the three-way author intersection is not independent; Algorithm 1 line 14 assumes a CrossRef origin lines 3-5 do not guarantee; the two-confirmed-author gate excludes single-authored works). Verdict: keep one judge. |
 
+| 2026-09-23-sharpened-bounds-C.md | c7e2cdf, one judge, Assumptions and Scalability bounds sharpened | 11310 + 3415 appendix | 58 points returned, 1 dropped for inadmissible evidence, 57 carried; stage 4 collapsed 4 duplicate groups and corrected six derived numbers, one of which rested on a figure the paper never gives; verifier checked 310 items and flagged 3, all corrected. Reached all three findings that had previously needed a dedicated Assumptions judge. |
+
 Same prompt for every run: read the paper, write the report, no web access, no fresh-context subagent.
 
 ## The fan-out experiment (2026-09-23)
@@ -28,3 +30,15 @@ Nine judges each hold the whole paper and cannot see each other, so each redisco
 Fan-out pays when the lenses partition the artifact, as a section-by-section manuscript review does. These nine dimensions partition the judgment, not the paper, so the nine returns overlap and stage 4 has to unpick them, and where a duplicate group lands stops being mechanical. The skill keeps one stage 3 subagent.
 
 Two defects the experiment exposed in the skill itself, both since fixed: the return-time evidence screen could be read as rejecting any point whose Evidence field also named a background criterion (0 dropped under one reading, about 25 under the other), and numbers labelled "derived" sat outside stage 5's scope with nothing else checking them, so a wrong one survived until the main context caught it by chance.
+
+## Whether Assumptions needs its own judge (2026-09-23)
+
+Run B's per-dimension fan-out produced three findings run A missed, all from its Assumptions judge: OpenAlex aggregates from CrossRef so three-way author agreement is not independent corroboration; Algorithm 1 line 14 labels authors as CrossRef's when line 4 permits another origin; the two-confirmed-author gate excludes every single-authored work. The question was whether that needed a second subagent or a sharper demand.
+
+Run C sharpened the demand instead: every premise the method depends on carries the Location of the step, line, equation, or condition that depends on it, and the method's steps are walked rather than the premises read off its prose. Scalability got the parallel treatment, every claimed scale checked against a rate computed from the paper's own figures.
+
+One judge under the sharpened bounds reached all three. Assumptions went from four conceptual assumptions with no line citations to nine numbered premises, three of them false against the paper's own text; Scalability produced 4.6 days for a conference submission round and 20.4 hours for the accepted-papers corpus. Citing a line forces reading it, which is what a dedicated judge was buying. The skill keeps one stage 3 subagent, and the depth lives in the bound rather than in the fan-out.
+
+The run also vindicated the derived-number recompute added to stage 4 the same morning: it corrected six numbers the judge had produced, one built on a per-paper reference count the paper never states and one that read the 800 ms batch interval as a per-call delay. Stage 5 does not check derived numbers by design, so all six would have shipped.
+
+Five skill defects the run exposed, since fixed: front matter had no addressable Location, so a true finding about the identifier stamp was dropped as inadmissible; stage 1 claims were handed to the judge as material but were not admissible evidence; stage 4's protection of verdict sentences read as binding stage 5 too; the claimed-scale rule was unsatisfiable where the paper states no multiplier; and the dimension bullets spelled the background files differently from the brief's own input list.
