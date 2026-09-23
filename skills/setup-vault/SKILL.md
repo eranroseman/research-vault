@@ -22,7 +22,7 @@ python3 -m research_vault scaffold --vault PATH [--with-ci] [--with-rw-ci]
 
 Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run it: scaffold prints every path it created; report that list verbatim, and never present a path it did not print as committed. Paths such as `AGENTS.md`, `inbox/review-queue.md`, `system/templates/`, `system/bases/`, `system/glossary.md`, and `.git/hooks/pre-commit` are the contract, not an inventory of everything scaffold can create; CI paths appear only for their separately consented flags, and repairing an existing vault may create fewer paths than a fresh one.
 
-A vault scaffolded with `--with-ci` before 2026-09-17 installs `research-vault @ git+…` in its workflow; the label is create-once, so edit the two `pip install` lines to `research-vault-core @ git+https://github.com/eranroseman/research-vault.git` by hand.
+A vault scaffolded with `--with-ci` on or before 2026-09-23 installs `research-vault @ git+…` in its workflow; the label is create-once, so edit the two `pip install` lines to `research-vault-core @ git+https://github.com/eranroseman/research-vault.git` by hand.
 
 ## Diagnose
 
@@ -39,7 +39,7 @@ Report every doctor probe, not only failures — thirteen rows — plus the inbo
 
 ## Rename by hand
 
-A vault scaffolded before 2026-09-17 keeps its evidence layer under one of the stale names: `literatures/`. Doctor's `tree` row reports it (`UNMATCHED tree — stray literatures/: rename to literature/ by hand, then run capture --all`) and creates nothing while the old root stands; no verb renames a machine surface. The person runs `git mv literatures literature` in the vault, commits, then `python3 -m research_vault capture --all --vault PATH` — the notes re-render under the new root and `system/bibliography.json` regenerates. Every `[[<citation key>]]` link resolves as before; nothing else in the vault names the directory.
+A vault scaffolded on or before 2026-09-18 keeps its evidence layer under one of the stale names: `literatures/`. Doctor's `tree` row reports it (`UNMATCHED tree — stray literatures/: rename to literature/ by hand, then run capture --all`) and creates nothing while the old root stands; no verb renames a machine surface. The person runs `git mv literatures literature` in the vault, commits, then `python3 -m research_vault capture --all --vault PATH` — the notes re-render under the new root and `system/bibliography.json` regenerates. Every `[[<citation key>]]` link resolves as before; nothing else in the vault names the directory.
 
 ## Provision companions
 
