@@ -26,7 +26,7 @@ Every quote, statistic and methodological detail comes from the paper text. Wher
 
 ## Delegation
 
-Do this work yourself. Never spawn a subagent: this pipeline already fills every seat the critique gets, and an agent you spawned would re-read the skill and fan out again.
+Do this work yourself, and spawn no subagent: this pipeline already fills every seat the critique gets, and an agent you spawned would re-read the skill and fan out again.
 ```
 
 `{LOCATION_CONVENTION}` is filled verbatim from SKILL.md's stage 2 definition, `{EXTRACTION_SPEC}` from its stage 1 field table, neutral map and claim block.

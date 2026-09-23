@@ -23,7 +23,7 @@ Settle every row before stage 1; a condition discovered mid-run costs a stage it
 | Condition | What it changes |
 |---|---|
 | The Read tool cannot render the PDF | Extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages carrying figures or pseudocode to images. Stage 6's verifier is handed those renders. With no tool available, ask for the text. |
-| The paper exceeds 30 pages, appendices and supplements included | Stage 1 runs one subagent per section, each with `prompts/extract.md` filled for its section range; stage 2 runs in the main context over the merged extraction. Settle the row above first: a fan-out discovered unrenderable mid-flight wastes every branch. |
+| The paper exceeds 30 pages, appendices and supplements included | Stage 1 runs one subagent per section, each with `prompts/extract.md` filled for its section range and nothing of the conversation that filled it; stage 2 runs in the main context over the merged extraction. Settle the row above first: a fan-out discovered unrenderable mid-flight wastes every branch. |
 | Web access — probe it, never ask | Fetch one known-good record, such as `https://api.crossref.org/works/<a DOI the paper cites>`. A fetch that returns the record turns on the Context section's searches, the author-background, tree-forward, same-institution-count and citation-existence checks, the predatory venue check, and looking up a concept the paper never defines. Report the probe either way. |
 | The probe is refused or fails | Those checks read "not checked: no web access", and the did-not-check section names the probe and what it returned. Retry once on a network error before concluding this; a refusal needs no retry. |
 
@@ -90,7 +90,7 @@ It returns the nine subsections, and they are the Discussion's only source of fi
 
 Run this in the main context, in this order. Nothing here adds a finding, and nothing here removes one for length.
 
-1. **Screen the return.** Drop every point whose Evidence field contains no Location, no N- or C- entry, and no numbered stage 1 claim; an unnumbered extraction field does not count, since the fact it carries has a Location of its own, and a background-file criterion may sit alongside one of those but never stands in for it. Move a point that rests on anything the paper does not state, however true, to "What this report did not check" rather than letting it stand as a finding. Discard anything returned that is not one of the nine subsections.
+1. **Screen the return.** Drop every point whose Evidence field carries nothing admissible; the judging contract defines the three admissible kinds. Move every point the judge labeled "recall", and any unlabeled point that rests on anything the paper does not state, however true, to "What this report did not check" rather than letting it stand as a finding. Discard anything returned that is not one of the nine subsections.
 2. **Project stage 1 into Context and Summary.** The field table fills the Title, Authors and Venue slots; the neutral map and the claim blocks fill Problem, Method, Results and the authors' own Discussion. Go back to the paper only for a slot the extraction does not cover.
 3. **Place the nine subsections** in the Discussion, in the outline's order, each keeping its verdict sentence.
 4. **Write the tail.** "What this report did not check", then the appendix, with the verifier's list left empty for stage 6.
@@ -108,7 +108,7 @@ Remove a failing point whole; a point shaved to a clause still carries its load.
 
 ## Stage 6 — Verify the report against the paper
 
-After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, the report, and the Location convention from stage 2. That brief is the verification contract.
+After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, the report, and the Location convention from stage 2. Not the conversation that wrote the report; a verifier holding the reasoning behind a Location is no longer checking it. That brief is the verification contract.
 
 The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, goes in the appendix.
 
@@ -162,7 +162,7 @@ At greater length than an abstract, in the paper's own order:
 
 ### 3. Discussion
 
-Nine subsections, in this order. Each subsection opens with its one-sentence verdict, then its points, each point carrying the four fields from the judge brief. The questions below are prompts, not a form: answer those that bear on the paper, in whatever order the evidence suggests.
+Nine subsections, in this order. Each subsection opens with its one-sentence verdict, then its points, each point carrying the five fields from the judge brief. The questions below are prompts, not a form: answer those that bear on the paper, in whatever order the evidence suggests.
 
 The nine, in order: Importance, Credibility, Novelty, Applicability, Generalizability, Scalability, Assumptions, Readability and Ethics. What each asks is the judge brief's business, not this file's.
 
@@ -172,7 +172,7 @@ Required, even when empty. One line each for: web-dependent slots skipped; parts
 
 ### Appendix: not-stated list, inconsistency list, return accounting, verifier list
 
-The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 4 return accounting (points returned, points dropped for missing evidence, duplicate groups stage 5 collapsed); the stage 6 verifier's list with each item's disposition. Those three and no further commentary.
+The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 4 return accounting (points returned, points dropped as inadmissible, points moved as recall, duplicate groups stage 5 collapsed); the stage 6 verifier's list with each item's disposition. Those three and no further commentary.
 
 ## Method menu
 

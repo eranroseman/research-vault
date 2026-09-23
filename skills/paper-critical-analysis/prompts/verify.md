@@ -14,7 +14,7 @@ The Location convention below is filled verbatim from SKILL.md's stage 2 definit
 
 ## Delegation
 
-Do this work yourself. Never spawn a subagent: the report is already the product of a pipeline that fills every seat, and an agent you spawned would re-read the skill and fan out again.
+Do this work yourself, and spawn no subagent: this pipeline already fills every seat the critique gets, and an agent you spawned would re-read the skill and fan out again.
 
 ## Location convention
 
