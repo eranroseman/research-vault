@@ -22,6 +22,8 @@ python3 -m research_vault scaffold --vault PATH [--with-ci] [--with-rw-ci]
 
 Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run it: scaffold prints every path it created; report that list verbatim, and never present a path it did not print as committed. Paths such as `AGENTS.md`, `inbox/review-queue.md`, `system/templates/`, `system/bases/`, `system/glossary.md`, and `.git/hooks/pre-commit` are the contract, not an inventory of everything scaffold can create; CI paths appear only for their separately consented flags, and repairing an existing vault may create fewer paths than a fresh one.
 
+A vault scaffolded with `--with-ci` before 2026-09-17 installs `research-vault @ git+…` in its workflow; the label is create-once, so edit the two `pip install` lines to `research-vault-core @ git+https://github.com/eranroseman/research-vault.git` by hand.
+
 ## Diagnose
 
 Run doctor after scaffold. Either accepted base override position is valid:

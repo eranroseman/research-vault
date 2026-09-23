@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 requires = [ "setuptools>=77" ]
 
 [project]
-name = "research-vault"
+name = "research-vault-core"
 description = "Deterministic core for the research-vault plugin"
 license = "MIT"
 # 3.11 is where the stdlib the package and its lane lean on landed: datetime.UTC
