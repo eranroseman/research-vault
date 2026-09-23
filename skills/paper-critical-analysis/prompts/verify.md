@@ -10,9 +10,15 @@ You are checking a report against the paper it describes. You form no opinion of
 - Paper: {PAPER_PATH} (text) and {PAGE_RENDERS} (images of pages carrying figures or pseudocode; "none" if none).
 - Report: {REPORT_PATH}
 
+The Location convention below is filled verbatim from SKILL.md's stage 2 definition; report against it, not against a reading of your own.
+
 ## Delegation
 
 Do this work yourself. Never spawn a subagent: the report is already the product of a pipeline that fills every seat, and an agent you spawned would re-read the skill and fan out again.
+
+## Location convention
+
+{LOCATION_CONVENTION}
 
 ## What you check
 

@@ -14,10 +14,22 @@ import pytest
 
 SKILL_DIR = Path(__file__).resolve().parents[1] / "skills" / "paper-critical-analysis"
 SKILL_MD = SKILL_DIR / "SKILL.md"
-BRIEFS = ("judge.md", "verify.md")
+BRIEFS = ("judge.md", "verify.md", "extract.md")
 
-# A bolded dimension name opening a Discussion bullet: "- **Importance** — ..."
+# A bolded dimension name opening a dimension bullet: "- **Importance** — ..."
 _DIMENSION_BULLET = re.compile(r"^- \*\*([A-Z][a-z]+)\*\* —", re.MULTILINE)
+
+NINE = (
+    "Importance",
+    "Credibility",
+    "Novelty",
+    "Applicability",
+    "Generalizability",
+    "Scalability",
+    "Assumptions",
+    "Readability",
+    "Ethics",
+)
 # A brace placeholder a brief expects the dispatcher to fill: "{PAPER_PATH}"
 _PLACEHOLDER = re.compile(r"\{([A-Z_]+)\}")
 
@@ -26,35 +38,34 @@ def _skill_text() -> str:
     return SKILL_MD.read_text(encoding="utf-8")
 
 
-def _discussion_dimensions() -> list[str]:
+def _judge_brief() -> str:
+    return (SKILL_DIR / "prompts" / "judge.md").read_text(encoding="utf-8")
+
+
+def test_the_judge_brief_owns_the_nine_dimensions_in_order():
+    """The dimension bullets live in the brief, because the judge subagent cannot
+    read SKILL.md. Renaming or reordering one silently changes every report."""
+    section = _judge_brief()
+    section = section[section.index("## The nine dimensions") :]
+    assert tuple(_DIMENSION_BULLET.findall(section)) == NINE
+
+
+def test_the_skill_lists_the_same_nine_in_the_same_order():
+    """SKILL.md keeps the names so its report outline is legible, and the brief
+    keeps what each asks. Two surfaces, one order: when they disagree, the judge
+    returns a subsection the report has no slot for and nothing errors."""
     text = _skill_text()
-    section = text[text.index("### 3. Discussion") : text.index("### What this report did not check")]
-    return _DIMENSION_BULLET.findall(section)
+    sentence = text[text.index("The nine, in order:") :].split("\n", 1)[0]
+    found = tuple(n for n in re.findall(r"[A-Z][a-z]+", sentence) if n in NINE)
+    assert found == NINE, f"SKILL.md lists {found}"
 
 
-def test_discussion_names_the_nine_dimensions_in_order():
-    """The nine are the skill's contract with its eval runs; renaming or
-    reordering one silently changes every report's shape."""
-    assert _discussion_dimensions() == [
-        "Importance",
-        "Credibility",
-        "Novelty",
-        "Applicability",
-        "Generalizability",
-        "Scalability",
-        "Assumptions",
-        "Readability",
-        "Ethics",
-    ]
-
-
-def test_judge_brief_returns_the_dimensions_the_discussion_asks_for():
-    """The judge brief lists the headings it must return. When that list and the
-    Discussion outline disagree, the subagent returns a section the report has no
-    slot for, or leaves a slot empty, and neither shows up as an error."""
-    brief = (SKILL_DIR / "prompts" / "judge.md").read_text(encoding="utf-8")
+def test_the_judge_brief_asks_for_every_subsection_it_defines():
+    """The brief's return contract and its dimension list are separate passages;
+    when they disagree the subagent leaves a slot empty and nothing errors."""
+    brief = _judge_brief()
     listed = brief[brief.index("## What you return") : brief.index("Each subsection opens")]
-    for dimension in _discussion_dimensions():
+    for dimension in NINE:
         assert dimension in listed, f"judge.md never asks for the {dimension} subsection"
 
 
@@ -79,6 +90,18 @@ def _names_it(placeholder: str) -> bool:
     words = placeholder.lower().split("_")
     head = words[0]
     return head in _skill_text().lower()
+
+
+@pytest.mark.parametrize("brief_name", BRIEFS)
+def test_every_brief_that_handles_locations_is_given_the_convention(brief_name):
+    """Every brief either writes Location fields or checks them, and each runs in
+    a subagent that cannot read SKILL.md where the convention is defined. The
+    verifier shipped without it once: it then checked Locations against a reading
+    of its own and reported correct report items as failures."""
+    brief = (SKILL_DIR / "prompts" / brief_name).read_text(encoding="utf-8")
+    assert "{LOCATION_CONVENTION}" in brief, (
+        f"{brief_name} handles Locations and is never handed the convention"
+    )
 
 
 @pytest.mark.parametrize("brief_name", BRIEFS)

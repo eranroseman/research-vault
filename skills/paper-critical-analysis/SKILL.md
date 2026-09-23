@@ -16,20 +16,25 @@ Six stages, every one of them on every paper: extract, list what the paper does 
 
 ## What varies
 
-Settle all of these before stage 1. Each changes what a later stage does, and a condition discovered mid-run costs a stage its work.
+Settle every row before stage 1; a condition discovered mid-run costs a stage its work.
+
+**What changes the run.**
 
 | Condition | What it changes |
 |---|---|
 | The Read tool cannot render the PDF | Extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages carrying figures or pseudocode to images. Stage 6's verifier is handed those renders. With no tool available, ask for the text. |
-| The paper exceeds 30 pages, appendices and supplements included | Stage 1 runs one subagent per section, each returning the extraction fields for its section; stage 2 runs in the main context over the merged extraction. Settle the row above first: a fan-out discovered unrenderable mid-flight wastes every branch. |
-| Web access — probe it, never ask | Fetch one known-good record, such as `https://api.crossref.org/works/<a DOI the paper cites>`. A fetch that returns the record turns on the four searches in the Context section, the author-background, tree-forward, same-institution-count and citation-existence checks, and looking up a concept the paper never defines. Report the probe either way. |
-| The probe is refused or fails | Those four slots, and whether a citation exists, read "not checked: no web access", and the did-not-check section names the probe and what it returned. Retry once on a network error before concluding this; a refusal needs no retry. |
-| The paper has an experiment, a measurement, or a statistical analysis | Stage 2 walks `references/experiment-design.md` and `references/quantitative-results.md`. |
-| The paper is qualitative or mixed-methods | Stage 2 walks `references/qualitative-methods.md`. |
-| People took part in the research | Stage 2 walks `references/participants.md`. |
-| No method family fits the paper | Stage 2 walks every background file. |
+| The paper exceeds 30 pages, appendices and supplements included | Stage 1 runs one subagent per section, each with `prompts/extract.md` filled for its section range; stage 2 runs in the main context over the merged extraction. Settle the row above first: a fan-out discovered unrenderable mid-flight wastes every branch. |
+| Web access — probe it, never ask | Fetch one known-good record, such as `https://api.crossref.org/works/<a DOI the paper cites>`. A fetch that returns the record turns on the Context section's searches, the author-background, tree-forward, same-institution-count and citation-existence checks, the predatory venue check, and looking up a concept the paper never defines. Report the probe either way. |
+| The probe is refused or fails | Those checks read "not checked: no web access", and the did-not-check section names the probe and what it returned. Retry once on a network error before concluding this; a refusal needs no retry. |
 
-Whatever the paper, stage 2 walks `references/research-integrity.md` and the source types and method menu at the end of this file.
+**What the paper loads.** Each row sets both the file stage 2 walks and the path stage 3's brief hands the judge, so a row that does not fire puts its file out of the judge's reach too.
+
+| Condition | File |
+|---|---|
+| Every paper | `references/research-integrity.md` |
+| The paper reports any quantity it measured, computed, or tested | `references/quantitative-methods.md` |
+| The paper collects or analyses qualitative data — interviews, field notes, documents, cases, media | `references/qualitative-methods.md` |
+| People took part in the research | `references/participants.md` |
 
 ## Stage 1 — Extract, in the authors' frame
 
@@ -41,10 +46,10 @@ Then record, as the paper presents it:
 |-------|-------------|
 | **Title** | Full paper title |
 | **Authors** | Author list and affiliations |
-| **Venue / Status** | Publication venue, preprint server, or submission status |
+| **Venue / Status** | Publication venue, preprint server, or submission status, and which kind it is from Source types |
 | **Year** | Publication or submission year |
 | **Domain** | Research field and subfield |
-| **Paper Type** | Empirical, theoretical, survey, position paper, systems paper, etc. |
+| **Paper Type** | One of: empirical, theoretical, survey, systems, position, replication, negative results. A paper fitting none of the seven is recorded as the nearest, with the mismatch named. |
 
 A short neutral map: research question; population or system; design and unit; intervention, exposure, test, or model; comparator/reference; outcomes and timing; principal claims.
 
@@ -62,7 +67,7 @@ This extraction is where the report's Context and Summary slots come from.
 
 ## Stage 2 — List what the paper does not say
 
-Walk the background files the table above assigns — in full here, and again from the slots that name them.
+Walk the background files the load table assigns — in full here, and again from the slots that name them.
 
 Write two numbered lists, kept apart:
 
@@ -77,7 +82,7 @@ Write both lists into the report's appendix now, so stage 3's brief can point at
 
 ## Stage 3 — Judge, in the reader's frame
 
-**Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. That brief is the judging contract. Edit it there, not here.
+**Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, and the background file paths the load table assigns. Not the conversation that wrote them. That brief is the judging contract. Edit it there, not here.
 
 It returns the nine subsections, and they are the Discussion's only source of findings.
 
@@ -103,7 +108,7 @@ Remove a failing point whole; a point shaved to a clause still carries its load.
 
 ## Stage 6 — Verify the report against the paper
 
-After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, and the report. That brief is the verification contract.
+After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, the report, and the Location convention from stage 2. That brief is the verification contract.
 
 The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, goes in the appendix.
 
@@ -115,37 +120,51 @@ Three sections in this order, headings fixed, every slot filled or marked "not a
 
 - **Title**: is it short and to the point? Do you know what to expect from it?
 - **Authors and affiliations**: how many people were involved, and what does the order tell you? One or many institutions, which departments? Well-known places? What is their field, and what have they done before in the same area?
-- **Venue**: which kind (see Source types below), and what that implies about how rigorously it was reviewed.
+- **Venue**: which kind (the kinds below), and what that implies about how rigorously it was reviewed.
 - **Motivation**: why is the problem important? Does the paper motivate the research, state the contribution, and give an overview of the rest of the paper?
 - **Related work**: does it cover relevant prior work, synthesize it rather than list it, balance recent and foundational sources, and identify the gap accurately? Two comprehensiveness checks:
   - Tree backward: follow the paper's own reference list to the works it's built on — are those the field's recognized foundational references, or oddly idiosyncratic ones?
   - Tree forward: pick one of the paper's key cited references and check, via a citation index, whether more recent work citing that same reference is conspicuously missing — keeping in mind that research typically takes a few years to reach journal publication, so missing only the very latest work isn't necessarily a gap.
-- **References check**: how many references? What kinds of sources (see Source types below), and are reviews and preprints labeled as such? What is the span, in years, of the papers cited? How many include at least one of the authors? How many are for work by people at the same institution as the authors? Are primary sources used where possible? Do cited papers support the claims attached to them? Are citation metadata and links correct? Do you recognize any of the papers? Recognition, here and in tree backward, is recall by construction: label it as recall in the slot and list it under "did not check".
+- **References check**: how many references? What kinds of sources (the kinds below), and are reviews and preprints labeled as such? What is the span, in years, of the papers cited? How many include at least one of the authors? How many are for work by people at the same institution as the authors? Are primary sources used where possible? Do cited papers support the claims attached to them? Are citation metadata and links correct? Do you recognize any of the papers? Recognition, here and in tree backward, is recall by construction: label it as recall in the slot and list it under "did not check".
 
 With web access, every slot above that the paper cannot answer earns its own search, composed in the vocabulary of the paper's own field. Two moves paid off on every trial of this and neither is obvious: follow the paper's load-bearing external claim back to its primary source rather than resting on the account it cites, and resolve one cited reference against a citation index to check the metadata the paper states for it. Read, or at least skim, the most relevant related work before stage 3.
+
+#### Source types
+
+##### By currency and review rigor
+
+- Books — summarize research from the start of the field up to roughly 13 years before publication; useful for foundational grounding, but less rigorously peer-reviewed than journals
+- Review articles and edited-book chapters — typically within 5-8 years of current research; still not always peer-reviewed as rigorously as journal articles
+- Journal articles — the primary sources; the most current formal source; top journals accept as few as 10-20% of submissions after peer review
+- Proceedings — peer-reviewed, but usually shorter and less rigorously reviewed than a journal article; timely
+- Technical reports — more procedural detail than a journal article, but usually not peer-reviewed
+- Electronic, preprint, or web sources — no mandatory quality control; check the author's credentials and corroborate before trusting
+
+##### Predatory venue check
+
+If the venue is unfamiliar, check whether it is indexed (Scopus, Web of Science, PubMed, DOAJ) and a COPE member before weighing its review rigor. Think. Check. Submit. (thinkchecksubmit.org) is the field's checklist.
+
+##### Red flags in the paper's sourcing and context
+
+- Cherry-picked citations
+- A single study in isolation, with no replication
+- Contradicts the preponderance of evidence
+- Press release before peer review
 
 ### 2. Summary
 
 At greater length than an abstract, in the paper's own order:
 
 - **Problem**: research questions, hypotheses, objectives; what the authors set out to do.
-- **Method**: which method family from the Method menu below, and what that choice implies about what the results can and can't show. If no family fits (a systems, tool, theory, or position paper), name the paper type from the menu's calibration table, and name the family of the paper's evaluation if it has one. For an experiment, the Summary slots in `references/experiment-design.md`; for a qualitative study, those in `references/qualitative-methods.md`; otherwise, the methods, techniques, or process followed.
-- **Results**: big picture to details; how the data was analyzed; descriptive statistics, tables, charts, then inferential statistics (`references/quantitative-results.md`).
+- **Method**: which method family from the Method menu below, and what that choice implies about what the results can and can't show. If no family fits, the Paper Type recorded at stage 1 stands in its place, and name the family of the paper's evaluation if it has one. For an experiment, the Summary slots in `references/quantitative-methods.md`; for a qualitative study, those in `references/qualitative-methods.md`; otherwise, the methods, techniques, or process followed.
+- **Results**: big picture to details; how the data was analyzed; descriptive statistics, tables, charts, then inferential statistics (`references/quantitative-methods.md`).
 - **Discussion**: how the results should be interpreted, according to the authors, and why they think they got them; the implications of the research and how it advances knowledge in the field; practical value; the limitations they state; future research they discuss and what they plan next; whether the conclusion summarizes methods, results, discussion, and reiterates significance; whether there is an acknowledgement section for people who helped but did not make a significant contribution, plus funding.
 
 ### 3. Discussion
 
 Nine subsections, in this order. Each subsection opens with its one-sentence verdict, then its points, each point carrying the four fields from the judge brief. The questions below are prompts, not a form: answer those that bear on the paper, in whatever order the evidence suggests.
 
-- **Importance** — Is the problem being studied important? How significant is the contribution? What are the big ideas of this paper? Does the question match the claimed contribution? Judge the paper against its own question; a mismatch with some other question counts only when it undermines the stated contribution.
-- **Credibility** — Do you trust the methods that were used? How likely is it that the conclusions are correct? Affiliation and seniority carry no weight; the venue's review rigor carries some, and every check below runs regardless. The checks: validity threats and reporting red flags in `references/experiment-design.md`; the assessment order, claim–evidence mismatches and analysis biases in `references/quantitative-results.md`; trustworthiness and the self-audit in `references/qualitative-methods.md` for a qualitative study; questionable practices in `references/research-integrity.md`; demand characteristics in `references/participants.md`.
-- **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? What is genuinely new vs. incremental improvement? A novelty claim broader than the search or the cited literature supports is a claim–evidence mismatch.
-- **Applicability** — What are the practical applications of the work presented in the paper? Can you apply the information to your own projects? Do you think other researchers or practitioners may be able to apply the information?
-- **Generalizability** — Do the results apply only to the situation presented in the paper, or to a wider set of circumstances? External validity questions in `references/experiment-design.md`; for a qualitative study, case selection and claimed reach in `references/qualitative-methods.md`.
-- **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed? Every scale the paper claims is checked against a rate computed from the figures the paper gives, and the computation is shown and labeled "derived". Where the paper states no multiplier, take one from elsewhere in the paper, name what you took and from where; a claimed scale with no in-paper figure to build a rate from reads as unsupported, and says so.
-- **Assumptions** — What assumptions do the authors make? Are these realistic? Are scope and assumptions explicit? Every premise the method depends on carries the Location of the step, line, equation, or condition that depends on it, and says whether the paper states it; walk the method's steps to find them rather than reading the premises off its prose. Statistical-test assumptions in `references/quantitative-results.md`; the counterfactual, design checks, and variable definitions in `references/experiment-design.md`.
-- **Readability** — How difficult was it to understand? Were individual sentences and paragraphs well-written? Was the paper well-structured, did it flow well, was it logically organized? Was it culturally neutral? Did it use words you'd only find in the GRE verbal section? Are definitions and notation clear? Is the tone precise and scholarly? Readability moves no other verdict.
-- **Ethics** — Is the work a good idea? Could it lead to potentially harmful outcomes? Are the authors aware of potentially negative consequences? The integrity questions in `references/research-integrity.md`; when people took part, the questions in `references/participants.md`.
+The nine, in order: Importance, Credibility, Novelty, Applicability, Generalizability, Scalability, Assumptions, Readability and Ethics. What each asks is the judge brief's business, not this file's.
 
 ### What this report did not check
 
@@ -155,52 +174,12 @@ Required, even when empty. One line each for: web-dependent slots skipped; parts
 
 The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 4 return accounting (points returned, points dropped for missing evidence, duplicate groups stage 5 collapsed); the stage 6 verifier's list with each item's disposition. Those three and no further commentary.
 
-## Source types
-
-### By currency and review rigor
-
-- Books — summarize research from the start of the field up to roughly 13 years before publication; useful for foundational grounding, but less rigorously peer-reviewed than journals
-- Review articles and edited-book chapters — typically within 5-8 years of current research; still not always peer-reviewed as rigorously as journal articles
-- Journal articles — the primary sources; the most current formal source; top journals accept as few as 10-20% of submissions after peer review
-- Proceedings — peer-reviewed, but usually shorter and less rigorously reviewed than a journal article; timely
-- Technical reports — more procedural detail than a journal article, but usually not peer-reviewed
-- Electronic, preprint, or web sources — no mandatory quality control; check the author's credentials and corroborate before trusting
-
-### Predatory venue check
-
-If the venue is unfamiliar, check whether it is indexed (Scopus, Web of Science, PubMed, DOAJ) and a COPE member before weighing its review rigor. Think. Check. Submit. (thinkchecksubmit.org) is the field's checklist.
-
-### Red flags in the paper's sourcing and context
-
-- Cherry-picked citations
-- A single study in isolation, with no replication
-- Contradicts the preponderance of evidence
-- Press release before peer review
-
 ## Method menu
 
 ### The menu
 
-- **Experimental method** (quantitative) — random assignment supports a causal claim; every other route to one is ranked in `references/experiment-design.md`.
+- **Experimental method** (quantitative) — random assignment supports a causal claim; every other route to one is ranked in `references/quantitative-methods.md`.
 - **Correlational observation** (quantitative) — shows association, not cause.
 - **Surveys** (quantitative) — self-report only, no direct observation.
 - **Archival research** (quantitative) — relationships between variables, not causes; the records may be unreliable. Meta-analyses and systematic reviews (most widely via PRISMA) are archival research over publications.
 - **Qualitative designs** — inductive studies, ethnographies, naturalistic observation, case histories; the traditions, and what each should report, in `references/qualitative-methods.md`.
-
-### Sampling
-
-- **Probability** (random, stratified, cluster, multistage) — needed for population inference.
-- **Non-probability** (convenience, snowball, purposive, quota) — fine for exploratory or qualitative work; the results should not be generalized beyond the sample.
-- The sampling frame and any selection bias should be documented.
-
-### Calibrate to the paper type
-
-| Paper Type | Focus Areas |
-|------------|-------------|
-| **Empirical** | Experimental design, baselines, statistical significance, ablations, reproducibility |
-| **Theoretical** | Proof correctness, assumption reasonableness, tightness of bounds, connection to practice |
-| **Survey** | Comprehensiveness, taxonomy quality, coverage of recent work, synthesis insights |
-| **Systems** | Architecture decisions, scalability evidence, real-world deployment, engineering contributions |
-| **Position** | Argument coherence, evidence for claims, impact potential, fairness of characterizations |
-
-Hold each paper to its own type's bar: a method to its stated claim rather than to state-of-the-art gains; self-contained theory to its proofs rather than to experiments; a replication to fidelity rather than novelty; a negative-results paper to its design rather than its direction; statistical testing only where the design supports it.

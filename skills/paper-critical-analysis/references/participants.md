@@ -26,7 +26,7 @@ Do the authors report IRB approval — obtained before data collection — and i
 
 ## Privacy and the data plan
 
-What data is collected and whether each item is necessary; how identifiable it is; storage and access control; retention and destruction; re-identification risk realistically assessed (small N + quasi-identifiers + linked datasets = high risk). For research with identifiable communities, community engagement. Transparency across the lifecycle: pre-registration, all results reported including null ones, data and code shared where appropriate.
+What data is collected and whether each item is necessary; how identifiable it is; storage and access control; retention and destruction; re-identification risk realistically assessed (small N + quasi-identifiers + linked datasets = high risk). For research with identifiable communities, community engagement.
 
 ## Demand characteristics
 

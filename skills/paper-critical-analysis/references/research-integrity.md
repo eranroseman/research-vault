@@ -6,10 +6,6 @@ Any sign of research-integrity concerns: fabricated or adjusted data, plagiarism
 
 Check, where applicable: approvals, consent, welfare, privacy, community governance, funding, sponsor role, conflicts, authorship and contribution, registration, biosafety, and dual-use concerns.
 
-## How to word a concern
-
-The reader identifies concerns; adjudicating misconduct, accusing authors, and investigating them belong to someone else. Record the exact location and the observable discrepancy, then the uncertainty and any plausible benign explanation. This is the wording that keeps an "integrity concern" from collapsing into the three categories it is easily confused with (stage 3 of `SKILL.md`).
-
 ## Conflicts of interest and funding
 
 Funding source and commercial interests disclosed; author-participant relationships disclosed; industry sponsorship terms (data access, publication rights) reviewed. Two red flags: no conflicts-of-interest statement at all; industry funding with no stated independence.
