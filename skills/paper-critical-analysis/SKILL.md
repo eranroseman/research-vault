@@ -10,7 +10,7 @@ Thoroughness is the constraint here, token cost is not.
 
 ## Input and output
 
-Input: one paper, read in full. Output: one markdown file in the outline under "The report", named for the paper and written beside the input unless told otherwise; the tightening pass sets its length, not a ceiling.
+Input: one paper, read in full. Output: one markdown file in the outline under "The report", named for the paper and written beside the input unless told otherwise.
 
 Six stages, every one of them on every paper: extract, list what the paper does not say, judge, assemble, tighten, verify. Create a todo per stage and close each as its artifact exists.
 
@@ -58,7 +58,7 @@ Needed: [what evidence would settle it]
 
 Keep four things apart: what the paper claims; what its evidence demonstrates; what is plausible but untested; what a reader would expect the paper to claim but it never does.
 
-This extraction is where the report's Context and Summary slots come from. Stage 4 projects it; nothing re-derives it from the paper.
+This extraction is where the report's Context and Summary slots come from.
 
 ## Stage 2 — List what the paper does not say
 
@@ -77,7 +77,7 @@ Write both lists into the report's appendix now, so stage 3's brief can point at
 
 ## Stage 3 — Judge, in the reader's frame
 
-**Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. That brief is the judging contract, holding the verdict form, the four fields a point carries, what counts as evidence, and the four kinds a point can be. Edit it there, not here.
+**Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. That brief is the judging contract. Edit it there, not here.
 
 It returns the nine subsections, and they are the Discussion's only source of findings.
 
@@ -88,22 +88,22 @@ Run this in the main context, in this order. Nothing here adds a finding, and no
 1. **Screen the return.** Drop every point whose Evidence field contains no Location, no N- or C- entry, and no numbered stage 1 claim; an unnumbered extraction field does not count, since the fact it carries has a Location of its own, and a background-file criterion may sit alongside one of those but never stands in for it. Move a point that rests on anything the paper does not state, however true, to "What this report did not check" rather than letting it stand as a finding. Discard anything returned that is not one of the nine subsections.
 2. **Project stage 1 into Context and Summary.** The field table fills the Title, Authors and Venue slots; the neutral map and the claim blocks fill Problem, Method, Results and the authors' own Discussion. Go back to the paper only for a slot the extraction does not cover.
 3. **Place the nine subsections** in the Discussion, in the outline's order, each keeping its verdict sentence.
-4. **Write the tail.** "What this report did not check", then the appendix: the two lists, the return accounting, and the verifier's list left empty for stage 6.
+4. **Write the tail.** "What this report did not check", then the appendix, with the verifier's list left empty for stage 6.
 
 ## Stage 5 — Tighten the assembled report
 
 Run this once, in the main context, after assembly and before verification. Read every point in the Discussion and rule on it: kept, or removed for one of the reasons below. Recompute every number the report labels "derived" and correct it; stage 6 does not check those. Then remove:
 
 - a free-standing Discussion sentence that restates the paper without carrying a judgment. The Context and Summary slots, and every point's Observation field, restate the paper by design; none of them is in scope here;
-- a point whose Location and Observation repeat another point's, keeping the copy under the dimension it bears on most and leaving a one-line cross-reference in the other;
+- a point whose Location and Observation repeat another point's, keeping the copy under the dimension it bears on most, never under one picked to keep a subsection from running empty, and leaving a one-line cross-reference in the other;
 - a point with no Location;
 - a hedge that repeats an entry in "What this report did not check".
 
-Remove a failing point whole; a point shaved to a clause still carries its load. Then read the Discussion once against the test the judge worked under: a report that finds nothing wrong with a non-trivial paper is a failed report. If these removals have left one, the removals were wrong. Slots, verdict sentences, and appendix entries survive this stage; stage 6 still corrects one it flags. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
+Remove a failing point whole; a point shaved to a clause still carries its load. Then read the Discussion once against the test the judge worked under: a report that finds nothing wrong with a non-trivial paper is a failed report. If these removals have left one, the removals were wrong. Slots, verdict sentences, and appendix entries survive this stage; stage 6 still corrects one it flags.
 
 ## Stage 6 — Verify the report against the paper
 
-After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, and the report. That brief is the verification contract, holding what gets checked, what passing looks like, and the shape of the return. Edit it there, not here.
+After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, and the report. That brief is the verification contract.
 
 The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, goes in the appendix.
 
@@ -115,7 +115,7 @@ Three sections in this order, headings fixed, every slot filled or marked "not a
 
 - **Title**: is it short and to the point? Do you know what to expect from it?
 - **Authors and affiliations**: how many people were involved, and what does the order tell you? One or many institutions, which departments? Well-known places? What is their field, and what have they done before in the same area?
-- **Venue**: conference, journal, workshop, technical report, or preprint (see Source types below), and what that implies about how rigorously it was reviewed.
+- **Venue**: which kind (see Source types below), and what that implies about how rigorously it was reviewed.
 - **Motivation**: why is the problem important? Does the paper motivate the research, state the contribution, and give an overview of the rest of the paper?
 - **Related work**: does it cover relevant prior work, synthesize it rather than list it, balance recent and foundational sources, and identify the gap accurately? Two comprehensiveness checks:
   - Tree backward: follow the paper's own reference list to the works it's built on — are those the field's recognized foundational references, or oddly idiosyncratic ones?
@@ -139,7 +139,7 @@ Nine subsections, in this order. Each subsection opens with its one-sentence ver
 
 - **Importance** — Is the problem being studied important? How significant is the contribution? What are the big ideas of this paper? Does the question match the claimed contribution? Judge the paper against its own question; a mismatch with some other question counts only when it undermines the stated contribution.
 - **Credibility** — Do you trust the methods that were used? How likely is it that the conclusions are correct? Affiliation and seniority carry no weight; the venue's review rigor carries some, and every check below runs regardless. The checks: validity threats and reporting red flags in `references/experiment-design.md`; the assessment order, claim–evidence mismatches and analysis biases in `references/quantitative-results.md`; trustworthiness and the self-audit in `references/qualitative-methods.md` for a qualitative study; questionable practices in `references/research-integrity.md`; demand characteristics in `references/participants.md`.
-- **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? Is it incremental work, or something very different from what has been done? What is genuinely new vs. incremental improvement? A novelty claim broader than the search or the cited literature supports is a claim–evidence mismatch.
+- **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? What is genuinely new vs. incremental improvement? A novelty claim broader than the search or the cited literature supports is a claim–evidence mismatch.
 - **Applicability** — What are the practical applications of the work presented in the paper? Can you apply the information to your own projects? Do you think other researchers or practitioners may be able to apply the information?
 - **Generalizability** — Do the results apply only to the situation presented in the paper, or to a wider set of circumstances? External validity questions in `references/experiment-design.md`; for a qualitative study, case selection and claimed reach in `references/qualitative-methods.md`.
 - **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed? Every scale the paper claims is checked against a rate computed from the figures the paper gives, and the computation is shown and labeled "derived". Where the paper states no multiplier, take one from elsewhere in the paper, name what you took and from where; a claimed scale with no in-paper figure to build a rate from reads as unsupported, and says so.
