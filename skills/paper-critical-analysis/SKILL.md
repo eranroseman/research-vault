@@ -20,21 +20,21 @@ Settle every row before stage 1; a condition discovered mid-run costs a stage it
 
 **What changes the run.**
 
-| Condition | What it changes |
-|---|---|
-| The Read tool cannot render the PDF | Extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages carrying figures or pseudocode to images. Stage 6's verifier is handed those renders. With no tool available, ask for the text. |
+| Condition                                                       | What it changes                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The Read tool cannot render the PDF                             | Extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages carrying figures or pseudocode to images. Stage 6's verifier is handed those renders. With no tool available, ask for the text.                                                                                        |
 | The paper exceeds 30 pages, appendices and supplements included | Stage 1 runs one subagent per section, each with `prompts/extract.md` filled for its section range and nothing of the conversation that filled it; stage 2 runs in the main context over the merged extraction. Settle the row above first: a fan-out discovered unrenderable mid-flight wastes every branch. |
-| Web access — probe it, never ask | Fetch one known-good record, such as `https://api.crossref.org/works/<a DOI the paper cites>`. A fetch that returns the record turns on stage 2's external-check list and every check it carries. Report the probe either way. |
-| The probe is refused or fails | The external-check list stays empty, every slot that needed it reads "not checked: no web access", and the did-not-check section names the probe and what it returned. Retry once on a network error before concluding this; a refusal needs no retry. |
+| Web access — probe it, never ask                                | Fetch one known-good record, such as `https://api.crossref.org/works/<a DOI the paper cites>`. A fetch that returns the record turns on stage 2's external-check list and every check it carries. Report the probe either way.                                                                                |
+| The probe is refused or fails                                   | The external-check list stays empty, every slot that needed it reads "not checked: no web access", and the did-not-check section names the probe and what it returned. Retry once on a network error before concluding this; a refusal needs no retry.                                                        |
 
 **What the paper loads.** Each row sets both the file stage 2 walks and the path stage 3's brief hands the judge, so a row that does not fire puts its file out of the judge's reach too.
 
-| Condition | File |
-|---|---|
-| Every paper | `references/research-integrity.md` |
-| The paper reports a quantity it measured, or a statistic it computed from data | `references/quantitative-methods.md` |
-| The paper collects or analyses qualitative data — interviews, field notes, documents, cases, media | `references/qualitative-methods.md` |
-| People took part in the research | `references/participants.md` |
+| Condition                                                                                          | File                                 |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Every paper                                                                                        | `references/research-integrity.md`   |
+| The paper reports a quantity it measured, or a statistic it computed from data                     | `references/quantitative-methods.md` |
+| The paper collects or analyses qualitative data — interviews, field notes, documents, cases, media | `references/qualitative-methods.md`  |
+| People took part in the research                                                                   | `references/participants.md`         |
 
 ## Stage 1 — Extract, in the authors' frame
 
@@ -42,14 +42,14 @@ Open the report file first, at the path above, carrying the headings under "The 
 
 Then record, as the paper presents it:
 
-| Field | Description |
-|-------|-------------|
-| **Title** | Full paper title |
-| **Authors** | Author list and affiliations |
-| **Venue / Status** | Publication venue, preprint server, or submission status, and which kind it is from Source types |
-| **Year** | Publication or submission year |
-| **Domain** | Research field and subfield |
-| **Paper Type** | One of: empirical, theoretical, survey, systems, position, replication, negative results. A paper fitting none of the seven is recorded as the nearest, with the mismatch named. |
+| Field              | Description                                                                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Title**          | Full paper title                                                                                                                                                                 |
+| **Authors**        | Author list and affiliations                                                                                                                                                     |
+| **Venue / Status** | Publication venue, preprint server, or submission status, and which kind it is from Source types                                                                                 |
+| **Year**           | Publication or submission year                                                                                                                                                   |
+| **Domain**         | Research field and subfield                                                                                                                                                      |
+| **Paper Type**     | One of: empirical, theoretical, survey, systems, position, replication, negative results. A paper fitting none of the seven is recorded as the nearest, with the mismatch named. |
 
 A short neutral map: research question; population or system; design and unit; intervention, exposure, test, or model; comparator/reference; outcomes and timing; principal claims.
 

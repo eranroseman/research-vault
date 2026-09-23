@@ -84,7 +84,7 @@ Contradiction is preserved, not resolved. When a new claim contradicts one alrea
 | Search         | `find-sources`             | Literature search upstream of Zotero, logged PRISMA-S style; terminates at the person's selection                                             |
 | Catalog        | `capture-source`           | Add an item to Zotero, capture it into `literature/` and `fulltext/`, propagate a citation-key change                                         |
 | Analyze        | `critical-analysis-report` | Critical analysis of one paper: context, summary, nine judgments, each claim with a locator, plus a notes trail a fresh-context pass verifies |
-| Critique       | `paper-critical-analysis`  | In-depth critique of one paper: extract, list what it does not say, judge nine dimensions in a fresh context, then verify every locator                        |
+| Critique       | `paper-critical-analysis`  | In-depth critique of one paper: extract, list what it does not say, judge nine dimensions in a fresh context, then verify every locator       |
 | Verify         | `verify-citations`         | Run the deterministic suite and report it grouped by check id                                                                                 |
 | Factcheck      | `factcheck-draft`          | Non-blocking LLM adjudication of selected claims                                                                                              |
 | Publish        | `publish`                  | The armed gate and its disposition menu                                                                                                       |

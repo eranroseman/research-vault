@@ -13,6 +13,7 @@ Paper: Diletta Abbonato, arXiv:2602.15871v1 [cs.CL], 27 Jan 2026, 9 pages. Analy
 - **Motivation**: the paper motivates the problem at length and well. Sections 1 and 2 argue that citations are the verification substrate of science (Sec 1 para 2; Sec 2 para 1), that pre-LLM citation error rates already ran 25–54% (Sec 2 para 1), that LLM hallucination is categorically different from transcription error because it is systematic rather than random (Sec 2 para 2, pp2–3), that measured hallucination rates run 6% to over 30% (Sec 2 para 2, p3), and that the cost asymmetry between generating and verifying a citation is a market failure (Sec 2 para 3, p3). The headline motivating fact — over 100 AI-hallucinated citations across at least 53 of over 4,000 NeurIPS 2025 papers, plus 50 at ICLR (Sec 1 para 3, p2) — rests on a single Fortune press article whose own title says "new report claims" (Goldman, 2026; N26). The contribution is stated plainly (Sec 1 para 1; Sec 1 para 5, p2). There is **no overview of the rest of the paper**: no roadmap paragraph anywhere in Section 1.
 
 - **Related work**: there is no Related Work section. Prior work is handled in two places — Sec 1 para 4 (p2), on reference managers, bibliographic databases and commercial detection services, and Sec 4.1 (p7), a feature table against four reference managers. Both synthesise rather than list: the argument that managers are built for organisation rather than validation, and that a hallucinated reference is therefore catalogued alongside a real one, is made as a connected case, not as a citation parade. The gap is identified in one sentence (Sec 1 para 5, p2) and it is a real gap in the tools it names. But the survey stops at reference managers and unnamed commercial services: no prior academic or open-source citation-existence checker is discussed (N32), even though Dunford et al. (2024) — cited twice, for manual-detection difficulty and for "chimeric" fabrications (Sec 1 para 3; Sec 2 para 2) — is titled "Using automated analysis of the bibliography to detect potential research integrity issues" and is plainly an earlier automated approach.
+
   - *Tree backward*: the reference list reaches the field's recognised foundations for the citation-as-verification argument — Garfield (1972), Merton (1973), MacRoberts and MacRoberts (1996), Simkin and Roychowdhury (2003) — and the standard infrastructure papers for all three databases queried (Hendricks et al., 2020 for CrossRef; Ammar et al., 2018 for Semantic Scholar; Priem et al., 2022 for OpenAlex). Nothing idiosyncratic. For the hallucination side it reaches Ji et al. (2023), Alkaissi and McFarlane (2023), Athaluri et al. (2023) and Agrawal et al. (2024). The judgement that these are the recognised foundational works is **recall, not a check against the paper** (quarantined under "What this report did not check"). The balance of recent to foundational is good: 1972–2026.
   - *Tree forward*: **not checked: no web access.** No citation index was consulted, so whether more recent work citing the paper's key references is conspicuously missing is unknown.
 
@@ -31,6 +32,7 @@ Paper: Diletta Abbonato, arXiv:2602.15871v1 [cs.CL], 27 Jan 2026, 9 pages. Analy
 ## 3. Discussion
 
 ### Importance
+
 The problem is real and timely, but the contribution is a described design for an unevaluated tool, so its significance rests on plausibility rather than any demonstrated detection ability.
 
 - **Location**: Title; Abstract; Section 1 para 1 (p1).
@@ -53,9 +55,10 @@ The problem is real and timely, but the contribution is a described design for a
   **Evidence or criterion**: Section 2 para 1 and para 3; Strzelecki (2024) as cited in Section 2 para 3.
   **Why it matters**: A reader can take the problem framing away from this paper even if the tool claims are set aside — worth saying explicitly, since the framing and the artifact stand or fall separately here.
 
----
+______________________________________________________________________
 
 ### Credibility
+
 Treat every performance claim as unverified: the paper reports no evaluation at all, and its pseudocode, figure, and prose disagree about the rules that would decide any outcome.
 
 The qualitative trustworthiness checks and the demand-characteristics check are inapplicable (no qualitative study, no participants). The statistical-test checks of `references/quantitative-results.md` are inapplicable in that no test is run — but its **order of assessment** stops at the first step: the target quantity ("what counts as a correct detection") is never defined, so nothing downstream can be assessed.
@@ -101,6 +104,7 @@ The qualitative trustworthiness checks and the demand-characteristics check are 
   **Why it matters**: The fabricated-author detector — the paper's distinctive hallucination-detection mechanism — is specified as operating on a string form the preceding paragraph says has been destroyed. *(Demonstrated inconsistency.)*
 
 ### Novelty
+
 The design is a competent assembly of three public APIs and Levenshtein matching, and its novelty claim survives mainly because the closest prior work is left out of the comparison.
 
 - **Location**: Section 1 para 4 (p2); Section 4.1 para 1 and Table 1 (p7).
@@ -123,9 +127,10 @@ The design is a competent assembly of three public APIs and Levenshtein matching
   **Evidence or criterion**: Section 3 para 3; Algorithm 1 line 1; N3 (the command set and custom-macro handling are unspecified).
   **Why it matters**: This is real incremental value for LaTeX users, and naming it separately keeps the novelty judgment honest — the contribution is not zero, it is small and workflow-level.
 
----
+______________________________________________________________________
 
 ### Applicability
+
 A free, MIT-licensed, URL-accessible web tool is immediately usable, but the paper gives a reader no error rate, no example, and no version, so adoption is a leap of faith.
 
 - **Location**: Availability (p8); footnote 1 (p1); Table 1 rows "Open source" and "Unlimited free usage" (p7).
@@ -150,9 +155,10 @@ A free, MIT-licensed, URL-accessible web tool is immediately usable, but the pap
   **Evidence or criterion**: N15; N20.
   **Why it matters**: For batch auditing of a long bibliography, a transient API failure and a genuine non-existence are operationally indistinguishable unless the tool distinguishes them, and the paper does not say it does. *(Not reported.)*
 
----
+______________________________________________________________________
 
 ### Generalizability
+
 Reach beyond DOI-registered English-language journal articles is asserted rather than shown, and the paper's own coverage caveats predict the failures.
 
 - **Location**: Section 3 para 2 (p3).
@@ -177,9 +183,10 @@ Reach beyond DOI-registered English-language journal articles is asserted rather
   **Evidence or criterion**: Section 3 para 2; N1.
   **Why it matters**: Two of the three sources have stated disciplinary or genre skews, and no per-discipline result exists, so the "multi-source confirmation" argument is strongest in CS and biomedicine and weakest where the coverage gaps concentrate. *(Not reported.)*
 
----
+______________________________________________________________________
 
 ### Scalability
+
 Single-reference use is comfortable at the stated pacing, but the publisher-pipeline and bibliometric-dataset scales the paper claims have no in-paper figure that supports them.
 
 - **Location**: Section 4 para 2 (p7).
@@ -207,9 +214,10 @@ Single-reference use is comfortable at the stated pacing, but the publisher-pipe
   **Evidence or criterion**: Algorithm 1 line 2; N35 (the ranking producing the top 3 is not stated).
   **Why it matters**: The per-query cost is deliberately held constant, which is good for scale, but it means recall is bounded by CrossRef's relevance ranking placing the correct record in its first three hits — a fixed ceiling that no amount of scale relieves. *(Potential design or analysis problem.)*
 
----
+______________________________________________________________________
 
 ### Assumptions
+
 The method rests on at least a dozen premises about database coverage, name forms, and score scales that the paper does not state, and its own text contradicts several of them.
 
 - **Location**: Algorithm 1 line 3 (`if candidates = ∅`).
@@ -269,9 +277,10 @@ The method rests on at least a dozen premises about database coverage, name form
 
 The statistical-test assumptions in `references/quantitative-results.md` are inapplicable — no test is performed. The counterfactual and variable-definition checks in `references/experiment-design.md` are inapplicable in the causal sense, but the construct-validity requirement bites: the key construct, "reference exists / is hallucinated", is operationalized only as `bestScore > 50` (Algorithm 1 line 32) against undefined component measures, which is not an operationalization another party could repeat.
 
----
+______________________________________________________________________
 
 ### Readability
+
 Clearly written and easy to follow as prose, but the notation is incomplete and the scoring rules cannot be reconstructed from what the paper defines. *(Readability moves no other verdict here.)*
 
 - **Location**: Section 1 (pp1–2); Section 2 (pp2–3).
@@ -304,9 +313,10 @@ Clearly written and easy to follow as prose, but the notation is incomplete and 
   **Evidence or criterion**: C16; N25; N33.
   **Why it matters**: The comparison table, which carries the paper's positioning argument, uses four feature labels a reader cannot tell apart. *(Not reported.)*
 
----
+______________________________________________________________________
 
 ### Ethics
+
 No human subjects are involved, yet the paper recommends accusatory uses to reviewers and publishers with no measured error rate, no limitations section, and no disclosure statement of any kind.
 
 The questions in `references/participants.md` are inapplicable: no people took part, so consent, IRB, compensation, deception, and debriefing do not arise.
@@ -348,7 +358,6 @@ The questions in `references/participants.md` are inapplicable: no people took p
 - **Proofs or analyses not followed in detail**: the paper contains no proof and no statistical analysis, so none was skipped. Algorithm 1's 32 lines, Figure 1's control flow and Equations 1–3 were traced by hand against the prose, which is where the inconsistencies C1–C11 come from; that trace is a reading of the pseudocode as written, not an execution of the implementation, so a discrepancy found in Algorithm 1 may or may not be present in the deployed code.
 - **Statements resting on recall rather than on the paper**: two, quarantined here rather than presented as findings. First, the Context "tree backward" judgement that Garfield (1972), Merton (1973), MacRoberts and MacRoberts (1996), Simkin and Roychowdhury (2003), Hendricks et al. (2020), Ammar et al. (2018) and Priem et al. (2022) are the field's recognised foundational and infrastructure references, and that the list contains nothing idiosyncratic, is recall by construction and was not verified against any index. Second, the References-check observation that some cited papers are familiar is likewise recall. Third, a stage 3 finding that the identifier stamp's "arXiv:2602.15871v1 ... 27 Jan 2026" (p1) is internally inconsistent — 2602 reading as February 2026 against a January date — rests on recall of arXiv's YYMM identifier convention, which the paper nowhere states; it is quarantined here and was removed from the Discussion rather than presented as a finding. None of the three carries any point in the Discussion.
 
-
 ### Appendix: not-stated list, inconsistency list, verifier list
 
 #### Not-stated list
@@ -357,7 +366,7 @@ N1. Any evaluation of the tool — precision, recall, accuracy, false-positive o
 
 N2. The calibration behind footnote 2 (p6): the dataset of "valid references and known hallucinations" (size, provenance, how hallucinations were obtained or labeled), the calibration procedure, the objective optimized, and the resulting discrimination. Only the sentence in footnote 2 exists.
 
-N3. The set of LaTeX commands removed by FILTERLATEXCOMMANDS (Algorithm 1 line 1 "etc."; Sec 3 para 3 "such as \vspace, \hspace, \textit, or custom macros") and how custom macros are recognized.
+N3. The set of LaTeX commands removed by FILTERLATEXCOMMANDS (Algorithm 1 line 1 "etc."; Sec 3 para 3 "such as \\vspace, \\hspace, \\textit, or custom macros") and how custom macros are recognized.
 
 N4. How the search query is constructed (Figure 1 node "Construct Search Query"): which CrossRef endpoint and query fields are used, and how free-text input versus extracted BibTeX fields are mapped to them (Algorithm 1 line 2 gives only CROSSREFQUERY(q, rows = 3)).
 

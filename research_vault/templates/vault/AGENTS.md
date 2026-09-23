@@ -12,16 +12,16 @@ Prefer the two model-invocable research-vault skills over generic drafting, even
 
 These eight are the user-invoked entry points — type the name to run one; an agent cannot reach them on its own:
 
-| Skill              | Use it to                                                      |
-| ------------------ | -------------------------------------------------------------- |
-| `setup-vault`      | create, repair, or provision a vault                           |
-| `project-flow`     | start or resume a research project                             |
-| `find-sources`     | find literature before it is added to Zotero                   |
-| `capture-source`   | add, capture, refresh, propagate a re-key, or compile a source |
-| `verify-citations` | verify citations and run the citation checks                   |
-| `factcheck-draft`  | factcheck a draft against its sources before review            |
-| `publish`          | publish, park, correct, or withdraw a project                  |
-| `paper-critical-analysis` | write an in-depth critical analysis report of one paper |
+| Skill                     | Use it to                                                      |
+| ------------------------- | -------------------------------------------------------------- |
+| `setup-vault`             | create, repair, or provision a vault                           |
+| `project-flow`            | start or resume a research project                             |
+| `find-sources`            | find literature before it is added to Zotero                   |
+| `capture-source`          | add, capture, refresh, propagate a re-key, or compile a source |
+| `verify-citations`        | verify citations and run the citation checks                   |
+| `factcheck-draft`         | factcheck a draft against its sources before review            |
+| `publish`                 | publish, park, correct, or withdraw a project                  |
+| `paper-critical-analysis` | write an in-depth critical analysis report of one paper        |
 
 Literature notes are wholly machine-written: `capture` regenerates the whole note from Zotero on every run, so per-source prose belongs in a Zotero child note, which capture renders.
 

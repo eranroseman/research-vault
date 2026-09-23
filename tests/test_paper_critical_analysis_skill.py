@@ -67,9 +67,13 @@ def test_the_judge_brief_asks_for_every_subsection_it_defines():
     """The brief's return contract and its dimension list are separate passages;
     when they disagree the subagent leaves a slot empty and nothing errors."""
     brief = _judge_brief()
-    listed = brief[brief.index("## What you return") : brief.index("Each subsection opens")]
+    listed = brief[
+        brief.index("## What you return") : brief.index("Each subsection opens")
+    ]
     for dimension in NINE:
-        assert dimension in listed, f"judge.md never asks for the {dimension} subsection"
+        assert dimension in listed, (
+            f"judge.md never asks for the {dimension} subsection"
+        )
 
 
 @pytest.mark.parametrize("brief_name", BRIEFS)
@@ -81,10 +85,15 @@ def test_every_brief_placeholder_is_documented(brief_name):
     fenced = brief[brief.index("```") : brief.rindex("```")]
     prose = brief.replace(fenced, "")
     for placeholder in sorted(set(_PLACEHOLDER.findall(fenced))):
-        documented = f"{{{placeholder}}}" in prose or placeholder.lower().replace("_", " ") in prose.lower()
-        assert documented or f"{{{placeholder}}}" in _skill_text() or _names_it(placeholder), (
-            f"{brief_name} uses {{{placeholder}}} and nothing says what fills it"
+        documented = (
+            f"{{{placeholder}}}" in prose
+            or placeholder.lower().replace("_", " ") in prose.lower()
         )
+        assert (
+            documented
+            or f"{{{placeholder}}}" in _skill_text()
+            or _names_it(placeholder)
+        ), f"{brief_name} uses {{{placeholder}}} and nothing says what fills it"
 
 
 def _names_it(placeholder: str) -> bool:
@@ -143,7 +152,11 @@ def test_the_skill_does_not_restate_the_judging_contract():
     drifted. A bolded field name reappearing in SKILL.md is that drift starting
     again: the skill may name a field in prose, never re-specify the set."""
     text = _skill_text()
-    for phrase in ("**Observation**", "**Why it matters**", "**Evidence or criterion**"):
+    for phrase in (
+        "**Observation**",
+        "**Why it matters**",
+        "**Evidence or criterion**",
+    ):
         assert phrase not in text, (
             f"SKILL.md restates {phrase!r}, which prompts/judge.md owns"
         )
@@ -193,9 +206,14 @@ def test_the_kind_values_match_the_count_the_brief_states():
     the contract it defers to lists three."""
     brief = _judge_brief()
     stated = re.findall(r"Kind is one of (?:the )?([a-z]+)", brief)
-    assert stated and len(set(stated)) == 1, f"the brief states the Kind count as {stated}"
+    assert stated, "the brief never states how many Kind values there are"
+    assert len(set(stated)) == 1, f"the brief states the Kind count as {stated}"
     start = brief.index("Kind is one of", brief.index("Kind is one of") + 1)
-    listed = re.findall(r"^- ([A-Z][^—]*)—", brief[start : brief.index("Every quote", start)], re.MULTILINE)
+    listed = re.findall(
+        r"^- ([A-Z][^—]*)—",
+        brief[start : brief.index("Every quote", start)],
+        re.MULTILINE,
+    )
     assert len(listed) == _WORD_NUMBERS[stated[0]], (
         f"the brief lists {len(listed)} Kind values and calls them {stated[0]}: {listed}"
     )
@@ -211,4 +229,6 @@ def test_every_section_the_judge_returns_has_a_destination():
     assert "Recalled" in returned, "judge.md no longer asks for the Recalled section"
     screen = _skill_text()
     screen = screen[screen.index(STAGES[3]) : screen.index(STAGES[4])]
-    assert "Recalled" in screen, "stage 4 never says what becomes of the Recalled section"
+    assert "Recalled" in screen, (
+        "stage 4 never says what becomes of the Recalled section"
+    )

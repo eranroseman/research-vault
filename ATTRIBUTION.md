@@ -63,17 +63,17 @@ projects, all MIT; each copyright notice is reproduced here as that licence
 requires, and the permission text is the standard MIT text in each
 repository's LICENSE file.
 
-| Project | Copyright |
-|---|---|
-| [affaan-m/ECC](https://github.com/affaan-m/ECC) | Copyright (c) 2026 Affaan Mustafa |
-| [bytedance/deer-flow](https://github.com/bytedance/deer-flow) | Copyright (c) 2025 Bytedance Ltd. and/or its affiliates |
-| [K-Dense-AI/claude-scientific-writer](https://github.com/K-Dense-AI/claude-scientific-writer) | Copyright (c) 2025-2026 K-Dense Inc. |
-| [pedrohcgs/claude-code-my-workflow](https://github.com/pedrohcgs/claude-code-my-workflow) | Copyright (c) 2026 Pedro H. C. Sant'Anna |
-| [AlexWortega/ai-peer-review-skill](https://github.com/AlexWortega/ai-peer-review-skill) | Copyright (c) 2026 AlexWortega |
-| [stephenturner/skill-peer-review-assistant](https://github.com/stephenturner/skill-peer-review-assistant) | Copyright (c) 2026 Stephen D. Turner |
-| [BESSER-PEARL/research-agent-skills](https://github.com/BESSER-PEARL/research-agent-skills) | Copyright (c) 2026 BESSER-PEARL |
-| [Marazii/research-co-pilot](https://github.com/Marazii/research-co-pilot) | Copyright (c) 2026 Maya Arazi |
-| [honghuy127/cs-ai-research-skills](https://github.com/honghuy127/cs-ai-research-skills) | Copyright (c) 2026 Huy H. Nguyen |
+| Project                                                                                                   | Copyright                                               |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| [affaan-m/ECC](https://github.com/affaan-m/ECC)                                                           | Copyright (c) 2026 Affaan Mustafa                       |
+| [bytedance/deer-flow](https://github.com/bytedance/deer-flow)                                             | Copyright (c) 2025 Bytedance Ltd. and/or its affiliates |
+| [K-Dense-AI/claude-scientific-writer](https://github.com/K-Dense-AI/claude-scientific-writer)             | Copyright (c) 2025-2026 K-Dense Inc.                    |
+| [pedrohcgs/claude-code-my-workflow](https://github.com/pedrohcgs/claude-code-my-workflow)                 | Copyright (c) 2026 Pedro H. C. Sant'Anna                |
+| [AlexWortega/ai-peer-review-skill](https://github.com/AlexWortega/ai-peer-review-skill)                   | Copyright (c) 2026 AlexWortega                          |
+| [stephenturner/skill-peer-review-assistant](https://github.com/stephenturner/skill-peer-review-assistant) | Copyright (c) 2026 Stephen D. Turner                    |
+| [BESSER-PEARL/research-agent-skills](https://github.com/BESSER-PEARL/research-agent-skills)               | Copyright (c) 2026 BESSER-PEARL                         |
+| [Marazii/research-co-pilot](https://github.com/Marazii/research-co-pilot)                                 | Copyright (c) 2026 Maya Arazi                           |
+| [honghuy127/cs-ai-research-skills](https://github.com/honghuy127/cs-ai-research-skills)                   | Copyright (c) 2026 Huy H. Nguyen                        |
 
 The process itself, the nine discussion dimensions, and the remaining text are the author's own. [Imbad0202/academic-research-skills](https://github.com/Imbad0202/academic-research-skills) (CC BY-NC 4.0) was consulted; no text from it is reproduced.
 

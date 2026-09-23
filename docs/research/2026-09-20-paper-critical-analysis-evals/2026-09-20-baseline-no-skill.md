@@ -4,13 +4,13 @@
 **Artifact:** open-source (MIT) React/TypeScript web app hosted at `zabbonat.github.io/References-Validation/`, validating references against CrossRef, Semantic Scholar, and OpenAlex.
 **Review basis:** full text of the PDF (text-extracted; no web access). Claims that could not be checked against the paper itself are quarantined in Appendix A rather than presented as findings.
 
----
+______________________________________________________________________
 
 ## Verdict
 
 This is a tool-description paper for a plausible and genuinely useful utility: a free, installation-free web page that checks whether a reference exists in three scholarly indexes and returns corrected APA/BibTeX. The problem it targets is real and well motivated. But the paper contains **no evaluation of any kind** — no test set, no precision/recall, no false-positive rate on legitimate-but-unindexed references, no comparison with the commercial or open tools it positions itself against — and the footnote asserting that thresholds were "empirically calibrated" (p. 6, fn. 2) is unsupported by any reported data. Read closely, the algorithm as published (Algorithm 1, p. 4; Eqs. 2–3, p. 6) has internal inconsistencies that would produce systematic false positives, most seriously flagging every author of a real paper as "potentially fabricated" whenever one of the three databases lacks the paper. As a research contribution it is not yet evaluable; as a software note it overclaims ("hallucination detection") relative to what it does (existence-and-metadata lookup). Recommendation: major revision — add an evaluation, fix or clarify the scoring logic, add identifier-first lookup, and narrow the claims.
 
----
+______________________________________________________________________
 
 ## 1. What the paper does
 
@@ -49,15 +49,15 @@ Table 1 (p. 7) lists thirteen features against four reference managers, which th
 
 Each item below is checkable against the pseudocode on p. 4 or the text on p. 6. The implementation may differ from the paper; if so, the paper is the thing that needs fixing.
 
-1. **All authors flagged when any one source lacks the paper.** Lines 18–19 compute `confirmed = CR ∩ SS ∩ OA` and `suspect = (CR ∪ SS ∪ OA) \ confirmed`. If any one source returns nothing (its author set is empty), the intersection is empty and *every* author from the other sources lands in `suspect`, triggering "Potential fabricated authors" (line 27) and −10 to −20 per author (p. 6). A five-author paper indexed in CrossRef and Semantic Scholar but not OpenAlex would take a −50 to −100 penalty for being real. This is the single most consequential defect in the published logic.
-2. **Single-author papers can never earn the bonus.** Line 21 requires `|confirmed| ≥ 2` before adding +10 and before `correctedMetadata` is assigned. A solo-authored paper, however perfectly indexed everywhere, is structurally excluded.
-3. **`exists` ignores the penalties.** Line 30 folds the issues into `confidence`; line 32 returns `exists: bestScore > 50` using the *unpenalized* score. A reference carrying several fake-author penalties can still be reported as existing while its confidence says otherwise.
-4. **`correctedMetadata` is used unassigned.** It is set only inside the `if |confirmed| ≥ 2` branch (line 23) but consumed unconditionally at line 31. Pseudocode sloppiness, but it hides an unstated behaviour: what is exported when the branch does not fire?
-5. **Semantic Scholar is queried twice and cross-validated against itself.** If CrossRef returns nothing, line 4 already makes `bestMatch` a Semantic Scholar result; line 10 queries Semantic Scholar again, and line 14 labels the `bestMatch` authors as "crossRefAuthors." Two of the three "independent" sources are then the same source.
-6. **Three thresholds, no stated relationship.** Line 8 uses 70 to trigger fallback; Figure 1 (p. 5) uses "> 70 %" and then "> 80 %" to separate Verified from Partial Match; line 32 uses 50 for `exists`. What a user should conclude from a score of 60 (exists, not verified, not partial?) is undefined.
-7. **The scoring function is only partially specified.** Eq. 2 applies when title > 80 and author < 90; Eq. 3 applies to "structured input with high matching across all fields." The remaining cases — free text with title ≤ 80, structured input with a weak field, title > 80 with author ≥ 90 — are not given a formula. β is "∈ [0, 10]" in the text but a fixed +10 at line 22.
-8. **No identifier lookup.** The introduction (p. 2) names "a fabricated DOI" as a hallmark of hallucinated references, yet Algorithm 1 never resolves a DOI, arXiv ID, PMID, or ISBN. Direct identifier resolution is deterministic, cheap, and the strongest signal available; a cascade should start there, not with a fuzzy bibliographic query capped at three CrossRef candidates (line 2).
-9. **The fake-author heuristic is not robust.** A fake author is "a capitalized token in the query that matches neither title words, journal name, year, nor any real author family name" (p. 6). Taking the paper's own reference list as input: "Learned", "Publishing", "University", "Chicago", "Press", "Annual", "Review", "Information", "Science", "Technology", "Proceedings", "Findings", "Association", "Computational", "Linguistics" are all capitalized tokens that must be matched exactly against the retrieved journal string or become −10 to −20 penalties each. No stop-list, venue normalization, or handling of publisher/city/series names is described.
+01. **All authors flagged when any one source lacks the paper.** Lines 18–19 compute `confirmed = CR ∩ SS ∩ OA` and `suspect = (CR ∪ SS ∪ OA) \ confirmed`. If any one source returns nothing (its author set is empty), the intersection is empty and *every* author from the other sources lands in `suspect`, triggering "Potential fabricated authors" (line 27) and −10 to −20 per author (p. 6). A five-author paper indexed in CrossRef and Semantic Scholar but not OpenAlex would take a −50 to −100 penalty for being real. This is the single most consequential defect in the published logic.
+02. **Single-author papers can never earn the bonus.** Line 21 requires `|confirmed| ≥ 2` before adding +10 and before `correctedMetadata` is assigned. A solo-authored paper, however perfectly indexed everywhere, is structurally excluded.
+03. **`exists` ignores the penalties.** Line 30 folds the issues into `confidence`; line 32 returns `exists: bestScore > 50` using the *unpenalized* score. A reference carrying several fake-author penalties can still be reported as existing while its confidence says otherwise.
+04. **`correctedMetadata` is used unassigned.** It is set only inside the `if |confirmed| ≥ 2` branch (line 23) but consumed unconditionally at line 31. Pseudocode sloppiness, but it hides an unstated behaviour: what is exported when the branch does not fire?
+05. **Semantic Scholar is queried twice and cross-validated against itself.** If CrossRef returns nothing, line 4 already makes `bestMatch` a Semantic Scholar result; line 10 queries Semantic Scholar again, and line 14 labels the `bestMatch` authors as "crossRefAuthors." Two of the three "independent" sources are then the same source.
+06. **Three thresholds, no stated relationship.** Line 8 uses 70 to trigger fallback; Figure 1 (p. 5) uses "> 70 %" and then "> 80 %" to separate Verified from Partial Match; line 32 uses 50 for `exists`. What a user should conclude from a score of 60 (exists, not verified, not partial?) is undefined.
+07. **The scoring function is only partially specified.** Eq. 2 applies when title > 80 and author < 90; Eq. 3 applies to "structured input with high matching across all fields." The remaining cases — free text with title ≤ 80, structured input with a weak field, title > 80 with author ≥ 90 — are not given a formula. β is "∈ [0, 10]" in the text but a fixed +10 at line 22.
+08. **No identifier lookup.** The introduction (p. 2) names "a fabricated DOI" as a hallmark of hallucinated references, yet Algorithm 1 never resolves a DOI, arXiv ID, PMID, or ISBN. Direct identifier resolution is deterministic, cheap, and the strongest signal available; a cascade should start there, not with a fuzzy bibliographic query capped at three CrossRef candidates (line 2).
+09. **The fake-author heuristic is not robust.** A fake author is "a capitalized token in the query that matches neither title words, journal name, year, nor any real author family name" (p. 6). Taking the paper's own reference list as input: "Learned", "Publishing", "University", "Chicago", "Press", "Annual", "Review", "Information", "Science", "Technology", "Proceedings", "Findings", "Association", "Computational", "Linguistics" are all capitalized tokens that must be matched exactly against the retrieved journal string or become −10 to −20 penalties each. No stop-list, venue normalization, or handling of publisher/city/series names is described.
 10. **Levenshtein is a weak choice for titles.** Character-level edit distance normalized by length (Eq. 1) penalizes word reordering, dropped subtitles, and truncation heavily, and is O(|a|·|b|). Token-based measures (Jaccard, token-sort/token-set ratio) are the usual choice for bibliographic title matching and would be a one-line change; no justification for Levenshtein is offered.
 11. **Free-text parsing is unexplained.** Quick-check accepts "APA, MLA, Chicago, etc." (p. 6) but no citation parser is mentioned. If the entire citation string is sent as one bibliographic query and then compared by Levenshtein against a candidate *title*, the similarity is structurally low; if fields are extracted first, the extractor is the most error-prone component and is undescribed.
 12. **`MERGEMETADATA` is a black box.** When sources disagree on year, venue, or author order, which wins? The exported BibTeX depends on this and the paper does not say.
@@ -92,18 +92,18 @@ Each item below is checkable against the pseudocode on p. 4 or the text on p. 6.
 
 ## 8. Recommendations
 
-1. **Evaluate.** Build a benchmark of (a) real references stratified by type and field — including books, theses, non-English and DOI-less venues — and (b) LLM-generated references, e.g. following the Agrawal et al. (2024) protocol, labelled by ground-truth lookup. Report precision, recall, and false-positive rate per stratum, plus an ablation (CrossRef only vs. cascade) and a timing table. Run the tool on its own bibliography and report the result.
-2. **Fix the logic.** Guard the intersection against missing sources (intersect only over sources that returned a candidate); drop the `≥ 2` author requirement or justify it; make `exists` a function of the penalized score; specify the scoring formula for every branch; reconcile the 50/70/80 thresholds into one documented scale.
-3. **Add identifier-first lookup.** Resolve DOI, arXiv ID, PMID, and ISBN before any fuzzy query.
-4. **Replace Levenshtein with a token-based title measure** and describe the free-text field extraction.
-5. **Add a stop-list / venue normalization to the fake-author heuristic**, or replace the heuristic with comparison against parsed author fields only.
-6. **Separate "not found" from "contradicted."** Report three outcomes — verified, contradicted (real title, wrong authors/venue), and not indexed — instead of a single `exists` bit, and say plainly that "not indexed" is not evidence of fabrication.
-7. **Make correction opt-in and visible** (show a diff; never silently replace).
-8. **Rewrite the comparison.** Name and compare the commercial and open tools; treat Dunford et al. (2024) as prior work.
-9. **Document deployment facts.** API tiers, rate limits, privacy implications for confidential manuscripts, source repository, and an archived release.
+01. **Evaluate.** Build a benchmark of (a) real references stratified by type and field — including books, theses, non-English and DOI-less venues — and (b) LLM-generated references, e.g. following the Agrawal et al. (2024) protocol, labelled by ground-truth lookup. Report precision, recall, and false-positive rate per stratum, plus an ablation (CrossRef only vs. cascade) and a timing table. Run the tool on its own bibliography and report the result.
+02. **Fix the logic.** Guard the intersection against missing sources (intersect only over sources that returned a candidate); drop the `≥ 2` author requirement or justify it; make `exists` a function of the penalized score; specify the scoring formula for every branch; reconcile the 50/70/80 thresholds into one documented scale.
+03. **Add identifier-first lookup.** Resolve DOI, arXiv ID, PMID, and ISBN before any fuzzy query.
+04. **Replace Levenshtein with a token-based title measure** and describe the free-text field extraction.
+05. **Add a stop-list / venue normalization to the fake-author heuristic**, or replace the heuristic with comparison against parsed author fields only.
+06. **Separate "not found" from "contradicted."** Report three outcomes — verified, contradicted (real title, wrong authors/venue), and not indexed — instead of a single `exists` bit, and say plainly that "not indexed" is not evidence of fabrication.
+07. **Make correction opt-in and visible** (show a diff; never silently replace).
+08. **Rewrite the comparison.** Name and compare the commercial and open tools; treat Dunford et al. (2024) as prior work.
+09. **Document deployment facts.** API tiers, rate limits, privacy implications for confidential manuscripts, source repository, and an archived release.
 10. **Narrow the title and claims** to what is demonstrated: existence and metadata verification against three indexes.
 
----
+______________________________________________________________________
 
 ## Appendix A — Points from reviewer recall, not verifiable from the PDF (no web access)
 
