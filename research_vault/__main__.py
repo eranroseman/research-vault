@@ -181,12 +181,6 @@ def _hold(
         print(f"warning: review record refused: {detail}", file=sys.stderr)
 
 
-def _hold_reason(code: str, detail: str) -> str:
-    """Compose a reason-coded line from a code and free-text detail."""
-    detail = literature_notes.display_text(detail)
-    return f"{code} — {detail}" if detail else code
-
-
 def cmd_propagate(args):
     """The re-key pass, plan-and-apply (ingest spec §3.5, decision 01).
 

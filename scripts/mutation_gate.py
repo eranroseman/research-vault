@@ -584,20 +584,19 @@ def parse_size(text: str) -> int:
     return value
 
 
-def parse_budget(text: str) -> int:
-    """--max-mutants: a positive mutant count."""
-    if not text.isdigit() or int(text) < 1:
-        raise argparse.ArgumentTypeError(f"{text!r}: expected a positive mutant count")
-    return int(text)
+def _positive(noun: str) -> Callable[[str], int]:
+    """An argparse type: a positive integer, named by `noun` in the refusal."""
+
+    def parse(text: str) -> int:
+        if not text.isdigit() or int(text) < 1:
+            raise argparse.ArgumentTypeError(f"{text!r}: expected a positive {noun}")
+        return int(text)
+
+    return parse
 
 
-def parse_seconds(text: str) -> int:
-    """--time-budget: a positive number of seconds."""
-    if not text.isdigit() or int(text) < 1:
-        raise argparse.ArgumentTypeError(
-            f"{text!r}: expected a positive number of seconds"
-        )
-    return int(text)
+parse_budget = _positive("mutant count")  # --max-mutants
+parse_seconds = _positive("number of seconds")  # --time-budget
 
 
 def _address_space_limiter(cap: int) -> Callable[[], None]:

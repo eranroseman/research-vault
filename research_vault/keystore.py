@@ -6,6 +6,7 @@ byte lands (row 47). `capture.add` is its one caller.
 
 import datetime
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -14,7 +15,7 @@ KEY_STORE = ".research-vault/zotero-keys.json"
 
 def _read_store(path: Path) -> dict | None:
     """The store's object, or None: absent, unreadable, not JSON, or not an
-    object. Reading never moves the file; `_store_key` does that once it is
+    object. Reading never moves the file; `store_key` does that once it is
     about to write."""
     try:
         current = json.loads(path.read_text(encoding="utf-8"))
@@ -23,7 +24,7 @@ def _read_store(path: Path) -> dict | None:
     return current if isinstance(current, dict) else None
 
 
-def _load_key(vault: Path, server_id: str) -> str | None:
+def load_key(vault: Path, server_id: str) -> str | None:
     store = _read_store(Path(vault) / KEY_STORE)
     value = store.get(server_id) if store else None
     return value if isinstance(value, str) else None
@@ -40,14 +41,16 @@ def _move_aside(path: Path) -> None:
 
 
 def _write_store(path: Path, current: dict) -> None:
-    # Created 0600 before any byte lands: write_text then chmod would leave the
-    # key at the umask default for the instant between them (row 47).
-    path.touch(mode=0o600, exist_ok=True)
-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
+    # Created 0600 by the same call that opens it, so no instant exists in
+    # which the key sits at the umask default (row 47); O_TRUNC so a shorter
+    # store leaves no stale tail; the chmod covers a file that already existed.
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(current, indent=2) + "\n")
     path.chmod(0o600)
 
 
-def _store_key(vault: Path, server_id: str, key: str) -> None:
+def store_key(vault: Path, server_id: str, key: str) -> None:
     path = Path(vault) / KEY_STORE
     path.parent.mkdir(parents=True, exist_ok=True)
     current = _read_store(path)
@@ -60,7 +63,7 @@ def _store_key(vault: Path, server_id: str, key: str) -> None:
     _write_store(path, current)
 
 
-def _forget_key(vault: Path, server_id: str) -> None:
+def forget_key(vault: Path, server_id: str) -> None:
     """Row 47(b): drop one server id's entry before a re-grant; an absent or
     unreadable store is nothing to forget."""
     path = Path(vault) / KEY_STORE

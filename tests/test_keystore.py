@@ -13,7 +13,7 @@ def test_store_key_creates_the_file_0600_before_any_byte_lands(tmp_vault, monkey
     monkeypatch.setattr(Path, "chmod", lambda self, mode, **kwargs: None)
     previous = os.umask(0o022)
     try:
-        keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+        keystore.store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
     finally:
         os.umask(previous)
     store = tmp_vault / keystore.KEY_STORE
@@ -21,10 +21,12 @@ def test_store_key_creates_the_file_0600_before_any_byte_lands(tmp_vault, monkey
     assert json.loads(store.read_text()) == {"6LpvURP2E933": "k" * 32}
 
 
-def test_capture_re_exports_the_store_names_for_its_patch_targets():
-    assert capture.KEY_STORE == keystore.KEY_STORE
-    assert capture._store_key is keystore._store_key
-    assert capture._load_key is keystore._load_key
+def test_capture_calls_the_store_through_the_module_not_a_re_export():
+    """`add` reaches the store as `keystore.<name>` at call time, so a test
+    patches `keystore.store_key` and no private name is re-exported."""
+    assert capture.keystore is keystore
+    for name in ("_store_key", "_load_key", "_forget_key", "KEY_STORE"):
+        assert not hasattr(capture, name), name
 
 
 def test_an_unparseable_store_is_moved_aside_then_written(tmp_vault, capsys):
@@ -34,7 +36,7 @@ def test_an_unparseable_store_is_moved_aside_then_written(tmp_vault, capsys):
     store.parent.mkdir(parents=True, exist_ok=True)
     store.write_text("{not json")
 
-    keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+    keystore.store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
 
     aside = [
         p for p in store.parent.iterdir() if p.name.startswith("zotero-keys.json.bad-")
@@ -63,7 +65,7 @@ def test_move_aside_stamps_utc_not_local_time(tmp_vault, monkeypatch):
     time.tzset()
     try:
         before = datetime.datetime.now(datetime.UTC)
-        keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+        keystore.store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
         aside = [
             p
             for p in store.parent.iterdir()
@@ -84,7 +86,7 @@ def test_a_non_object_store_is_moved_aside_the_same_way(tmp_vault, capsys):
     store = tmp_vault / keystore.KEY_STORE
     store.parent.mkdir(parents=True, exist_ok=True)
     store.write_text("[]")
-    keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+    keystore.store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
     assert json.loads(store.read_text()) == {"6LpvURP2E933": "k" * 32}
     assert any(
         p.name.startswith("zotero-keys.json.bad-") for p in store.parent.iterdir()
@@ -93,14 +95,14 @@ def test_a_non_object_store_is_moved_aside_the_same_way(tmp_vault, capsys):
 
 
 def test_load_key_answers_none_for_an_absent_unparseable_or_shapeless_store(tmp_vault):
-    assert keystore._load_key(tmp_vault, "6LpvURP2E933") is None
+    assert keystore.load_key(tmp_vault, "6LpvURP2E933") is None
     store = tmp_vault / keystore.KEY_STORE
     store.parent.mkdir(parents=True, exist_ok=True)
     for body in ("{not json", "[]", '{"6LpvURP2E933": 42}'):
         store.write_text(body)
-        assert keystore._load_key(tmp_vault, "6LpvURP2E933") is None
+        assert keystore.load_key(tmp_vault, "6LpvURP2E933") is None
     store.write_text('{"6LpvURP2E933": "k"}')
-    assert keystore._load_key(tmp_vault, "6LpvURP2E933") == "k"
+    assert keystore.load_key(tmp_vault, "6LpvURP2E933") == "k"
     assert not any(
         p.name.startswith("zotero-keys.json.bad-") for p in store.parent.iterdir()
     )
@@ -110,8 +112,8 @@ def test_store_key_preserves_an_existing_valid_entry_when_adding_another(tmp_vau
     """A real existing store is read, not discarded: `_read_store` forced to
     `None` regardless of the file's content would wrongly treat a valid
     store as corrupt and move it aside, losing the first key."""
-    keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
-    keystore._store_key(tmp_vault, "OTHER0000000", "j" * 32)
+    keystore.store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+    keystore.store_key(tmp_vault, "OTHER0000000", "j" * 32)
     store = tmp_vault / keystore.KEY_STORE
     assert json.loads(store.read_text()) == {
         "6LpvURP2E933": "k" * 32,
@@ -124,22 +126,22 @@ def test_store_key_preserves_an_existing_valid_entry_when_adding_another(tmp_vau
 
 def test_store_key_creates_a_multi_level_missing_vault_directory(tmp_path):
     vault = tmp_path / "missing" / "vault"
-    keystore._store_key(vault, "6LpvURP2E933", "k" * 32)
+    keystore.store_key(vault, "6LpvURP2E933", "k" * 32)
     store = vault / keystore.KEY_STORE
     assert store.is_file()
 
 
 def test_store_key_writes_pretty_printed_two_space_json(tmp_vault):
-    keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+    keystore.store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
     store = tmp_vault / keystore.KEY_STORE
     assert store.read_text() == '{\n  "6LpvURP2E933": "' + "k" * 32 + '"\n}\n'
 
 
 def test_forget_key_drops_one_entry_and_tolerates_an_absent_store(tmp_vault):
-    keystore._forget_key(tmp_vault, "6LpvURP2E933")  # no store: nothing to forget
-    keystore._store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
-    keystore._store_key(tmp_vault, "OTHER0000000", "j" * 32)
-    keystore._forget_key(tmp_vault, "6LpvURP2E933")
+    keystore.forget_key(tmp_vault, "6LpvURP2E933")  # no store: nothing to forget
+    keystore.store_key(tmp_vault, "6LpvURP2E933", "k" * 32)
+    keystore.store_key(tmp_vault, "OTHER0000000", "j" * 32)
+    keystore.forget_key(tmp_vault, "6LpvURP2E933")
     store = tmp_vault / keystore.KEY_STORE
     assert json.loads(store.read_text()) == {"OTHER0000000": "j" * 32}
     assert stat.S_IMODE(store.stat().st_mode) == 0o600

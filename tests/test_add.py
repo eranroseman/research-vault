@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from research_vault import Result, capture, zotero
+from research_vault import Result, capture, keystore, zotero
 from tests.fakes import ITEM, FakeZotero, canned_item
 
 
@@ -64,7 +64,7 @@ def test_add_authorizes_once_stores_the_key_creates_and_captures(
 
     # A fresh client per call is what production does (`cmd_add` builds one
     # each invocation); the "authorize once across runs" promise rests on
-    # `_load_key` reading the store, not on the same client object surviving.
+    # `keystore.load_key` reading the store, not on the same client object surviving.
     fresh_client = fake.install(zotero.ZoteroClient(), monkeypatch)
     capture.add(tmp_vault, fresh_client, items)
     assert [c[1] for c in fake.calls if c[0] == "POST"].count(
@@ -383,7 +383,7 @@ def test_cli_add_reports_a_named_failure_as_exit_2(tmp_vault, monkeypatch, capsy
     def failing(*_args, **_kwargs):
         raise OSError(28, "No space left on device")
 
-    monkeypatch.setattr(capture, "_store_key", failing)
+    monkeypatch.setattr(keystore, "store_key", failing)
     assert cli.main(["add", "--vault", str(tmp_vault), "--item", item]) == 2
     assert capsys.readouterr().err.startswith("add unavailable: [Errno 28]")
 
