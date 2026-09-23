@@ -753,9 +753,13 @@ def lint_evidence_layer(
             )
         candidate_data = _frontmatter(image)
         for field in literature_notes.duplicate_capture_fields(candidate_data or {}):
-            # #20: `data.get(key)` is last-key-wins, so the drift comparison
-            # below would judge whichever copy won; the duplicate itself is
-            # the finding and the comparison is skipped for this file.
+            # #20: `data.get(key)` is last-key-wins, so a duplicated key
+            # leaves no value this check may act on — the duplicate itself is
+            # the finding. The file is out of both passes below: the drift
+            # comparison would judge whichever copy won, and the rename
+            # pairing reads the identity through the same mapping, so a
+            # crafted last value would pair the file with an unrelated
+            # removed note and swallow that note's deletion row.
             duplicated.add(raw_path)
             outcomes.append(
                 Outcome(
@@ -779,7 +783,8 @@ def lint_evidence_layer(
             key = pair_key(base_files[raw_path])
             if key is not None:
                 removed_by_key.setdefault(key, []).append(raw_path)
-        for raw_path in sorted(added - set(pairs)):
+        # `- duplicated`: a last-key-wins identity may not pair (#20, above).
+        for raw_path in sorted(added - set(pairs) - duplicated):
             key = pair_key(candidate_files[raw_path])
             if key is None:
                 continue

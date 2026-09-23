@@ -1462,6 +1462,67 @@ def test_a_duplicate_in_the_base_that_capture_cleaned_is_not_a_finding(fixture_v
     assert _evidence_rows(fixture_vault, base) == []
 
 
+def _added_note_keyed(fixture_vault, item_key_lines: str) -> None:
+    """`literature/evil.md`: the fixture note under a new citation key, its
+    `zotero-item-key` line replaced by `item_key_lines`, and one extra body
+    line — so nothing can pair with it on the body-bytes fallback and the
+    identity pass is the only pass in play."""
+    source = fixture_vault / "literature" / "smith2020.md"
+    text = must_replace(
+        source.read_text(), 'citationKey: "smith2020"', 'citationKey: "evil"'
+    )
+    text = must_replace(text, 'zotero-item-key: "SMITH020"\n', item_key_lines)
+    (fixture_vault / "literature" / "evil.md").write_text(
+        text + "a body no other note carries\n"
+    )
+
+
+def test_an_added_note_with_an_unrelated_identity_leaves_the_deletion_reported(
+    fixture_vault,
+):
+    """The control for the test below: an added note whose identity matches no
+    removed note pairs with nothing, so the deleted note keeps its own row.
+    Without this leg, the duplicate test could pass on a scenario that never
+    produced a deletion row at all."""
+    base = _base_tree(fixture_vault)
+    _added_note_keyed(fixture_vault, 'zotero-item-key: "OTHER001"\n')
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+
+    rows = {(item.target, item.reason) for item in _evidence_rows(fixture_vault, base)}
+
+    assert rows == {
+        ("path-bytes:literature/evil.md", "schema-violation — stale managed-sha256"),
+        ("path-bytes:literature/gone2019.md", "drift — literature note deleted"),
+    }, rows
+
+
+def test_a_duplicated_identity_cannot_pair_away_a_deleted_note(fixture_vault):
+    """#20 on the rename pairing: `_note_identity` reads `zotero-item-key`
+    through the same last-key-wins mapping, so an added note whose *last*
+    copy of the key is a removed note's identity used to pair with it and
+    swallow `drift — literature note deleted` (ADR 0003: no verb deletes a
+    literature note) behind one schema-violation row naming a different
+    problem. A duplicate disqualifies the file from the pairing, not only
+    from the drift comparison — the control above is the same scenario with
+    a single key."""
+    base = _base_tree(fixture_vault)
+    _added_note_keyed(
+        fixture_vault, 'zotero-item-key: "BOGUS001"\nzotero-item-key: "GONE2019"\n'
+    )
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+
+    rows = {(item.target, item.reason) for item in _evidence_rows(fixture_vault, base)}
+
+    assert rows == {
+        (
+            "path-bytes:literature/evil.md",
+            "schema-violation — duplicate zotero-item-key",
+        ),
+        ("path-bytes:literature/evil.md", "schema-violation — stale managed-sha256"),
+        ("path-bytes:literature/gone2019.md", "drift — literature note deleted"),
+    }, rows
+
+
 def test_lint_disputed_claim_reports_an_undecodable_page_and_still_judges_the_note(
     fixture_vault,
 ):
