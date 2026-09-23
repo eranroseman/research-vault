@@ -8,7 +8,7 @@ Assess methods and statistics in this order: question and target quantity; desig
 
 - Charts: error bars typically span two standard errors. Watch for distorted axes or a truncated y-axis exaggerating differences.
 - For factorial designs, check main effects and interactions.
-- All p values should be reported, not only those below a threshold, and the wording should be "statistically significant": a statistically significant result can still carry no practical consequence.
+- All p values should be reported, not only those below a threshold.
 
 ## Analysis–design alignment
 
