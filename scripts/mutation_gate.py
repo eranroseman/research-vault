@@ -445,10 +445,22 @@ def _git_failure(error: subprocess.CalledProcessError) -> GitCommandError:
 
 def _refuse_dirty_tree(cwd: Path) -> None:
     """Both modes, before anything is selected or measured: any status line
-    under the source trees is a refusal naming the paths."""
+    under the source trees is a refusal naming the paths. `--untracked-files=
+    all` because plain `git status` honours `status.showUntrackedFiles=no`, a
+    large-repo performance setting a user may carry in `~/.gitconfig`: without
+    the option an untracked module prints no status line and the gate proceeds,
+    while mutmut copies that file into `mutants/` and measures against it. A
+    command line option is the one spelling a configuration cannot reach."""
     try:
         status = subprocess.run(
-            ["git", "status", "--porcelain", "--", *SOURCE_TREES],
+            [
+                "git",
+                "status",
+                "--porcelain",
+                "--untracked-files=all",
+                "--",
+                *SOURCE_TREES,
+            ],
             capture_output=True,
             text=True,
             check=True,
