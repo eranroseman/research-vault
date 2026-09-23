@@ -88,16 +88,36 @@ def test_the_skill_dispatches_every_brief_it_ships(brief_name):
     assert f"prompts/{brief_name}" in _skill_text()
 
 
+STAGES = (
+    "## Stage 1 — Extract",
+    "## Stage 2 — List what the paper does not say",
+    "## Stage 3 — Judge",
+    "## Stage 4 — Assemble the report",
+    "## Stage 5 — Tighten the assembled report",
+    "## Stage 6 — Verify the report against the paper",
+)
+
+
+def test_the_stages_run_in_order_and_none_went_missing():
+    """The stages were renumbered once when assembly was given its own name, and
+    a half-finished renumbering leaves the file pointing at stages that moved."""
+    text = _skill_text()
+    seen = []
+    for heading in STAGES:
+        assert heading in text, f"{heading!r} is gone from SKILL.md"
+        seen.append(text.index(heading))
+    assert seen == sorted(seen), "the stage headings are out of run order"
+    assert f"{len(STAGES)} stages" in text or "Six stages" in text, (
+        "the file never tells the reader how many stages there are"
+    )
+
+
 def test_the_skill_does_not_restate_the_judging_contract():
     """The contract moved into prompts/judge.md precisely because two copies
-    drifted. A copy reappearing in SKILL.md is that drift starting again."""
+    drifted. A bolded field name reappearing in SKILL.md is that drift starting
+    again: the skill may name a field in prose, never re-specify the set."""
     text = _skill_text()
-    stage_3 = text[text.index("## Stage 3") : text.index("## Stage 4")]
-    for phrase in (
-        "**Observation**",
-        "**Why it matters**",
-        "Demonstrated inconsistency",
-    ):
-        assert phrase not in stage_3, (
-            f"Stage 3 restates {phrase!r}, which prompts/judge.md owns"
+    for phrase in ("**Observation**", "**Why it matters**", "**Evidence or criterion**"):
+        assert phrase not in text, (
+            f"SKILL.md restates {phrase!r}, which prompts/judge.md owns"
         )

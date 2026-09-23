@@ -1,6 +1,6 @@
-# Stage 5 brief
+# Stage 6 brief
 
-Sent verbatim to the stage 5 verifier subagent, with the placeholders filled. It is the subagent's whole context.
+Sent verbatim to the stage 6 verifier subagent, with the placeholders filled. It is the subagent's whole context.
 
 ```
 You are checking a report against the paper it describes. You form no opinion of the paper and you do not rewrite the report.

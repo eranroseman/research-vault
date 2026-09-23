@@ -8,17 +8,32 @@ disable-model-invocation: true
 
 Thoroughness is the constraint here, token cost is not.
 
-Create a todo per stage before starting, and close each as its artifact exists. All five stages run on every paper.
-
 ## Input and output
 
-Input: one paper, read in full. **PDF**: the Read tool, page range by page range. If Read cannot render it, extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages that carry figures or pseudocode to images — stage 5's verifier gets those renders; with no tool available, ask for the text.
+Input: one paper, read in full. Output: one markdown file in the outline under "The report", named for the paper and written beside the input unless told otherwise; the tightening pass sets its length, not a ceiling.
 
-Output: one markdown file in the outline under "The report", named for the paper and written beside the input unless told otherwise; stage 4's tightening pass sets its length. Ask up front whether web access is allowed — several Context slots depend on it. In a non-interactive run, take the answer from the request; absent one, treat it as no.
+Six stages, every one of them on every paper: extract, list what the paper does not say, judge, assemble, tighten, verify. Create a todo per stage and close each as its artifact exists.
+
+## What varies
+
+Settle all of these before stage 1. Each changes what a later stage does, and a condition discovered mid-run costs a stage its work.
+
+| Condition | What it changes |
+|---|---|
+| The Read tool cannot render the PDF | Extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages carrying figures or pseudocode to images. Stage 6's verifier is handed those renders. With no tool available, ask for the text. |
+| The paper exceeds 30 pages, appendices and supplements included | Stage 1 runs one subagent per section, each returning the extraction fields for its section; stage 2 runs in the main context over the merged extraction. Settle the row above first: a fan-out discovered unrenderable mid-flight wastes every branch. |
+| Web access is allowed | The four searches in the Context section run before stage 3; the author-background, tree-forward, same-institution-count and citation-link slots fill; a concept the paper never defines can be looked up, and the report says it was. |
+| Web access is not allowed | Those four slots, and whether a citation exists, read "not checked: no web access". Ask up front; in a non-interactive run take the answer from the request, and treat silence as no. |
+| The paper has an experiment, a measurement, or a statistical analysis | Stage 2 walks `references/experiment-design.md` and `references/quantitative-results.md`. |
+| The paper is qualitative or mixed-methods | Stage 2 walks `references/qualitative-methods.md`. |
+| People took part in the research | Stage 2 walks `references/participants.md`. |
+| No method family fits the paper | Stage 2 walks every background file. |
+
+Whatever the paper, stage 2 walks `references/research-integrity.md` and the source types and method menu at the end of this file.
 
 ## Stage 1 — Extract, in the authors' frame
 
-Open the report file first, at the path above, carrying the headings under "The report" and nothing beneath them. Every later stage writes into it, and the two briefs are handed its path.
+Open the report file first, at the path above, carrying the headings under "The report" and nothing beneath them. Every later stage writes into it, and both briefs are handed its path.
 
 Then record, as the paper presents it:
 
@@ -43,53 +58,54 @@ Needed: [what evidence would settle it]
 
 Keep four things apart: what the paper claims; what its evidence demonstrates; what is plausible but untested; what a reader would expect the paper to claim but it never does.
 
-**Long papers.** If the paper exceeds 30 pages including appendices and supplements, this stage runs one subagent per section, each returning these fields for its section; stage 2 runs in the main context over the merged extraction.
+This extraction is where the report's Context and Summary slots come from. Stage 4 projects it; nothing re-derives it from the paper.
 
 ## Stage 2 — List what the paper does not say
 
-Walk the background files that apply — in full here, and again from the slots that name them:
-
-- The source types and the method menu at the end of this file — every paper.
-- `references/research-integrity.md` — every paper.
-- `references/experiment-design.md` and `references/quantitative-results.md` — a paper with an experiment, a measurement, or a statistical analysis.
-- `references/qualitative-methods.md` — a qualitative or mixed-methods paper.
-- `references/participants.md` — a paper in which people took part.
-
-When no method family fits, walk every file.
+Walk the background files the table above assigns — in full here, and again from the slots that name them.
 
 Write two numbered lists, kept apart:
 
-- **Not-stated list** (N1, N2, …): every item the report will need that the paper does not give — participants, selection, consent, variable definitions, test assumptions, denominators, calibration data, code, thresholds, and so on; a part of the paper that is absent or merged into another; a concept the report needs that the paper uses without defining (with web access, look it up before stage 3, and say in the report that you did).
-- **Inconsistency list** (C1, C2, …): every place where two locations in the paper conflict. Check systematically: numbers across text, tables, and figures; p-values, confidence intervals, and effect sizes against each other; sample sizes throughout; percentages, averages, sums, and claimed improvements against the numbers they rest on; internal references; acronyms defined on first use; terminology; citation style (whether a citation exists is a web check: without web access, "not checked"). Each mismatch is one entry carrying both locations.
+- **Not-stated list** (N1, N2, …): every item the report will need that the paper does not give — participants, selection, consent, variable definitions, test assumptions, denominators, calibration data, code, thresholds, and so on; a part of the paper that is absent or merged into another; a concept the report needs that the paper uses without defining. Start from stage 1's `Needed:` lines: a claim whose settling evidence the paper never supplies is an entry here.
+- **Inconsistency list** (C1, C2, …): every place where two locations in the paper conflict. Check systematically: numbers across text, tables, and figures; p-values, confidence intervals, and effect sizes against each other; sample sizes throughout; percentages, averages, sums, and claimed improvements against the numbers they rest on; internal references; acronyms defined on first use; terminology; citation style. Each mismatch is one entry carrying both locations.
 
 A **Location** is the section, then the paragraph counted from the start of that section (add the page when the section spans pages), or the algorithm line, figure, table, or equation number, or a named part of the front matter (title, author block, affiliation, abstract, keywords, identifier stamp, footnote n). Every list entry, and every point in the report, uses this convention.
 
 Every quote, citation, statistic, and methodological detail in either list, and in the report, comes from the paper text; what the text does not say is a not-stated entry.
 
-Both lists go in the report's appendix, written there now so stage 3's brief can point at them.
+Write both lists into the report's appendix now, so stage 3's brief can point at them.
 
 ## Stage 3 — Judge, in the reader's frame
 
-**Fresh context, required.** Run stage 3 in a subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. That brief is the judging contract, holding the verdict form, the four fields a point carries, what counts as evidence, and the four kinds a point can be. Edit it there, not here.
+**Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, the background file paths, and the nine dimensions copied from the Discussion outline below. Not the conversation that wrote them. That brief is the judging contract, holding the verdict form, the four fields a point carries, what counts as evidence, and the four kinds a point can be. Edit it there, not here.
 
-The subagent returns the nine subsections. On return, drop every point whose Evidence field contains no Location, no N- or C- entry, and no numbered stage 1 claim; an unnumbered extraction field does not count, since the fact it carries has a Location of its own, and a background-file criterion may sit alongside one of those but never stands in for it. Note the count dropped in the appendix. The main context assembles the report, leaving de-duplication to stage 4; the subagent's return is the Discussion's only source of findings. A returned point that rests on anything the paper does not state, however true, moves here to "What this report did not check" rather than standing as a finding.
+It returns the nine subsections, and they are the Discussion's only source of findings.
 
-## Stage 4 — Tighten the assembled report
+## Stage 4 — Assemble the report
 
-Run this once, in the main context, after the report is assembled and before it is verified. Read every point in the Discussion and rule on it: kept, or removed for one of the reasons below. Recompute every number the report labels "derived" and correct it; stage 5 does not check those. Then remove:
+Run this in the main context, in this order. Nothing here adds a finding, and nothing here removes one for length.
+
+1. **Screen the return.** Drop every point whose Evidence field contains no Location, no N- or C- entry, and no numbered stage 1 claim; an unnumbered extraction field does not count, since the fact it carries has a Location of its own, and a background-file criterion may sit alongside one of those but never stands in for it. Move a point that rests on anything the paper does not state, however true, to "What this report did not check" rather than letting it stand as a finding. Discard anything returned that is not one of the nine subsections.
+2. **Project stage 1 into Context and Summary.** The field table fills the Title, Authors and Venue slots; the neutral map and the claim blocks fill Problem, Method, Results and the authors' own Discussion. Go back to the paper only for a slot the extraction does not cover.
+3. **Place the nine subsections** in the Discussion, in the outline's order, each keeping its verdict sentence.
+4. **Write the tail.** "What this report did not check", then the appendix: the two lists, the return accounting, and the verifier's list left empty for stage 6.
+
+## Stage 5 — Tighten the assembled report
+
+Run this once, in the main context, after assembly and before verification. Read every point in the Discussion and rule on it: kept, or removed for one of the reasons below. Recompute every number the report labels "derived" and correct it; stage 6 does not check those. Then remove:
 
 - a free-standing Discussion sentence that restates the paper without carrying a judgment. The Context and Summary slots, and every point's Observation field, restate the paper by design; none of them is in scope here;
 - a point whose Location and Observation repeat another point's, keeping the copy under the dimension it bears on most and leaving a one-line cross-reference in the other;
 - a point with no Location;
 - a hedge that repeats an entry in "What this report did not check".
 
-Remove a failing point whole; a point shaved to a clause still carries its load. Then read the Discussion once against the test the judge worked under: a report that finds nothing wrong with a non-trivial paper is a failed report. If these removals have left one, the removals were wrong. Slots, verdict sentences, and appendix entries survive this stage; stage 5 still corrects one it flags. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
+Remove a failing point whole; a point shaved to a clause still carries its load. Then read the Discussion once against the test the judge worked under: a report that finds nothing wrong with a non-trivial paper is a failed report. If these removals have left one, the removals were wrong. Slots, verdict sentences, and appendix entries survive this stage; stage 6 still corrects one it flags. Where a duplicate group has two defensible homes, it goes under the dimension whose verdict it moves most, never to keep a subsection from running empty.
 
-## Stage 5 — Verify the report against the paper
+## Stage 6 — Verify the report against the paper
 
 After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, and the report. That brief is the verification contract, holding what gets checked, what passing looks like, and the shape of the return. Edit it there, not here.
 
-The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, is appended to the report's appendix.
+The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, goes in the appendix.
 
 ## The report
 
@@ -106,7 +122,7 @@ Three sections in this order, headings fixed, every slot filled or marked "not a
   - Tree forward: pick one of the paper's key cited references and check, via a citation index, whether more recent work citing that same reference is conspicuously missing — keeping in mind that research typically takes a few years to reach journal publication, so missing only the very latest work isn't necessarily a gap.
 - **References check**: how many references? What kinds of sources (see Source types below), and are reviews and preprints labeled as such? What is the span, in years, of the papers cited? How many include at least one of the authors? How many are for work by people at the same institution as the authors? Are primary sources used where possible? Do cited papers support the claims attached to them? Are citation metadata and links correct? Do you recognize any of the papers? Recognition, here and in tree backward, is recall by construction: label it as recall in the slot and list it under "did not check".
 
-With web access, search: `"[paper topic] state of the art [current year]"`, `"[key method name] comparison benchmark"`, `"[authors] previous work [topic]"`, `"[specific technique] limitations criticism"`. Read, or at least skim, the most relevant related work before stage 3. Without web access, the author-background, tree-forward, same-institution-count, and citation-link slots read "not checked: no web access".
+With web access, search: `"[paper topic] state of the art [current year]"`, `"[key method name] comparison benchmark"`, `"[authors] previous work [topic]"`, `"[specific technique] limitations criticism"`. Read, or at least skim, the most relevant related work before stage 3.
 
 ### 2. Summary
 
@@ -119,7 +135,7 @@ At greater length than an abstract, in the paper's own order:
 
 ### 3. Discussion
 
-Nine subsections, in this order. Each subsection opens with its one-sentence verdict, then its points, each point carrying the four fields from stage 3. The questions below are prompts, not a form: answer those that bear on the paper, in whatever order the evidence suggests.
+Nine subsections, in this order. Each subsection opens with its one-sentence verdict, then its points, each point carrying the four fields from the judge brief. The questions below are prompts, not a form: answer those that bear on the paper, in whatever order the evidence suggests.
 
 - **Importance** — Is the problem being studied important? How significant is the contribution? What are the big ideas of this paper? Does the question match the claimed contribution? Judge the paper against its own question; a mismatch with some other question counts only when it undermines the stated contribution.
 - **Credibility** — Do you trust the methods that were used? How likely is it that the conclusions are correct? Affiliation and seniority carry no weight; the venue's review rigor carries some, and every check below runs regardless. The checks: validity threats and reporting red flags in `references/experiment-design.md`; the assessment order, claim–evidence mismatches and analysis biases in `references/quantitative-results.md`; trustworthiness and the self-audit in `references/qualitative-methods.md` for a qualitative study; questionable practices in `references/research-integrity.md`; demand characteristics in `references/participants.md`.
@@ -137,7 +153,7 @@ Required, even when empty. One line each for: web-dependent slots skipped; parts
 
 ### Appendix: not-stated list, inconsistency list, return accounting, verifier list
 
-The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 3 return accounting (points returned, points dropped for missing evidence, duplicate groups stage 4 collapsed); the stage 5 verifier's list with each item's disposition. Those three and no further commentary.
+The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 4 return accounting (points returned, points dropped for missing evidence, duplicate groups stage 5 collapsed); the stage 6 verifier's list with each item's disposition. Those three and no further commentary.
 
 ## Source types
 
