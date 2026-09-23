@@ -30,6 +30,9 @@ NINE = (
     "Readability",
     "Ethics",
 )
+# A stage 2 list bullet and the prefix its entries are numbered with:
+# "- **Not-stated list** (N1, N2, ...)"
+_STAGE_2_LIST = re.compile(r"^- \*\*([^*]+)\*\* \(([A-Z])1, ", re.MULTILINE)
 # A brace placeholder a brief expects the dispatcher to fill: "{PAPER_PATH}"
 _PLACEHOLDER = re.compile(r"\{([A-Z_]+)\}")
 
@@ -143,4 +146,38 @@ def test_the_skill_does_not_restate_the_judging_contract():
     for phrase in ("**Observation**", "**Why it matters**", "**Evidence or criterion**"):
         assert phrase not in text, (
             f"SKILL.md restates {phrase!r}, which prompts/judge.md owns"
+        )
+
+
+def _stage_2_lists() -> list[tuple[str, str]]:
+    text = _skill_text()
+    stage_2 = text[text.index(STAGES[1]) : text.index(STAGES[2])]
+    return _STAGE_2_LIST.findall(stage_2)
+
+
+def test_every_list_stage_2_writes_is_admissible_to_the_judge():
+    """Stage 3 is the Discussion's only source of findings, so a stage 2 list the
+    judge may not cite reaches the report only through Context, where a reader
+    takes it for scene-setting. The external-check list shipped that way once:
+    its web-verified findings could not become findings at all."""
+    sentence = _judge_brief()
+    sentence = sentence[sentence.index("**Admissible evidence**") :].split("\n", 1)[0]
+    lists = _stage_2_lists()
+    assert len(lists) == 3, f"stage 2 writes {lists}"
+    for name, prefix in lists:
+        assert f"{prefix}-" in sentence, (
+            f"stage 2 writes the {name} and the judge may not cite its entries"
+        )
+
+
+def test_the_appendix_carries_every_list_stage_2_writes():
+    """The appendix is where a numbered list becomes citable: the Discussion's
+    evidence points at an entry a reader can look up. A list written but never
+    published leaves every point resting on it unverifiable."""
+    heading = next(
+        line for line in _skill_text().splitlines() if line.startswith("### Appendix:")
+    )
+    for name, _ in _stage_2_lists():
+        assert name.lower() in heading.lower(), (
+            f"stage 2 writes the {name} and the appendix never names it"
         )

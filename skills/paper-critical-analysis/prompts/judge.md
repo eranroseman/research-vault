@@ -9,7 +9,7 @@ You are judging one research paper for a reader deciding whether to trust and us
 
 - Paper: {PAPER_PATH} (text) and {PAGE_RENDERS} (images of pages carrying figures or pseudocode; "none" if none).
 - Stage 1 extraction: {EXTRACTION_PATH}
-- Stage 2 lists: {LISTS_PATH} — the not-stated list (N1, N2, …) and the inconsistency list (C1, C2, …).
+- Stage 2 lists: {LISTS_PATH} — the not-stated list (N1, N2, …), the inconsistency list (C1, C2, …), and the external-check list (W1, W2, …), each W entry a fact outside the paper with the source that settled it (empty when the run had no web access).
 - Background files, read where a dimension names one: {REFERENCE_PATHS}. A dimension bullet names these by repository-relative path; resolve each against this list.
 
 ## Location convention
@@ -24,7 +24,7 @@ Each subsection opens with its verdict: one prose sentence in your own words, wh
 
 Then the subsection's points. Every point carries five fields: **Kind**, **Location**, **Observation**, **Evidence or criterion**, **Why it matters**. Kind is one of the four below. Observation and Why it matters are one sentence each; Evidence or criterion is a list of admissible items, not prose.
 
-**Admissible evidence** is a Location in the paper, a numbered N- or C- entry, or a numbered claim from the stage 1 extraction. Nothing else is admissible: an unnumbered extraction field is not, since the fact it carries has a Location of its own, and a background-file criterion may ride alongside an admissible item but never stands in for one. A point with nothing admissible in its Evidence field is not returned.
+**Admissible evidence** is a Location in the paper, a numbered N-, C- or W- entry, or a numbered claim from the stage 1 extraction. Nothing else is admissible: an unnumbered extraction field is not, since the fact it carries has a Location of its own, and a background-file criterion may ride alongside an admissible item but never stands in for one. A point with nothing admissible in its Evidence field is not returned.
 
 One filled point:
 
@@ -41,7 +41,7 @@ Kind is one of four, and they do not substitute for one another — a missing re
 - Demonstrated inconsistency — two locations in the paper conflict.
 - Integrity concern — credible evidence, described neutrally. The reader identifies concerns; adjudicating misconduct, accusing authors, and investigating them belong to someone else. Record the exact location and the observable discrepancy, then the uncertainty and any plausible benign explanation.
 
-Every quote, citation, statistic, and methodological detail comes from the paper text. A number you compute is labeled "derived". A point whose reasoning rests on what you know of the field rather than on the paper is labeled "recall": return it labeled rather than withholding it, and the main context decides where it goes. A report that finds nothing wrong with a non-trivial paper is a failed report.
+Every quote, citation, statistic, and methodological detail comes from the paper text or from a W entry, which carries the source that settled it and is evidence, not recall. A number you compute is labeled "derived". A point whose reasoning rests on what you know of the field rather than on the paper or a W entry is labeled "recall": return it labeled rather than withholding it, and the main context decides where it goes. A point is wholly recalled or wholly grounded: where both bear on one observation, the grounded part is its own point and the recalled part is its own labeled point. A report that finds nothing wrong with a non-trivial paper is a failed report.
 
 ## Delegation
 
@@ -65,7 +65,7 @@ Hold each paper to its own type's bar: a method to its stated claim rather than 
 
 - **Importance** — Is the problem being studied important? How significant is the contribution? What are the big ideas of this paper? Does the question match the claimed contribution? Judge the paper against its own question; a mismatch with some other question counts only when it undermines the stated contribution.
 - **Credibility** — Do you trust the methods that were used? How likely is it that the conclusions are correct? Affiliation and seniority carry no weight; the venue's review rigor carries some, and every check below runs regardless. The checks: validity threats, reporting red flags, the assessment order, claim–evidence mismatches and analysis biases in `references/quantitative-methods.md`; trustworthiness and the self-audit in `references/qualitative-methods.md` for a qualitative study; questionable practices in `references/research-integrity.md`; demand characteristics in `references/participants.md`.
-- **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? What is genuinely new vs. incremental improvement? A novelty claim broader than the search or the cited literature supports is a claim–evidence mismatch.
+- **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? What is genuinely new vs. incremental improvement? A novelty claim broader than the search or the cited literature supports is a claim–evidence mismatch, and a W entry naming work the paper does not cite is the evidence for one.
 - **Applicability** — What are the practical applications of the work presented in the paper? Can you apply the information to your own projects? Do you think other researchers or practitioners may be able to apply the information?
 - **Generalizability** — Do the results apply only to the situation presented in the paper, or to a wider set of circumstances? External validity questions in `references/quantitative-methods.md`; for a qualitative study, case selection and claimed reach in `references/qualitative-methods.md`.
 - **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed? Every scale the paper claims is checked against a rate computed from the figures the paper gives, and the computation is shown and labeled "derived". Where the paper states no multiplier, take one from elsewhere in the paper, name what you took and from where; a claimed scale with no in-paper figure to build a rate from reads as unsupported, and says so.

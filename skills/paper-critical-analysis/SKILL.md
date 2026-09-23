@@ -12,7 +12,7 @@ Thoroughness is the constraint here, token cost is not.
 
 Input: one paper, read in full. Output: one markdown file in the outline under "The report", named for the paper and written beside the input unless told otherwise.
 
-Six stages, every one of them on every paper: extract, list what the paper does not say, judge, assemble, tighten, verify. Create a todo per stage and close each as its artifact exists.
+Six stages, every one of them on every paper: extract, list what the paper does not say, judge, assemble, tighten, verify. Each stage closes when its artifact exists.
 
 ## What varies
 
@@ -24,15 +24,15 @@ Settle every row before stage 1; a condition discovered mid-run costs a stage it
 |---|---|
 | The Read tool cannot render the PDF | Extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages carrying figures or pseudocode to images. Stage 6's verifier is handed those renders. With no tool available, ask for the text. |
 | The paper exceeds 30 pages, appendices and supplements included | Stage 1 runs one subagent per section, each with `prompts/extract.md` filled for its section range and nothing of the conversation that filled it; stage 2 runs in the main context over the merged extraction. Settle the row above first: a fan-out discovered unrenderable mid-flight wastes every branch. |
-| Web access — probe it, never ask | Fetch one known-good record, such as `https://api.crossref.org/works/<a DOI the paper cites>`. A fetch that returns the record turns on the Context section's searches, the author-background, tree-forward, same-institution-count and citation-existence checks, the predatory venue check, and looking up a concept the paper never defines. Report the probe either way. |
-| The probe is refused or fails | Those checks read "not checked: no web access", and the did-not-check section names the probe and what it returned. Retry once on a network error before concluding this; a refusal needs no retry. |
+| Web access — probe it, never ask | Fetch one known-good record, such as `https://api.crossref.org/works/<a DOI the paper cites>`. A fetch that returns the record turns on stage 2's external-check list and every check it carries. Report the probe either way. |
+| The probe is refused or fails | The external-check list stays empty, every slot that needed it reads "not checked: no web access", and the did-not-check section names the probe and what it returned. Retry once on a network error before concluding this; a refusal needs no retry. |
 
 **What the paper loads.** Each row sets both the file stage 2 walks and the path stage 3's brief hands the judge, so a row that does not fire puts its file out of the judge's reach too.
 
 | Condition | File |
 |---|---|
 | Every paper | `references/research-integrity.md` |
-| The paper reports any quantity it measured, computed, or tested | `references/quantitative-methods.md` |
+| The paper reports a quantity it measured, or a statistic it computed from data | `references/quantitative-methods.md` |
 | The paper collects or analyses qualitative data — interviews, field notes, documents, cases, media | `references/qualitative-methods.md` |
 | People took part in the research | `references/participants.md` |
 
@@ -69,20 +69,21 @@ This extraction is where the report's Context and Summary slots come from.
 
 Walk the background files the load table assigns — in full here, and again from the slots that name them.
 
-Write two numbered lists, kept apart:
+Write three numbered lists, kept apart:
 
 - **Not-stated list** (N1, N2, …): every item the report will need that the paper does not give — participants, selection, consent, variable definitions, test assumptions, denominators, calibration data, code, thresholds, and so on; a part of the paper that is absent or merged into another; a concept the report needs that the paper uses without defining. Start from stage 1's `Needed:` lines: a claim whose settling evidence the paper never supplies is an entry here.
 - **Inconsistency list** (C1, C2, …): every place where two locations in the paper conflict. Check systematically: numbers across text, tables, and figures; p-values, confidence intervals, and effect sizes against each other; sample sizes throughout; percentages, averages, sums, and claimed improvements against the numbers they rest on; internal references; acronyms defined on first use; terminology; citation style. Each mismatch is one entry carrying both locations.
+- **External-check list** (W1, W2, …): with web access, one entry per check, each carrying the claim checked, the source consulted, and what that source said, with every search composed in the vocabulary of the paper's own field. Run every Context slot the paper cannot answer, and three checks no slot names: the paper's load-bearing external claim followed back to its primary source rather than the account it cites; work the paper does not cite that already does what it claims is new; a concept the paper uses and never defines. Read, or at least skim, the most relevant related work while filling this list. Without web access the list is empty.
 
 A **Location** is the section, then the paragraph counted from the start of that section (add the page when the section spans pages), or the algorithm line, figure, table, or equation number, or a named part of the front matter (title, author block, affiliation, abstract, keywords, identifier stamp, footnote n). Every list entry, and every point in the report, uses this convention.
 
-Every quote, citation, statistic, and methodological detail in either list, and in the report, comes from the paper text; what the text does not say is a not-stated entry.
+Every quote, citation, statistic, and methodological detail in the not-stated and inconsistency lists, and in the report, comes from the paper text; what the text does not say is a not-stated entry, and what a source outside the paper settles is an external-check entry.
 
-Write both lists into the report's appendix now, so stage 3's brief can point at them.
+Write all three lists into the report's appendix now, so stage 3's brief can point at them.
 
 ## Stage 3 — Judge, in the reader's frame
 
-**Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the two stage 2 lists, the Location convention from stage 2, and the background file paths the load table assigns. Not the conversation that wrote them. That brief is the judging contract. Edit it there, not here.
+**Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the three stage 2 lists, the Location convention from stage 2, and the background file paths the load table assigns. Not the conversation that wrote them. That brief is the judging contract. Edit it there, not here.
 
 It returns the nine subsections, and they are the Discussion's only source of findings.
 
@@ -90,7 +91,7 @@ It returns the nine subsections, and they are the Discussion's only source of fi
 
 Run this in the main context, in this order. Nothing here adds a finding, and nothing here removes one for length.
 
-1. **Screen the return.** Drop every point whose Evidence field carries nothing admissible; the judging contract defines the three admissible kinds. Move every point the judge labeled "recall", and any unlabeled point that rests on anything the paper does not state, however true, to "What this report did not check" rather than letting it stand as a finding. Discard anything returned that is not one of the nine subsections.
+1. **Screen the return.** Drop every point whose Evidence field carries nothing admissible; the judging contract defines the four admissible kinds. Move every point the judge labeled "recall", and any unlabeled point that rests on anything the paper does not state, however true, to "What this report did not check" rather than letting it stand as a finding. Discard anything returned that is not one of the nine subsections.
 2. **Project stage 1 into Context and Summary.** The field table fills the Title, Authors and Venue slots; the neutral map and the claim blocks fill Problem, Method, Results and the authors' own Discussion. Go back to the paper only for a slot the extraction does not cover.
 3. **Place the nine subsections** in the Discussion, in the outline's order, each keeping its verdict sentence.
 4. **Write the tail.** "What this report did not check", then the appendix, with the verifier's list left empty for stage 6.
@@ -108,9 +109,9 @@ Remove a failing point whole; a point shaved to a clause still carries its load.
 
 ## Stage 6 — Verify the report against the paper
 
-After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders, the report, and the Location convention from stage 2. Not the conversation that wrote the report; a verifier holding the reasoning behind a Location is no longer checking it. That brief is the verification contract.
+After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders or "none", the report, and the Location convention from stage 2. Not the conversation that wrote the report; a verifier holding the reasoning behind a Location is no longer checking it. That brief is the verification contract.
 
-The main context removes or corrects each flagged item, or moves it to "What this report did not check". The verifier's list, with each item's disposition, goes in the appendix.
+The main context removes or corrects each flagged item, or moves it to "What this report did not check"; a hedge that now repeats an entry there goes with it. The verifier's list, with each item's disposition, goes in the appendix.
 
 ## The report
 
@@ -127,7 +128,7 @@ Three sections in this order, headings fixed, every slot filled or marked "not a
   - Tree forward: pick one of the paper's key cited references and check, via a citation index, whether more recent work citing that same reference is conspicuously missing — keeping in mind that research typically takes a few years to reach journal publication, so missing only the very latest work isn't necessarily a gap.
 - **References check**: how many references? What kinds of sources (the kinds below), and are reviews and preprints labeled as such? What is the span, in years, of the papers cited? How many include at least one of the authors? How many are for work by people at the same institution as the authors? Are primary sources used where possible? Do cited papers support the claims attached to them? Are citation metadata and links correct? Do you recognize any of the papers? Recognition, here and in tree backward, is recall by construction: label it as recall in the slot and list it under "did not check".
 
-With web access, every slot above that the paper cannot answer earns its own search, composed in the vocabulary of the paper's own field. Two moves paid off on every trial of this and neither is obvious: follow the paper's load-bearing external claim back to its primary source rather than resting on the account it cites, and resolve one cited reference against a citation index to check the metadata the paper states for it. Read, or at least skim, the most relevant related work before stage 3.
+Every slot above that the paper cannot answer is filled from stage 2's external-check list, citing the W entry it rests on; a slot with no entry behind it reads "not checked: no web access".
 
 #### Source types
 
@@ -170,9 +171,9 @@ The nine, in order: Importance, Credibility, Novelty, Applicability, Generalizab
 
 Required, even when empty. One line each for: web-dependent slots skipped; parts of the paper not read or not readable (appendices, supplements, code); proofs or analyses not followed in detail; any statement in the report that rests on recall rather than the paper, quarantined here rather than presented as a finding.
 
-### Appendix: not-stated list, inconsistency list, return accounting, verifier list
+### Appendix: not-stated list, inconsistency list, external-check list, return accounting, verifier list
 
-The two stage 2 lists, numbered, so the Discussion's evidence can cite N- and C- entries; the stage 4 return accounting (points returned, points dropped as inadmissible, points moved as recall, duplicate groups stage 5 collapsed); the stage 6 verifier's list with each item's disposition. Those three and no further commentary.
+The three stage 2 lists, numbered, so the Discussion's evidence can cite N-, C- and W- entries; the stage 4 return accounting (points returned, points dropped as inadmissible, points moved as recall, duplicate groups stage 5 collapsed); the stage 6 verifier's list with each item's disposition. Those five and no further commentary.
 
 ## Method menu
 
