@@ -225,8 +225,11 @@ _HOME_LITERAL = re.compile(r"/home/[A-Za-z][A-Za-z0-9._-]*")
 # The same fact, spelled the Windows way, natively (`C:\Users\<user>\…`) or
 # through a WSL mount (`/mnt/c/Users/<user>/…`); `C:\Users\<user>\…` or `/mnt/
 # c/Users/<user>/…` is the spelling that carries the same information without
-# the name. Case-insensitive, because a Windows path is: `c:\users\<user>` is
-# one path with the two above and is what a WSL user's shell history prints.
+# the name. The `Users` segment and the drive letter are matched
+# case-insensitively, because a Windows path is: `c:\users\<user>` is one path
+# with the two above and is what a WSL user's shell history prints. The
+# `/mnt/<letter>` mount is not — it is a POSIX path on a case-sensitive
+# filesystem, where `/MNT/C` is a different path that does not exist.
 # Anchored to a drive letter or an `/mnt/<letter>` mount so a bare macOS
 # `/Users/<name>` — not a machine-local fact about this repository, and seen
 # only inside verbatim quotes of licensed third-party docs — is not scanned;
@@ -234,7 +237,7 @@ _HOME_LITERAL = re.compile(r"/home/[A-Za-z][A-Za-z0-9._-]*")
 # (`\\wsl$\<distro>\home\<user>`) is not matched either: no drive letter, no
 # mount point, and a backslash separator the POSIX pattern below cannot read.
 _WINDOWS_HOME_LITERAL = re.compile(
-    r"(?:[A-Za-z]:|/mnt/[a-z])[/\\]Users[/\\][A-Za-z][A-Za-z0-9._-]*", re.IGNORECASE
+    r"(?:[A-Za-z]:|/mnt/[a-z])[/\\](?i:Users)[/\\][A-Za-z][A-Za-z0-9._-]*"
 )
 
 
@@ -290,21 +293,27 @@ def test_the_tracked_scan_reads_every_tracked_name(tmp_path):
     assert all(path.is_file() for path in tracked)
 
 
-# Spelled in fragments: this file is itself a tracked text file, so
+# A stand-in name, never this machine's: the pattern matches any name, and the
+# author's is what the guard exists to keep out of a public repository. Spelled
+# in fragments because this file is itself a tracked text file, so
 # `test_no_home_directory_literal` scans it and a fixture written whole would
 # be a hit against the very pattern it pins.
-_LOWERCASE_DRIVE = "c:" + r"\users" + r"\eranr"
-_UPPERCASE_MOUNT = "/MNT" + "/C/USERS/eranr"
+_LOWERCASE_DRIVE = "c:" + r"\users" + r"\someuser"
+_LOWERCASE_MOUNT = "/mnt" + "/c/users/someuser"
 
 
 def test_the_windows_home_literal_ignores_case():
     """A Windows path is case-insensitive, and `c:\\users\\<user>` is the
-    spelling a WSL user's shell history produces — the drive-letter pattern
-    has to read it. The POSIX `/home/<user>` is a case-sensitive path and
-    stays case-sensitive; a bare `/Users/<name>` stays out (the macOS gap the
-    comment above the patterns records)."""
+    spelling a WSL user's shell history produces — the drive letter and the
+    `Users` segment have to read it either way. Everything POSIX stays
+    case-sensitive: `/home/<user>`, and the `/mnt/<letter>` mount, which names
+    a path on a case-sensitive filesystem. A bare `/Users/<name>` stays out
+    (the macOS gap the comment above the patterns records)."""
     assert _WINDOWS_HOME_LITERAL.search(_LOWERCASE_DRIVE)
-    assert _WINDOWS_HOME_LITERAL.search(_UPPERCASE_MOUNT)
-    assert _WINDOWS_HOME_LITERAL.search("C:" + r"\Users" + r"\eranr")
-    assert not _HOME_LITERAL.search("/HOME/eranr")
-    assert not _WINDOWS_HOME_LITERAL.search("/Users/eranr")
+    assert _WINDOWS_HOME_LITERAL.search(_LOWERCASE_MOUNT)
+    assert _WINDOWS_HOME_LITERAL.search("C:" + r"\Users" + r"\someuser")
+    assert not _HOME_LITERAL.search("/HOME/someuser")
+    assert not _WINDOWS_HOME_LITERAL.search("/Users/someuser")
+    # The mount is POSIX: `/MNT/C` is a path that does not exist, not a
+    # spelling of one that does.
+    assert not _WINDOWS_HOME_LITERAL.search("/MNT" + "/C/USERS/someuser")
