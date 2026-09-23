@@ -77,15 +77,16 @@ Contradiction is preserved, not resolved. When a new claim contradicts one alrea
 
 ## The flow
 
-| Step           | Skill              | What it does                                                                                          |
-| -------------- | ------------------ | ----------------------------------------------------------------------------------------------------- |
-| Provision      | `setup-vault`      | Scaffold, diagnose, and provision companions — with per-item consent, never inferred                  |
-| Frame / resume | `project-flow`     | Orient, drain the inbox, surface trust tiers, frame the question, run gap analysis                    |
-| Search         | `find-sources`     | Literature search upstream of Zotero, logged PRISMA-S style; terminates at the person's selection     |
-| Catalog        | `capture-source`   | Add an item to Zotero, capture it into `literature/` and `fulltext/`, propagate a citation-key change |
-| Verify         | `verify-citations` | Run the deterministic suite and report it grouped by check id                                         |
-| Factcheck      | `factcheck-draft`  | Non-blocking LLM adjudication of selected claims                                                      |
-| Publish        | `publish`          | The armed gate and its disposition menu                                                               |
+| Step           | Skill                      | What it does                                                                                                                                  |
+| -------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provision      | `setup-vault`              | Scaffold, diagnose, and provision companions — with per-item consent, never inferred                                                          |
+| Frame / resume | `project-flow`             | Orient, drain the inbox, surface trust tiers, frame the question, run gap analysis                                                            |
+| Search         | `find-sources`             | Literature search upstream of Zotero, logged PRISMA-S style; terminates at the person's selection                                             |
+| Catalog        | `capture-source`           | Add an item to Zotero, capture it into `literature/` and `fulltext/`, propagate a citation-key change                                         |
+| Analyze        | `critical-analysis-report` | Critical analysis of one paper: context, summary, nine judgments, each claim with a locator, plus a notes trail a fresh-context pass verifies |
+| Verify         | `verify-citations`         | Run the deterministic suite and report it grouped by check id                                                                                 |
+| Factcheck      | `factcheck-draft`          | Non-blocking LLM adjudication of selected claims                                                                                              |
+| Publish        | `publish`                  | The armed gate and its disposition menu                                                                                                       |
 
 Skills route the need actually stated, never an enlarged version of it. "Capture this paper" is not "capture it and rebuild the concept page."
 

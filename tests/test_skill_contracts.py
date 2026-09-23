@@ -29,6 +29,7 @@ PACKAGE_DIR = REPOSITORY / "research_vault"
 # `user-invocable`. This list grows by one name as each entry skill ships —
 # it only ever grows, never shrinks.
 ENTRY_SKILLS = {
+    "critical-analysis-report",
     "setup-vault",
     "publish",
     "verify-citations",
