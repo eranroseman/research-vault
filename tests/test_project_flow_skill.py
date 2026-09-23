@@ -94,7 +94,7 @@ def test_project_documents_gap_analysis_buckets_with_disputes_surfaced():
     assert "Covered" in gap_section
     assert "Contested" in gap_section
     assert "Missing" in gap_section
-    assert "[disputes:: ...]" in gap_section
+    assert "contested" in gap_section and "wiki-query" in gap_section  # noqa: PT018
     assert "never silently folded into" in gap_section
     assert "`find-sources`" in gap_section
 

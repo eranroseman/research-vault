@@ -181,12 +181,6 @@ def _hold(
         print(f"warning: review record refused: {detail}", file=sys.stderr)
 
 
-def _hold_reason(code: str, detail: str) -> str:
-    """Compose a reason-coded line from a code and free-text detail."""
-    detail = literature_notes.display_text(detail)
-    return f"{code} — {detail}" if detail else code
-
-
 def cmd_propagate(args):
     """The re-key pass, plan-and-apply (ingest spec §3.5, decision 01).
 
@@ -706,10 +700,17 @@ def cmd_inbox(args):
     as_of = _as_of(args)
     if as_of is None:
         return 2
-    print(json.dumps(inbox.summary(args.vault, as_of=as_of), sort_keys=True))
-    for entry in sorted(
-        inbox.open_entries(args.vault), key=lambda item: (item.date, item.id)
-    ):
+    try:
+        summary = inbox.summary(args.vault, as_of=as_of)
+        entries = inbox.open_entries(args.vault)
+    except _NAMED_FAILURES as error:
+        # The queue is a run input, not a record: an unreadable one leaves
+        # nothing to list, so it exits 2 naming the path as every other
+        # reader of it does (`cmd_ack`, `record_finding`, `_run_disposition`).
+        print(f"inbox unavailable: {error}", file=sys.stderr)
+        return 2
+    print(json.dumps(summary, sort_keys=True))
+    for entry in sorted(entries, key=lambda item: (item.date, item.id)):
         # The id leads: it is the argument `ack` requires, and this listing
         # is where the publish skill sends a person to find it.
         print(

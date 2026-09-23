@@ -532,7 +532,10 @@ def test_read_notes_rows_each_note_it_cannot_take_and_keeps_reading(tmp_vault):
         ("path-bytes:literature/c-latin1.md", Result.UNMATCHED, "schema-violation"),
         ("path-bytes:literature/d-notuple.md", Result.UNMATCHED, "schema-violation"),
     ]
-    assert outcomes[2].reason.startswith("schema-violation — not UTF-8: ")
+    # The tail is the codec's; the byte it names is the one the fixture planted.
+    assert outcomes[2].reason.startswith(
+        "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xe9"
+    )
     assert outcomes[3].reason == "schema-violation — no provenance tuple"
 
 
@@ -568,7 +571,10 @@ def test_textual_half_walks_past_an_excluded_page_and_an_unreadable_one(tmp_vaul
         (str(o.target), o.result, o.reason) for o in captured._textual(tmp_vault, set())
     ]
     assert rows[0][:2] == ("path-bytes:wiki/b-dir.md", Result.UNREACHABLE)
-    assert rows[0][2].startswith("outage — [Errno 21]")
+    # The tail is the OS's; the path it names is the directory the test made.
+    assert rows[0][2].split(" — ")[0] == "outage"
+    assert rows[0][2].startswith("outage — [Errno 21] Is a directory: ")
+    assert rows[0][2].endswith(f"'{wiki / 'b-dir.md'}'")
     assert rows[1:] == [
         (
             "path-bytes:wiki/c.md",

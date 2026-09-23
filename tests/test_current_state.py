@@ -21,15 +21,22 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _tracked(*globs: str) -> list[Path]:
+def _tracked(*globs: str, root: Path = ROOT) -> list[Path]:
+    """Every tracked path matching `globs`, one `Path` per file. `-z` because
+    `git ls-files` otherwise separates paths by newline and C-quotes a
+    non-ASCII one (`core.quotePath`, default true): splitting that output on
+    whitespace turns `a b.md` into two names and `café.md` into a literal that
+    is not the path on disk, and the scans below skip a name that is not a
+    file. The empty records `-z` leaves -- a trailing one always, and only
+    that one when nothing is tracked -- would each become `root` itself."""
     out = subprocess.run(
-        ["git", "ls-files", "--", *globs],
-        cwd=ROOT,
+        ["git", "ls-files", "-z", "--", *globs],
+        cwd=root,
         check=True,
-        text=True,
+        encoding="utf-8",
         capture_output=True,
-    ).stdout.split()
-    return sorted(ROOT / p for p in out)
+    ).stdout.split("\0")
+    return sorted(root / p for p in out if p)
 
 
 _DISPOSITION = re.compile(r"^Disposition: (\S+)", re.MULTILINE)
@@ -218,21 +225,31 @@ _HOME_LITERAL = re.compile(r"/home/[A-Za-z][A-Za-z0-9._-]*")
 # The same fact, spelled the Windows way, natively (`C:\Users\<user>\…`) or
 # through a WSL mount (`/mnt/c/Users/<user>/…`); `C:\Users\<user>\…` or `/mnt/
 # c/Users/<user>/…` is the spelling that carries the same information without
-# the name. Anchored to a drive letter or an `/mnt/<letter>` mount so a bare
-# macOS `/Users/<name>` — not a machine-local fact about this repository, and
-# seen only inside verbatim quotes of licensed third-party docs — is not
-# scanned; that gap is deliberate, not an oversight.
+# the name. The `Users` segment and the drive letter are matched
+# case-insensitively, because a Windows path is: `c:\users\<user>` is one path
+# with the two above and is what a WSL user's shell history prints. The
+# `/mnt/<letter>` mount is not — it is a POSIX path on a case-sensitive
+# filesystem, where `/MNT/C` is a different path that does not exist.
+# Anchored to a drive letter or an `/mnt/<letter>` mount so a bare macOS
+# `/Users/<name>` — not a machine-local fact about this repository, and seen
+# only inside verbatim quotes of licensed third-party docs — is not scanned;
+# that gap is deliberate, not an oversight. The UNC spelling of the same home
+# (`\\wsl$\<distro>\home\<user>`) is not matched either: no drive letter, no
+# mount point, and a backslash separator the POSIX pattern below cannot read.
 _WINDOWS_HOME_LITERAL = re.compile(
-    r"(?:[A-Za-z]:|/mnt/[a-z])[/\\]Users[/\\][A-Za-z][A-Za-z0-9._-]*"
+    r"(?:[A-Za-z]:|/mnt/[a-z])[/\\](?i:Users)[/\\][A-Za-z][A-Za-z0-9._-]*"
 )
 
 
 def test_no_home_directory_literal():
     """#164 (assembly spec §12, precondition 3): no tracked text file names a
     directory under `/home/<user>` or a Windows/WSL `Users/<user>`; POSIX and
-    Windows spell the same machine-local fact, so both are scanned. A
-    placeholder in angle brackets is not a name, and `~` or `C:\\Users\\
-    <user>\\…` is the spelling that carries the same information."""
+    Windows spell the same machine-local fact, so both are scanned — the
+    Windows one in any case, the POSIX one exactly, each as its own filesystem
+    reads a path. Every tracked text file, dated records included, and `-z`
+    above is what makes "every" true of a name with a space or a non-ASCII
+    character. A placeholder in angle brackets is not a name, and `~` or
+    `C:\\Users\\<user>\\…` is the spelling that carries the same information."""
     hits = []
     for path in _tracked("*"):
         if not path.is_file():
@@ -248,3 +265,55 @@ def test_no_home_directory_literal():
                 if pattern.search(line)
             )
     assert hits == [], "\n".join(hits)
+
+
+def test_the_tracked_scan_reads_every_tracked_name(tmp_path):
+    """`_tracked` feeds the home-literal scan, whose `is_file()` guard skips
+    anything that is not a real path. Splitting `git ls-files` on whitespace
+    loses two kinds of name silently: a path with a space becomes two
+    fragments, and a non-ASCII path is C-quoted under the default
+    `core.quotePath`, so the literal is not the path on disk. Either way the
+    file is never opened and a home-directory literal inside it ships. `-z`
+    emits one NUL-separated path per file and suppresses the quoting."""
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    (repo / "docs" / "my notes.md").write_text("x\n", encoding="utf-8")
+    (repo / "docs" / "café.md").write_text("y\n", encoding="utf-8")
+
+    def git(*argv: str) -> None:
+        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
+
+    git("init", "-q")
+    git("config", "core.quotePath", "true")  # the default, pinned
+    git("add", "-A")
+
+    tracked = _tracked("*", root=repo)
+
+    assert tracked == sorted([repo / "docs" / "café.md", repo / "docs" / "my notes.md"])
+    assert all(path.is_file() for path in tracked)
+
+
+# A stand-in name, never this machine's: the pattern matches any name, and the
+# author's is what the guard exists to keep out of a public repository. Spelled
+# in fragments because this file is itself a tracked text file, so
+# `test_no_home_directory_literal` scans it and a fixture written whole would
+# be a hit against the very pattern it pins.
+_LOWERCASE_DRIVE = "c:" + r"\users" + r"\someuser"
+_LOWERCASE_MOUNT = "/mnt" + "/c/users/someuser"
+
+
+def test_the_windows_home_literal_ignores_case():
+    """A Windows path is case-insensitive, and `c:\\users\\<user>` is the
+    spelling a WSL user's shell history produces — the drive letter and the
+    `Users` segment have to read it either way. Everything POSIX stays
+    case-sensitive: `/home/<user>`, and the `/mnt/<letter>` mount, which names
+    a path on a case-sensitive filesystem. A bare `/Users/<name>` stays out
+    (the macOS gap the comment above the patterns records)."""
+    assert _WINDOWS_HOME_LITERAL.search(_LOWERCASE_DRIVE)
+    assert _WINDOWS_HOME_LITERAL.search(_LOWERCASE_MOUNT)
+    assert _WINDOWS_HOME_LITERAL.search("C:" + r"\Users" + r"\someuser")
+    assert not _HOME_LITERAL.search("/HOME/someuser")
+    assert not _WINDOWS_HOME_LITERAL.search("/Users/someuser")
+    # The mount is POSIX: `/MNT/C` is a path that does not exist, not a
+    # spelling of one that does.
+    assert not _WINDOWS_HOME_LITERAL.search("/MNT" + "/C/USERS/someuser")

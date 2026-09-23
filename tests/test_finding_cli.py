@@ -467,6 +467,10 @@ def test_factcheck_draft_skill_names_its_bounds_and_never_blocks():
         "UNREACHABLE",
         "SKIPPED",
         "budget-cap",
+        "fulltext/<attachment key>.md",
+        "untrusted evidence",
+        "cited source's text layer actually support",
+        "When the cited source's text layer was truncated",
         # Each of the three below occurs exactly once in the skill, so deleting
         # the paragraph it belongs to fails here. Every token above it recurs
         # elsewhere in the file and so pins vocabulary, not any one paragraph.
@@ -475,3 +479,5 @@ def test_factcheck_draft_skill_names_its_bounds_and_never_blocks():
         "validates declarations, not their truth",
     ):
         assert token in text, f"factcheck-draft/SKILL.md never mentions {token!r}"
+
+    assert "cited note body" not in text

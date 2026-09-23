@@ -225,7 +225,10 @@ def test_database_changed_stops_and_reports_once(tmp_vault, monkeypatch):
         "vault",
         Result.UNMATCHED,
     )
-    assert outcome.reason.startswith("database-changed")
+    assert outcome.reason == (
+        "database-changed — Zotero-Server-ID does not match this server; "
+        "every recorded version is void"
+    )
 
 
 def test_outage_never_reads_as_a_classification(tmp_vault, monkeypatch):
@@ -243,7 +246,7 @@ def test_outage_never_reads_as_a_classification(tmp_vault, monkeypatch):
     )
     (outcome,) = lifecycle.lint_lifecycle(tmp_vault, client)
     assert outcome.result is Result.UNREACHABLE
-    assert outcome.reason.startswith("outage")
+    assert outcome.reason == "outage — down"
 
 
 def test_the_api_off_403_is_a_refusal_not_an_outage(tmp_vault, monkeypatch):
@@ -256,7 +259,7 @@ def test_the_api_off_403_is_a_refusal_not_an_outage(tmp_vault, monkeypatch):
     client = fake.install(zotero.ZoteroClient(), monkeypatch)
     (outcome,) = lifecycle.lint_lifecycle(tmp_vault, client)
     assert outcome.result is Result.UNMATCHED
-    assert outcome.reason.startswith("not-admitted — ")
+    assert outcome.reason == "not-admitted — local API preference is disabled"
     assert (
         lifecycle.blocked("lifecycle", "vault", zotero.ZoteroError("down")).result
         is Result.UNREACHABLE

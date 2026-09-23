@@ -17,16 +17,11 @@ from . import (
     captured,
     frontmatter,
     fulltext,
+    keystore,
     lifecycle,
     literature_notes,
     okf,
     stamp,
-)
-from .keystore import (  # noqa: F401 -- re-exported for the tests' patch targets
-    KEY_STORE,
-    _forget_key,
-    _load_key,
-    _store_key,
 )
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
@@ -635,7 +630,7 @@ def add(
         dict(item, **({"collections": [collection]} if collection else {}))
         for item in items
     ]
-    key = client.api_key or _load_key(
+    key = client.api_key or keystore.load_key(
         vault, client.server_id
     )  # a preset key (RV_LIVE_WRITE_KEY) wins over the store
     for attempt in (1, 2):
@@ -648,7 +643,7 @@ def add(
                 return [lifecycle.blocked(CHECK, "add", error)]
             key = granted["key"]
             if granted["remember"]:
-                _store_key(vault, client.server_id, key)
+                keystore.store_key(vault, client.server_id, key)
         client.api_key = key
         try:
             envelope = client.create_items(payload)
@@ -657,7 +652,7 @@ def add(
             if isinstance(error, ApiKeyRejectedError) and attempt == 1:
                 key = None
                 client.api_key = None
-                _forget_key(vault, client.server_id)
+                keystore.forget_key(vault, client.server_id)
                 continue
             return [lifecycle.blocked(CHECK, "add", error)]
     successful = envelope.get("successful")

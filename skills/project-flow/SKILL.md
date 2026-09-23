@@ -51,8 +51,10 @@ Write the framed question, in the person's own words, into `projects/NAME/draft.
 
 Once a project has a framed question, compare it against what the vault already knows — `wiki/` pages and the bibliography (`system/bibliography.json`) — and sort what you find into three buckets:
 
+Ask the tool's wiki-query skill (backed by wiki-retrieve) the framed question over `wiki/` before sorting.
+
 - **Covered** — the question, or a piece of it, is already answered by claims on compiled pages with solid backing.
-- **Contested** — compiled claims bear on the question but carry `[disputes:: ...]` links against them; surface those disputing claim links explicitly, not just the claim they attach to. Disconfirmation must be seen, never silently folded into "covered."
+- **Contested** — compiled claims bear on the question but wiki-query's assessment marks them `contested`; surface the contesting pages explicitly, not just the claim they bear on. Disconfirmation must be seen, never silently folded into "covered."
 - **Missing** — no compiled claim addresses this part of the question at all.
 
 The missing bucket becomes the gap list — hand it to `find-sources` as the next step. Do not paper over a gap with an inference of your own.

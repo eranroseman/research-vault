@@ -595,7 +595,10 @@ def test_disputed_claim_lint_surfaces_only_carrier_and_supported_addresses(
             },
         ),
     ]
-    assert all(out.reason.startswith("disputed-claim") for out in outs)
+    assert [out.reason for out in outs] == [
+        "disputed-claim — mortality-trends#^c-55555555 has standing counter-evidence",
+        "disputed-claim — smith2020#^c-11111111 has standing counter-evidence",
+    ]
 
 
 def test_citing_the_counterevidence_address_is_clean(fixture_vault):
@@ -865,7 +868,11 @@ def test_prose_appended_below_the_note_is_drift_with_or_without_a_fresh_witness(
     source.write_text(source.read_text() + "hand-written prose\n")
 
     stale = {item.reason for item in _evidence_rows(fixture_vault, base)}
-    assert any(reason.startswith("schema-violation") for reason in stale), stale
+    # Exact: four strings share the `schema-violation` prefix on this path
+    # (`literature_notes.py:124-131`, missing/duplicate/invalid/stale), so the
+    # prefix cannot tell the stale witness this test is named for from the
+    # other three (#22).
+    assert "schema-violation — stale managed-sha256" in stale, stale
 
     _refresh_body_witness(source)
     fresh = {item.reason for item in _evidence_rows(fixture_vault, base)}
@@ -889,7 +896,7 @@ def test_stale_or_malformed_witness_is_schema_finding_even_without_git_change(
     finding = next(item for item in outcomes if item.result is Result.UNMATCHED)
     assert finding.check == "evidence-layer"
     assert finding.target_kind == "repo-path"
-    assert finding.reason.startswith("schema-violation")
+    assert finding.reason == "schema-violation — invalid managed-sha256"
 
 
 def _hand_edit_machine_owned_key(text: str, key: str) -> str:
@@ -1459,6 +1466,186 @@ def test_a_duplicate_in_the_base_that_capture_cleaned_is_not_a_finding(fixture_v
     assert _evidence_rows(fixture_vault, base) == []
 
 
+def _added_note_keyed(fixture_vault, item_key_lines: str) -> None:
+    """`literature/evil.md`: the fixture note under a new citation key, its
+    `zotero-item-key` line replaced by `item_key_lines`, and one extra body
+    line — so nothing can pair with it on the body-bytes fallback and the
+    identity pass is the only pass in play."""
+    source = fixture_vault / "literature" / "smith2020.md"
+    text = must_replace(
+        source.read_text(), 'citationKey: "smith2020"', 'citationKey: "evil"'
+    )
+    text = must_replace(text, 'zotero-item-key: "SMITH020"\n', item_key_lines)
+    (fixture_vault / "literature" / "evil.md").write_text(
+        text + "a body no other note carries\n"
+    )
+
+
+def test_an_added_note_with_an_unrelated_identity_leaves_the_deletion_reported(
+    fixture_vault,
+):
+    """The control for the test below: an added note whose identity matches no
+    removed note pairs with nothing, so the deleted note keeps its own row.
+    Without this leg, the duplicate test could pass on a scenario that never
+    produced a deletion row at all."""
+    base = _base_tree(fixture_vault)
+    _added_note_keyed(fixture_vault, 'zotero-item-key: "OTHER001"\n')
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+
+    rows = {(item.target, item.reason) for item in _evidence_rows(fixture_vault, base)}
+
+    assert rows == {
+        ("path-bytes:literature/evil.md", "schema-violation — stale managed-sha256"),
+        ("path-bytes:literature/gone2019.md", "drift — literature note deleted"),
+    }, rows
+
+
+def test_a_duplicated_identity_cannot_pair_away_a_deleted_note(fixture_vault):
+    """#20 on the rename pairing: `_note_identity` reads `zotero-item-key`
+    through the same last-key-wins mapping, so an added note whose *last*
+    copy of the key is a removed note's identity used to pair with it and
+    swallow `drift — literature note deleted` (ADR 0003: no verb deletes a
+    literature note) behind one schema-violation row naming a different
+    problem. A duplicate disqualifies the file from the pairing, not only
+    from the drift comparison — the control above is the same scenario with
+    a single key."""
+    base = _base_tree(fixture_vault)
+    _added_note_keyed(
+        fixture_vault, 'zotero-item-key: "BOGUS001"\nzotero-item-key: "GONE2019"\n'
+    )
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+
+    rows = {(item.target, item.reason) for item in _evidence_rows(fixture_vault, base)}
+
+    assert rows == {
+        (
+            "path-bytes:literature/evil.md",
+            "schema-violation — duplicate zotero-item-key",
+        ),
+        ("path-bytes:literature/evil.md", "schema-violation — stale managed-sha256"),
+        ("path-bytes:literature/gone2019.md", "drift — literature note deleted"),
+    }, rows
+
+
+def test_a_duplicated_key_leaves_an_attested_rename_paired_by_body_bytes(fixture_vault):
+    """The exclusion above is the identity pass's alone. `_body_bytes` hashes
+    the note body, which no duplicated frontmatter key can reach, so a rename
+    it can pair is still a rename: excluding the file from that pass too minted
+    `drift — literature note deleted` — ADR 0003's row, the loudest this check
+    emits — for a note nobody deleted. Here the propagate re-keys `smith2020`
+    under a machine `generated` bump and the candidate also carries a
+    duplicated `accessed`; the duplicate is the one finding."""
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literature" / "smith2020.md"
+    text = _bump_generated(
+        must_replace(
+            source.read_text(), 'citationKey: "smith2020"', 'citationKey: "smith2020b"'
+        )
+    )
+    # The body is untouched, so `managed-sha256` stays fresh and the body-bytes
+    # pass sees the same key on both sides.
+    (fixture_vault / "literature" / "smith2020b.md").write_text(
+        _duplicate(text, "accessed", "2026-08-16", "2026-09-16")
+    )
+    source.unlink()
+
+    rows = {(item.target, item.reason) for item in _evidence_rows(fixture_vault, base)}
+
+    assert rows == {
+        ("path-bytes:literature/smith2020b.md", "schema-violation — duplicate accessed")
+    }, rows
+
+
+def _base_note_keyed(fixture_vault, item_key_lines: str) -> str:
+    """`literature/gone2019.md`'s `zotero-item-key` line replaced by
+    `item_key_lines` and committed, so the replacement is the *base* image the
+    pairing reads. Returns the tree the candidate is judged against."""
+    source = fixture_vault / "literature" / "gone2019.md"
+    source.write_text(
+        must_replace(
+            source.read_text(), 'zotero-item-key: "GONE2019"\n', item_key_lines
+        )
+    )
+    subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "the base note's identity"],
+        cwd=fixture_vault,
+        check=True,
+    )
+    return _base_tree(fixture_vault)
+
+
+def _note_from_gone2019(fixture_vault, clean: str, name: str, body: str) -> None:
+    """`literature/<name>.md` rendered from `gone2019.md`'s pristine text: a new
+    citation key, `TARGET01` as its single `zotero-item-key`, `body` appended
+    and a machine `generated` bump with a fresh witness. Every write here is
+    attested, so only the pairing decides whether `gone2019.md` reads as
+    deleted."""
+    text = must_replace(
+        clean, 'zotero-item-key: "GONE2019"', 'zotero-item-key: "TARGET01"'
+    )
+    text = _bump_generated(
+        must_replace(text, 'citationKey: "gone2019"', f'citationKey: "{name}"')
+    )
+    note = fixture_vault / "literature" / f"{name}.md"
+    note.write_text(text + body)
+    _refresh_body_witness(note)
+
+
+@pytest.mark.parametrize(
+    "base_item_key_lines",
+    [
+        pytest.param(
+            'zotero-item-key: "GONE2019"\nzotero-item-key: "TARGET01"\n',
+            id="duplicated",
+        ),
+        pytest.param('zotero-item-key: "OTHER001"\n', id="single"),
+    ],
+)
+def test_a_duplicated_identity_in_the_base_cannot_pair_away_its_deletion(
+    fixture_vault, base_item_key_lines
+):
+    """#20 symmetrically: `removed_by_key` reads the base note through the same
+    last-key-wins mapping, so a base note whose *last* `zotero-item-key` is an
+    added note's key used to pair with it and lose its own
+    `drift — literature note deleted` row entirely — no row at all, where the
+    candidate-side shape at least reported the duplicate. A base note carrying
+    one supplies no identity key either. No candidate-style schema-violation
+    row rides along: those are pinned candidate-side and the base is committed
+    history. The `single` leg is the same scenario with an unrelated base
+    key — the deletion row this check owes, arrived at without a duplicate."""
+    clean = (fixture_vault / "literature" / "gone2019.md").read_text()
+    base = _base_note_keyed(fixture_vault, base_item_key_lines)
+    _note_from_gone2019(fixture_vault, clean, "evil", "a body no other note carries\n")
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+
+    rows = {(item.target, item.reason) for item in _evidence_rows(fixture_vault, base)}
+
+    assert rows == {
+        ("path-bytes:literature/gone2019.md", "drift — literature note deleted")
+    }, rows
+
+
+def test_a_duplicated_identity_in_the_base_still_pairs_on_body_bytes(fixture_vault):
+    """The base-side twin of the candidate-side rule above: the duplicate costs
+    the note its identity, not its body. `gone2019` carries a duplicated
+    `zotero-item-key` in the base and is re-keyed under a machine `generated`
+    bump with its body untouched, so the body-bytes pass pairs the rename and
+    there is nothing to report. Excluding the base note from that pass too
+    would mint the deletion row for a renamed note."""
+    source = fixture_vault / "literature" / "gone2019.md"
+    clean = source.read_text()
+    base = _base_note_keyed(
+        fixture_vault, 'zotero-item-key: "GONE2019"\nzotero-item-key: "TARGET01"\n'
+    )
+    _note_from_gone2019(fixture_vault, clean, "gone2019b", "")
+    source.unlink()
+
+    rows = {(item.target, item.reason) for item in _evidence_rows(fixture_vault, base)}
+
+    assert rows == set(), rows
+
+
 def test_lint_disputed_claim_reports_an_undecodable_page_and_still_judges_the_note(
     fixture_vault,
 ):
@@ -1471,7 +1658,10 @@ def test_lint_disputed_claim_reports_an_undecodable_page_and_still_judges_the_no
         r for r in rows if r.target == "path-bytes:wiki/concepts/mortality-trends.md"
     ]
     assert (page_row.check, page_row.result) == ("disputed-claim", Result.UNMATCHED)
-    assert page_row.reason.startswith("schema-violation — not UTF-8")
+    # The tail is the codec's; the byte it names is the one the fixture planted.
+    assert page_row.reason.startswith(
+        "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xff"
+    )
 
 
 def test_lint_disputed_claim_reports_an_undecodable_note(fixture_vault):
@@ -1483,4 +1673,6 @@ def test_lint_disputed_claim_reports_an_undecodable_note(fixture_vault):
         "path-bytes:projects/brief/draft.md",
         Result.UNMATCHED,
     )
-    assert row.reason.startswith("schema-violation — not UTF-8")
+    assert row.reason.startswith(
+        "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xff"
+    )

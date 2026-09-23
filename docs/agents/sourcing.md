@@ -36,6 +36,8 @@ The adopt→build gap is not uniform, and adopt-first is not dogma. Writing and 
 
 The rule exists because a prior belief of this repository — that writing our own Zotero connector is simpler and better than adopting one — may well be correct and cannot be evaluated, because no screening record was kept.
 
+*Recorded 2026-09-17:* the client's screen is the paragraph at the head of the ingest spec's §3.7 (`docs/superpowers/specs/2026-09-06-import-redesign-design.md`).
+
 **It does not forbid building. It makes a build verdict falsifiable.**
 
 ## The higher rung

@@ -80,7 +80,7 @@ def test_capture_accepts_an_item_key_and_resolves_a_citation_key(
     }
     outcomes = capture.capture(tmp_vault, client, ["nobody2020"])
     assert outcomes[0].result is Result.UNMATCHED
-    assert outcomes[0].reason.startswith("not-admitted")
+    assert outcomes[0].reason == "not-admitted — nobody2020 is not in the library"
 
 
 def test_second_run_is_a_noop_and_keeps_generated(tmp_vault, monkeypatch):
@@ -166,8 +166,11 @@ def test_an_unreadable_ledger_holds_the_item_and_leaves_the_note_alone(
         if o.target == "jakesch.etal2023a"
     ]
     assert [o.result for o in held] == [Result.UNREACHABLE]
+    # The tail is the JSON decoder's; "Expecting" is its word for a syntax
+    # error, which tells this row from the "no sources object" one.
+    assert held[0].reason.split(" — ")[0] == "outage"
     assert held[0].reason.startswith(
-        "outage — wiki/meta/ledgers/source-ledger.json unreadable"
+        "outage — wiki/meta/ledgers/source-ledger.json unreadable: Expecting "
     )
     assert (
         note.read_text() == before
@@ -343,7 +346,7 @@ def test_unkeyed_item_is_reported_not_written(tmp_vault, monkeypatch):
     client = _client(monkeypatch, fake)
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"], key_wait_seconds=0)
     assert outcomes[0].result is Result.UNMATCHED
-    assert outcomes[0].reason.startswith("unkeyed")
+    assert outcomes[0].reason == "unkeyed — item E352DFS8 has no citation key"
     assert not list((tmp_vault / "literature").glob("*.md"))
 
 
@@ -361,7 +364,7 @@ def test_capture_runs_the_linter_first_and_refuses_a_trashed_item(
     fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
     before = (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
-    assert outcomes[0].reason.startswith("trashed — ")
+    assert outcomes[0].reason == "trashed — E352DFS8"
     assert (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text() == before
 
 
@@ -372,7 +375,10 @@ def test_database_changed_aborts_before_any_write(tmp_vault, monkeypatch):
     fake.server_id = "Tdoqsn2J4q4h"
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     assert [(o.target, o.result) for o in outcomes] == [("vault", Result.UNMATCHED)]
-    assert outcomes[0].reason.startswith("database-changed")
+    assert (
+        outcomes[0].reason
+        == "database-changed — Zotero-Server-ID does not match this server"
+    )
 
 
 def test_csl_file_falls_back_to_item_export_when_the_library_route_breaks(
@@ -496,7 +502,10 @@ def test_a_database_change_during_the_csl_read_voids_the_run_not_the_file(
         ("jakesch.etal2023a", Result.MATCHED),
         ("vault", Result.UNMATCHED),
     ]
-    assert outcomes[-1].reason.startswith("database-changed")
+    assert (
+        outcomes[-1].reason
+        == "database-changed — Zotero-Server-ID does not match this server"
+    )
     assert not (tmp_vault / "system" / "bibliography.json").exists()
     assert not [c for c in fake.calls if c[0] == "RPC"]  # never item.export
 
@@ -551,7 +560,7 @@ def test_a_corrupt_existing_note_is_a_schema_violation_not_a_traceback(
         ("E352DFS8", Result.UNMATCHED),
         ("system/bibliography.json", Result.MATCHED),
     ]
-    assert outcomes[0].reason.startswith("schema-violation — ")
+    assert outcomes[0].reason == "schema-violation — unterminated frontmatter"
     assert note.read_text() == corrupt  # not rewritten over a note it could not read
     # The CSL file is regenerated from the captured set, which decision 08 defines
     # as the parseable notes: the corrupt note's entry is gone, and this run says
@@ -583,7 +592,10 @@ def test_a_refused_item_export_is_unmatched_not_an_outage(tmp_vault, monkeypatch
         "system/bibliography.json",
         Result.UNMATCHED,
     )
-    assert outcomes[-1].reason.startswith("not-admitted — JSON-RPC error")
+    assert outcomes[-1].reason == (
+        "not-admitted — JSON-RPC error: "
+        "{'code': -32000, 'message': 'no item with citation key'}"
+    )
     assert not (tmp_vault / "system" / "bibliography.json").exists()
 
 
@@ -605,11 +617,10 @@ def test_a_trashed_source_requested_by_citation_key_reports_trashed_not_not_admi
         headers={"Last-Modified-Version": "566"},
     )  # /items/top excludes trashed items: the exclusion this follow-up exists for
     by_key = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
-    assert by_key[0].reason.startswith(
-        "trashed — "
-    )  # resolved through the tuple, not through /items/top
+    # resolved through the tuple, not through /items/top
+    assert by_key[0].reason == "trashed — E352DFS8"
     refreshed = capture.capture(tmp_vault, client, [], refresh_all=True)
-    assert refreshed[0].reason.startswith("trashed — ")
+    assert refreshed[0].reason == "trashed — E352DFS8"
 
 
 def test_a_trashed_refusal_does_not_skip_its_key_from_csl_regeneration(
@@ -663,7 +674,7 @@ def test_csl_regeneration_needs_no_library_name_when_nothing_was_read(
     outcomes = capture.capture(
         tmp_vault, client, ["GHOST001"]
     )  # 404: nothing read this run
-    assert outcomes[0].reason.startswith("not-admitted")
+    assert outcomes[0].reason == "not-admitted — GHOST001 is not in the library"
     assert outcomes[-1].reason == "matched — item.export fallback"
     assert not [
         c for c in fake.calls if "better-bibtex/library" in c[1]
@@ -724,7 +735,10 @@ def test_a_mid_run_412_stamps_what_was_written_before_the_vault_row(
         ("jakesch.etal2023a", Result.MATCHED),
         ("vault", Result.UNMATCHED),
     ]
-    assert outcomes[-1].reason.startswith("database-changed")
+    assert (
+        outcomes[-1].reason
+        == "database-changed — Zotero-Server-ID does not match this server"
+    )
     assert (tmp_vault / "literature" / "jakesch.etal2023a.md").is_file()
     # log.md is the discriminator: tmp_vault ships none, and the pre-fix early
     # return skipped okf.regenerate_log. (A `type` assertion on the note would be
@@ -777,10 +791,12 @@ def test_all_keeps_unrequestable_rows_when_the_vault_level_read_then_fails(
     assert len(outcomes) == 2
     assert str(outcomes[0].target).endswith("literature/nameless.md")
     assert outcomes[0].result is Result.UNMATCHED
-    assert outcomes[0].reason.startswith("schema-violation")
+    assert outcomes[0].reason == "schema-violation — no citationKey to request by"
     assert outcomes[1].target == "vault"
     assert outcomes[1].result is Result.UNMATCHED
-    assert outcomes[1].reason.startswith("not-admitted")
+    assert outcomes[1].reason == (
+        "not-admitted — local API 404 for /api/users/0/items/top?format=versions"
+    )
 
 
 def test_all_keeps_unrequestable_rows_when_the_linter_blocks_the_vault(
@@ -810,10 +826,13 @@ def test_all_keeps_unrequestable_rows_when_the_linter_blocks_the_vault(
     assert len(outcomes) == 2
     assert str(outcomes[0].target).endswith("literature/nameless.md")
     assert outcomes[0].result is Result.UNMATCHED
-    assert outcomes[0].reason.startswith("schema-violation")
+    assert outcomes[0].reason == "schema-violation — no citationKey to request by"
     assert outcomes[1].target == "vault"
     assert outcomes[1].result is Result.UNMATCHED
-    assert outcomes[1].reason.startswith("database-changed")
+    assert outcomes[1].reason == (
+        "database-changed — Zotero-Server-ID does not match this server; "
+        "every recorded version is void"
+    )
 
 
 def _re_keyed_fake(monkeypatch):
@@ -938,7 +957,7 @@ def test_a_disk_fault_while_writing_is_an_outage_not_a_schema_violation(
         "E352DFS8",
         Result.UNREACHABLE,
     )
-    assert outcomes[0].reason.startswith("outage — ")
+    assert outcomes[0].reason == "outage — [Errno 28] No space left on device"
     assert not (tmp_vault / "literature" / "jakesch.etal2023a.md").exists()
 
 
@@ -951,7 +970,7 @@ def test_an_unsafe_live_citation_key_is_a_schema_violation(tmp_vault, monkeypatc
     client = _client(monkeypatch, fake)
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     assert (outcomes[0].target, outcomes[0].result) == ("E352DFS8", Result.UNMATCHED)
-    assert outcomes[0].reason.startswith("schema-violation — unsafe citation key")
+    assert outcomes[0].reason == "schema-violation — unsafe citation key: '../escape'"
     assert not (tmp_vault / "fulltext").exists()  # refused before the text layer
 
 
@@ -1231,13 +1250,16 @@ def test_every_note_lists_each_key_and_rows_every_note_it_cannot_request(
         "path-bytes:literature/b-unreadable.md",
         Result.UNREACHABLE,
     )
-    assert rows[0][3].startswith("outage — [Errno 21] Is a directory")
+    # The tail is the OS's; the path it names is the directory the test made.
+    assert rows[0][3].split(" — ")[0] == "outage"
+    assert rows[0][3].startswith("outage — [Errno 21] Is a directory: ")
+    assert rows[0][3].endswith(f"'{lit / 'b-unreadable.md'}'")
     assert rows[1][:3] == (
         "capture",
         "path-bytes:literature/c-broken.md",
         Result.UNMATCHED,
     )
-    assert rows[1][3].startswith("schema-violation — ")
+    assert rows[1][3] == "schema-violation — bad line: 'not a mapping'"
     assert rows[2:] == [
         (
             "capture",
@@ -1358,7 +1380,7 @@ def test_capture_keeps_going_past_a_not_admitted_and_a_refused_key(
         ("system/bibliography.json", Result.MATCHED),
     ]
     assert outcomes[0].reason == "not-admitted — nobody2020 is not in the library"
-    assert outcomes[1].reason.startswith("trashed — ")
+    assert outcomes[1].reason == "trashed — E352DFS8"
 
 
 def test_a_lint_outage_on_the_vault_blocks_the_run_before_any_read(
@@ -1375,7 +1397,9 @@ def test_a_lint_outage_on_the_vault_blocks_the_run_before_any_read(
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
 
     assert [(o.target, o.result) for o in outcomes] == [("vault", Result.UNREACHABLE)]
-    assert outcomes[0].reason.startswith("outage — ")
+    assert outcomes[0].reason == (
+        "outage — local API HTTP 500 for /api/users/0/items?since=0&format=versions"
+    )
     assert not [
         c for c in fake.calls[before:] if c[1].startswith("/api/users/0/items/E352DFS8")
     ]
@@ -1560,7 +1584,10 @@ def test_capture_reports_an_undecodable_existing_note_and_writes_nothing_over_it
         "jakesch.etal2023a",
         Result.UNMATCHED,
     )
-    assert outcomes[0].reason.startswith("schema-violation — not UTF-8")
+    # The tail is the codec's; the byte it names is the one the fixture planted.
+    assert outcomes[0].reason.startswith(
+        "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xff"
+    )
     assert note.read_bytes() == b"\xff\xfe"
 
 

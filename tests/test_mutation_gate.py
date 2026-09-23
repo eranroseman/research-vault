@@ -504,6 +504,48 @@ def test_changed_modules_refuses_a_dirty_tree_naming_the_path(tmp_path: Path):
     assert isinstance(caught.value, mutation_gate.GateAbortError)
 
 
+def _committed_repo(tmp_path: Path) -> Path:
+    """`_dirty_repo` with its staged change committed: a clean tree the
+    refusal passes, ready for one specific kind of dirt."""
+    repo = _dirty_repo(tmp_path)
+    subprocess.run(["git", "commit", "-q", "-m", "committed"], cwd=repo, check=True)
+    return repo
+
+
+def test_the_refusal_sees_an_untracked_file_under_a_hostile_status_config(
+    tmp_path: Path,
+):
+    """`status.showUntrackedFiles=no` is a large-repo performance setting a
+    user may carry in `~/.gitconfig`, and plain `git status` honours it: the
+    untracked module produces no status line, the gate proceeds, and mutmut
+    copies that file into `mutants/` and measures against it -- the #133
+    hazard the refusal exists to stop. `--untracked-files=all` is a command
+    line option, so the configuration cannot reach it."""
+    repo = _committed_repo(tmp_path)
+    subprocess.run(
+        ["git", "config", "status.showUntrackedFiles", "no"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    (repo / "research_vault" / "new.py").write_text("C = 1\n", encoding="utf-8")
+
+    with pytest.raises(mutation_gate.DirtyTreeError) as caught:
+        mutation_gate._refuse_dirty_tree(repo)
+    assert "research_vault/new.py" in str(caught.value)
+
+
+def test_the_refusal_sees_an_unstaged_modification(tmp_path: Path):
+    """The third kind of dirt beside the staged and the untracked: measured,
+    never selected."""
+    repo = _committed_repo(tmp_path)
+    (repo / "research_vault" / "x.py").write_text("A = 3\n", encoding="utf-8")
+
+    with pytest.raises(mutation_gate.DirtyTreeError) as caught:
+        mutation_gate._refuse_dirty_tree(repo)
+    assert "research_vault/x.py" in str(caught.value)
+
+
 def test_gate_main_aborts_on_a_dirty_tree(tmp_path: Path, monkeypatch, capsys):
     repo = _dirty_repo(tmp_path)
     monkeypatch.setattr(mutation_gate, "ROOT", repo)
@@ -539,8 +581,7 @@ def test_update_baseline_refuses_a_dirty_tree_before_measuring(
 
 
 def test_a_clean_tree_passes_the_refusal(tmp_path: Path):
-    repo = _dirty_repo(tmp_path)
-    subprocess.run(["git", "commit", "-q", "-m", "committed"], cwd=repo, check=True)
+    repo = _committed_repo(tmp_path)
     mutation_gate._refuse_dirty_tree(repo)  # no raise
     assert changed_modules("main", cwd=repo) == []
 

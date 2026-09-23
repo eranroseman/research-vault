@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-06-import-redesign-design.md` (the active spec; §9 is its fact register). Also binding: `docs/superpowers/specs/2026-09-05-assembly-design.md` decisions 12, 17, 22, 28, 29 and §9; ADR 0001–0003.
 
-**Prerequisite:** Part A (`docs/superpowers/plans/2026-09-07-ingest-redesign-a-capture.md`) merged to `main`. This part consumes, by name: `captured.captured_set`, `notes.read_provenance` and `notes.Provenance`, `fulltext.path_for`, `capture.capture` and `capture.add`, `lifecycle.lint_lifecycle` and `lifecycle.classify`, `zotero.ZoteroClient` on the local API with the `Zotero-Server-ID` header, `scaffold._installed_plugins` and the thirteen-probe doctor, and `skills/capture-source` and `skills/setup-vault` as Part A Task 19 left them. Part A's "Decisions this plan settles" (01–25) bind here unchanged; this part leans on 03 (verbs), 06 (probe ids), 17 (tool location and pin), 18 (`wiki/` in the guard), 22 (tracer results), 24 (the tool's inbox) and 25 (`linkMode`).
+**Prerequisite:** Part A (`docs/superpowers/plans/2026-09-07-ingest-redesign-a-capture.md`) merged to `main`. This part consumes, by name: `captured.captured_set`, `literature_notes.read_provenance` and `literature_notes.Provenance`, `fulltext.path_for`, `capture.capture` and `capture.add`, `lifecycle.lint_lifecycle` and `lifecycle.classify`, `zotero.ZoteroClient` on the local API with the `Zotero-Server-ID` header, `scaffold._installed_plugins` and the thirteen-probe doctor, and `skills/capture-source` and `skills/setup-vault` as Part A Task 19 left them. Part A's "Decisions this plan settles" (01–25) bind here unchanged; this part leans on 03 (verbs), 06 (probe ids), 17 (tool location and pin), 18 (`wiki/` in the guard), 22 (tracer results), 24 (the tool's inbox) and 25 (`linkMode`).
 
 **Human attendance:** Task 1 (the tracers, one sitting with Obsidian open), Task 5 (one consent dialog on the test instance) and Task 6 (the go-ahead for the upstream issue) need the author present; Tasks 2, 3 and 4 do not.
 
@@ -30,7 +30,7 @@
 - **Dates an implementer writes are today's.** A literal date inside a printed test or fixture is a pinned value and stays as printed. A date written into a repository record — a supersession in the deviation register, an ADR exemption, a tracer result, a fixture README — is the day the work happens: the plan says "today's date" for those and the executor supplies it. The plan was written across a midnight, so any literal it printed for that purpose was stale by at least a day.
 - **Machine-local facts stay out of the repo.** Nothing commits a local-API key, a Windows path, a server id, or a version count as a constant. Live values come from `python -m research_vault probe`. A fixture's canned server id is a test value, not a machine-local fact: `tests/fakes.py`'s `6LpvURP2E933` and Task 13's test's `Tdoqsn2J4q4h` are test values; whether either matches any machine is irrelevant, and the socket guard is what keeps a fixture id from ever meeting a live answer.
 - **Deleting a module or a function prunes its `mutation-baseline.txt` rows in the same commit** (rewritten 2026-09-14 after Plan W: mutate4py and its `.manifest.json` sidecars are retired; the baseline is mutmut's, one key per survivor of the form `<relpath>::func/<name>::<diff>`). A deleted module's rows go with `grep -v '^research_vault/<module>.py::'`, a deleted function's with `grep -v '::func/<name>::'`; a renamed function's rows are pruned the same way and re-measured with `scripts/mutation_gate.py --update-baseline --only <module> --out-dir <dir>`, which rewrites that module's rows from a fresh run. A new module needs nothing up front: the gate measures it on the first run that changes it and reports every survivor as new until the baseline is updated. For a new module in this plan (`compile.py`), the task that creates it kills every behaviour survivor with a test; a survivor of the #42 classes (prose to a human; a literal never read back — the grep basis: the original literal occurs nowhere else in `research_vault/**` or `tests/**`) is accepted by appending its key to `mutation-baseline.txt` in the same commit, with the reason recorded in the results file (Task 6 Step 4); so is a mutant identical by construction — a keyword ruff mandates whose mutated value the callee treats the same (`check=False → check=None` on `subprocess.run`, which tests `if check and retcode`; Plan W's baseline carries three such rows) — recorded under its own reason beside the #42 classes. No `--update-baseline` run: it needs a record for every module.
-- **Deletion lists are claims, not orders.** Every name a Files block says to delete carries the line number it had when the plan was written; before deleting it, grep for callers across `research_vault/`, `tests/`, `hooks/` and `scripts/`, and if kept code still uses it, keep it and report the call site as a deviation instead of deleting it or working around it (Task 3's `registry_agency`, called by the kept `check_update_notice`, and `metadata_year`, imported by `identify.py`, are the measured cases). Deleting an exception class also means removing it from every `except (...)` tuple that names it — `cmd_verify` and `_run_disposition` in `__main__.py` name `notes.ManagedRegionError` and `notes.RenderIntegrityError` — because Python evaluates that tuple only when an exception reaches it, so the suite may stay green while a real error is masked by `AttributeError` at runtime. Line numbers in Files blocks are navigation hints to verify by name.
+- **Deletion lists are claims, not orders.** Every name a Files block says to delete carries the line number it had when the plan was written; before deleting it, grep for callers across `research_vault/`, `tests/`, `hooks/` and `scripts/`, and if kept code still uses it, keep it and report the call site as a deviation instead of deleting it or working around it (Task 3's `registry_agency`, called by the kept `check_update_notice`, and `metadata_year`, imported by `identify.py`, are the measured cases). Deleting an exception class also means removing it from every `except (...)` tuple that names it — `cmd_verify` and `_run_disposition` in `__main__.py` name `literature_notes.ManagedRegionError` and `literature_notes.RenderIntegrityError` — because Python evaluates that tuple only when an exception reaches it, so the suite may stay green while a real error is masked by `AttributeError` at runtime. Line numbers in Files blocks are navigation hints to verify by name.
 - **What one task's design relies on another task's code doing is a claim to check, not a fact to assert.** Task 13's corrupt-note CSL loss relied on Task 15's lint reporting it, and the printed lint skipped such notes silently; Task 14's server-id argument relied on capture's read order, and the order was inverted. A brief that depends on such a behaviour says "if X does not hold, that is a finding to report" rather than asserting X, and the controller checks X against the ref that will run — the plan's printed code, or the branch — before dispatch. Both times this was done, X did not hold. The same rule covers a review finding relayed into a dispatch: Task 15's controller relayed "`validate_reason` is not pinned" without checking that `Outcome` construction already reaches it, and asked for three assertions that could not fail.
 - **Every mutation run goes through `scripts/mutation_gate.py`, never through mutmut directly** (rewritten 2026-09-14 after Plan W). Gate mode diffs `<base>...HEAD`, so it measures committed changes only: run it after the commit it is measuring — an uncommitted tree reads "no changed research_vault modules" and passes, which is a false pass (measured 2026-09-16, Task 2). The gate owns what a bare run would get wrong: it sweeps `__pycache__` under `research_vault/`, `tests/` and `mutants/` and proves the source tree untouched (CPython's `mtime + size` pyc validation once reused a previous case's bytecode; `PYTHONDONTWRITEBYTECODE=1` blocks writing, not loading), caps every child's address space (`RLIMIT_AS`; a runaway-allocation mutant otherwise takes the whole memory scope down), makes `mutants/` its own git repository behind a ceiling directory (a scaffold mutant once installed the vault pre-commit hook into this repository's shared `.git/hooks`), and applies the CI mutant budget. Two facts a triage must carry: a local `timeout` verdict is environment-dependent and can mask a survivor — the runner is the arbiter, and a mutant a test can reach is killed rather than left flagged — and the gate's own tests run inside the gate's limits, so they must never depend on inherited process limits. *Closed by #133 (2026-09-17): the gate refuses a dirty `research_vault/` or `tests/` tree in both modes, so the false pass can no longer occur.*
 - **A task dispatched onto an inherited, uncommitted tree runs on `opus`.** Part A's Task 19: two `sonnet` implementers stalled at the moment of issuing a command on such a task, with no child process and no tool call recorded; an `opus` implementer from the same tree committed in ten minutes and verified every inherited path byte for byte. Classifying another author's half-finished work against printed text is a judgment task; the tier follows the task (Part A's deferred file, process note 9).
@@ -51,7 +51,7 @@ Signatures this part adds, then the Part A signatures its tasks call (copied fro
 
 ```python
 # research_vault/compile.py                                   (Task 2) 
-LEDGER_PATH = notes.LEDGER_PATH   # one definition site (Part A Task 11). The compile-tool pin has one site too, scaffold._COMPILE_PIN ("32ac5a0", v2.2.0); compile.py carries no copy (R22)
+LEDGER_PATH = literature_notes.LEDGER_PATH   # one definition site (Part A Task 11). The compile-tool pin has one site too, scaffold._COMPILE_PIN ("32ac5a0", v2.2.0); compile.py carries no copy (R22)
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"; CHECK = "compile"
 def stable_source_id(kind, locator, content_sha256) -> str
 def tool_root(vault_root) -> Path | None
@@ -66,10 +66,10 @@ def apply(vault_root, bundle_path, approved_sha256) -> Outcome
 # consumed from Part A
 def fulltext.path_for(vault_root, attachment_key) -> Path
 def fulltext.write(vault_root, attachment_key, item_key, response) -> tuple[Path, str]   # (path, sha256 of file bytes)
-@dataclass(frozen=True) class notes.Provenance:
+@dataclass(frozen=True) class literature_notes.Provenance:
     server_id: str; item_key: str; item_version: int; citation_key: str
     attachments: tuple[dict, ...]; fulltext: tuple[dict, ...]; compile_input_sha256: str | None
-def notes.read_provenance(text: str) -> Provenance | None
+def literature_notes.read_provenance(text: str) -> Provenance | None
 def capture.capture(vault_root, client, keys, *, now=None, refresh_all=False, key_wait_seconds=KEY_WAIT_SECONDS) -> list[Outcome]
 def capture.add(vault_root, client, items, *, collection=None, now=None) -> list[Outcome]
 def lifecycle.lint_lifecycle(vault_root, client, provenances=None) -> list[Outcome]
@@ -187,7 +187,7 @@ Glue tier: it selects, fills a ledger record, calls the tool's CLI. It carries n
 
 **Interfaces:**
 
-- Consumes: `captured.captured_set`, `notes.read_provenance`, `frontmatter.parse`, `fulltext.path_for`, `scaffold._installed_plugins`, `paths.load_machine_config`, `subprocess.run` on `python3 <root>/scripts/claude-obsidian.py transaction inspect|apply BUNDLE --vault V [--approved-plan-sha256 SHA]`.
+- Consumes: `captured.captured_set`, `literature_notes.read_provenance`, `frontmatter.parse`, `fulltext.path_for`, `scaffold._installed_plugins`, `paths.load_machine_config`, `subprocess.run` on `python3 <root>/scripts/claude-obsidian.py transaction inspect|apply BUNDLE --vault V [--approved-plan-sha256 SHA]`.
 - Produces: the Interface index `research_vault/compile.py` block. `stable_source_id("file", "fulltext/ABCD1234.md", "a"*64) == "src-2a09635ec6bad4de1b13"` (measured against the tool's own function, 2026-09-07). A ledger record:
 
 ```json
@@ -380,7 +380,7 @@ from typing import BinaryIO
 from . import captured, clock, frontmatter, notes, paths
 from .outcome import Outcome, Result
 
-LEDGER_PATH = notes.LEDGER_PATH
+LEDGER_PATH = literature_notes.LEDGER_PATH
 LEDGER_SCHEMA = "claude-obsidian.source-ledger.v1"
 BUNDLE_SCHEMA = "claude-obsidian.transaction.v1"
 PLUGIN_ID = "claude-obsidian@agricidaniel-claude-obsidian"
@@ -462,7 +462,7 @@ def _selected_notes(vault: Path, keys):
             # Skipped exactly as an unparseable note is (read_provenance ->
             # None); captured-set/okf-frontmatter are where it's reported.
             continue
-        provenance = notes.read_provenance(text)
+        provenance = literature_notes.read_provenance(text)
         if provenance is None or provenance.citation_key not in wanted:
             continue
         data, _ = frontmatter.parse(text)
@@ -611,9 +611,9 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
     """Write the bundle registering the selection and run ``transaction inspect``.
 
     Raises ``ToolMissingError`` when the tool cannot run and
-    ``notes.LedgerUnreadableError`` when the ledger exists but is not the
+    ``literature_notes.LedgerUnreadableError`` when the ledger exists but is not the
     tool's document — an outage, never an empty ledger to merge into (the
-    same split ``notes.compiled_pages`` makes).
+    same split ``literature_notes.compiled_pages`` makes).
     """
     vault = Path(vault_root)
     script = tool_script(vault)
@@ -624,11 +624,11 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
             raw = ledger.read_bytes()
             current = json.loads(raw)
         except (OSError, ValueError) as error:
-            raise notes.LedgerUnreadableError(
+            raise literature_notes.LedgerUnreadableError(
                 f"{LEDGER_PATH} unreadable: {error}"
             ) from error
         if not isinstance(current, dict):
-            raise notes.LedgerUnreadableError(
+            raise literature_notes.LedgerUnreadableError(
                 f"{LEDGER_PATH} unreadable: not an object"
             )
         expected = hashlib.sha256(raw).hexdigest()
@@ -845,7 +845,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- research_vault test
 
 Independent of Tasks 1–3 (no compile dependency); runs at once, in parallel with Task 2. Operator decision of 2026-09-16 (option 1 of three: this; ack per note; defer to the audit).
 
-**Why.** `lint_evidence_layer` reports every base→candidate change under `literature/` — added, body changed, renamed, deleted — as UNMATCHED, the check sits in the commit and publish closing sets, and the vault template's pre-commit hook runs the commit surface. Measured by Task 1 T4 on 2026-09-14: a capture, a compile refresh (`## Compiled` inserted) or a propagate blocks the next commit until every note is acknowledged. The legs were the foundation design's human gate on a human-written evidence layer; the ingest spec made the whole note body capture's (§3: "capture writes literature notes … and touches nothing a person wrote") and retired admission (§1.1). The same function already carries the right mechanism for its frontmatter leg: a machine-owned key may change iff `generated` changed in the same diff with a machine-class `by` (`_frontmatter_attestation_outcomes`, "writer attestation"), and `notes.render_note` bumps `generated` on every content change (`literature_notes.py:503-504`). This task puts the body, added and renamed legs under that one rule. A hand edit that refreshes `managed-sha256` but not `generated` is still drift; a forged attestation is the stated boundary the frontmatter leg already declares. A deletion stays a finding: no verb deletes a literature note (ADR 0003).
+**Why.** `lint_evidence_layer` reports every base→candidate change under `literature/` — added, body changed, renamed, deleted — as UNMATCHED, the check sits in the commit and publish closing sets, and the vault template's pre-commit hook runs the commit surface. Measured by Task 1 T4 on 2026-09-14: a capture, a compile refresh (`## Compiled` inserted) or a propagate blocks the next commit until every note is acknowledged. The legs were the foundation design's human gate on a human-written evidence layer; the ingest spec made the whole note body capture's (§3: "capture writes literature notes … and touches nothing a person wrote") and retired admission (§1.1). The same function already carries the right mechanism for its frontmatter leg: a machine-owned key may change iff `generated` changed in the same diff with a machine-class `by` (`_frontmatter_attestation_outcomes`, "writer attestation"), and `literature_notes.render_note` bumps `generated` on every content change (`literature_notes.py:503-504`). This task puts the body, added and renamed legs under that one rule. A hand edit that refreshes `managed-sha256` but not `generated` is still drift; a forged attestation is the stated boundary the frontmatter leg already declares. A deletion stays a finding: no verb deletes a literature note (ADR 0003).
 
 **Files:**
 
@@ -853,7 +853,7 @@ Independent of Tasks 1–3 (no compile dependency); runs at once, in parallel wi
 
 **Interfaces:**
 
-- Consumes: `notes.read_provenance(text) -> Provenance | None` (identity `(server_id, item_key)`, decision 08), `notes.validate_managed_witness`, `notes._valid_generated`, `lints._machine_attested`, `lints._frontmatter`, `lints._field`, `lints._body_bytes`, `lints._literature_files`.
+- Consumes: `literature_notes.read_provenance(text) -> Provenance | None` (identity `(server_id, item_key)`, decision 08), `literature_notes.validate_managed_witness`, `literature_notes._valid_generated`, `lints._machine_attested`, `lints._frontmatter`, `lints._field`, `lints._body_bytes`, `lints._literature_files`.
 
 - Produces: `lint_evidence_layer(base_snapshot, candidate_snapshot) -> list[Outcome]` with reasons `drift — literature note added without writer attestation`, `drift — literature note body changed without writer attestation`, `drift — literature note renamed without writer attestation` (with `extra={"prior_path": RepoPath(old)}`), `drift — literature note deleted`, the witness `schema-violation`/`outage` reasons and the per-key `drift — <key> changed without writer attestation` reasons, all unchanged in check id (`evidence-layer`) and reason code (`drift`). Attested writes yield no row.
 
@@ -866,7 +866,7 @@ _FIXTURE_GENERATED = 'generated: {by: "research_vault/0.1.0", at: "2026-08-16T09
 
 
 def _bump_generated(text: str, by: str = "research_vault/0.1.0") -> str:
-    """What `notes.render_note` does on every content change: a fresh `at`."""
+    """What `literature_notes.render_note` does on every content change: a fresh `at`."""
     return must_replace(
         text, _FIXTURE_GENERATED, f'generated: {{by: "{by}", at: "2026-09-16T09:00:00Z"}}'
     )
@@ -895,7 +895,7 @@ def _evidence_rows(vault, base):
 @pytest.mark.parametrize("write", ["add", "refresh", "rename"])
 def test_an_attested_write_to_the_evidence_layer_is_not_drift(fixture_vault, write):
     """Capture, the compile refresh and propagate bump `generated` under the
-    machine actor on every content change (`notes.render_note`); the commit
+    machine actor on every content change (`literature_notes.render_note`); the commit
     surface must let those writes through, or every capture blocks the next
     commit (ingest spec §6 amendment of 2026-09-16, Part B Task 1 T4)."""
     base = _base_tree(fixture_vault)
@@ -1076,7 +1076,7 @@ def _note_identity(image: gitstate.FileImage | None) -> tuple[str, str] | None:
         text = (image.data or b"").decode("utf-8")
     except UnicodeDecodeError:
         return None
-    provenance = notes.read_provenance(text)
+    provenance = literature_notes.read_provenance(text)
     if provenance is None:
         return None
     return provenance.server_id, provenance.item_key
@@ -1093,7 +1093,7 @@ def lint_evidence_layer(
 
     Capture, the compile refresh and propagate are the only writers of
     `literature/` (ingest spec §3; §6 amended 2026-09-16), and each of their
-    writes bumps `generated` under the machine actor (`notes.render_note`).
+    writes bumps `generated` under the machine actor (`literature_notes.render_note`).
     So an added note, a changed body and a renamed note are findings only
     when that attestation is absent — `_write_attested`, the rule the
     machine-owned keys already live under — and a deletion always is (ADR
@@ -1106,7 +1106,7 @@ def lint_evidence_layer(
     candidate_files = _literature_files(candidate_snapshot)
 
     for raw_path, image in sorted(candidate_files.items()):
-        result, reason = notes.validate_managed_witness(image.data or b"")
+        result, reason = literature_notes.validate_managed_witness(image.data or b"")
         if result is not Result.MATCHED:
             outcomes.append(Outcome("evidence-layer", RepoPath(raw_path), result, reason))
 
@@ -1469,7 +1469,7 @@ def test_capture_round_trip_on_a_live_item(tmp_vault):
     outcomes = capture.capture(tmp_vault, client, [key])
     assert outcomes[0].result is Result.MATCHED
     text = (tmp_vault / "literature" / f"{key}.md").read_text()
-    provenance = notes.read_provenance(text)
+    provenance = literature_notes.read_provenance(text)
     assert provenance.server_id == client.server_info()["server_id"]
     assert provenance.item_version == keyed["version"]
     again = capture.capture(tmp_vault, client, [key])
@@ -1490,7 +1490,7 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
     assert outcomes[0].reason.startswith("matched — created "), outcomes
     item_key = outcomes[0].reason.split("created ")[1].split(",")[0]
     note = next((tmp_vault / "literature").glob("*.md"))
-    provenance = notes.read_provenance(note.read_text())
+    provenance = literature_notes.read_provenance(note.read_text())
     assert provenance.item_key == item_key
 
     # the snapshot the sitting missed: the scratch item live in the items map
@@ -1696,6 +1696,6 @@ The `2026-MM-DD` tokens in Task 1's results block and Task 5's fixture README se
 
 ### Type consistency
 
-- `compile.ledger_record` consumes `notes.Provenance` (Part A Task 11) and writes the `fulltext.write` sha256 (Part A Task 10) as `content_sha256`, the value `captured._structural` (Part A Task 15) compares.
+- `compile.ledger_record` consumes `literature_notes.Provenance` (Part A Task 11) and writes the `fulltext.write` sha256 (Part A Task 10) as `content_sha256`, the value `captured._structural` (Part A Task 15) compares.
 - `ZoteroClient.versions()` returns `(map, version)`; `trash_versions()` returns the map alone — used that way in Task 5.
 - The `compile` check id Task 2 registers is in the §4.4 row Task 4 fixes.

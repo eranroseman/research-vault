@@ -45,12 +45,15 @@ def test_check_flags_missing_frontmatter_and_wrong_folder_type(tmp_path):
     (outcome,) = structure.check_note_frontmatter(tmp_path, path)
     assert outcome.check == "okf-frontmatter"
     assert outcome.result is Result.UNMATCHED
-    assert outcome.reason.startswith("schema-violation")
+    assert outcome.reason == "schema-violation — missing type (OKF §11 rule 2)"
 
     path = _write(tmp_path, "log/mislabeled.md", '---\ntype: "literature"\n---\nbody\n')
     (outcome,) = structure.check_note_frontmatter(tmp_path, path)
     assert outcome.result is Result.UNMATCHED
-    assert "daily" in outcome.reason
+    assert (
+        outcome.reason
+        == "schema-violation — type 'literature' but folder derives 'daily'"
+    )
 
 
 def test_check_passes_conformant_and_underived_notes(tmp_path):
@@ -92,7 +95,10 @@ def test_reserved_root_index_carries_only_okf_version(tmp_path):
         o for o in structure.check_reserved(tmp_path) if o.result is Result.UNMATCHED
     ]
     assert problems
-    assert "okf_version" in problems[0].reason
+    assert (
+        problems[0].reason
+        == "schema-violation — root index carries keys beyond okf_version: ['type']"
+    )
 
 
 def test_reserved_check_exempts_wiki_index_only(tmp_path):
@@ -131,7 +137,7 @@ def test_reserved_log_must_be_date_grouped_newest_first(tmp_path):
         o for o in structure.check_reserved(tmp_path) if o.result is Result.UNMATCHED
     ]
     assert problems
-    assert "newest first" in problems[0].reason
+    assert problems[0].reason == "schema-violation — day headings not newest first"
 
 
 def test_tree_check(tmp_path):

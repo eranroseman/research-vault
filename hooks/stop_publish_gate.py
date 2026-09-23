@@ -10,6 +10,7 @@ import sys
 import tempfile
 from contextlib import suppress
 from pathlib import Path
+from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[1]
 FLAG_NAME = "publish-pending.json"
@@ -35,46 +36,24 @@ class BypassFailureError(RuntimeError):
     """The audited bypass did not durably complete."""
 
 
-class ArmedFlag:
-    __slots__ = (
-        "blocks",
-        "bypass",
-        "expected_bytes",
-        "identity",
-        "path",
-        "project",
-        "state",
-        "vault",
-    )
+class ArmedFlag(NamedTuple):
+    """The armed publish flag as read from disk: the file's path, its parsed
+    state, and the bytes and inode identity the swap-back must still match."""
 
-    def __init__(
-        self,
-        path: Path,
-        vault: Path,
-        project: str,
-        blocks: int,
-        bypass: str | None,
-        state: dict[str, object],
-        expected_bytes: bytes,
-        identity: tuple[int, int],
-    ) -> None:
-        self.path = path
-        self.vault = vault
-        self.project = project
-        self.blocks = blocks
-        self.bypass = bypass
-        self.state = state
-        self.expected_bytes = expected_bytes
-        self.identity = identity
+    path: Path
+    vault: Path
+    project: str
+    blocks: int
+    bypass: str | None
+    state: dict[str, object]
+    expected_bytes: bytes
+    identity: tuple[int, int]
 
 
-class PublishState:
-    __slots__ = ("effective", "raw", "warning_effective")
-
-    def __init__(self, raw, effective, warning_effective) -> None:
-        self.raw = raw
-        self.effective = effective
-        self.warning_effective = warning_effective
+class PublishState(NamedTuple):
+    raw: tuple
+    effective: tuple
+    warning_effective: dict
 
 
 def _core_path() -> None:

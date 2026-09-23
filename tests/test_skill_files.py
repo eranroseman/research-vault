@@ -116,6 +116,15 @@ def test_setup_vault_provisions_each_companion_only_after_item_consent():
     assert "zotero_profile" in companion_section
 
 
+def test_setup_vault_states_the_tools_mode_and_routes_to_wiki_lint():
+    text = _skill_text()
+    companion_section = text[text.index("## Provision companions") :]
+
+    assert "generic" in companion_section
+    assert "mode get" in companion_section
+    assert "wiki-lint" in companion_section
+
+
 def test_setup_vault_reports_only_scaffold_created_commit_paths():
     """Claiming unrelated work was committed must fail."""
     text = _skill_text()

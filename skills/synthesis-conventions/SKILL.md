@@ -21,7 +21,7 @@ A concept page earns its existence at two or more captured sources on the same t
 
 ## Minimum-link discipline
 
-Every concept page carries at least two outgoing wikilinks, at least one of them a `[[<citation key>]]`. The tool's lint reports orphans (no incoming link) and dead links; both block its checkpoint.
+Every concept page carries at least two outgoing wikilinks, at least one of them a `[[<citation key>]]`. The tool's wiki-lint reports orphans (no incoming link) and dead links; the vault never runs the tool's checkpoint, so nothing blocks on them there — the vault's own commit gate closes on `captured-set`, `okf-frontmatter` and `okf-structure`, not on the tool's lint.
 
 ## Frontmatter
 

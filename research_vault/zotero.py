@@ -1,4 +1,4 @@
-"""Clients for the Zotero local API and Better BibTeX JSON-RPC (ingest spec §3.7).
+"""Clients for the Zotero local API and Better BibTeX JSON-RPC (ingest spec §3.7); the client's record is that section's head paragraph.
 
 Reads go to the local API. The server id a note recorded rides every request
 as ``Zotero-Server-ID``; Zotero answers 412 when a different database is

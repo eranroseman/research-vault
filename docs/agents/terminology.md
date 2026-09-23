@@ -163,15 +163,16 @@ defined in [CONTEXT.md](../../CONTEXT.md#vault) and protected by
 [ADR 0001](../adr/0001-vault-outlives-its-tools.md); `research` disambiguates it.
 The name of a researcher's own vault or repository is outside this ruling.
 
-| Surface                                        | Governed spelling                                                                            |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Repository slug; plugin and distribution names | `research-vault`                                                                             |
-| Python module and CLI program                  | `research_vault`                                                                             |
-| Process-written actor                          | `research_vault/<version>`                                                                   |
-| Selector field                                 | `rv-selector`                                                                                |
-| Vault tooling directory                        | `.research-vault/`                                                                           |
-| Environment-variable family                    | `RV_*`                                                                                       |
-| Internal scratch paths                         | `.research-vault-projection-`, `.research-vault-rollback`, `.research-vault-manifest-probe-` |
+| Surface                                                | Governed spelling                                                                                                                                                                                                          |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository slug; plugin name (`.claude-plugin/*.json`) | `research-vault`                                                                                                                                                                                                           |
+| Python distribution (`pyproject.toml` `name`)          | `research-vault-core` — the distribution is not the product, and `research-vault` was taken on PyPI (checked 2026-09-17); _Avoid_ reusing the old slug `knowledge-harness`, since the redirect's one failure mode is reuse |
+| Python module and CLI program                          | `research_vault`                                                                                                                                                                                                           |
+| Process-written actor                                  | `research_vault/<version>`                                                                                                                                                                                                 |
+| Selector field                                         | `rv-selector`                                                                                                                                                                                                              |
+| Vault tooling directory                                | `.research-vault/`                                                                                                                                                                                                         |
+| Environment-variable family                            | `RV_*`                                                                                                                                                                                                                     |
+| Internal scratch paths                                 | `.research-vault-projection-`, `.research-vault-rollback`, `.research-vault-manifest-probe-`                                                                                                                               |
 
 `rv` is the registered exception to the no-abbreviation rule for durable
 markers and the environment-variable family. Keep a name family uniform. Use

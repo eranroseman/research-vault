@@ -913,11 +913,11 @@ def test_publish_skill_promises_an_event_only_for_the_check_ids_that_mint_one():
     assert _minting_check_ids() == {"update-notice", "quote"}
     for check in sorted(_minting_check_ids()):
         assert f"`{check}`" in row, f"the MATCHED row never names minting id {check!r}"
-    # The publish surface's other two closing checks mint nothing, and the row
+    # Every other check in the publish closing set mints nothing, and the row
     # has to say so rather than leaving a blanket promise standing.
     for check in ("citation-key", "evidence-layer"):
         assert f"`{check}`" in row, f"the MATCHED row never names {check!r}"
-    assert "mint nothing" in row
+    assert "mints nothing" in row
     assert "Passes; the CLI appends a `verified` event." not in text
     # The project-level event `mark-published`/`mark-corrected` mint is real and
     # distinct from the per-check ones; the row must not collapse the two.

@@ -84,7 +84,7 @@ def test_fuzzy_goes_to_inbox_tier(fixture_vault):
     out = quotes.check_all_quotes(fixture_vault, draft)[0]
 
     assert out.result is Result.UNMATCHED
-    assert out.reason.startswith("fuzzy-quote")
+    assert out.reason == "fuzzy-quote — best ratio 0.95"
     assert out.extra["target"] == "managed-region"
 
 
@@ -100,7 +100,7 @@ def test_case_only_difference_is_not_normalized_to_an_exact_match(fixture_vault)
     out = quotes.check_all_quotes(fixture_vault, draft)[0]
 
     assert out.result is Result.UNMATCHED
-    assert out.reason.startswith("fuzzy-quote")
+    assert out.reason == "fuzzy-quote — best ratio 0.97"
 
 
 def test_absent_quote_is_mismatch(fixture_vault):
@@ -115,7 +115,7 @@ def test_absent_quote_is_mismatch(fixture_vault):
     out = quotes.check_all_quotes(fixture_vault, draft)[0]
 
     assert out.result is Result.UNMATCHED
-    assert out.reason.startswith("mismatch")
+    assert out.reason == "mismatch — quote absent from literature note"
 
 
 def test_no_comparison_text_is_unreachable(fixture_vault):
@@ -288,7 +288,10 @@ def test_check_all_quotes_reports_an_undecodable_or_unreadable_note(fixture_vaul
     draft.write_bytes(b"\xff\xfe- (quote) [@smith2020, p. 1] ^c-1\n")
     (row,) = quotes.check_all_quotes(fixture_vault, draft)
     assert (row.check, row.result) == ("quote", Result.UNMATCHED)
-    assert row.reason.startswith("schema-violation — not UTF-8")
+    # The tail is the codec's; the byte it names is the one the fixture planted.
+    assert row.reason.startswith(
+        "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xff"
+    )
     assert row.target == "path-bytes:projects/brief/draft.md"
     draft.write_text("- (quote) [@smith2020, p. 1] ^c-1\n  > x\n")
     draft.chmod(0)
@@ -309,5 +312,10 @@ def test_check_all_quotes_reports_an_undecodable_source_note_on_the_claim(
         fixture_vault, fixture_vault / "projects" / "brief" / "draft.md"
     )
     assert rows
-    assert all(r.reason.startswith("schema-violation — not UTF-8") for r in rows)
+    assert all(
+        r.reason.startswith(
+            "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xff"
+        )
+        for r in rows
+    )
     assert all(str(r.target).startswith("smith2020#^") for r in rows)

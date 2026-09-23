@@ -22,6 +22,8 @@ python3 -m research_vault scaffold --vault PATH [--with-ci] [--with-rw-ci]
 
 Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run it: scaffold prints every path it created; report that list verbatim, and never present a path it did not print as committed. Paths such as `AGENTS.md`, `inbox/review-queue.md`, `system/templates/`, `system/bases/`, `system/glossary.md`, and `.git/hooks/pre-commit` are the contract, not an inventory of everything scaffold can create; CI paths appear only for their separately consented flags, and repairing an existing vault may create fewer paths than a fresh one.
 
+A vault scaffolded with `--with-ci` on or before 2026-09-23 installs `research-vault @ git+…` in its workflow; the label is create-once, so edit the two `pip install` lines to `research-vault-core @ git+https://github.com/eranroseman/research-vault.git` by hand.
+
 ## Diagnose
 
 Run doctor after scaffold. Either accepted base override position is valid:
@@ -37,7 +39,7 @@ Report every doctor probe, not only failures — thirteen rows — plus the inbo
 
 ## Rename by hand
 
-A vault scaffolded before 2026-09-17 keeps its evidence layer under one of the stale names: `literatures/`. Doctor's `tree` row reports it (`UNMATCHED tree — stray literatures/: rename to literature/ by hand, then run capture --all`) and creates nothing while the old root stands; no verb renames a machine surface. The person runs `git mv literatures literature` in the vault, commits, then `python3 -m research_vault capture --all --vault PATH` — the notes re-render under the new root and `system/bibliography.json` regenerates. Every `[[<citation key>]]` link resolves as before; nothing else in the vault names the directory.
+A vault scaffolded on or before 2026-09-18 keeps its evidence layer under one of the stale names: `literatures/`. Doctor's `tree` row reports it (`UNMATCHED tree — stray literatures/: rename to literature/ by hand, then run capture --all`) and creates nothing while the old root stands; no verb renames a machine surface. The person runs `git mv literatures literature` in the vault, commits, then `python3 -m research_vault capture --all --vault PATH` — the notes re-render under the new root and `system/bibliography.json` regenerates. Every `[[<citation key>]]` link resolves as before; nothing else in the vault names the directory.
 
 ## Provision companions
 
@@ -57,3 +59,7 @@ claude plugin install claude-obsidian@agricidaniel-claude-obsidian
 ```
 
 Doctor's `compile-tool` probe reports the installed commit against the pin `32ac5a0`; a different commit is a warning, not a failure. `$ROOT` is the plugin's `installPath` recorded in `~/.claude/plugins/installed_plugins.json` (the record doctor's `compile-tool` probe reads); `.research-vault/machine.json` may name a `claude_obsidian_root` that overrides it. Then adopt the vault into the tool once, with its own inspect-then-apply gate: `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH` (dry run, JSON on stdout), then `python3 "$ROOT/scripts/claude-obsidian.py" adopt PATH --apply --approved-plan-sha256 <approved_plan_sha256> --operation-id <operation.operation_id> --generated-at <generated_at>`, the three values read from the dry run's JSON — the approval hash covers `generated_at` and `operation_id`, which the apply run would otherwise regenerate from the clock and answer `PLAN_CHANGED`. The tool leaves the vault's existing `.gitignore` untouched (silently, not by refusing — measured 2026-09-14); append its rules by hand: `.vault-meta/`, `.mcp.json`, `.trash/`.
+
+Once adopted, run the tool's wiki-lint skill over the vault once; its report is the tool's own health check, distinct from `doctor`.
+
+The vault runs the tool in `generic` mode (`CONTEXT.md`'s paths); `python3 "$ROOT/scripts/claude-obsidian.py" mode get PATH` reads it back. No doctor row observes it yet (lane 3a).
