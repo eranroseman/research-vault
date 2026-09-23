@@ -755,11 +755,9 @@ def lint_evidence_layer(
         for field in literature_notes.duplicate_capture_fields(candidate_data or {}):
             # #20: `data.get(key)` is last-key-wins, so a duplicated key
             # leaves no value this check may act on — the duplicate itself is
-            # the finding. The file is out of both passes below: the drift
-            # comparison would judge whichever copy won, and the rename
-            # pairing reads the identity through the same mapping, so a
-            # crafted last value would pair the file with an unrelated
-            # removed note and swallow that note's deletion row.
+            # the finding, and the drift comparison below is skipped for this
+            # file rather than judging whichever copy won. The identity
+            # pairing skips it too (see the pass below), on the same reading.
             duplicated.add(raw_path)
             outcomes.append(
                 Outcome(
@@ -772,19 +770,41 @@ def lint_evidence_layer(
 
     removed = set(base_files) - set(candidate_files)
     added = set(candidate_files) - set(base_files)
+    # The base side of the same reading (#20). No schema-violation row rides
+    # along: those are the candidate's (spec §5.2) and the base is committed
+    # history. A base note with a duplicated key simply stops being pairable
+    # by identity, so its deletion is reported instead of being swallowed.
+    base_duplicated = {
+        raw_path
+        for raw_path in removed
+        if literature_notes.duplicate_capture_fields(
+            _frontmatter(base_files[raw_path]) or {}
+        )
+    }
     # A rename is a removed path and an added path carrying the same note:
     # the same Zotero identity first (propagate re-keys and re-renders, so
     # the bytes differ), then the same body bytes for a note with no tuple.
     pairs: dict[bytes, bytes] = {}  # added path -> removed path
     unpaired_removed = set(removed)
     for pair_key in (_note_identity, _body_bytes):
+        # A duplicated key is untrustworthy on either side, and only for the
+        # identity (#20): `_note_identity` reads the frontmatter through the
+        # same last-key-wins mapping, so a crafted last value would pair the
+        # note with an unrelated one and swallow that note's
+        # `drift — literature note deleted` row. Such a note neither offers
+        # nor takes an identity key. `_body_bytes` hashes the body below the
+        # frontmatter, which no duplicated key reaches, so the body-bytes pass
+        # still pairs these notes — withholding that route too would mint the
+        # deletion row for a note that was renamed.
+        unpairable: set[bytes] = (
+            duplicated | base_duplicated if pair_key is _note_identity else set()
+        )
         removed_by_key: dict[object, list[bytes]] = {}
-        for raw_path in sorted(unpaired_removed):
+        for raw_path in sorted(unpaired_removed - unpairable):
             key = pair_key(base_files[raw_path])
             if key is not None:
                 removed_by_key.setdefault(key, []).append(raw_path)
-        # `- duplicated`: a last-key-wins identity may not pair (#20, above).
-        for raw_path in sorted(added - set(pairs) - duplicated):
+        for raw_path in sorted(added - set(pairs) - unpairable):
             key = pair_key(candidate_files[raw_path])
             if key is None:
                 continue
