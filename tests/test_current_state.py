@@ -33,7 +33,7 @@ def _tracked(*globs: str, root: Path = ROOT) -> list[Path]:
         ["git", "ls-files", "-z", "--", *globs],
         cwd=root,
         check=True,
-        text=True,
+        encoding="utf-8",
         capture_output=True,
     ).stdout.split("\0")
     return sorted(root / p for p in out if p)
