@@ -245,7 +245,7 @@ The editor returns a change list instead of editing the file. Each item gives th
 
 ### Stage 6: check
 
-Run `python3 scripts/check_report.py <report>`. It reads the report and its evidence file and fails on any of:
+Run `python3 skills/paper-critical-analysis/scripts/check_report.py <report>`. It reads the report and its evidence file and fails on any of:
 
 - a missing outline heading;
 - a leftover template placeholder;

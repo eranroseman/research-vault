@@ -537,7 +537,7 @@ def test_an_unfilled_mandated_check_slot_is_an_error(tmp_path):
 
 - [ ] **Step 4: Run the tests to verify they fail**
 
-Run: `cd /home/eranr/research-vault/.worktrees/paper-critical-analysis-merge && .venv/bin/python -m pytest tests/test_check_report.py -q` (if `.venv` lives only in the main checkout, `source /home/eranr/research-vault/.venv/bin/activate` first; same for every pytest step below).
+Run, from the worktree root: `.venv/bin/python -m pytest tests/test_check_report.py -q` (if the worktree has no `.venv`, activate the main checkout's venv first; same for every pytest step below).
 Expected: FAIL at import — `skills/paper-critical-analysis/scripts/check_report.py` does not exist.
 
 - [ ] **Step 5: Write `scripts/check_report.py`**
@@ -907,7 +907,7 @@ Expected: all PASS. If a structure test fails, fix the checker or the builder in
 - [ ] **Step 7: Form and commit**
 
 ```bash
-cd /home/eranr/research-vault/.worktrees/paper-critical-analysis-merge
+# from the worktree root
 ruff format skills/paper-critical-analysis/scripts/check_report.py tests/test_check_report.py
 ruff check skills/paper-critical-analysis/scripts/check_report.py tests/test_check_report.py
 mdformat --number --wrap keep skills/paper-critical-analysis/templates/report-template.md skills/paper-critical-analysis/templates/evidence-template.md
@@ -1055,7 +1055,7 @@ The researcher holds power, participants may feel evaluated, and fairness is the
 - [ ] **Step 5: Check nothing routes to `background.md`, form, test**
 
 ```bash
-cd /home/eranr/research-vault/.worktrees/paper-critical-analysis-merge
+# from the worktree root
 grep -rn "background.md" skills/paper-critical-analysis/   # expected: no output
 mdformat --number --wrap keep skills/paper-critical-analysis/references/*.md
 .venv/bin/python -m pytest tests -q -n auto
@@ -1729,7 +1729,7 @@ ______________________________________________________________________
 - [ ] **Step 1: Prove nothing outside the retired directory references it, then delete**
 
 ```bash
-cd /home/eranr/research-vault/.worktrees/paper-critical-analysis-merge
+# from the worktree root
 grep -rn "critical-analysis-report" --include="*.py" --include="*.md" --include="*.json" --include="*.toml" --include="*.yaml" . \
   | grep -v "^./skills/critical-analysis-report/" \
   | grep -v "paper-critical-analysis" \
@@ -1869,7 +1869,7 @@ ______________________________________________________________________
 - [ ] **Step 1: The offline gate, complete**
 
 ```bash
-cd /home/eranr/research-vault/.worktrees/paper-critical-analysis-merge
+# from the worktree root
 .venv/bin/python -m pytest tests -q -n auto
 ruff format --check research_vault tests scripts hooks
 ruff check research_vault tests scripts hooks
