@@ -4,7 +4,7 @@ Date: 2026-10-04. Status: approved in brainstorming, awaiting spec review. Branc
 
 ## Goal
 
-Replace `skills/critical-analysis-report/` and `skills/paper-critical-analysis/` with a single skill, `paper-critical-analysis`. It produces the report that `sources/How to Write a Critical Analysis of a Research Paper.md` asks a human to write: context, summary, and a discussion of importance, credibility, novelty, applicability, generalizability, scalability, assumptions, readability and ethics.
+Replace `skills/paper-critical-analysis/` and the now-retired `critical-analysis-report` skill with a single skill, `paper-critical-analysis`. It produces the report that `sources/How to Write a Critical Analysis of a Research Paper.md` asks a human to write: context, summary, and a discussion of importance, credibility, novelty, applicability, generalizability, scalability, assumptions, readability and ethics.
 
 The guide was written for people, and its three reading passes exist to work around human memory. An agent fails differently, so the process here is built around the failures observed in agent runs, while the delivered result stays the guide's.
 
@@ -327,7 +327,7 @@ Material is merged from both skills as follows:
 
 All on branch `paper-critical-analysis-merge`:
 
-- Rewrite `skills/paper-critical-analysis/` to the layout above, and delete `skills/critical-analysis-report/`.
+- Rewrite `skills/paper-critical-analysis/` to the layout above; the `critical-analysis-report` skill directory is removed.
 - Tests:
   - Rewrite `tests/test_paper_critical_analysis_skill.py` for the new stages, briefs, load table and template–checker agreement.
   - Add `tests/test_check_report.py`, with a passing report-and-evidence pair and one failing fixture per rule.

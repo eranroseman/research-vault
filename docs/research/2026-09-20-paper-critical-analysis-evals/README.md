@@ -181,3 +181,30 @@ Same paper again, at `ece3713`, with the W-list fix run E asked for. The run was
 **The third mandated external check never ran, invisibly.** Of the three checks the W list names beyond the Context slots, the primary-source trace and the uncited-prior-art search both fired and are labelled; looking up a concept the paper never defines did not, and "web-dependent slots skipped: none" asserts the opposite. It was the highest-value check available here, since the report's central finding is that the paper never defines what its verdict means. A list with no slot-by-slot accounting cannot show a missing check as a hole.
 
 Also standing: numbered stage 1 claims are admissible and cited 18 times, but the appendix publishes only the N, C and W lists, so every "Claim n" citation in the delivered report resolves to nothing; the verdict rule's typographic proxy ("a verdict needing semicolons to fit is too long") is satisfied by all nine verdicts while four carry three or four coordinate claims, and no later stage can correct a verdict; stage 5's duplicate rule moved a tenth of the report's findings on a reading the text does not settle; and the four sourcing red flags sit in the Context section with no slot to carry their output, so the run dropped them without anything noticing.
+
+## The merged skill (2026-10-04)
+
+`critical-analysis-report` and `paper-critical-analysis` were replaced by one
+skill under the latter's name; the design and the evidence behind it are in
+`docs/superpowers/specs/2026-10-04-paper-critical-analysis-merge-design.md`.
+The comparison runs that drove the design, and the 20-item Bloom answer key,
+are local and git-ignored (`sources/bloom-skill-comparison/`,
+`sources/bloom-skill-comparison-run2/`; `comparison.md` there holds the full
+analysis).
+
+Planned acceptance runs, one per paper, recorded here as they happen:
+
+- **Bloom** (Jörke et al., CHI '26): same inputs and answer key as the
+  comparison runs. Pass bar: score ≥ 18; about 8.5M fresh tokens or fewer and
+  about 2 hours or less; nothing unsupported after verification and no wrong
+  outside claim; no files outside the output folder; no credential files
+  fetched; raw participant data deleted. The run is also regression-compared
+  against the four comparison runs on three ledgers — the answer key per
+  item, the merge's targeted fixes (each miss names the change that should
+  have covered it), and calibration and shape; a targeted-fix miss blocks
+  acceptance, variance is recorded. Not yet run.
+- **CheckIfExist** (Abbonato 2026, arXiv:2602.15871): answer key built from
+  the run E and F records before the run; tests a paper with no participants
+  and heavy web use. Not yet run.
+- **A human read** of one report: is it the guide's result, in prose a person
+  would want to read? Not yet done.

@@ -26,10 +26,10 @@ PACKAGE_DIR = REPOSITORY / "research_vault"
 # `disable-model-invocation: true` so they never enter the model catalog;
 # every other shipped skill is a guard/reference skill, model-invoked AND
 # user-invocable, so it carries neither `disable-model-invocation` nor
-# `user-invocable`. This list grows by one name as each entry skill ships —
-# it only ever grows, never shrinks.
+# `user-invocable`. This list grows by one name as each entry skill ships,
+# and shrinks only when a spec retires one (critical-analysis-report merged
+# into paper-critical-analysis, 2026-10-04).
 ENTRY_SKILLS = {
-    "critical-analysis-report",
     "setup-vault",
     "publish",
     "verify-citations",

@@ -77,6 +77,19 @@ repository's LICENSE file.
 
 The process itself, the nine discussion dimensions, and the remaining text are the author's own. [Imbad0202/academic-research-skills](https://github.com/Imbad0202/academic-research-skills) (CC BY-NC 4.0) was consulted; no text from it is reproduced.
 
+The retired `critical-analysis-report` skill was merged into this one
+(spec: `docs/superpowers/specs/2026-10-04-paper-critical-analysis-merge-design.md`).
+Its material — the report outline, the notes-file structure that became the
+evidence file, the checker, and the background file — derives from the vault
+owner's own guide to critical analysis of a research paper; no third-party
+text rode along.
+
+The stage 5 editor brief paraphrases, and copies nothing from: Editors
+Canada's *Professional Editorial Standards 2024* (structural, stylistic and
+copy-editing stages; the text is copyrighted); Strunk's *The Elements of
+Style* (public domain); and Wikipedia's "Signs of AI writing"
+(CC BY-SA, paraphrased).
+
 ## Obsidian resources, screened
 
 Recorded so a later screen starts here rather than from a search. Nothing here is adopted or
