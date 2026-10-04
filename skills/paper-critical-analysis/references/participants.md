@@ -35,3 +35,7 @@ A standard script means everyone gets the same instructions — tone of voice in
 ## Deception
 
 A paper should show the deception was necessary (no alternative design such as role playing or naturalistic observation), that it was limited, that it never concerned risks, and whether participants were bothered by it. Debriefing should be planned, scripted, and carry full disclosure, rationale, an opportunity to withdraw data, and support resources; in an online study it should reach participants who quit early.
+
+## Signs of fair treatment
+
+The researcher holds power, participants may feel evaluated, and fairness is the researcher's responsibility. Signs to look for in what the paper reports: sessions on time and prepared; data kept confidential and never released identifiably; interactions limited to the study; participants made comfortable; participants' time spent as freely as the design allows; benefits not over-claimed.

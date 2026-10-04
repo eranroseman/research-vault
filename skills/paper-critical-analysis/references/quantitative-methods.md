@@ -16,6 +16,10 @@ Identify:
 - Primary and secondary outcomes
 - Prespecified versus exploratory analyses
 
+## Variables
+
+Independent: manipulated by the researcher, with several values. Dependent: measures the behavior; it states what is measured and how, with its reliability (the same result again, and the expected error) and its validity (it measures the intended thing). Control: held constant; aids replication, but over-control hurts external validity (a quiet, well-lit lab may not mirror real use). Random: varied at random, possibly within constraints, as in random assignment against bias. Confounding: changes along with the independent variable. A sound paper defines its variables explicitly enough to replicate; some (visual complexity, stress) resist definition.
+
 ## What the design can support as a causal claim
 
 Ranked, strongest first:
@@ -29,10 +33,12 @@ At every rung the **counterfactual** should be articulated: what would have happ
 
 ## Design types
 
-Between-subjects, matched-groups, factorial, converging-series, and:
-
-- Within-subjects — exposure itself changes behavior (learning, fatigue, maturation). Mitigated by counterbalancing or, with many values, a Latin square; counterbalancing leans on the symmetrical-transfer assumption, so ask whether that is reasonable for this task.
-- Single-variable, two-level (experimental vs. control) — says nothing about whether a numeric relationship is linear.
+- Between-subjects — each participant sees one value; no carry-over, learning, or fatigue, and sometimes the only option (age); needs more participants and equivalent groups (random assignment).
+- Within-subjects — exposure itself changes behavior (learning, fatigue, maturation). Mitigated by counterbalancing or, with many values, a Latin square (each value appears in, before, and after every position equally often; the participant count is a multiple of the value count); counterbalancing leans on the symmetrical-transfer assumption, so ask whether that is reasonable for this task.
+- Matched groups — a pretest on measures expected to affect behavior; the study runs longer, and the pretest may itself affect performance.
+- Single-variable, two-level (experimental vs. control) — easy to interpret; says nothing about whether a numeric relationship is linear. Multi-level shows the relationship's shape at the cost of more time, participants, and analysis.
+- Factorial — crosses factors; reveals interactions and gives more precise, more generalizable results; mixed when some factors are within- and some between-subjects; harder to interpret once interactions appear.
+- Converging series — several experiments on one question, each fixing a level for the next or eliminating hypotheses; flexible, but interactions across experiments are hard to assess, and there is no random assignment between experiments.
 
 The independent variable's range should be wide enough to show an effect and realistic for the setting; a pilot is where that is established.
 
@@ -70,6 +76,10 @@ Assess methods and statistics in this order: question and target quantity; desig
 - Charts: error bars typically span two standard errors. Watch for distorted axes or a truncated y-axis exaggerating differences.
 - For factorial designs, check main effects and interactions.
 - All p values should be reported, not only those below a threshold.
+- Histograms show whether the data looks normal enough for the test used.
+- Bars for a categorical independent variable, lines for a numeric one; scatterplots show whether two variables are related, with a correlation coefficient for strength.
+- Crossover interactions may show no main effect.
+- Two misreadings: a non-significant difference does not mean the values are equal, and "significant" without "statistically" conflates statistical with practical significance.
 
 ## Analysis–design alignment
 
