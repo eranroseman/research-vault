@@ -1,39 +1,42 @@
-# Stage 6 brief
+# Stage 7 brief
 
-Sent verbatim to the stage 6 verifier subagent, with the placeholders filled. It is the subagent's whole context.
+Sent verbatim to the stage 7 verifier subagent, with the placeholders filled. It is the subagent's whole context.
 
 ```
-You are checking a report against the paper it describes. You form no opinion of the paper and you do not rewrite the report.
+You are checking a report against the paper it describes and against the sources it cites. You form no opinion of the paper, you create no files, and you do not rewrite the report.
 
 ## Inputs
 
-- Paper: {PAPER_PATH} (text) and {PAGE_RENDERS} (images of pages carrying figures or pseudocode; "none" if none).
+- Paper: {PAPER_PATHS} — the paper and every appendix and supplement — and {PAGE_RENDERS} (images of pages carrying figures, tables or equations; "none" if none).
 - Report: {REPORT_PATH}
+- Evidence file: {EVIDENCE_PATH} — the W entries you re-open, and the pruning record holding the editor's change list.
 
-The Location convention below is filled verbatim from SKILL.md's stage 2 definition; report against it, not against a reading of your own.
+## Locator convention
+
+{LOCATOR_CONVENTION}
+
+Report against this convention, not against a reading of your own.
+
+## What you check
+
+1. Every locator, quote and number the report attributes to the paper: find it in the paper. An item passes when the locator resolves to text that says what the report says it says, the quote matches the paper verbatim, and the number appears at the stated place. A number the report marks "derived" is checked against the C, W or P entry it cites, not recomputed.
+2. Every W entry the report cites: re-open it at its URL, or at its saved copy in the scratch folder when the URL fails, and check that the source says what the entry says it said.
+3. Every applied change-list item: compare After with Before for lost or added meaning — a dropped qualifier, a strengthened claim, a changed number; for a move, check the one-line claim that stayed against what moved.
 
 ## Delegation
 
 Do this work yourself, and spawn no subagent: this pipeline already fills every seat the critique gets, and an agent you spawned would re-read the skill and fan out again.
 
-## Location convention
-
-{LOCATION_CONVENTION}
-
-## What you check
-
-Every **Location** field in the report's body and in its appendix lists; every quoted passage; every number the report attributes to the paper. A number the report labels "derived" is outside your scope.
-
-For each, find it in the paper. An item passes when the Location resolves to text that says what the report says it says, the quote matches the paper verbatim, or the number appears at the stated place.
-
 ## What you return
 
-A list of the items that failed, and nothing else. Each item:
+The items that failed, and nothing else. Each item:
 
 - the report line (quote enough to identify it),
 - what the report claims,
-- the paper location you checked,
-- what the paper says there, or "not found".
+- the locator, W entry, or change-list item you checked,
+- what you found there, or "not found".
 
-End with one line: the count of items checked and the count that failed. If nothing failed, return that line alone.
+End with one line per category: locators/quotes/numbers checked and failed; W entries checked and failed; change-list items checked and failed. If nothing failed, return those three lines alone.
 ```
+
+`{LOCATOR_CONVENTION}` is filled verbatim from SKILL.md's "Locators" section.

@@ -1,186 +1,129 @@
 ---
 name: paper-critical-analysis
-description: In-depth critical analysis of one research paper, written for a reader deciding whether to trust it rather than an editor deciding whether to publish it. Extract, list what the paper does not say, judge nine named dimensions in a fresh context, tighten, then verify every cited location against the paper.
+description: Critical analysis of one research paper, for a reader deciding whether to trust and use it rather than an editor deciding whether to publish it. Reads the paper with its supplements and released code and data, checks every number exhaustively, judges nine dimensions in a fresh context, then edits, machine-checks and verifies. Writes a report plus an evidence file.
 disable-model-invocation: true
 ---
 
 # Critiquing a paper
 
-Thoroughness is the constraint here, token cost is not.
+The report is the one the critical-analysis guide asks a human to write: context, summary, and a discussion of importance, credibility, novelty, applicability, generalizability, scalability, assumptions, readability and ethics. The process is built around the failures agents actually show — satisficing instead of exhaustive checking, anchoring on the authors' framing, recall presented as evidence, padding kept by its own author, locator slips — so it does not follow the guide's three human reading passes. One depth, no fast or deep mode; on a 33-page paper expect about 8M fresh tokens and about 2 hours.
 
 ## Input and output
 
-Input: one paper, read in full. Output: one markdown file in the outline under "The report", named for the paper and written beside the input unless told otherwise.
+Input: one paper, named by the first argument. The optional second argument names the output folder; the default is `critical-analysis-<paper-slug>/` beside the paper, where `<paper-slug>` is the lowercased name the paper is known by (its system name, or the first distinctive title word). You need the full text: given only an abstract, citation, or DOI, obtain it first or stop and say so.
 
-Six stages, every one of them on every paper: extract, list what the paper does not say, judge, assemble, tighten, verify. Each stage closes when its artifact exists.
+The run writes four things into the output folder, and nothing anywhere else — scratch work included:
 
-## What varies
+- `critical-analysis-<paper-slug>.md` — the report, in `templates/report-template.md`'s outline.
+- `critical-analysis-<paper-slug>.evidence.md` — the audit trail, in `templates/evidence-template.md`'s sections, each filled during the stage that produces it.
+- `critical-analysis-<paper-slug>.draft.md` — the report as it stood before stage 5.
+- `<paper-slug>-work/` — fetched sources, page images, scripts, and data downloaded for recomputation. Raw participant-level data is deleted from it at the end of the run.
 
-Settle every row before stage 1; a condition discovered mid-run costs a stage its work.
+Eight stages, 0–7, every one on every paper. Each ends on a completion bar, recorded in the evidence file's stage log as it is met; an interrupted run resumes from the log.
 
-**What changes the run.**
+## Rules
 
-| Condition                                                       | What it changes                                                                                                                                                                                                                                                                                               |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The Read tool cannot render the PDF                             | Extract the text with a local tool (pypdf, PyMuPDF, or pdftotext) and render the pages carrying figures or pseudocode to images. Stage 6's verifier is handed those renders. With no tool available, ask for the text.                                                                                        |
-| The paper exceeds 30 pages, appendices and supplements included | Stage 1 runs one subagent per section, each with `prompts/extract.md` filled for its section range and nothing of the conversation that filled it; stage 2 runs in the main context over the merged extraction. Settle the row above first: a fan-out discovered unrenderable mid-flight wastes every branch. |
-| Web access — probe it, never ask                                | Fetch one known-good record, such as `https://api.crossref.org/works/<a DOI the paper cites>`. A fetch that returns the record turns on stage 2's external-check list and every check it carries. Report the probe either way.                                                                                |
-| The probe is refused or fails                                   | The external-check list stays empty, every slot that needed it reads "not checked: no web access", and the did-not-check section names the probe and what it returned. Retry once on a network error before concluding this; a refusal needs no retry.                                                        |
+- **Provenance.** The reader must be able to tell apart what the paper says, what an outside source says, and what the writer infers. The report's `Key:` line states the marks: a locator cites the paper; a W ID such as (W12) cites an outside source through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C, W or P entry holding its computation; recalled knowledge appears only under Coverage.
+- **Nothing silent.** Write `none found; checked: <where>`, `not checked: <reason>` or `not applicable: <reason>` rather than leaving a gap; a section whose stage has not run yet reads `pending: stage <n>`.
+- **Integrity.** Concerns are neutral observations, given with their benign explanations; never accusations.
+- **Write scope.** Every file the run creates goes in the output folder.
+- **Quotes.** Short ones only; never reproduce passages.
 
-**What the paper loads.** Each row sets both the file stage 2 walks and the path stage 3's brief hands the judge, so a row that does not fire puts its file out of the judge's reach too.
+## Locators
+
+A locator is a section, page, figure, table, equation, footnote or reference number, exactly as the paper numbers it: `Section 4.2`, `p. 7`, `Figure 3`, `Table 2`, `Equation 5`, `footnote 4`, `reference [23]`. A named part of the front matter — title, abstract, author block, keywords — is a locator too. `whole paper` marks something absent throughout. No paragraph counting.
+
+## What the paper loads
+
+Each row sets both the file stage 2 walks and the path stage 3's brief hands the judge, so a row that does not fire puts its file out of the judge's reach too.
 
 | Condition                                                                                          | File                                 |
 | -------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Every paper                                                                                        | `references/sources-and-venues.md`   |
 | Every paper                                                                                        | `references/research-integrity.md`   |
 | The paper reports a quantity it measured, or a statistic it computed from data                     | `references/quantitative-methods.md` |
 | The paper collects or analyses qualitative data — interviews, field notes, documents, cases, media | `references/qualitative-methods.md`  |
 | People took part in the research                                                                   | `references/participants.md`         |
+| The paper releases code or data                                                                    | `references/released-artifacts.md`   |
 
-## Stage 1 — Extract, in the authors' frame
+## Stage 0 — Settle conditions
 
-Open the report file first, at the path above, carrying the headings under "The report" and nothing beneath them. Every later stage writes into it, and both briefs are handed its path.
+Settle every row before reading, and record each under Conditions in the evidence file; a condition discovered mid-run costs a stage its work. Create the output folder, the evidence file from `templates/evidence-template.md`, and the scratch folder first. Save every fetched source to the scratch folder as it arrives.
 
-Then record, as the paper presents it:
+| Condition                           | What it changes                                                                                                                                                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What counts as the paper            | The body, appendices and supplements, plus any supplied file the paper names as holding its content (for example a taxonomy in the repository it cites). Any other supplied file is an outside source, entering only through W entries. |
+| The Read tool cannot render the PDF | Extract text with PyMuPDF, pypdf or pdftotext, and render every page carrying a figure, table or equation to an image in the scratch folder. With no tool available, stop and ask for the text.                                         |
+| Web access                          | Probe by fetching one known-good record, such as the Crossref entry for a DOI the paper cites; retry once on a network error. If the probe fails or is refused, stop and report why — the skill does not run without the web.           |
+| Released code or data               | Load `references/released-artifacts.md`; stage 2 checks them.                                                                                                                                                                           |
+| The paper runs past 100 pages       | Read in chunks, writing the evidence file after each chunk.                                                                                                                                                                             |
 
-| Field              | Description                                                                                                                                                                      |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Title**          | Full paper title                                                                                                                                                                 |
-| **Authors**        | Author list and affiliations                                                                                                                                                     |
-| **Venue / Status** | Publication venue, preprint server, or submission status, and which kind it is from Source types                                                                                 |
-| **Year**           | Publication or submission year                                                                                                                                                   |
-| **Domain**         | Research field and subfield                                                                                                                                                      |
-| **Paper Type**     | One of: empirical, theoretical, survey, systems, position, replication, negative results. A paper fitting none of the seven is recorded as the nearest, with the mismatch named. |
+**Done when:** every row is settled and recorded, and the probe passed.
 
-A short neutral map: research question; population or system; design and unit; intervention, exposure, test, or model; comparator/reference; outcomes and timing; principal claims.
+## Stage 1 — Read into the evidence file
 
-Every principal claim, explicitly:
+Read everything stage 0 counted as the paper, once and in full, viewing every figure and table as an image. The evidence file is the working memory — fill it as you go rather than holding the paper in context: identity (confirmed against the request; wrong paper: stop and say what you have) and section map; promises 1–5; every principal claim with its `Needed:` line; key quotes and numbers with their locators; terms you had to look up, which stage 2 settles as W entries. Record the paper type under Identity, classify the method family from the method menu below, and record which background files the load table assigns.
 
-```
-Claim 1: [the claim, as the paper states it]
-Evidence: [what the paper offers for it]
-Needed: [what evidence would settle it]
-```
+**Done when:** every page has been read once, the identity is confirmed against the request, and every principal claim carries a `Needed:` line.
 
-Keep four things apart: what the paper claims; what its evidence demonstrates; what is plausible but untested; what a reader would expect the paper to claim but it never does.
+## Stage 2 — Check exhaustively
 
-This extraction is where the report's Context and Summary slots come from.
+The deepest findings come only from exhaustive reconciliation and artifact checks; depth here is the point, not a cost to manage.
 
-## Stage 2 — List what the paper does not say
+- **N list:** every item the report will need that the paper does not give. Start from the `Needed:` lines, then walk the assigned background files.
+- **C list:** every place two locations in the paper conflict. Reconcile every reported result in the abstract and text — statistic, count, percentage, effect size — against the tables, figures and supplements, and every percentage, sum and effect size against the numbers it rests on. Do arithmetic in code, and keep the reconciliation log in the evidence file.
+- **W list:** one entry per outside check — the claim checked, the source, its URL and saved copy, and what the source said. The checks:
+  - venue rigor and the authors' previous work (`references/sources-and-venues.md`);
+  - reference counts, tree backward and tree forward;
+  - 3–5 related works, read in full where openly available and as abstracts otherwise: the work the paper builds on most; the primary source behind its load-bearing outside claim; its closest prior or concurrent work that it does not cite; any other work the argument depends on;
+  - every concept the paper uses without defining;
+  - if code or data are released, the analysis code behind each headline number — every number in the abstract and conclusion — with those numbers recomputed from the released data (`references/released-artifacts.md`).
+  - When a citation index fails, fall back in order: OpenAlex, Crossref, OpenCitations, Semantic Scholar. Each failure becomes a W entry, and any count left incomplete is labelled partial.
 
-Walk the background files the load table assigns — in full here, and again from the slots that name them.
+Each mandated check above fills its fixed slot in the evidence file's External-check section with the W IDs that discharged it or `not checked: <reason>` — the checker reports an unfilled slot, so a skipped check is a hole, not a silence.
 
-Write three numbered lists, kept apart:
+**Done when:** every `Needed:` line is resolved to an entry or to evidence; every number is reconciled or entered in C; every Context question is answered or marked `not checked: <reason>`; every mandated-check slot is filled; every released artifact relevant to a headline number has been examined.
 
-- **Not-stated list** (N1, N2, …): every item the report will need that the paper does not give — participants, selection, consent, variable definitions, test assumptions, denominators, calibration data, code, thresholds, and so on; a part of the paper that is absent or merged into another; a concept the report needs that the paper uses without defining. Start from stage 1's `Needed:` lines: a claim whose settling evidence the paper never supplies is an entry here.
-- **Inconsistency list** (C1, C2, …): every place where two locations in the paper conflict. Check systematically: numbers across text, tables, and figures; p-values, confidence intervals, and effect sizes against each other; sample sizes throughout; percentages, averages, sums, and claimed improvements against the numbers they rest on; internal references; acronyms defined on first use; terminology; citation style. Each mismatch is one entry carrying both locations.
-- **External-check list** (W1, W2, …): with web access, one entry per check, each carrying the claim checked, the source consulted, and what that source said, with every search composed in the vocabulary of the paper's own field. Run every Context slot the paper cannot answer, and three checks no slot names: the paper's load-bearing external claim followed back to its primary source rather than the account it cites; work the paper does not cite that already does what it claims is new; a concept the paper uses and never defines. Read, or at least skim, the most relevant related work while filling this list. Without web access the list is empty.
+## Stage 3 — Judge
 
-A **Location** is one of four forms. The section, then the paragraph counted from the start of that section, with the page appended where the section spans pages: `Section 3, paragraph 7 (p. 6)` is the section's seventh paragraph, which happens to be the second one on page 6 — the page is appended and never restarts the count. An algorithm line, figure, table, or equation number. A named part of the front matter: title, author block, affiliation, abstract, keywords, identifier stamp, footnote n. Or `whole paper`, for something absent throughout. A displayed equation, and the unindented text that follows it, belong to the paragraph that introduced them. Every list entry, and every point in the report, uses this convention.
+**Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper and its supplements, the page images, the evidence file, the Locators section above (verbatim), and the background file paths the load table assigns. Not the conversation that did the reading — judgment in a fresh context, bound to citable evidence, is better calibrated than judgment in the context that read the paper. That brief is the judging contract; edit it there, not here.
 
-Every quote, citation, statistic, and methodological detail in the not-stated and inconsistency lists, and in the report, comes from the paper text; what the text does not say is a not-stated entry, and what a source outside the paper settles is an external-check entry.
+It returns the nine subsections and a Recalled section. The nine, in order: Importance, Credibility, Novelty, Applicability, Generalizability, Scalability, Assumptions, Readability and Ethics. Screen the return: drop any point whose Evidence field cites nothing admissible (the brief defines admissible), log the dropped count, assign P IDs to the kept points, and record them with the Recalled lines under Judge points in the evidence file. The Recalled lines surface later as Coverage's `Recalled:` entries, never as findings.
 
-Write all three lists into the report's appendix now, so stage 3's brief can point at them.
+**Done when:** all nine subsections and the Recalled section are returned, and every kept point carries admissible evidence under a P ID.
 
-## Stage 3 — Judge, in the reader's frame
+## Stage 4 — Write
 
-**Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper, the stage 1 extraction, the three stage 2 lists, the Location convention from stage 2, and the background file paths the load table assigns. Not the conversation that wrote them. That brief is the judging contract. Edit it there, not here.
+Build Context and Summary from the evidence file, going back to the paper only for a slot it does not cover. Write the critical discussion in prose: the Verdicts block first, then the nine topics, placing every P point under the topic it bears on most; points may merge into paragraphs as long as each keeps its locators and IDs. Then write Coverage, with `Verification: pending: stage 7`; every N, C, W or P ID the report's body does not cite goes on Coverage's `Evidence file only:` line — the checker closes that ledger. There is no length limit at this stage. Save the result as the report, and copy it to the draft path — the draft is what stage 5 is measured against.
 
-It returns the nine subsections and a Recalled section; the nine are the Discussion's only source of findings.
+**Done when:** every P point is in the report, every heading in `templates/report-template.md` is filled, and the draft is saved.
 
-## Stage 4 — Assemble the report
+## Stage 5 — Edit
 
-Run this in the main context, in this order. Nothing here adds a finding, and nothing here removes one for length.
+**Fresh context, required** — an author reviewing its own text keeps everything. Run one subagent whose whole context is `prompts/edit.md` with its placeholders filled: the report and the evidence file, which it reads only. It returns a change list; apply or reject each item yourself, recording every disposition with its reason, and the before-and-after word counts, under Pruning record in the evidence file. Its Flags section (uncited generalizations, numbers that do not add up) is yours to settle too: fix each flag or move it to Coverage's `For the reader to double-check:` line. The invariant is the brief's: every applied change keeps the claim, its strength, its qualifiers, numbers, locators, IDs and provenance marks.
 
-1. **Screen the return.** Drop every point whose Evidence field carries nothing admissible; the judging contract defines what is admissible. The Recalled section becomes lines in "What this report did not check". Discard anything returned that is neither one of the nine subsections nor the Recalled section.
-2. **Project stage 1 into Context and Summary.** The field table fills the Title, Authors and Venue slots; the neutral map and the claim blocks fill Problem, Method, Results and the authors' own Discussion. Go back to the paper only for a slot the extraction does not cover.
-3. **Place the nine subsections** in the Discussion, in the outline's order, each keeping its verdict sentence.
-4. **Write the tail.** "What this report did not check", then the appendix, with the verifier's list left empty for stage 6.
+**Done when:** every change-list item is applied or rejected with a reason, and the word counts are logged.
 
-## Stage 5 — Tighten the assembled report
+## Stage 6 — Check
 
-Run this once, in the main context, after assembly and before verification. Read every point in the Discussion and rule on it: kept, or removed for one of the reasons below. Recompute every number the report labels "derived" and correct it; stage 6 does not check those. Then remove:
+Run `python3 scripts/check_report.py <report>` — the path is relative to this skill's directory; the checker finds the evidence file beside the report. The templates are its single source of truth: it reads required headings from `templates/report-template.md` and `templates/evidence-template.md`, and fails on a missing heading, a leftover placeholder, a topic with no locator or ID, a Credibility section stating no confidence, a missing Coverage line, a "derived" number citing no C, W or P entry, a missing provenance key, an unfilled mandated-check slot, or a broken N/C/W/P ledger. Fix the report, not the checker.
 
-- a free-standing Discussion sentence that restates the paper without carrying a judgment. The Context and Summary slots, and every point's Observation field, restate the paper by design; none of them is in scope here;
-- a point whose Location and Observation repeat another point's, keeping the copy under the dimension it bears on most, never under one picked to keep a subsection from running empty, and leaving a one-line cross-reference in the other;
-- a point with no Location;
-- a hedge that repeats an entry in "What this report did not check".
+**Done when:** the checker reports no errors.
 
-Remove a failing point whole; a point shaved to a clause still carries its load. Then read the Discussion once against the test the judge worked under: a report that finds nothing wrong with a non-trivial paper is a failed report. If these removals have left one, the removals were wrong. Slots, verdict sentences, and appendix entries survive this stage; stage 6 still corrects one it flags.
+## Stage 7 — Verify
 
-## Stage 6 — Verify the report against the paper
+**Fresh context, required** — a verifier holding the reasoning behind a locator is no longer checking it. Run one subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper and its supplements, the page images, the report, the evidence file, and the Locators section above (verbatim). It checks every locator, quote and number against the paper, re-opens every W entry the report cites, and compares every applied rewording with its original for meaning drift; it returns failures only, with the counts checked.
 
-After tightening and before delivery, run a second subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper, its page renders or "none", the report, and the Location convention from stage 2. Not the conversation that wrote the report; a verifier holding the reasoning behind a Location is no longer checking it. That brief is the verification contract.
+Fix, drop, or move each returned item to Coverage; record the dispositions under Verifier list in the evidence file; update Coverage's `Verification:` line with the counts; run the checker again. Then delete raw participant-level data from the scratch folder and record what was deleted under Deletions.
 
-The main context removes or corrects each flagged item, or moves it to "What this report did not check"; a hedge that now repeats an entry there goes with it. The verifier's list, with each item's disposition, goes in the appendix.
-
-## The report
-
-Three sections in this order, headings fixed, every slot filled or marked "not assessable from the paper" or "not checked". The report is written for a reader deciding whether to trust and use the paper; a referee's concerns — publishability, questions and revision requests to the authors — are out of scope.
-
-### 1. Context
-
-- **Title**: is it short and to the point? Do you know what to expect from it?
-- **Authors and affiliations**: how many people were involved, and what does the order tell you? One or many institutions, which departments? Well-known places? What is their field, and what have they done before in the same area?
-- **Venue**: which kind (the kinds below), and what that implies about how rigorously it was reviewed.
-- **Motivation**: why is the problem important? Does the paper motivate the research, state the contribution, and give an overview of the rest of the paper?
-- **Related work**: does it cover relevant prior work, synthesize it rather than list it, balance recent and foundational sources, and identify the gap accurately? Two comprehensiveness checks:
-  - Tree backward: follow the paper's own reference list to the works it's built on — are those the field's recognized foundational references, or oddly idiosyncratic ones?
-  - Tree forward: pick one of the paper's key cited references and check, via a citation index, whether more recent work citing that same reference is conspicuously missing — keeping in mind that research typically takes a few years to reach journal publication, so missing only the very latest work isn't necessarily a gap.
-- **References check**: how many references? What kinds of sources (the kinds below), and are reviews and preprints labeled as such? What is the span, in years, of the papers cited? How many include at least one of the authors? How many are for work by people at the same institution as the authors? Are primary sources used where possible? Do cited papers support the claims attached to them? Are citation metadata and links correct? Do you recognize any of the papers? Recognition, here and in tree backward, is recall by construction: label it as recall in the slot and list it under "did not check".
-
-Every slot above that the paper cannot answer is filled from stage 2's external-check list, citing the W entry it rests on; a slot with no entry behind it reads "not checked: no web access".
-
-#### Source types
-
-##### By currency and review rigor
-
-- Books — summarize research from the start of the field up to roughly 13 years before publication; useful for foundational grounding, but less rigorously peer-reviewed than journals
-- Review articles and edited-book chapters — typically within 5-8 years of current research; still not always peer-reviewed as rigorously as journal articles
-- Journal articles — the primary sources; the most current formal source; top journals accept as few as 10-20% of submissions after peer review
-- Proceedings — peer-reviewed, but usually shorter and less rigorously reviewed than a journal article; timely
-- Technical reports — more procedural detail than a journal article, but usually not peer-reviewed
-- Electronic, preprint, or web sources — no mandatory quality control; check the author's credentials and corroborate before trusting
-
-##### Predatory venue check
-
-If the venue is unfamiliar, check whether it is indexed (Scopus, Web of Science, PubMed, DOAJ) and a COPE member before weighing its review rigor. Think. Check. Submit. (thinkchecksubmit.org) is the field's checklist.
-
-##### Red flags in the paper's sourcing and context
-
-- Cherry-picked citations
-- A single study in isolation, with no replication
-- Contradicts the preponderance of evidence
-- Press release before peer review
-
-### 2. Summary
-
-At greater length than an abstract, in the paper's own order:
-
-- **Problem**: research questions, hypotheses, objectives; what the authors set out to do.
-- **Method**: which method family from the Method menu below, and what that choice implies about what the results can and can't show. If no family fits, the Paper Type recorded at stage 1 stands in its place, and name the family of the paper's evaluation if it has one. For an experiment, the Summary slots in `references/quantitative-methods.md`; for a qualitative study, those in `references/qualitative-methods.md`; otherwise, the methods, techniques, or process followed.
-- **Results**: big picture to details; how the data was analyzed; descriptive statistics, tables, charts, then inferential statistics (`references/quantitative-methods.md`).
-- **Discussion**: how the results should be interpreted, according to the authors, and why they think they got them; the implications of the research and how it advances knowledge in the field; practical value; the limitations they state; future research they discuss and what they plan next; whether the conclusion summarizes methods, results, discussion, and reiterates significance; whether there is an acknowledgement section for people who helped but did not make a significant contribution, plus funding.
-
-### 3. Discussion
-
-Nine subsections, in this order. Each subsection opens with its one-sentence verdict, then its points, each point carrying the five fields from the judge brief. The questions below are prompts, not a form: answer those that bear on the paper, in whatever order the evidence suggests.
-
-The nine, in order: Importance, Credibility, Novelty, Applicability, Generalizability, Scalability, Assumptions, Readability and Ethics. What each asks is the judge brief's business, not this file's.
-
-### What this report did not check
-
-Required, even when empty. One line each for: web-dependent slots skipped; parts of the paper not read or not readable (appendices, supplements, code); proofs or analyses not followed in detail; the judge's Recalled section, one line each, disclosed here rather than presented as a finding.
-
-### Appendix: not-stated list, inconsistency list, external-check list, stage 1 claims, return accounting, verifier list
-
-The three stage 2 lists, numbered, so the Discussion's evidence can cite N-, C- and W- entries; stage 1's numbered claim blocks, cited the same way; the stage 4 return accounting (points returned, points dropped as inadmissible, points moved as recall, duplicate groups stage 5 collapsed); the stage 6 verifier's list with each item's disposition. Those six and no further commentary.
+**Done when:** every verifier item has a disposition, the checker is clean, and the deletion is recorded.
 
 ## Method menu
-
-### The menu
 
 - **Experimental method** (quantitative) — random assignment supports a causal claim; every other route to one is ranked in `references/quantitative-methods.md`.
 - **Correlational observation** (quantitative) — shows association, not cause.
 - **Surveys** (quantitative) — self-report only, no direct observation.
 - **Archival research** (quantitative) — relationships between variables, not causes; the records may be unreliable. Meta-analyses and systematic reviews (most widely via PRISMA) are archival research over publications.
 - **Qualitative designs** — inductive studies, ethnographies, naturalistic observation, case histories; the traditions, and what each should report, in `references/qualitative-methods.md`.
+
+A paper fitting no family is classified by its paper type — empirical, theoretical, survey, systems, position, replication, or negative results — and the family of its evaluation, if it has one, is named.
