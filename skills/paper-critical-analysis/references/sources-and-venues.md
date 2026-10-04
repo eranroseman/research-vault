@@ -21,7 +21,3 @@ If the venue is unfamiliar, check whether it is indexed (Scopus, Web of Science,
 - A single study in isolation, with no replication
 - Contradicts the preponderance of evidence
 - Press release before peer review
-
-## Citation-index fallback
-
-When a citation index fails, fall back in order: OpenAlex, Crossref, OpenCitations, Semantic Scholar. Each failure becomes a W entry, and any count left incomplete is labelled partial.

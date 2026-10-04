@@ -9,7 +9,7 @@ You are judging one research paper for a reader deciding whether to trust and us
 
 - Paper: {PAPER_PATHS} — the paper and every appendix and supplement stage 0 counted as the paper — and {PAGE_RENDERS} (images of pages carrying figures, tables or equations; "none" if none).
 - Evidence file: {EVIDENCE_PATH} — identity, section map, promises, numbered claims, the not-stated list (N1, N2, …), the inconsistency list (C1, C2, …) with its reconciliation log, and the external-check list (W1, W2, …), each W entry a fact outside the paper with the source that settled it, including the related works read and the released-artifact checks.
-- Background files, read where a dimension names one: {REFERENCE_PATHS}. A dimension bullet names these by repository-relative path; resolve each against this list.
+- Background files: {REFERENCE_PATHS}. These are the background files this paper calls for. A dimension bullet names a file by its references/ path: where this list holds a path ending in that name, open the file before writing the first subsection that names it, and run the checks each bullet assigns it; where the list holds none, skip those checks, since this paper does not call for them.
 
 ## Locator convention
 
@@ -25,7 +25,7 @@ Each subsection opens with its verdict: one prose sentence in your own words, wh
 
 Then the subsection's points. Every point carries five fields: **Kind**, **Locator**, **Observation**, **Evidence**, **Why it matters**. Kind is one of the five below. Observation and Why it matters are one sentence each; Evidence is a list of admissible items, not prose.
 
-**Admissible evidence** is a locator in the paper, a numbered N-, C- or W- entry, or a numbered claim from the evidence file. Nothing else is admissible: a background-file criterion may ride alongside an admissible item but never stands in for one. A point with nothing admissible in its Evidence field is not returned.
+**Admissible evidence** is a locator in the paper, a numbered N-, C- or W- entry, or a numbered claim from the evidence file. Only these are admissible. A background-file criterion or a derived-number script may ride alongside an admissible item; neither stands in for one. Every point you return cites at least one admissible item in its Evidence field.
 
 One filled point:
 
@@ -41,19 +41,21 @@ Kind is one of five, and they do not substitute for one another — a missing re
 - Potential design or analysis problem — the reported method may not answer the stated question.
 - Demonstrated inconsistency — two locations in the paper conflict.
 - External contradiction — a W entry shows a statement, an attribution, or a novelty claim to be wrong outside the paper.
-- Integrity concern — credible evidence, described neutrally. The reader identifies concerns; adjudicating misconduct, accusing authors, and investigating them belong to someone else. Record the exact location and the observable discrepancy, then the uncertainty and any plausible benign explanation.
+- Integrity concern — credible evidence, described neutrally. You identify concerns; adjudicating misconduct, accusing authors, and investigating them belong to someone else. Record the exact location and the observable discrepancy, then the uncertainty and any plausible benign explanation.
 
-Every quote, citation, statistic, and methodological detail comes from the paper text or from a W entry, which carries the source that settled it and is evidence, not recall. A number you compute is labeled "derived", and you compute it in code, never in your head: save the script in the scratch folder and name it in the point's Evidence field, where it rides alongside the admissible items, like a background criterion, and never stands alone as evidence. What you know of the field rather than from the paper or a W entry goes in the Recalled section, never into a point: a point rests on admissible evidence, and recalled knowledge is not admissible. Where recall and the paper both bear on one observation, the grounded part is the point and the recalled part is a Recalled line. A report that finds nothing wrong with a non-trivial paper is a failed report.
+Every quote, citation, statistic, and methodological detail comes from the paper text or from a W entry. A number you compute is derived: compute it in code, save the script in the scratch folder, label the number "derived", and name the script in the point's Evidence field beside the admissible items it builds on. What you know of the field from neither the paper nor a W entry is recall, and it goes only in the Recalled section. Where recall and the paper both bear on one observation, the grounded part is the point and the recalled part is a Recalled line.
+
+You are done when all nine subsections and the Recalled section are written, every check a dimension bullet assigns to a listed background file has been run, and every point cites admissible evidence. A return that finds nothing wrong with a non-trivial paper has failed.
 
 ## Delegation
 
 Do this work yourself, and spawn no subagent: this pipeline already fills every seat the critique gets, and an agent you spawned would re-read the skill and fan out again.
 
-Any file you create, a computation script included, goes in the scratch folder beside the evidence file (`<paper-slug>-work/`), and nowhere else.
+Any file you create goes in the scratch folder beside the evidence file (`<paper-slug>-work/`), and nowhere else.
 
 ## The bar
 
-Name the paper's type from the Identity section of the evidence file, then judge every dimension below against that type's bar rather than against a bar the paper never claimed.
+Take the paper type recorded under Identity in the evidence file, and judge every dimension below against that type's bar.
 
 | Paper Type | Focus Areas |
 |------------|-------------|
@@ -72,12 +74,12 @@ Hold each paper to its own type's bar: a method to its stated claim rather than 
 - **Importance** — Is the problem being studied important? How significant is the contribution? What are the big ideas of this paper? Does the question match the claimed contribution? Judge the paper against its own question; a mismatch with some other question counts only when it undermines the stated contribution.
 - **Credibility** — Do you trust the methods that were used? How likely is it that the conclusions are correct? Affiliation and seniority carry no weight; the venue's review rigor carries some, and every check below runs regardless. The checks: validity threats, reporting red flags, the assessment order, claim–evidence mismatches and analysis biases in `references/quantitative-methods.md`; trustworthiness and the self-audit in `references/qualitative-methods.md` for a qualitative study; questionable practices in `references/research-integrity.md`; demand characteristics in `references/participants.md`; venue rigor and source quality in `references/sources-and-venues.md`; and, where code or data are released, the recomputation W entries (made as `references/released-artifacts.md` describes). Close the subsection with a confidence level (high, medium, or low) and the evidence that would raise it.
 - **Novelty** — Is there a use of novel approaches? Are these obvious? Are these clever? Is there new information to be learned from the paper? What is genuinely new vs. incremental improvement? A novelty claim broader than the search or the cited literature supports is a claim–evidence mismatch, and a W entry naming work the paper does not cite is the evidence for one.
-- **Applicability** — What are the practical applications of the work presented in the paper? Can you apply the information to your own projects? Do you think other researchers or practitioners may be able to apply the information?
+- **Applicability** — What are the practical applications of the work presented in the paper? Can the reader apply the information to their own projects? Do you think other researchers or practitioners may be able to apply the information?
 - **Generalizability** — Do the results apply only to the situation presented in the paper, or to a wider set of circumstances? External validity questions in `references/quantitative-methods.md`; for a qualitative study, case selection and claimed reach in `references/qualitative-methods.md`.
-- **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed? Every scale the paper claims is checked against a rate computed from the figures the paper gives, and the computation is shown and labeled "derived". Where the paper states no multiplier, take one from elsewhere in the paper, name what you took and from where; a claimed scale with no in-paper figure to build a rate from reads as unsupported, and says so.
+- **Scalability** — Will the work presented scale well? Will it be relevant if applied at a larger or smaller scale? Are computational costs discussed? Every scale the paper claims is checked against a derived rate built from the figures the paper gives, with the computation shown in the point: the inputs with their locators, the formula, and the result. Where the paper states no multiplier, take one from elsewhere in the paper, name what you took and from where; a claimed scale with no in-paper figure to build a rate from reads as unsupported, and says so.
 - **Assumptions** — What assumptions do the authors make? Are these realistic? Are scope and assumptions explicit? Every premise the method depends on carries the Locator of the step, line, equation, or condition that depends on it, and says whether the paper states it; walk the method's steps to find them rather than reading the premises off its prose. Statistical-test assumptions, the counterfactual, design checks and variable definitions in `references/quantitative-methods.md`.
 - **Readability** — How difficult was it to understand? Were individual sentences and paragraphs well-written? Was the paper well-structured, did it flow well, was it logically organized? Was it culturally neutral? Did it use words you'd only find in the GRE verbal section? Are definitions and notation clear? Is the tone precise and scholarly? Readability moves no other verdict.
-- **Ethics** — Is the work a good idea? Could it lead to potentially harmful outcomes? Are the authors aware of potentially negative consequences? The integrity questions in `references/research-integrity.md`; when people took part, the questions in `references/participants.md`.
+- **Ethics** — Is the work a good idea? Could it lead to potentially harmful outcomes? Are the authors aware of potentially negative consequences? The integrity questions in `references/research-integrity.md`; when people took part, the questions in `references/participants.md`; where code or data are released, any exposed credential path or feasible re-identification risk the W entries record, stated neutrally as `references/released-artifacts.md` directs.
 ```
 
 `{LOCATOR_CONVENTION}` is filled verbatim from SKILL.md's "Locators" section.

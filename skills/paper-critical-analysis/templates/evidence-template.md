@@ -1,6 +1,6 @@
 # Evidence template
 
-The evidence file is the report's audit trail; each section is filled during the stage that produces it, so an interrupted run resumes from the stage log. `scripts/check_report.py` reads its required headings from this file. A ledger entry starts on its own line — `- N1:`, `- C1:`, `- W1:`, or `- J1:` — and detail may continue on indented lines beneath it; the checker reads IDs from exactly that first-line shape, and every ID defined here must appear in the report or on Coverage's "Evidence file only" line. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
+`scripts/check_report.py` reads its required headings from this file, so keep them as written and replace every `{{placeholder}}`. A ledger entry starts on its own line — `- N1:`, `- C1:`, `- W1:`, or `- J1:` — and detail may continue on indented lines beneath it; the checker reads IDs from exactly that first-line shape. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
 
 ______________________________________________________________________
 
@@ -13,6 +13,8 @@ Report: {{report path}}.
 Filled at stage 1, from the full text, not from the request: title; authors; venue and year; DOI; version read; full text read from; matches the paper requested ({{yes | no}}, confirmed by {{how}}).
 
 Paper type, also at stage 1: one of empirical, theoretical, survey, systems, position, replication, or negative results; a paper fitting none is recorded as the nearest, with the mismatch named.
+
+Method family and background files, also at stage 1: the family from SKILL.md's method menu, or for a paper fitting none, the family of its evaluation if it has one; and every file SKILL.md's load table assigns, by path.
 
 ## Conditions
 
@@ -38,7 +40,7 @@ Five numbered lines, each quoted from or located in the title, abstract, introdu
 
 ## Claims
 
-Every principal claim, numbered:
+Every principal claim, numbered; after the claims, as plain lines, each key quote or number with its locator and each term you had to look up. A claim's shape:
 
 ```
 Claim 1: [the claim, as the paper states it]
@@ -52,13 +54,13 @@ Everything the report will need that the paper does not give. One entry per line
 
 ## Inconsistency list
 
-Every place two locations in the paper conflict. One entry per line: `- C1: <both locators; both values>`. The reconciliation log follows as plain lines under this heading: every reported result in the abstract and text reconciled against the tables, figures and supplements, every percentage, sum and effect size against the numbers it rests on, arithmetic done in code.
+Every place two locations in the paper conflict. One entry per line: `- C1: <both locators; both values>`. The reconciliation log follows as plain lines under this heading, one per number reconciled: the number, the locations it was checked against, and whether they agree or the C ID it raised.
 
 ## External-check list
 
-One entry per outside check: `- W1: <claim checked>; <source>; <URL or saved copy>; <what the source said>`. The related works read and the released-artifact checks are W entries too.
+One entry per outside check: `- W1: <claim checked>; <source>; <URL>; <saved copy>; <what the source said>`.
 
-The mandated checks each hold a fixed slot, filled with the W IDs that discharged it or `not checked: <reason>` — the checker reports an unfilled slot, so a skipped check is a visible hole rather than a silent one:
+Each mandated check fills its slot below with the W IDs that discharged it or `not checked: <reason>`; the checker fails an unfilled slot:
 
 - Venue rigor:
 - Authors' previous work:

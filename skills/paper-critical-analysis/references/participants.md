@@ -1,8 +1,10 @@
 # Background: treating participants fairly
 
-## Questions the Discussion asks
+Loads when people took part in the research. Stage 2 walks the file for N entries; the judge reads the demand characteristics for Credibility and the rest for Ethics.
 
-Do the authors report IRB approval — obtained before data collection — and informed consent, including how consent was obtained and how confidentiality and privacy of participant data were protected? Where deception was used, do they justify why it was necessary and describe the debriefing? Is there any sign participants were treated unfairly — their time spent freely, interactions reaching past the study, benefits over-claimed?
+## Questions Ethics asks
+
+Do the authors report IRB approval — obtained before data collection — and informed consent, including how consent was obtained and how confidentiality and privacy of participant data were protected? Where deception was used, do they justify why it was necessary and describe the debriefing? Is there any sign participants were treated unfairly — their time spent freely, interactions reaching past the study, benefits over-claimed? Signs of fair treatment to look for in what the paper reports, beyond these: sessions on time and prepared; participants made comfortable; data never released identifiably.
 
 ## Respect for persons
 
@@ -35,7 +37,3 @@ A standard script means everyone gets the same instructions — tone of voice in
 ## Deception
 
 A paper should show the deception was necessary (no alternative design such as role playing or naturalistic observation), that it was limited, that it never concerned risks, and whether participants were bothered by it. Debriefing should be planned, scripted, and carry full disclosure, rationale, an opportunity to withdraw data, and support resources; in an online study it should reach participants who quit early.
-
-## Signs of fair treatment
-
-The researcher holds power, participants may feel evaluated, and fairness is the researcher's responsibility. Beyond the questions above, signs to look for in what the paper reports: sessions on time and prepared; participants made comfortable; data never released identifiably.

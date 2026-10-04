@@ -1,8 +1,14 @@
 # Background: quantitative methods
 
+Loads when the paper reports a quantity it measured, or a statistic it computed from data. The report's section 2.2 (Method) draws on "What the Summary reports" below, and stage 2 walks the file for N entries; the judge reads it for Credibility, Generalizability and Assumptions.
+
 ## What the Summary reports
 
 Participants (selection, characteristics); materials; procedure; design — independent and dependent variables, how each is defined and measured, which design type below, how order effects were handled; whether a pilot was run; sample size relative to similar published experiments.
+
+## Order of assessment
+
+Assess methods and statistics in this order: question and target quantity; design and unit of inference; sampling, allocation, controls, masking, and timing; sample-size or precision rationale; inclusion, exclusion, attrition, and missingness; analysis–design alignment and assumptions; multiplicity and prespecification; effect estimates, uncertainty, denominators, and harms; interpretation, causality, and generalizability.
 
 ## Reconstruct the design
 
@@ -67,10 +73,6 @@ Reconcile:
 - Complete-case, imputed, weighted, or model-based analysis populations
 - Figure, table, abstract, text, and supplement totals
 
-## Order of assessment
-
-Assess methods and statistics in this order: question and target quantity; design and unit of inference; sampling, allocation, controls, masking, and timing; sample-size or precision rationale; inclusion, exclusion, attrition, and missingness; analysis–design alignment and assumptions; multiplicity and prespecification; effect estimates, uncertainty, denominators, and harms; interpretation, causality, and generalizability.
-
 ## Reading the numbers
 
 - Charts: error bars typically span two standard errors. Watch for distorted axes or a truncated y-axis exaggerating differences.
@@ -79,7 +81,6 @@ Assess methods and statistics in this order: question and target quantity; desig
 - Histograms show whether the data looks normal enough for the test used.
 - Bars for a categorical independent variable, lines for a numeric one; scatterplots show whether two variables are related, with a correlation coefficient for strength.
 - Crossover interactions may show no main effect.
-- Two misreadings: a non-significant difference does not mean the values are equal, and "significant" without "statistically" conflates statistical with practical significance.
 
 ## Analysis–design alignment
 

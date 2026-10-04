@@ -1,6 +1,6 @@
 # Report template
 
-Keep the headings, their order, and their numbering; `scripts/check_report.py` reads its required headings from this file, so this template is the single source of truth for the report's structure. The bullets are the guide's questions; answer them in prose. Replace every `{{placeholder}}`. Keep the `Key:` line verbatim — the checker requires it. A sentence containing the word "derived" must cite the C, W or J entry holding the computation; the checker flags any use of the word without one, so keep "derived" out of ordinary prose. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
+Keep the headings, their order, and their numbering — `scripts/check_report.py` reads its required headings from this file. Each line under a `##` or `###` heading is guidance on what that section holds, its subsections included: answer each bullet's question in prose in the bullet's place; a Coverage bullet keeps its lead (`- Not read:` and the rest) and is filled after the colon. Replace every `{{placeholder}}`, and keep the `Key:` line verbatim — the checker requires it. Reserve the word "derived" for a computed number, in a sentence citing the C, W or J entry that holds its computation: the checker flags every sentence holding the word without such an ID, so write "drawn from" or "based on" where the sense is not a computation. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
 
 ______________________________________________________________________
 
@@ -47,7 +47,7 @@ The abstract's content at greater length, in the paper's own order.
 ### 2.2 Method
 
 - What did the authors do? Which method family (SKILL.md's method menu), and what can results from that family show and not show?
-- What the Summary reports for the family: `references/quantitative-methods.md` or `references/qualitative-methods.md`; otherwise the methods, techniques, or process followed.
+- Report what the family's file lists under "What the Summary reports" (`references/quantitative-methods.md` or `references/qualitative-methods.md`); for a paper in neither family, the methods, techniques, or process followed.
 
 ### 2.3 Results
 
@@ -63,45 +63,31 @@ The abstract's content at greater length, in the paper's own order.
 
 ## 3. Critical discussion
 
+Each of the nine topics after Verdicts opens with its verdict sentence, then its points in prose.
+
 ### Verdicts
 
 The nine verdict sentences, one line each, in the order below.
 
 ### Importance
 
-Opens with its verdict, then the points that bear on it, in prose. Every point keeps its locators and IDs.
-
 ### Credibility
 
-Opens with its verdict. Closes with a confidence level (high, medium, or low) and the evidence that would raise it.
+Closes with a line `Confidence: <high | medium | low>` and the evidence that would raise it.
 
 ### Novelty
 
-Opens with its verdict, then its points.
-
 ### Applicability
-
-Opens with its verdict, then its points.
 
 ### Generalizability
 
-Opens with its verdict, then its points.
-
 ### Scalability
-
-Opens with its verdict, then its points.
 
 ### Assumptions
 
-Opens with its verdict, then its points.
-
 ### Readability
 
-Opens with its verdict, then its points.
-
 ### Ethics
-
-Opens with its verdict, then its points.
 
 ## 4. Coverage
 
@@ -110,4 +96,4 @@ Opens with its verdict, then its points.
 - For the reader to double-check: claims resting on inference or an unconfirmed source.
 - Verification: the verifier's counts checked and failed, and the checker's final result.
 - Recalled: the judge's recalled knowledge, one line each.
-- Evidence file only: findings left in the evidence file, by ID.
+- Evidence file only: every N, C, W and J ID the body above does not cite.

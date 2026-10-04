@@ -1,5 +1,7 @@
 # Background: qualitative methods
 
+Loads when the paper collects or analyses qualitative data. The report's section 2.2 (Method) draws on "What the Summary reports" below, and stage 2 walks the file for N entries; the judge reads trustworthiness and the self-audit for Credibility, and case selection and claimed reach for Generalizability.
+
 ## What the Summary reports
 
 How participants or sites were purposefully selected; what data was collected; the coding process; what it produced.
@@ -8,8 +10,7 @@ How participants or sites were purposefully selected; what data was collected; t
 
 1. Codes are interpretive.
 2. Early codes stay close to the data — participants' language (in vivo) before abstracting.
-3. Every analytic move is documented.
-4. Interpretation is the authors' work, not an NLP tool's.
+3. Interpretation is the authors' work, not an NLP tool's.
 
 ## Sampling and case selection
 
@@ -50,6 +51,5 @@ Does the paper show:
 - Themes with a clear central organizing concept (not just topic buckets).
 - Each theme supported by quotes from multiple participants (or the limit acknowledged).
 - Disconfirming cases addressed.
-- Reflexivity statement included.
 - An audit trail reconstructable from memos and codebook versions.
 - If NLP or LLM-assisted coding was used, validation against hand-coding documented.

@@ -1,6 +1,8 @@
 # Background: research integrity
 
-## Questions the Discussion asks
+Serves every paper. Stage 2 walks the file for N entries; the judge reads the questionable practices for Credibility and the rest for Ethics.
+
+## Questions Ethics asks
 
 Any sign of research-integrity concerns: fabricated or adjusted data, plagiarism, undeserved authorship or publication credit for work not done, duplicate publication without acknowledgement, refusal to share raw data on request, falsified credentials, a known mistake left uncorrected?
 
