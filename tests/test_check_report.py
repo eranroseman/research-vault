@@ -237,3 +237,31 @@ def test_an_unfilled_mandated_check_slot_is_an_error(tmp_path):
     assert status == 1
     assert "Tree forward" in out
     assert "slot" in out
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        "The rate is 4.2 per day, derived from p. 4 (C1).",
+        "The rate is 4.2 per day, derived (see pp. 12-13, C1).",
+    ],
+)
+def test_a_locator_abbreviation_does_not_end_a_derived_sentence(tmp_path, replacement):
+    """Locator abbreviations like p., pp., Fig., Eq. do not end a sentence."""
+    report = build_report().replace(
+        "The rate is 4.2 per day, derived, from C1.", replacement
+    )
+    status, out = run(report, build_evidence(), tmp_path)
+    assert status == 0, out
+
+
+def test_a_sentence_split_at_a_real_period_flagged_derived(tmp_path):
+    """A period that is not part of a locator abbreviation does end a sentence;
+    if that sentence has 'derived' but no C/W/P, it fails."""
+    report = build_report().replace(
+        "The rate is 4.2 per day, derived, from C1.",
+        "The rate is 4.2 per day, derived from p. 4. C1 holds it.",
+    )
+    status, out = run(report, build_evidence(), tmp_path)
+    assert status == 1
+    assert "derived number cites no C, W or P entry" in out

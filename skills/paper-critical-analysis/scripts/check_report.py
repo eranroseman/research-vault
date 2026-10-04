@@ -62,7 +62,12 @@ ID_RE = re.compile(r"\b[NCWP]\d+\b")
 CWP_ID_RE = re.compile(r"\b[CWP]\d+\b")
 DEFINED_ID_RE = re.compile(r"^- ([NCWP]\d+):", re.MULTILINE)
 DERIVED_RE = re.compile(r"\bderived\b", re.IGNORECASE)
-SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+# An abbreviation such as p., pp., Fig., Eq., Sect., e.g., i.e. or et al. does
+# not end a sentence.
+SENTENCE_SPLIT_RE = re.compile(
+    r"(?<=[.!?])(?<!\bp\.)(?<!\bpp\.)(?<!\b[Ff]ig\.)(?<!\b[Ee]q\.)"
+    r"(?<!\b[Ss]ect\.)(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\bal\.)\s+"
+)
 KEY_LINE_RE = re.compile(r"^Key: ", re.MULTILINE)
 
 
@@ -220,7 +225,9 @@ def evidence_errors(found: list[Section]) -> list[str]:
 
 def derived_errors(lines: list[str]) -> list[str]:
     """Every sentence containing "derived" cites the C, W or P entry holding
-    the computation. A sentence ends at ., !, ? or the line break."""
+    the computation. A sentence ends at ., !, ? or the line break; the
+    abbreviations p., pp., Fig., Eq., Sect., e.g., i.e., or et al. do not end
+    one."""
     errors: list[str] = []
     for number, line in enumerate(lines, start=1):
         if line.startswith("Key: "):
