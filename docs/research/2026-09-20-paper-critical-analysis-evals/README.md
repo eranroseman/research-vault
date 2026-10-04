@@ -208,3 +208,5 @@ Planned acceptance runs, one per paper, recorded here as they happen:
   and heavy web use. Not yet run.
 - **A human read** of one report: is it the guide's result, in prose a person
   would want to read? Not yet done.
+
+Deferred review findings for these runs to walk: issues #218 (C and W prefix collisions), #219 (evidence-template and Key-line gaps), #220 (brief, test and attribution polish).
