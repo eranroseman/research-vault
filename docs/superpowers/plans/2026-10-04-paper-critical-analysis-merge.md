@@ -1817,7 +1817,11 @@ Planned acceptance runs, one per paper, recorded here as they happen:
   comparison runs. Pass bar: score ≥ 18; about 8.5M fresh tokens or fewer and
   about 2 hours or less; nothing unsupported after verification and no wrong
   outside claim; no files outside the output folder; no credential files
-  fetched; raw participant data deleted. Not yet run.
+  fetched; raw participant data deleted. The run is also regression-compared
+  against the four comparison runs on three ledgers — the answer key per
+  item, the merge's targeted fixes (each miss names the change that should
+  have covered it), and calibration and shape; a targeted-fix miss blocks
+  acceptance, variance is recorded. Not yet run.
 - **CheckIfExist** (Abbonato 2026, arXiv:2602.15871): answer key built from
   the run E and F records before the run; tests a paper with no participants
   and heavy web use. Not yet run.
@@ -1891,7 +1895,7 @@ ______________________________________________________________________
 
 ### Task 6: Behavioural evaluation — USER-GATED, do not start unprompted
 
-One Bloom run costs roughly 8M fresh tokens and 2 hours. **Stop and get the user's go-ahead before running anything in this task.** The offline gate (Task 5) is the merge bar; this task is the acceptance bar from the spec.
+One Bloom run costs roughly 8M fresh tokens and 2 hours. **Stop and get the user's go-ahead before running anything in this task.** The offline gate (Task 5) is the merge bar; this task is the acceptance bar from the spec, plus a regression comparison against the four comparison runs the design was built on (CAR runs 1–2, PCA runs 1–2; `sources/bloom-skill-comparison/comparison.md` in the main checkout is the record).
 
 **Files:** run outputs land under git-ignored local folders only (`sources/`); the evals README's "Planned acceptance runs" section is updated with results (no absolute home paths).
 
@@ -1899,17 +1903,41 @@ One Bloom run costs roughly 8M fresh tokens and 2 hours. **Stop and get the user
 
 Use the prompt from the comparison runs (`sources/bloom-skill-comparison/` in the main checkout holds the run prompts; `comparison.md` there documents them) with only the skill path changed to `skills/paper-critical-analysis/`. Score against the same 20-item answer key. Pass bar, verbatim from the spec: score at least 18; about 8.5M fresh tokens or fewer, and about 2 hours or less; nothing unsupported after verification, and no outside claim wrong; no files written outside the output folder; no credential files fetched; raw participant data deleted. With one run per paper, a point or two is noise; a second Bloom run only if the first is borderline.
 
-- [ ] **Step 2: CheckIfExist run**
+- [ ] **Step 2: Regression comparison against the four prior runs**
 
-Build the answer key from the run E and F records (`docs/research/2026-09-20-paper-critical-analysis-evals/README.md`) **before** the run, then run the skill on Abbonato 2026 (arXiv:2602.15871, 9 pages; the PDF is in `sources/`).
+Build the comparison from the delivered report and evidence file, the run log, and `comparison.md`'s sections 3–4 and run-2 tables. Three ledgers:
 
-- [ ] **Step 3: Human read**
+1. **Answer key, per item** — the merged run beside the four prior columns (CAR 12, CAR-U 14.5, CAR run 2 15, PCA 17, PCA run 2 18). An item any two prior runs caught that the merged run misses is a regression; an item only one prior run ever caught is variance unless a merge change targets it.
+2. **Targeted-fix items** — each of these exists because a specific merge change claims to cover it; a miss here is a regression of that change regardless of how many prior runs caught it:
+   - **C2 / taxonomy judged as paper content** (stage 0's "file the paper names as holding its content" row — the fix that failed on wording in PCA run 2);
+   - **H1 coefficient misreading found via the released code** (`released-artifacts.md` makes code reading mandatory; in the prior runs it was luck — CAR run 2 missed it by not reading the scripts);
+   - **usage recomputation, satisfaction double-rescale, human-likeness composite** (headline-number recomputation is now mandated);
+   - **wrong outside claims caught** (CAR run 2's two factual errors sat in `[checked:]` claims its verifier could not see; the merged verifier re-opens every W entry — the licence slip specifically is a GitHub-API pitfall `released-artifacts.md` should not repeat);
+   - **no skipped mandated check** (run F's invisible skip; the External-check slots must all be filled);
+   - **verdicts within the first few hundred words** of the critical discussion (PCA run 2's verdict list);
+   - **no silently dropped finding** (CAR run 1's cuts; Coverage's "Evidence file only" line is the pointer);
+   - **credential path recorded, never fetched** (`serviceAccount.json` from PCA run 2's notes);
+   - **participant CSVs deleted at run end with the deletion recorded** (both PCA runs left them on disk);
+   - **no `/tmp` scratch files** (three of four prior runs wrote them; write scope now binds subagents via the briefs).
+3. **Calibration and shape** — H2's null read as imprecision with its interval (PCA), not as "high confidence of no advantage" (CAR run 1's miscalibration); Credibility closes with a confidence level; the report body in the reader's reach (prior bodies: CAR 3.0k–5.2k, PCA ~10.5k words; the evidence file, not the report, carries the audit bulk).
+
+Also record the cost row beside the four prior runs (fresh tokens, wall time, report words) — the merged target sits between PCA run 2's 10.4M/150 min and CAR's 3.1M/49 min.
+
+- [ ] **Step 3: Regression verdict and change decision**
+
+For each regression found, name the merge change that should have covered it (or name the gap as new), and propose the smallest edit that would have prevented it — mechanism before prose, per the repo's design discipline. Severity rule: a targeted-fix miss or a two-run answer-key miss blocks acceptance and gets a fix plus a re-run of the affected leg; pure variance (single-run findings like SASSI-to-control, score shifts of a point or two) is recorded, not acted on. A finding this task will not fix becomes a GitHub issue, opened when deferred (per `docs/agents/issue-tracker.md`).
+
+- [ ] **Step 4: CheckIfExist run**
+
+Build the answer key from the run E and F records (`docs/research/2026-09-20-paper-critical-analysis-evals/README.md`) **before** the run, then run the skill on Abbonato 2026 (arXiv:2602.15871, 9 pages; the PDF is in `sources/`). Regression reference here is the run E and F record itself: the W-list findings those runs surfaced (uncited prior art as a Novelty point, the wrong cited year as a Credibility point) must still land as findings, not Context prose.
+
+- [ ] **Step 5: Human read**
 
 Hand the user one report and the question: is it the guide's result, in prose a person would want to read?
 
-- [ ] **Step 4: Record**
+- [ ] **Step 6: Record**
 
-Fill the results into the evals README's "Planned acceptance runs" section (relative paths only), mdformat it, commit with pathspec.
+Fill the results — scores, cost row, and the three regression ledgers with their verdicts — into the evals README's "Planned acceptance runs" section (relative paths only), mdformat it, commit with pathspec.
 
 ______________________________________________________________________
 
