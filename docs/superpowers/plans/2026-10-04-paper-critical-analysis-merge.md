@@ -114,7 +114,6 @@ Key: a locator cites the paper; (W12) cites a source outside the paper through t
 
 - Title: short and to the point? Tells you what to expect?
 - Authors: how many, and what does the order say? Affiliations: one institution or many, which departments, well known? Their field?
-- The authors' previous work in this area (from the external-check list; cite the W entry).
 
 ### 1.2 Publication venue
 
@@ -305,7 +304,9 @@ own heading parser, so a template edit that breaks agreement fails here rather
 than in a live run. Each spec rule then gets one failing mutation.
 """
 
+import contextlib
 import importlib.util
+import io
 from pathlib import Path
 
 import pytest
@@ -394,9 +395,6 @@ def run(report: str, evidence: str | None, tmp_path: Path) -> tuple[int, str]:
         (tmp_path / "critical-analysis-example.evidence.md").write_text(
             evidence, encoding="utf-8"
         )
-    import contextlib
-    import io
-
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         status = check_report.main([str(report_path)])
@@ -1552,7 +1550,7 @@ Settle every row before reading, and record each under Conditions in the evidenc
 
 ## Stage 1 — Read into the evidence file
 
-Read everything stage 0 counted as the paper, once and in full, viewing every figure and table as an image. The evidence file is the working memory — fill it as you go rather than holding the paper in context: identity (confirmed against the request; wrong paper: stop and say what you have) and section map; promises 1–5; every principal claim with its `Needed:` line; key quotes and numbers with their locators; terms you had to look up. Classify the method family from the method menu below and record which background files the load table assigns.
+Read everything stage 0 counted as the paper, once and in full, viewing every figure and table as an image. The evidence file is the working memory — fill it as you go rather than holding the paper in context: identity (confirmed against the request; wrong paper: stop and say what you have) and section map; promises 1–5; every principal claim with its `Needed:` line; key quotes and numbers with their locators; terms you had to look up, which stage 2 settles as W entries. Classify the method family from the method menu below and record which background files the load table assigns.
 
 **Done when:** every page has been read once, the identity is confirmed against the request, and every principal claim carries a `Needed:` line.
 
@@ -1582,13 +1580,13 @@ It returns the nine subsections and a Recalled section. The nine, in order: Impo
 
 ## Stage 4 — Write
 
-Build Context and Summary from the evidence file, going back to the paper only for a slot it does not cover. Write the critical discussion in prose: the Verdicts block first, then the nine topics, placing every P point under the topic it bears on most; points may merge into paragraphs as long as each keeps its locators and IDs. Then write Coverage, with `Verification: pending: stage 7`. There is no length limit at this stage. Save the result as the report, and copy it to the draft path — the draft is what stage 5 is measured against.
+Build Context and Summary from the evidence file, going back to the paper only for a slot it does not cover. Write the critical discussion in prose: the Verdicts block first, then the nine topics, placing every P point under the topic it bears on most; points may merge into paragraphs as long as each keeps its locators and IDs. Then write Coverage, with `Verification: pending: stage 7`; every N, C, W or P ID the report's body does not cite goes on Coverage's `Evidence file only:` line — the checker closes that ledger. There is no length limit at this stage. Save the result as the report, and copy it to the draft path — the draft is what stage 5 is measured against.
 
 **Done when:** every P point is in the report, every heading in `templates/report-template.md` is filled, and the draft is saved.
 
 ## Stage 5 — Edit
 
-**Fresh context, required** — an author reviewing its own text keeps everything. Run one subagent whose whole context is `prompts/edit.md` with its placeholders filled: the report and the evidence file, which it reads only. It returns a change list; apply or reject each item yourself, recording every disposition with its reason, and the before-and-after word counts, under Pruning record in the evidence file. The invariant is the brief's: every applied change keeps the claim, its strength, its qualifiers, numbers, locators, IDs and provenance marks.
+**Fresh context, required** — an author reviewing its own text keeps everything. Run one subagent whose whole context is `prompts/edit.md` with its placeholders filled: the report and the evidence file, which it reads only. It returns a change list; apply or reject each item yourself, recording every disposition with its reason, and the before-and-after word counts, under Pruning record in the evidence file. Its Flags section (uncited generalizations, numbers that do not add up) is yours to settle too: fix each flag or move it to Coverage's `For the reader to double-check:` line. The invariant is the brief's: every applied change keeps the claim, its strength, its qualifiers, numbers, locators, IDs and provenance marks.
 
 **Done when:** every change-list item is applied or rejected with a reason, and the word counts are logged.
 
@@ -1629,6 +1627,8 @@ Known traps if something fails:
 - `test_the_skill_does_not_restate_the_judging_contract` means SKILL.md must never bold **Observation**, **Why it matters**, or **Evidence** — the SKILL.md text above doesn't; keep it that way when editing.
 
 - `LOCATOR_CONVENTION` is filled from the `## Locators` section verbatim; both judge.md and verify.md footers/preambles must say so in those words ("filled verbatim from SKILL.md's "Locators" section").
+
+- If `tests/test_skill_contracts.py::test_recognizable_check_id_enumerations_name_only_ids_the_code_files` trips on the new SKILL.md, the N1/C1/W1/P1 ledger tokens are the likely cause — reword the SKILL.md phrase that reads as a check-id enumeration; don't touch that test.
 
 - [ ] **Step 9: Form and commit**
 
@@ -1775,7 +1775,9 @@ Planned acceptance runs, one per paper, recorded here as they happen:
 ruff check tests/test_skill_contracts.py
 mdformat --number --wrap keep README.md ATTRIBUTION.md docs/research/2026-09-20-paper-critical-analysis-evals/README.md
 .venv/bin/python -m pytest tests -q -n auto   # again if mdformat touched anything pinned
-git add -A skills/critical-analysis-report tests/test_skill_contracts.py README.md ATTRIBUTION.md docs/research/2026-09-20-paper-critical-analysis-evals/README.md
+# The `git rm -r` in step 1 already staged the deletions; adding the deleted
+# directory again would error ("pathspec did not match any files").
+git add tests/test_skill_contracts.py README.md ATTRIBUTION.md docs/research/2026-09-20-paper-critical-analysis-evals/README.md
 git commit -m "feat(skills)!: retire critical-analysis-report, merged into paper-critical-analysis
 
 The directory goes; ENTRY_SKILLS shrinks for the first time (comment
