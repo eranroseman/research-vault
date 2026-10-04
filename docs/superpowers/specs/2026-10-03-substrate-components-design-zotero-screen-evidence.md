@@ -1,0 +1,1827 @@
+# Sourcing screen A: Zotero add-ons on Zotero 10 — evidence
+
+- **Date:** 2026-10-03
+- **Method:** a desk read per candidate family at a pin, then an adversarial verifier per family that defaulted to refuted. Six families: identity-hygiene, identifiers-metadata, counts-summaries, attachments-fulltext-ocr, notes-ui-workflow, search-new. Agents returned per-must results and exit lines only, never verdicts. Live legs are pending. On 2026-10-03 a normalisation pass re-judged A3 under the operator's ruled standards (§2a, "Standards as applied"), desk then adversarial verifier; cells it changed carry ‡. On 2026-10-04 a second normalisation pass re-judged A3 under the operator's "judged on what it does by itself" principle (§2a, "Second ruling"), desk then adversarial verifier; cells it changed carry §. Live legs ran on 2026-10-04 (Zotero 10.0.5 test instance with snapshot/restore; Obsidian 1.13.7 scratch vault driven through the Obsidian CLI; read-only BBT request replays against production BBT 9.0.63); results carry ◊.
+- **Spec:** 2026-10-03-substrate-components-design.md
+- **Binds:** nothing. This is evidence the spec is built from; the spec carries the verdicts.
+
+## 1. Question and musts
+
+Question: which Zotero add-ons does a research-vault vault declare, and which does it reject, on Zotero 10?
+
+Production Zotero is 10.0.5 with Better BibTeX 9.0.63 (probe, 2026-10-03). Profile: `/mnt/c/Users/eranr/AppData/Roaming/Zotero/Zotero/Profiles/881hrcxd.default/`. For an installed add-on, A1 is decided by extensions.json: appDisabled=false means Zotero 10.0.5 will load it, and userDisabled is the author's switch, not a load failure. For a non-installed add-on, the repo-manifest and shipped-release-manifest ranges are recorded and A1 is needs-live. A1 is never decided from a manifest range.
+
+Step map (closed set): vault-setup, capture, compile, search, scoping-review, long-form, daily-log, publish.
+
+- **A1 Loads on Zotero 10** — observed active-capable (appDisabled=false) on the running version, never inferred from a manifest range.
+- **A2 Serves or protects a step in the step map.** Name the step(s).
+- **A3 Preserves lane 1's seam:** does not destroy another writer's data in Extra, tags, fields or child notes (stripping or rewriting other plugins' lines fails), and does not break citation-key identity (any merge, re-key or item replacement must go through BBT's consolidation).
+- **A4 What it writes is known:** list every write target (fields, Extra line grammar, tags, child notes, attachments, state outside the item) with cites. Result is pass only when the write list is complete from code; needs-live when a before/after reading on the test instance is required to close it. Describe the live leg needed.
+
+Results are pass, fail, needs-live or n/a. Basis is "evidence" (shipped code, manifest, schema, config) or "claim" (README or description). Every cite is file:line at the pin named in the row, or a local path. Where this record does not say "claim", the basis is evidence.
+
+## 2. Candidate set and how it was formed
+
+### 2.1 Inputs
+
+- The production profile's extensions.json: 23 add-ons on 10.0.5, read 2026-10-03. Each installed add-on was either screened (22) or excluded (Better Authors).
+- The prior record, docs/research/2026-09-04-import-sourcing.md: the §38 catalogue (36 enrichment plugins at 2026-09-04 pins, from line ~5305) and the §22–§37 full records. Those facts were cited as given. HEAD was re-read only for compatibility or activity changes, and for anything §38 marks "not recorded".
+- A fresh search for capabilities that §38 and §22–§37 do not cover. Only the search-new family did this (§2.4).
+
+### 2.2 Per family
+
+| Family | Candidates (row numbers in §3) | How formed | Search log / cap / overrun |
+|---|---|---|---|
+| identity-hygiene | 1–4: Better BibTeX, Zoplicate, Zutilo, arXiv Workflow | All installed. Better Authors (installed) excluded. | No search log. No cap recorded. No overrun. |
+| identifiers-metadata | 5–17 | Installed: PMCID fetcher, DOI Manager 1.6.0, DOI Fix, Linter (§37). §38 rows: DOI Manager 2.2.0, Metadata Hunter, ZotMeta, Meta Refresh, zotero-ner, Scholar Sidekick, arxiv-marker, Cita, zotero-openalex. DOI Manager 1.7.0 (Julius line) is recorded inside row 6. dahliasan 1.7.0 is excluded as a duplicate; how it was found is not recorded. | No search log. No cap recorded. No overrun. |
+| counts-summaries | 18–25 | Installed: scite, Zotero TLDR. §38 rows: citation-tally, tangzhao20, open-citations, gscc, getcitation, semantic-zotero. Six §38 rows excluded. | No search log. No cap recorded. No overrun. |
+| attachments-fulltext-ocr | 26–35 | Installed: Attachment Scanner, ZotMoov, Open PDF, Attanger, Zotero OCR. §38 rows: Zotadata, RapidOCR, docling, Mktero, MinerU. ZotPDF2md excluded. | No search log. No cap recorded. No overrun. |
+| notes-ui-workflow | 36–44 | Installed: MarkDB-Connect (§33), Better Notes (§29), Actions and Tags, Chartero, KeepZotero, Focused Mode, Add-on Market. Prior records: Notero (§34), Zotero MCP by cookjohn (§25). The second MCP copy is excluded. | No search log. No cap recorded. No overrun. |
+| search-new | 45–54 | Fresh search (§2.4). None of the ten appears anywhere in import-sourcing.md (grep, 2026-10-03). | 11-entry log. Cap 10. 10 candidates, no overrun. Dropped list in §2.5. |
+
+Two installed add-ons have prior §38 status but were screened anyway, because A1 for an installed add-on is decided by extensions.json. §38 Surplus (import-sourcing.md:5323) lists scite as out of scope: a vendor plugin that keeps tallies only in memory. §38 lists Zotero TLDR (row Zotero-TLDR-syt2) as archived and capped at 7.0.*.
+
+### 2.3 Verifier "missed" claims reconciled across families
+
+- **arXiv Workflow:** raised by the identifiers-metadata verifier. It was screened in identity-hygiene (row 4).
+- **Zutilo:** raised by the notes-ui-workflow verifier. It was screened in identity-hygiene (row 3).
+- **zotero-openalex, arxiv-marker, Cita:** raised by the counts-summaries verifier. They were screened in identifiers-metadata (rows 15–17).
+- **semantic-zotero:** the search-new worker dropped it as a §38 member whose status may have changed. It was screened in counts-summaries at 5670cbc (row 25).
+- **zotero-mas-metadata:** raised by the counts-summaries verifier as missing from the exclusions. It is recorded in §5 from its §38 row, with no desk read.
+
+Gaps that remain unscreened:
+
+- **MdBundle-for-Zotero** (wcmendes, HEAD 1ec7473, src/manifest.json:16-17, 6.999 to 9.*).
+- **Zotero-AI-OCR** (4965898, HEAD 405792b, release v1.9.7 of 2026-09-07, addon/manifest.json:16-17, 6.999 to 9.*).
+  - Both were raised by the attachments-fulltext-ocr verifier. A 9.* cap is not the same as being capped below Zotero 9, so they belong in the candidate set with A1 needs-live. Neither had a desk read.
+- **Scholar Sidekick 0.1.1:** the vendor update feed (scholar-sidekick.com/zotero-plugin/update.json, read 2026-10-03) serves a 0.1.1 xpi that is not on GitHub, also capped at 9.*. It was not read.
+- **forums.zotero.org:** effectively unsearched (search log entries 9–10).
+- **Not re-read:** the identifiers-metadata verifier did not re-read the §38 per-plugin entries beyond the table lines it checked, nor Cita's bundled translators. Cita's A4 needs-live covers the translators.
+
+### 2.4 Search log (search-new)
+
+| n | Source | Terms | Hits |
+|---|---|---|---|
+| 1 | syt2/zotero-addons-scraper. addons/ at master 103d8da92985e5af47f5095f05edee722ec46826 (334 entries); addon_infos.json on the publish branch at 4f5a8a64409bbd2ac7a439002c41b3658fc4e28b (MIT) | Full index read: Zotero-10 release flag, min/max range, tags, stars | 333 add-ons: 218 with a Zotero-10 release, 115 without. 43 matched the exclusion set (all 23 installed ids, the §38 slugs, and the §22–§37 records). 290 screened by class. The ranges are what the scraper parsed (claim). |
+| 2 | GitHub repository search | topic:zotero-plugin pushed:>2026-06-01, by stars, top 100 of 251 | 32 repos not in the catalogue. Relevant: forrtproject/flora-zotero, cboulanger/zotero-rag. The rest are renames, tooling, lists, or §38/§22–§37 members. |
+| 3 | GitHub repository search | zotero screening systematic review in:name,description,readme | 425. In the top 30, the only add-on is dralkh/seerai (claim). |
+| 4 | GitHub repository search | zotero plugin screening in:name,description | 0 |
+| 5 | GitHub repository search | zotero prisma in:name,description | 5, none of them add-ons |
+| 6 | GitHub repository search | zotero screener in:name,description | 7, none of them screening add-ons |
+| 7 | GitHub repository search | zotero review assistant in:name,description | 11, including alima-webdev/zotero-review-assistant and dralkh/seerai |
+| 8 | zotero.org/support/plugins | official plugin list | 0. Zotero keeps no list (page last updated 2026-05-05). |
+| 9 | forums.zotero.org search | new plugin Zotero 10 (within 1 month) | 0 ("No results") |
+| 10 | forums.zotero.org/categories/plugins | category listing | Returned the general feed. Two threads, neither in scope. Source limitation. |
+| 11 | WebSearch | Zotero 8/9/10 plugin abstract screening systematic review include exclude | 9. Followed Zenodo 17026412 (Grolimund 2025, CC-BY-4.0): it names Add-on Market, Linter, PubPeer, scite and Zoplicate. Only PubPeer is new. |
+
+### 2.5 Dropped by the search-new worker (cap 10)
+
+Each line gives what was dropped and why.
+
+- **AgiNetz/semantic-zotero:** its §38 status may have changed. Screened in counts-summaries (row 25). No other §38 dead or capped entry changed in the catalogue.
+- **Interface-only (34 rows):** UI only, so no step is served. Zotero Reading List was kept because it writes Extra.
+- **AI chat, assistants and translation (about 63 rows):** they serve no step.
+- **Reader UI (about 43 rows):** they serve no step.
+- **AI note writers (13 rows):** they would do compile inside Zotero as child notes. Hazard: capture would carry those notes.
+- **Enrichment and journal metrics** (Green Frog, zotero-if, Jasminum, zotero-inspire, AstroZotero, AlphaPulse, the CCF and ranking family): the same class §38 already records. Hazard: their grammars would need preserving.
+- **Shadow-library fetchers** (zotero-scihub, zotero-scipdf, sci-download, LGFetcher): a public repository cannot declare them.
+- **Extra PDF-to-Markdown and OCR plugins** (seven): §38's OCR group already covers the class.
+- **Direct writers into a Markdown workspace** (zotero-mineru-obsidian, zotero-project-manager, zotero-sidemark): they would write a vault outside the CLI. Hazard noted.
+- **AI tag writers** (four): hazard, because they rewrite the tag vocabulary capture carries.
+- **Agent and automation bridges** (nine, including zotero-js-bridge, which runs arbitrary JS, and cboulanger/zotero-rag): §24–§27 shape. ZotSeek represents search.
+- **dralkh/seerai:** an AI assistant whose systematic-review support is a claim only. A scoping-review near-miss.
+- **Moonweave-Research/zotero-reading-flow:** overlaps Reading List and Reading Time. A daily-log near-miss.
+- **zotero-reading-heatmap (9.99.99), zotracer (7.0.*):** daily-log, but no Zotero-10 release.
+- **daily-folder-for-zotero:** collection UI, not a log.
+- **Juris-M/zotero-odf-scan-plugin:** a long-form near-miss. zotxt represents long-form.
+- **eaiser-citation:** writes into documents, not the library.
+- **bibtex-clean:** a long-form or publish near-miss with no stars.
+- **heimi98/zotero-deduplicator (9.*):** no Zotero-10 release. Attachment Scanner covers it.
+- **Capped at Zotero 6** (ZoteroDuplicatesMerger, zotero-storage-scanner, zotfile, zotero-mdnotes, zotodo, zotero-updateifs): dead.
+- **zotero-book-splitter:** narrow. A capture near-miss.
+- **ZotAssets:** overlaps Attanger and ZotMoov.
+- **Zotero-add-items-from-text, zotero-smart-clipboard-import:** AI class. A capture near-miss.
+- **Zotitle, zotero-search-replace:** bulk field rewriters that overlap Linter.
+- **zotero-syllabus:** serves no step.
+- **External-store syncs** (eight): outside the step map.
+- **Settings backup** (tara, zotero-settings-sync): not a step.
+- **Feed and discovery tools** (seven): source finding is a vault skill. A search near-miss.
+- **Not add-ons** (MetaScreener, prismaid, a browser extension, ZoDAV, awesome lists): out of class.
+- **Renames and duplicates** (zotlit, zotero-citation, zotero-reading-flow, fred_zotero): recorded so they are not counted twice.
+
+## 2a. Standards as applied (2026-10-03)
+
+The operator ruled these standards on 2026-10-03. For every A3 result in §3 they replace §1's A3 wording (line 18). Where the ruling is silent, the reading applied is named below. ‡ marks a cell whose result this pass changed; † keeps its §3 meaning.
+
+**Machine surfaces.** The guard's roster is the standard (hooks/pretooluse_guard.py:11-23; pre-lane-2 decision 11, 2026-09-17-pre-lane-2-design.md:27, makes the guard authoritative). It covers any path whose first component is literature/, log/, wiki/ or fulltext/, anything under system/propagations/, and the root files log.md, inbox/review-queue.md and system/bibliography.json. The rest of system/ (system/templates/, system/bases/, system/glossary.md) is hand-edited and is not a machine surface. README.md:7 names system/ whole; that is a recorded README drift, not the standard. The rulings on B3, C1, B4 and C5, which use this roster, judge Obsidian plugins and decide no cell in this screen.
+
+**A3.** A3 judges two things only:
+
+- (a) the add-on does not destroy or rewrite another writer's data in Extra, tags, fields or child notes; (superseded 2026-10-04 by the by-itself wording under "Second ruling" below)
+- (b) the add-on does not change an item's citation key by itself: an automatic re-key, a pinned-key rewrite, or a key-format change it applies unasked.
+
+**Merging is out of A3.** This is a Zotero property, recorded for the spec. On this profile every merge path bypasses Better BibTeX's consolidation, Zotero's own Merge pane included:
+
+- The pane calls mergeItems.mjs directly (duplicatesMergePane.js:34, 203-211 @ ca61760).
+- Zotero.Items.merge, the only function BBT patches, is a deprecated shim over the same module (items.js:1037-1041 @ ca61760).
+- BBT's shim does nothing while extraMergeCitekeys, extraMergeTeX and extraMergeCSL are false. They ship false and production leaves them unset (defaults.js:54-56; better-bibtex.ts:105 @ f3c9299).
+- What every merge leaves is a dc:replaces relation (mergeItems.mjs:426-477 @ ca61760), which lifecycle.py:33-83 reads.
+
+The hazard is therefore Zotero's default behaviour, not a property of any add-on. A merge-capable add-on is judged on (a) and (b) like any other, and writes it makes before it calls the merge are its own (row 4).
+
+**Readings applied where the ruling is silent.** Apart from the first, these are the workers' and verifiers' readings, not rulings.
+
+- **Paths.** (superseded 2026-10-04) This reading is what the ruled wording itself gives. "By itself" qualifies (b) only, and the hand-edit carve-out was ruled for B3/C1 only, so (a) was applied to every shipped path, including commands the person runs. That is why §7 item 1's path question is marked resolved and its trash sub-question is not. Rows 1, 3, 6, 7, 8, 10, 12, 13, 15, 31 and 33 fail only through such commands (for 6 and 7, also through a non-default autoretrieve mode). So do rows 39, 46 and 54, which also need the trash reading below.
+- **Trash.** (superseded 2026-10-04 as to a trash the person selects or confirms, which is now deliberate; the rest of this reading was applied unchanged) Moving another writer's data to Zotero's trash was counted as destroying it where the person did not choose that data. Zotero empties the trash after 30 days by default (defaults/preferences/zotero.js:51 @ ca61760), and production sets no override. Rows 39 and 46 fail on this. The verifiers split on a trash the person selects and confirms, so row 54 carries both outcomes. A permanent erase is destroying (rows 33, 43). §7 item 1's trash sub-question stays open.
+- **Rewrite.** (superseded 2026-10-04 as to preview and review dialogs, which are now deliberate; the rest stands) Read literally. A backup line, a preview or review dialog, a conflict check or an alias substitution does not exempt a rewrite. Changes that keep every value (DOI case, Extra whitespace) are not rewrites. Rows 6, 7, 8, 12 and 13 changed on this reading.
+- **Key fill.** Writing a key into an item that had none is not a change under (b), because every ruled example changes an existing key (rows 2, 46 and 54, and row 4 with its reservedKeys seed).
+- **Annotations.** Annotation comment and colour are not among (a)'s Extra, tags, fields or child notes (row 34).
+- **A datum the person names.** (superseded 2026-10-04: a rule bound to an event is judged as the add-on acting by itself, a click is the person's, and an MCP call is remote) A tag the person typed into a rule, or chose to toggle, was not judged as the add-on's rewrite (rows 38, 53). The notes-ui verifier flagged that this line has to be drawn once across rows 38, 44 and 53.
+- **Attachment keys.** A new attachment item key is not a citation key (rows 27, 29).
+
+**Configuration.** (superseded 2026-10-04) The seedable-setting pass is ruled for B3/C1 and B4/C5 only. A3 has no configuration clause, so §7 item 2 stays open for it. A result gated by an opt-in pref keeps its gate qualifier (rows 22, 44, 51). Seed keys appear in §4 where a pass rests on a shipped default (row 17), or where a worker named a pref that narrows a fail.
+
+**Results kept on a moved basis.** Cells without ‡ kept their result. Where the basis moved, a verifier refuted it, or a pass rests on a shipped default, §4 carries a "2026-10-03 normalisation" line under the row (rows 1, 3, 4, 10, 15, 17, 21, 22, 26, 27, 29, 44). The earlier A3 bullets in those notes are pre-normalisation.
+
+### Second ruling (2026-10-04): judged on what it does by itself
+
+The operator ruled this principle on 2026-10-04. It supersedes the first pass's invocation readings for A3, each marked "(superseded 2026-10-04)" above. The machine-surface roster and the merge exclusion stand. A second normalisation pass re-judged every A3 cell under it, desk then adversarial verifier per family. Where the verifier refuted the re-judgement, the verifier's result is used and the §4 line says so. § marks a §3 A3 cell whose result this pass changed; † and ‡ keep their meanings.
+
+**What counts.** A component is judged on what it does by itself: on item add or file create, on startup or load, on a schedule or sweep, on open, in the background, through a notifier or event hook reacting to any writer, or remotely. Remote covers a REST, MCP, URI or CLI handler, a sync, a git pull, and any request not made by the person in the app at that moment.
+
+**What does not count.** What the person deliberately does through the component is the person's own edit, the same as editing by hand, and is not judged. That covers a command or menu action the person runs on items or files they selected, a button the person presses, and a bulk change the person confirms in a prompt. A confirm or preview dialog is deliberate whatever its scope.
+
+**Settings.** A component passes if a setting turns the counted behaviour off. For a Zotero add-on that setting is a preference: README.md's "Automatic-mode preference" column is where research-vault declares it, and doctor reports it. For an Obsidian plugin it is a seedable data.json, app.json or core-plugin setting. Each §4 line names the key and value. Disabling the component outright is not a confining setting.
+
+**A3 under the principle.**
+
+- (a) The add-on does not by itself destroy or rewrite another writer's data in Extra, tags, fields or child notes.
+- (b) The add-on does not by itself change an existing citation key. Filling an empty key is not a change.
+- Merging stays out of A3: it is Zotero's own behaviour (issue #183).
+
+**B3 and C1** become: the plugin does not by itself write into a machine surface, on the roster above. They decide no cell in this screen.
+
+**Formerly unruled readings the principle settles.**
+
+- A CLI, URI or REST handler is remote, so it counts: BBT's JSON-RPC (row 1), Add-on Market's zotero:// routes (row 42), the MCP tools (row 44), and the read-only endpoints of rows 35 and 49.
+- A confirm modal is deliberate, so it does not count (rows 12, 13, 15, 33, 46, 51 and 54).
+- Sending output outside the vault confines it (B3/C1; no cell here).
+- A person choosing a location in a dialog is deliberate (B3/C1; no cell here).
+- §7 item 1's trash sub-question: a trash the person selects or confirms is deliberate (rows 46 and 54).
+- §7 item 2, for A3: a destructive path that a named setting turns off passes, so the gated fails of rows 22, 44 and 51 become passes with the key in §4.
+- A button in a preferences pane is one the person presses (row 39's compressHistory, row 45's library-wide passes, row 51's reclaim and empty-trash).
+
+**Readings the principle leaves open.** These are the workers' and verifiers' readings, not rulings.
+
+- A library-wide menu command with no selection and no confirm. The citation-tally verifier read it as a sweep, which counts, and row 20's fail rests on that; the re-judgement had read it as the person's act. Other verifiers read the same shape as the person's act where no result turned on it: Metadata Hunter's toolbar button and shortcuts fall back to collections or the whole library with no confirm (row 10), and Attachment Scanner's whole-library Tools scan has no confirm (row 26, where the named settings would confine it either way). open-citations' Tools-menu stale pass is confined by writeExtra=false either way (row 22).
+- parentItem as child-note data. Row 2's pass needs a new child's parent to lie outside (a)'s "data in child notes", and no preference confines the _saveData patch.
+- Annotation properties. Row 34 now writes by itself (an annotation sync on a notifier and on PDF open), and its pass rests only on §2a's Annotations reading, which this ruling does not displace.
+- Whether expanding a shortDOI to its long DOI is a rewrite (rows 6, 7 and 9). Rows 6 and 7 name autoretrieve=none, so their results do not turn on it.
+- A remote route with an arbitrary-write capability and no observed destructive act. Add-on Market's signed execJS (row 42) fails on it; a shipped-code-only reading would pass it, as the first pass did.
+- The zotero-plugin-toolkit route zotero://plugin?action=install, bundled by rows 9, 12 and 16, installs an add-on from a URL with no prompt and writes no item data; whether it is reachable from outside Zotero was not checked. The toolkit's debug-bridge route asks for a confirm. No cell turns on either.
+
+**Tally.** A3 after this pass: 50 pass, 4 fail (rows 1, 16, 20 and 42), 0 needs-live. Before it: 23 pass, 30 fail (rows 22, 44 and 51 gated, row 54 split), 1 needs-live (row 5). This pass changed 29 cells: 27 fail → pass, 1 needs-live → pass, 1 pass → fail.
+
+**Passes that rest on a setting.**
+
+- On a value other than the shipped default: rows 6, 7, 9, 17, 27, 29, 36, 37, 38 and 54, and row 26 for its startup-gap caveat (unique tag strings).
+- On the shipped default or shipped state: rows 2, 5, 21, 22, 23, 24, 26, 43, 44, 45 and 51.
+- Production does not hold the confining value for rows 5, 9, 26 and 36, which are active, nor for rows 6, 29 and 37, which are installed but not active. Production already holds it for rows 2, 27 and 38.
+
+**Fact for the spec, not a result.** README.md:121-127 (packaged as research_vault/templates/zotero-addons.md) holds one automatic-mode key per add-on, and research_vault/doctor.py:275-280 @ 3780fb7 reports a failure unless the declared preference's value is exactly True. The confining values named in §4 are false, a string (none, cancel, addonly, disabled, mode1) or an absent key, so the column as implemented cannot assert them. Row 5's confining value is extensions.zotero.pmcid.auto=false, on the key README already declares, so doctor would report it as a failure; row 6's extensions.shortdoi.autoretrieve is a string, which the True test never matches. Of the other rows in that table, Attachment Scanner (row 26) and MarkDB-Connect (row 36) have a blank column, and row 7, which shares DOI Manager's id, needs a second key, extensions.shortdoi.monthly_verify. The other confining keys belong to add-ons the table does not list.
+
+**§4.** A line beginning "§ 2026-10-04 by-itself" records this pass for one row. Where one follows, the A3 bullets and the 2026-10-03 normalisation line before it are pre-second-ruling.
+
+## 3. Results
+
+Each cell shows the verified result. A2 cells name the step(s), with "—" where none is served. † marks a must where the verifier refuted the desk (`refuted: true`), either by changing the result or by refuting the desk's basis or write list while the result stood. §4 gives the desk result and the reason. Where the verifier corrected an exit line, the corrected line is shown here and the desk's line is in §4.
+
+### 3.1 identity-hygiene
+
+| # | Candidate | id | Pin | Licence | A1 | A2 | A3 | A4 | Exit line |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | Better BibTeX | better-bibtex@iris-advies.com | installed xpi = v9.0.63 @ f3c9299; HEAD 71cec80 | MIT (LICENSE:1); package.json:7 ISC | pass | pass (capture, vault-setup) | fail† | pass† | No one-line exit, which is itself the finding. Existing keys survive in Zotero's native citationKey field, but new items go unkeyed and capture's /better-bibtex/ reads (zotero.py:346, 465) stop. |
+| 2 | Zoplicate | zoplicate@chenglongma.com | installed xpi = v5.1.1 @ 1d95191; HEAD 19f8b85 | AGPL-3.0 | pass | pass (capture) | pass‡ | needs-live◊ (merge-pane comparison) | Disable it rather than just stop invoking it, because its _saveData and duplicate-search patches stay on while it is loaded. Past merges remain ordinary Zotero state (dc:replaces, trashed losers, re-parented children) that lifecycle.py reads. Its non-duplicate marks in zoplicate.sqlite stop applying. |
+| 3 | Zutilo | zutilo@www.wesailatdawn.com | v4.2.2 = HEAD 3e0bf9f | MPL-2.0 | pass | fail (—) | pass§ | pass† | Stop invoking it. It keeps no state beyond prefs, and what it wrote is ordinary Zotero tags, fields and relations. |
+| 4 | arXiv Workflow | arxiv@allanchain.github.com | installed xpi = v0.3.9 @ 68dc716; HEAD 6adc068 = v0.4.0 | AGPL-3.0 | pass | pass (capture) | pass§ | needs-live◊ (merge command) | Stop invoking it. What it wrote is ordinary Zotero fields, attachments and dc:replaces relations. But the citekeys it reassigned stay reassigned, nothing records the preprint's former key, and its UUID Citation Key lines stay on the trashed published items. |
+
+### 3.2 identifiers-metadata
+
+| # | Candidate | id | Pin | Licence | A1 | A2 | A3 | A4 | Exit line |
+|---|---|---|---|---|---|---|---|---|---|
+| 5 | PMCID fetcher | zotero-pmcid-fetcher@iris-advies.com | v1.0.3 asset = installed; HEAD 24b66f8 | none recorded | pass | pass (capture) | pass§ | pass | Disable it. What it wrote stays as ordinary native PMID/PMCID fields, key-value Extra lines and plain manual tags, which need nothing from it to read. |
+| 6 | DOI Manager 1.6.0 (JuliusBairaktaris line) | zoteroshortdoi@wiernik.org | v1.6.0 asset = installed; tag object 23fd543 points to commit 2ec547c; HEAD 9d4c921 | MPL-2.0 | fail | pass (capture) | pass‡§ | pass | Uninstall it; it already does not load on 10.0.5. What earlier versions wrote is DOI field values (lower-cased in long mode), three status tags and link attachments for multiple DOIs, all ordinary Zotero data. |
+| 7 | DOI Manager 2.2.0 (reginalluna) | zoteroshortdoi@wiernik.org | v2.2.0 asset @ a8211a4; HEAD 496ab21 | MPL-2.0 | pass◊ | pass (capture) | pass‡§ | pass | Disable it. What it wrote is DOI field values, three status tags and link attachments, all ordinary data. |
+| 8 | DOI Fix 1.1.6 | doi-fix@zotero.org | v1.1.6 asset = installed @ a3a3eca; HEAD 0b9dadb (v1.1.9) | MIT | pass | pass (capture) | pass‡§ | pass | Disable it. What it wrote is DOI field values, four doi-fix: status tags and occasional previous-DOI Extra lines, all ordinary data capture carries verbatim. |
+| 9 | Linter for Zotero 3.3.2 | zotero-format-metadata@northword.cn | v3.3.2 asset = installed; §37 pin 095ada8; HEAD 2b74740 (v4.0.1) | AGPL-3.0-or-later | pass | pass (capture) | pass§ | pass | Disable it. Its writes are in-place normalisations indistinguishable from hand edits, plus short-doi Extra lines. There is nothing to read back, and the field values it blanked do not return. |
+| 10 | Metadata Hunter 0.8.0 | metadatahunter@federicotorrielli.github.io | v0.8.0 asset; HEAD 017cc64 | EUPL-1.2 | pass◊ | pass (capture) | pass§ | needs-live◊ (commands the person runs) | Stop invoking it. Fields and its four tags stay ordinary, but each past published-version swap left a trashed original holding the old citation key and a new item holding a new one. Reconciling those does not fit a one-line exit. |
+| 11 | ZotMeta 2.1 | zotmeta@roadtodream.tech | v2.1 asset; HEAD adc1bd7 | MIT | pass◊ | pass (capture) | pass§ | pass | Stop invoking it. What it wrote is ordinary field values, PMID/PMCID Extra lines and two status tags. |
+| 12 | Meta Refresh 0.5.0 | metarefresh@zhibo.ark0 | v0.5.0 asset; HEAD f8af2e5 | AGPL-3.0 | pass◊ | pass (capture) | pass‡§ | pass | Stop invoking it. Its edits are ordinary field values plus self-labelled Extra backup and count lines that capture carries verbatim. |
+| 13 | zotero-ner 1.5.1 | zotero-name-normalizer@marcinmilkowski.pl | v1.5.1 asset; HEAD 3b2a209 | GPL-3.0 | pass◊ | pass (capture) | pass‡§ | pass† | Stop invoking it. What it wrote is ordinary creator and field values. An exported mappings JSON may remain in the Zotero data directory and its learned mappings in localStorage; nothing else reads either. |
+| 14 | Scholar Sidekick 0.1.0 | scholar-sidekick@scholar-sidekick.com | v0.1.0 asset @ 7641f19; HEAD edb6bd7 | MIT | fail◊ | pass (search; the verifier leaves search vs capture to the spec) | pass | pass | Stop invoking it. Its items are ordinary items with a retracted tag and a verification child note. The library-wide colour it set for the retracted tag stays as a synced library setting. |
+| 15 | arxiv-marker 0.2.2 | arxiv-marker@lele.dev | v0.2.2 asset; HEAD 22c3c1c | MIT | pass◊ | pass (capture) | pass§ | pass | Stop invoking it and delete arxiv-marker-undo.json from the data directory. What it wrote is ordinary item types, venue fields and self-labelled Extra lines. |
+| 16 | Cita 1.0.0-beta.28 | zotero-wikicite@wikidata.org | beta.28 asset; HEAD 8ec0774 | GPL-3.0 | needs-live | pass (capture) | fail | needs-live | Uninstall it. Its identifier Extra lines stay ordinary, but its Citations child notes (JSON under a do-not-edit warning) stay behind, readable as citations only by Cita. That data has no one-line exit. |
+| 17 | zotero-openalex 10.0.1 | zotero-openalex@example.com | v10.0.1 asset; HEAD d7c08eb | conflict: LICENSE GPL-3.0, package.json:22 AGPL-3.0-or-later | pass◊ | pass (capture) | pass | pass | Uninstall it and delete the zotero-openalex database. What stays is three self-labelled openalex Extra lines per item, which capture carries verbatim. |
+
+### 3.3 counts-summaries
+
+| # | Candidate | id | Pin | Licence | A1 | A2 | A3 | A4 | Exit line |
+|---|---|---|---|---|---|---|---|---|---|
+| 18 | scite-zotero-plugin | scite-zotero-plugin@scite.ai | v2.0.5 asset = installed; HEAD 0dc5ce3 | none recorded | pass | pass† (scoping-review) | pass | pass | Uninstall it. It wrote nothing to the library; only Zotero's own pane-open and column-sort prefs for its section remain. Its one default pref is not persisted. |
+| 19 | Zotero TLDR (syt2) | zoterotldr@syt.com | 1.0.7 asset = installed @ 5d4dde1; archived HEAD ed129f2 | AGPL-3.0 | pass◊ | fail†◊ (—) | pass | pass | Uninstall it. Its TL;DR child notes stay as ordinary Zotero child notes that capture keeps rendering, plus an orphan fetchedItems.json in the data directory. |
+| 20 | zotero-citation-tally | dev@daeh.info | v0.0.18 asset; HEAD 9e2aec5 | AGPL-3.0 | needs-live | pass (capture, scoping-review) | fail | pass | Uninstall it. Its Citations Extra lines stay as ordinary Extra lines that capture carries verbatim, frozen at their last date. Any tangzhao20 Crossref/DOI or Semantic Scholar lines it stripped are gone for good. |
+| 21 | zotero-citation-counts (tangzhao20) | zotero-citation-counts@tangzhao20 | v2.3.1 asset; HEAD c4ab4fe | MPL-2.0 | pass◊ | pass (capture, scoping-review) | pass§ | pass | Uninstall it. Its first-line count Extra line stays as an ordinary Extra line that capture carries verbatim. The other writers' count lines it stripped are gone for good. |
+| 22 | zotero-open-citations | open-citations@zotero-plugin.org | v0.7.1 asset; HEAD 061322e | MPL-2.0 | pass◊ | pass (capture, scoping-review) | pass§ | pass | Uninstall it. The sidecar JSON is left orphaned in the data directory. If writeExtra was on, its ZSCC first lines stay as ordinary Extra lines and the counts it truncated stay wrong. |
+| 23 | zotero-google-scholar-citation-count | justin@justinribeiro.com | v7.0.0 asset; HEAD 315dcd5 | MPL-2.0 | pass◊ | pass (capture, scoping-review) | pass | pass | Uninstall it. Its GSCC first Extra line stays as an ordinary Extra line that capture carries verbatim. |
+| 24 | zotero-getcitation | getcitation@example.com | v0.1.0 asset; HEAD 445f4fe | none recorded | fail◊ | pass (capture; the verifier adds scoping-review) | pass§ | pass | Uninstall it. An unlabelled integer stays as Extra's first line. The other writers' count lines, bare-integer lines and blank lines it stripped are gone for good. |
+| 25 | semantic-zotero | tomasdanis26@gmail.com | v0.3.0 asset; HEAD 5670cbc | MIT | pass◊ | pass (search) | pass | pass | Uninstall it. What it added are ordinary Zotero items, relations and PDFs, with nothing to unwind. |
+
+### 3.4 attachments-fulltext-ocr
+
+| # | Candidate | id | Pin | Licence | A1 | A2 | A3 | A4 | Exit line |
+|---|---|---|---|---|---|---|---|---|---|
+| 26 | Attachment Scanner | attachmentscanner@changlab.um.edu.mo | v0.5.1 asset = installed @ bd64d53; HEAD 84afa55 | MIT | pass | pass (capture, protective) | pass§ | pass | Disable it. Its status tags stay as ordinary Zotero tags that capture carries verbatim, and anything it trashed is restorable until the trash is emptied. |
+| 27 | ZotMoov | zotmoov@wileyy.com | 1.2.32 asset = installed @ 044deee; HEAD 98be05b | GPL-3.0 | pass | fail (—) | pass§ | pass | Disable it. Copies it made are orphan files outside Zotero. Any attachment it moved stays a linked file outside capture's read set until it is converted back to stored. |
+| 28 | Open PDF for Zotero | zotero-open-pdf@iris-advies.com | v1.0.14 asset = installed @ 2e724b0; HEAD c8d77c1 | none recorded | pass | fail (—) | pass | pass | Disable it. It wrote nothing but its own open-with prefs. |
+| 29 | Zotero Attanger | zoteroattanger@polygon.org | v1.5.0 asset = installed = HEAD 9987661 | AGPL-3.0 | pass | fail (—) | pass§ | pass | Disable it. Renamed files keep working, but any attachment it moved stays a linked file under destDir, outside capture's read set, until it is converted back to stored. |
+| 30 | Zotero OCR | zotero-ocr@bib.uni-mannheim.de | 0.9.5.1 asset = installed @ cc87c21; HEAD 741ef6f | AGPL-3.0 | pass | pass (capture) | pass | pass | Stop invoking it. Its OCR PDF twins, page-HTML attachments and OCR notes remain ordinary Zotero attachments and notes. Its leftover .txt, .hocr and page images sit untracked in storage. |
+| 31 | Zotadata | zotadata@zotero.org | v1.5.5 asset; HEAD 782c547 | conflict: LICENSE MIT, package.json:18 AGPL-3.0-or-later | fail◊ | pass (capture) | pass§ | needs-live◊ (does not load on 10.0.5) | Stop invoking it. Fields it overwrote stay overwritten with no backup. Its tags, downloaded PDFs, notes, and the translator side-items it left in the trash remain ordinary Zotero data. |
+| 32 | RapidOCR for Zotero | pdfocrforzotero@example.com | v2.1.0 asset; HEAD 3962bdb | none as a file (MPL-2.0 claimed in README and package.json) | pass◊ | pass (capture) | pass | pass | Stop invoking it. Its OCR sibling PDFs stay ordinary indexed Zotero attachments. |
+| 33 | zotero-docling | zotero-docling@max3925vats | v0.3.3 asset; HEAD 5ef7c76 | AGPL-3.0 | pass◊ | pass (capture) | pass§ | pass | Stop invoking it. Its .md sibling attachments and docling status tags remain ordinary Zotero data. |
+| 34 | Mktero | mktero@tenglvjun.github.io | v0.4.2 asset; HEAD a5ae8df | MIT | pass◊ | pass† (capture) | pass‡ | needs-live◊ (reader legs) | Stop invoking it. Saved snapshot notes and text attachments remain ordinary Zotero data. Its profile caches and any Obsidian export folder are left as orphan files. |
+| 35 | MinerU for Zotero | mineru-for-zotero@asianfleet.github.io | v0.9.3 asset; HEAD 1d1936e | AGPL-3.0 | needs-live | fail (—) | pass | pass | Stop invoking it. Nothing in the library changes, and its mineru-copy profile folder is left as orphan files. |
+
+### 3.5 notes-ui-workflow
+
+| # | Candidate | id | Pin | Licence | A1 | A2 | A3 | A4 | Exit line |
+|---|---|---|---|---|---|---|---|---|---|
+| 36 | MarkDB-Connect | daeda@mit.edu | v0.2.4 = HEAD 825ef2d = installed | MIT | pass | pass (capture) | pass | pass | Stop invoking it (disable). What it wrote is an ordinary type-0 ObsCite tag on matched items, which capture carries verbatim and a person can delete. |
+| 37 | Better Notes | Knowledge4Zotero@windingwind.com | v3.3.3 = HEAD 4215a88 = installed | AGPL-3.0 | pass | pass (capture, upstream) | pass†‡§ | needs-live◊ (reader legs) | Disable it. Its notes stay ordinary Zotero notes that capture renders. Its BN_Two_Way_Relation IndexedDB, already on this profile, is left orphaned, so annotation-note pairing and link indexes are no longer read. |
+| 38 | Actions and Tags | zoterotag@euclpts.com | v2.6.1 = HEAD 469dbcb = installed | AGPL-3.0 | pass | pass (capture; depends on configuration) | pass | pass | Disable it. What it wrote is ordinary type-1 tags (here 49 triage:needed and 73 /unread), which capture carries verbatim. A script rule leaves whatever its script wrote. |
+| 39 | Chartero | chartero@volatile.static | v2.11.0 = HEAD 161476a = installed | conflict: LICENSE Apache-2.0, package.json:42 AGPL-2.0-or-later | pass | fail (—) | pass‡§ | pass† | Disable it. Where it has run, it leaves to clean up: one BBT-keyed computerProgram item per library (duplicates merged), chartero# JSON notes, and relations on user attachments, plus the referencesCache pref. On 2026-10-03 production has only the pref. |
+| 40 | KeepZotero | keepzotero@yhmtsai | v0.2.0 = HEAD 7437aef | BSD-3-Clause | pass | fail (—) | pass | pass | Uninstall it. Nothing remains on this profile, in the library or in the vault: prefs.js has no extensions.keepzotero.* line, because its defaults live in the XPI. |
+| 41 | Zotero Focused Mode | zotero-focused-mode@jaeheelee.de | v0.6.7 = HEAD d2c6b4e | BSD-2-Clause | pass | fail (—) | pass | pass | Uninstall it. Nothing remains on this profile, in the library or in the vault: prefs.js has no extensions.focusedMode.* line, because its defaults live in the XPI. |
+| 42 | Add-on Market for Zotero | zoteroAddons@ytshen.com | installed 10.0.0 (shipped bundle read); V10.0.1; HEAD 4759387 | AGPL-3.0 | pass | pass (vault-setup) | fail§ | fail | Uninstall it. Add-ons it installed remain ordinary Zotero add-ons under Zotero's own manager, and extensions.zotero.zoteroaddons.* prefs remain. Whatever a signed execJS payload did, if one ever ran, cannot be listed. |
+| 43 | Notero | notero@vanoni.dev | v2.1.0 asset; HEAD 011be2c | MIT | needs-live | fail (—) | pass†§ | pass | Stop it. Synced items keep a type-0 notion tag and one Notion-URL attachment whose note holds sync JSON. Any other Notion-URL attachments it erased are gone for good. The Notion pages sit outside the vault. |
+| 44 | Zotero MCP (cookjohn) | zotero-mcp-plugin@autoagent.my | v1.6.0 asset; HEAD 81d0777 | MIT | pass◊ | pass (capture) | pass§ | pass† | Stop it. Reads leave nothing. Permitted writes remain as ordinary Zotero data, including moved attachments and changed collections. zotero-mcp-vectors.sqlite and the embedding API key in prefs.js must be removed by hand. |
+
+### 3.6 search-new
+
+| # | Candidate | id | Pin | Licence | A1 | A2 | A3 | A4 | Exit line |
+|---|---|---|---|---|---|---|---|---|---|
+| 45 | Zotero Reading List | reading-list@hotmail.com | v1.7.0 asset @ 7edba22; HEAD 1a1c9b3 | GPL-3.0 | pass◊ | pass† (scoping-review) | pass§ | pass | Uninstall it; new-item labelling and the file-open trigger make it run on its own. Its Read_Status and Read_Status_Date Extra lines and any synced status tags stay as ordinary data that capture carries verbatim. Exports stop hiding those lines, and user tags its tag sync stripped do not come back. |
+| 46 | Zotero Duplicate Cleaner | zotero-dedup@local.dev | v0.15.6 asset; HEAD 265f303 | MIT | pass◊ | pass (capture, protective) | pass‡§ | pass† | Uninstall it. Its merges are ordinary Zotero merges, and the donor values it copied into empty survivor fields (Extra and citationKey included) stay. What it trashed (donors, duplicate PDFs and notes, and attachment-less items in invalid mode) stays in Zotero's trash until it is emptied. |
+| 47 | Zotero Review Assistant | zoteroreviewassistant@alima-webdev.com | v2.0.2 asset (its manifest says 2.0.1); HEAD 0001fac | none recorded (README claims GPL; no LICENSE file) | fail◊ | pass (scoping-review) | pass | pass | Stop invoking it. Its status-prefixed tags stay as ordinary Zotero tags that capture carries verbatim, and the PRISMA .docx files are standalone. |
+| 48 | Pubpeer Plugin for Zotero | zotero-pubpeer@pubpeer.com | v1.0.9 asset; HEAD a2d3898 | none recorded | pass◊ | pass (scoping-review as appraisal; the spec decides) | pass | pass | Uninstall it. It wrote nothing to items; only its users pref remains. |
+| 49 | zotxt | zotxt@e6h.org | v9.0.0 asset; HEAD 8153be8 | GPL-3.0 | pass◊ | pass (long-form) | pass | pass | Uninstall it. It wrote nothing, and pandoc citations keyed by BBT citation keys can resolve through a BBT export instead. |
+| 50 | Folder Import for Zotero | zotero-folder-import@iris-advies.com | v1.0.2 = HEAD a23ea42 | none recorded | pass◊ | pass (capture) | pass | pass | Uninstall it. What it created are ordinary Zotero attachment items, recognizer parents and collections. |
+| 51 | Zotero Watch Folder | watch-folder@zotero-plugin.org | v2.8.6 asset; HEAD 10e9121 | GPL-3.0 | pass◊ | pass (capture) | pass‡§ | needs-live◊ (mode3 and reclaim) | Stop it. What it wrote is ordinary Zotero data: items, folder-named collections, watchfolder-hash Extra lines, _duplicate and _needs-review tags, and renamed stored files. The exceptions: reclaimed linked attachments keep pointing into the watch folder, and its tracking JSON stays in the data directory. |
+| 52 | ZotSeek | zotseek@zotero.org | v1.22.4 = HEAD cd46e39 | none as a file (MIT claimed in package.json:6) | pass◊ | pass (search; the spec decides) | pass | pass† | Uninstall it. It wrote nothing to items. zotseek.sqlite and zotseek-models are its own files to delete, and any collections it made are ordinary collections. |
+| 53 | Reading Time | reading-time@local | v0.43.1 asset; HEAD 687bf99 | none recorded | needs-live | fail† (—) | pass | pass | Uninstall it. The optional read tag stays an ordinary tag, but the reading-time log lives only in time-tracker.sqlite, which nothing else reads. |
+| 54 | Replication Checker for Zotero (FLoRA) | replication-checker@forrt.org | v0.1.14 asset; HEAD c25486d | AGPL-3.0 | pass◊ | pass (scoping-review as appraisal; the spec decides) | pass‡§ | pass† | Turn off auto-check or uninstall it; both auto-check prefs are on by default. Its tags, notes, related links, added items, personal-library copies of read-only group items and FLoRA collections stay as ordinary Zotero data that capture carries verbatim. |
+
+## 4. Per-candidate notes
+
+Each note gives the full pin, the installed state or A1 ranges, the write targets with cites, and every point where the verifier disagreed with the desk. Cites are file:line at the candidate's pin unless another pin is named. "Zotero @ ca61760" means zotero/zotero at the 10.0.5 tag commit; the verifier checked it against the installed omni.ja. "BBT @ f3c9299" means Better BibTeX v9.0.63.
+
+### 4.1 identity-hygiene
+
+**1. Better BibTeX.**
+
+- **Pin.** The installed xpi (profile extensions/better-bibtex@iris-advies.com.xpi, sha256 3a4d080ec94153a8...) matches tag v9.0.63 @ f3c9299e1f8684df96b8ddf116c3880da1cdde7f. HEAD 71cec8067843bc5cdcbac7e1e794a3803638a5e1 is one test-only commit past the v9.0.68 tag (1af0bfe, released 2026-09-30, asset manifest 8.0.1-10.*). The merge shim content/better-bibtex.ts:96-163 is byte-identical at both. Licence: MIT per LICENSE:1 at f3c9299, while package.json:7 says ISC; the mismatch is already recorded at import-sourcing.md:4046 (§28).
+- **Installed.** 9.0.63, active=true, userDisabled=false, appDisabled=false (extensions.json addons[id=better-bibtex@iris-advies.com]). compatibility.ini:2 LastVersion=10.0.5_20260930221031; C:/Program Files/Zotero/app/application.ini Version=10.0.5.
+  - extraMergeCitekeys, extraMergeTeX and extraMergeCSL ship false (xpi defaults/preferences/defaults.js:54-56) and are unset in prefs.js. resetKeyOnChange ships false (defaults.js:46) and is unset.
+  - Two auto-exports are enabled (prefs.js:133-134). One is a library-wide Better CSL JSON export to kh-vault/system/bibliography.json, mtime 2026-10-03 17:42.
+- **A2 cites.** research_vault/capture.py:73-78, :166; research_vault/zotero.py:345-347 (library route), :465 (json-rpc), :491-509; README.md:123. The vault calls only api.ready, item.attachments and item.export (zotero.py:492-505).
+- **Automatic writes.**
+  - The native citationKey field for unkeyed items (key-manager.ts:311-318, :449-463). Existing keys are kept (:449).
+  - Clones get a cleared citationKey (better-bibtex.ts:89-93).
+  - The merge shim rewrites the target's Extra through Extra.set, but only when Zotero.Items.merge is called and an extraMerge* pref is on (better-bibtex.ts:96-163; extra.ts:203-245).
+  - Auto-export files at configured paths (worker/zotero.ts:458; auto-export.ts:85).
+  - better-bibtex/read-only.json in the data directory (key-manager.ts:133-160; measured at 2 bytes).
+  - The one-time migration (key-manager/migrate.ts:177-185, 224).
+  - Translators written into the data directory (translators.ts:475).
+- **User-invoked writes.**
+  - fill (regenerate or refresh) re-emits the tex.ids alias (key-manager.ts:213-256, alias at :233-244; extra.ts:207-209). The verifier corrected the desk here: alias re-emission happens inside fill, which is reached only from the menu or JSON-RPC (better-bibtex.ts:653, :659, :665; json-rpc.ts:483-512). It is not automatic.
+  - The #duplicate-citation-key tag (key-manager.ts:532-595).
+  - patchDates (menu-helper.ts:20-59), applyCitationKeyFromExtra (:79-96), sentenceCase (:98-120) and addCitationLinks (:128-142).
+  - The AUX scan (aux-scanner.ts:272-330).
+  - JSON-RPC regenerate_key (json-rpc.ts:483) and autoexport.add (:82).
+  - Import translators (translators/bibtex/bibtex.ts:1078, 1233, 1262, 1579-1603).
+  - The error-report zip (ErrorReport.ts:279).
+- **A4† (verifier additions; all close from code).**
+  - Git checkout, pull, add, commit and push inside an export target's repository when that repository opts in through .git/config (auto-export.ts:180-254). The mode defaults to config (defaults.js:64) and is absent from prefs.js. kh-vault has no opt-in (measured).
+  - Collections created by autoexport.add (collection.ts:72-76) and by BibTeX and BBT-JSON imports (bibtex.ts:272-281; bbtjson.ts:174-194).
+  - The editable citation-key column (better-bibtex.ts:852-856).
+  - Exports with files copy attachments and recursively remove the snapshot target directory (worker/zotero.ts:321-340).
+  - A Lua filter file in the BBT data directory, with old copies deleted (aux-scanner.ts:150-160).
+  - The AUX scan removes collection items and tags (:281-286, :325-331). Its report note is standalone, not a child note (:298-301).
+  - Automatic pref writes (formatter.ts:420-421, path-search.ts:12, auto-export.ts:289-290, migrate.ts:170).
+  - v9.0.68 adds gated profiler output (audit.ts:178-210 @ 1af0bfe), so the desk's claim that no write target changed between the pins is false.
+  - There are no direct SQL writes in content/.
+- **A3†.** The desk passed it on automatic paths only (key-manager.ts:449, :362-385; defaults.js:46, :54-56). The verifier failed it on all shipped behaviour:
+  - applyCitationKeyFromExtra strips or moves Citation Key Extra lines (menu-helper.ts:85-90). arXiv Workflow writes that same grammar onto other items (arxiv-merge.ts:211-216).
+  - patchDates re-serialises tex.* lines (menu-helper.ts:41-58; extra.ts:212-227), and sentenceCase rewrites title and shortTitle (:108, :115).
+  - Regenerate and refresh, and applyCitationKeyFromExtra with move, re-key items and record the old key nowhere (key-manager.ts:213-256; json-rpc.ts:512; menu-helper.ts:88).
+  - The AUX scan removes items from an existing collection and removes its tag (aux-scanner.ts:281-286, :325-331).
+  - Under an automatic-only reading, the desk's pass stands. See §7 items 1 and 3.
+- **Desk live leg.** It proposed confirming extraMerge* after an auto-update to 9.0.68. The auto-update premise was refuted (§7 item 5), so this is moot as framed.
+- 2026-10-03 normalisation: fail† kept, on a moved basis. (b) passes. Automatic paths keep an existing native key, resetKeyOnChange ships false and is unset on production, and a citekeyFormat change only recompiles the formatter. Every other re-key is asked for: regenerate, refresh, applyCitationKeyFromExtra with move, and JSON-RPC regenerate_key. (a) fails only through commands the person runs: sentenceCase rewrites title and shortTitle, applyCitationKeyFromExtra removes Citation Key Extra lines, patchDates deletes mapped tex.* lines, and the AUX scan removes its tag from every uncited item, whoever set it. The merge shim is out of A3. Pass under an automatic-only reading (content/key-manager.ts:328-337, :389, :448-450; content/key-manager/formatter.ts:401-421; content/key-manager/migrate.ts:155, :176-177; content/Preferences/preferences.yaml:409-412; content/menu-helper.ts:41-58, :85-89, :104-116; content/aux-scanner.ts:325-331 @ f3c9299). Seed key: extensions.zotero.translators.better-bibtex.resetKeyOnChange=false (shipped default; unset on production).
+- § 2026-10-04 by-itself: fail† → fail† (result kept; basis moved) — counted: the JSON-RPC method item.regenerate_key at /better-bibtex/json-rpc is a remote request. It runs KeyManager.fill with replace on and warn left at its default false, so the bulk-modify confirm is never reached; any local client can re-key an existing item with no prompt, and the old key is recorded nowhere, which fails (b). The endpoint registers unconditionally at startup and no BBT preference gates it. The only switch that would remove it is Zotero's own HTTP server, which is not the add-on's preference, and research-vault's capture posts to this same endpoint (research_vault/zotero.py:465), so no confining setting exists. The installed 9.0.63 xpi ships the method and its parameter schema (content/better-bibtex.js, local read 2026-10-04). Automatic paths do not fail: the items-changed handler passes replace=resetKeyOnChange and update returns early when a key exists, fillMissing and the autofill scheduler fill only empty keys, the startup migration fills only where the native key is empty unless the person resolves conflicts in a dialog (choice.dynamic ships false, so it cannot turn resetKeyOnChange on), and the clone patch clears only the new clone's key. The remote scanAUX can target only a collection, never a tag, and changes membership plus a new standalone report note, outside (a)'s list. sentenceCase, applyCitationKeyFromExtra, patchDates, the AUX scan to a tag, regenerate, refresh and tagDuplicates are reached only from menu handlers, so they are the person's own edits. The same remote fill also removes the new key from the Extra aliases line, BBT's own tex.ids grammar, which is not an (a) hit. Setting for the automatic re-key on change: extensions.zotero.translators.better-bibtex.resetKeyOnChange=false (shipped default; unset on production). Re-judgement and verifier agree (content/json-rpc.ts:64-67, :483, :512, :787; content/key-manager.ts:186, :191, :233-244, :389, :450; content/key-manager/migrate.ts:57-63, :146-157, :170, :176; content/better-bibtex.ts:89-93, :611, :653-705, :827; content/aux-scanner.ts:280-301; content/Preferences/preferences.yaml:409-412 @ f3c9299; Zotero duplicatesMergePane.js:195, :205-210 @ ca61760).
+
+**2. Zoplicate.**
+
+- **Pin.** The installed xpi (sha256 80577b7c4ab083b6...; bundle chrome/content/scripts/zoplicate.js) matches v5.1.1 @ 1d951912b53200f72118a5539facf1af8d3a613a. HEAD 19f8b85c1366b5d3e385ac19781a6dc8a8f9b27e (2026-09-30) is 8 unreleased commits ahead, including 98dd407 (parallel bulk merge) and 6d94dc1 (an optional cross-type merge that writes a lost-fields child note). Licence AGPL-3.0 (LICENSE:1-2; package.json:38).
+- **Installed.** 5.1.1, active=true, appDisabled=false. strict_max_version is 10.0.* (xpi manifest.json; HEAD addon/manifest.json:16-17). Live prefs: duplicate.default.action=cancel and bulk.master.item=detailed (prefs.js:145-146). D:\Zotero\zoplicate.sqlite is present.
+- **A2.** Import-time merge (duplicates.ts:263) and bulk merge (bulkMergeService.ts:300); assembly-design.md:529. The verifier added that with action=cancel, whenItemsAdded returns at once (zoplicate.js:3505-3507). Only the user-run bulk merge is reachable on this profile.
+- **Writes.**
+  - The master's toJSON is overlaid with the union of the losers' toJSON, minus relations, collections and tags, then loaded with non-strict fromJSON (mergeItems.ts:27-48; zoplicate.js:2400-2403). The master wins, including citationKey and Extra. Non-strict fromJSON migrates Extra lines into fields (Zotero item.js:5656-5658, 5679-5697 @ ca61760).
+  - It calls mergeItems.mjs directly (mergeItems.ts:51-52; zoplicate.js:2404-2405). That reparents child notes and rewrites keys inside them (:30-37), moves relations and adds dc:replaces (:40-41, 426-477), unions collections and tags (:45-46, :48-65), trashes the loser (:68-69), sets the earliest dateAdded (:73, the verifier's correction of :72), de-duplicates attachments (:16-18, 109-118, 258-262) and stages an in-memory undo (:7-10).
+  - HEAD only, off by default: a lost-fields child note (mergeItems.ts:54-72; addon/prefs.js:6).
+  - Cancelling a bulk merge untrashes items (bulkMergeService.ts:351-352; zoplicate.js:2773-2774).
+  - zoplicate.sqlite holds nonDuplicates and schemaVersion (db.ts:11, :42-51; nonDuplicates.ts:50-120).
+  - Prefs (prefs.ts:18-19).
+- **Verifier additions (A4 still needs-live).**
+  - An always-on patch on Zotero.Item.prototype._saveData. When any writer saves a new child whose parent is trashed, it moves the child to the duplicate group's master, whatever duplicate.default.action says (patchItemSaveData.ts:13-51, :35; zoplicate.js:3162-3188, :3176).
+  - nonDuplicates JSON export and import (importExport.ts:209; zoplicate.js:4865).
+  - Further mergeItems.mjs effects: unmatched loser attachments are reparented (:130-203, :281), annotations and embedded notes are moved (:98-106), third items' relations are re-pointed (:460-474), and the loser's own dc:replaces is stripped (:453-456).
+  - Zotero makes rotating backups of zoplicate.sqlite (measured).
+- **A3 fail.** There is no Zotero.Items.merge call anywhere in src/, and BBT patches only that function (better-bibtex.ts:96). So the loser's citekey is not recorded on the survivor, and the loser's Extra lines leave the live item. lifecycle.py:33-83 reads dc:replaces and classifies the note 'merged'. On this profile every Zoplicate merge is user-run, so the fail rests on the all-paths reading.
+- **Desk exit line.** "Stop invoking it": past merges are ordinary Zotero state that lifecycle.py reads, and only its non-duplicate marks go. The verifier corrected it because the _saveData patch stays live while the add-on is loaded.
+- ‡ 2026-10-03 normalisation: fail → pass — the old fail rested on merge consolidation, which is now out of A3. Zoplicate's merge is a master-wins fromJSON followed by Zotero's own mergeItems.mjs. (b): no existing key changes. The overlay spreads the losers' JSON under the master's, and toJSON omits a blank key, so an unkeyed master can receive a loser's key. That is a fill; the verifier corrected the re-judgement's claim that no path writes citationKey. (a): the cancel path un-trashes only the items that run trashed. The always-on _saveData patch points a new child of a trashed parent (another writer's note or attachment) at the duplicate group's master. The pass reads that as no rewrite, because Zotero holds parentItem as a primary property outside (a)'s list. If that reading is rejected, the cell fails under every path reading, since the patch is automatic (src/shared/duplicates/mergeItems.ts:16-29 (:24-25); src/integrations/zotero/patches/patchItemSaveData.ts:24-36; src/features/bulkMerge/bulkMergeService.ts:302, :309, :316-320 @ 1d95191). The mergeItems.ts:27-72 cites above do not resolve at 1d95191, where the file is 30 lines. Seed keys: none needed.
+- § 2026-10-04 by-itself: pass‡ → pass‡ (result kept; basis moved) — counted: (i) on an item add by any writer, whenItemsAdded acts on duplicates. With duplicate.default.action keep or discard it merges with no prompt; merging is out of A3, and its pre-merge overlay only fills the master's empty fields, an empty key included, which is a fill. With ask it opens a dialog, which is deliberate; with cancel it returns at once. Adds that arrive by remote sync are skipped, and local adds made during a sync are deferred and flushed afterwards, still gated by the action preference (the verifier's correction of the re-judgement's "skipped during sync"). (ii) The always-on _saveData patch moves a brand-new child, saved under a trashed parent that has duplicates, to the group's master; existing children are never touched, and it writes no note content, Extra, tags, fields or key. The bulk merge and its cancel/untrash path are buttons the person presses. Setting for (i): extensions.zotero.zoplicate.duplicate.default.action=cancel (production prefs.js:146) or ask (shipped default, addon/prefs.js:2). No preference confines (ii): it passes only on the first pass's reading that parentItem lies outside (a)'s "data in child notes", which the second ruling does not settle, and if that reading is rejected the cell fails. The non-strict fromJSON migration of Extra lines into fields is the call Zotero's own merge pane makes, so it is treated as part of Zotero's merge; §7 item 10's live leg is still pending (src/features/duplicates/duplicates.ts:194-207, :263; src/features/duplicates/notifyHandlers.ts:179-182, :226-235; src/shared/duplicates/mergeItems.ts:16-29; src/integrations/zotero/patches/patchItemSaveData.ts:24-36; src/features/bulkMerge/bulkMergeService.ts:302, :319-320; addon/prefs.js:2 @ 1d95191; Zotero duplicatesMergePane.js:203-211 @ ca61760; production prefs.js:146).
+- ◊ 2026-10-04 live: A4, on-add path at the shipped duplicate.default.action=ask: pass — the v5.1.1 asset (sha256 80577b7c…c79a) is the pin above. The fixtures zA and then zB, the same DOI with different citekeys and Extra lines, were saved through the connector. The ask path ran twice, for the fx2/fx3 arXiv pair and for zA/zB: updateDuplicateMaps, which the bundle logs only on the dialog path, appears at zotero.out:2205 and :4249; the dialog window itself is not logged. Library rows matched the BBT-only control after normalisation, so no item was written. Outside the library it created <dataDir>/zoplicate.sqlite and its WAL (table nonDuplicates with 0 rows; schemaVersion 2) and set one pane-open pref. The leg waited 30 s after the last save (step2/zoplicate-ask/cmp-control.txt, zoplicate-sqlite.txt, zotero.out:2205, 4249, fsdiff.txt, fxrun.log).
+- ◊ 2026-10-04 live: A4, on-add automatic merge at duplicate.default.action=keep (set in user.js; not the shipped default): pass — adding zB merged the pair with no prompt (zotero.out:5117). The newest item, zB (U4MBXK8A), became master and zA (KWGBMZ3Q) the loser. The master kept its citationKey silver2016go and its Extra count line; its empty PMID and issue were filled from the loser (26819042, 7587); tags were unioned; the loser's child note moved to the master; the master gained a dc:replaces relation to the loser; the loser was trashed and its dateModified bumped. Not carried: the loser's citekey silver2016mastering appears nowhere on the master (no alias), and the loser's ZSCC Extra line did not reach it. Contrary to the Writes bullet above, the master's dateAdded stayed 07:08:52 while the loser's was 07:08:44, so no earliest dateAdded was set (§7 item 29). The connector had already moved the fixtures' Citation Key, PMID and PMCID Extra lines into native fields (control run; §7 item 25), so Extra held only count lines and the leg did not test merge-time Extra migration. The cross-type group of fx2 (preprint) and fx3 (conferencePaper) entered the keep action (zotero.out:3056-3058) and stayed unmerged, with no trash, relation or field change. The leg waited 30 s (step2/zoplicate-keep/dbdiff.txt, api/find-02-after-zA.json, api/find-03-after-zB.json, api/find-04-after-wait.json, zotero.out:3056, 5117, user.js, fxrun.log).
+- ◊ 2026-10-04 live: A4, the always-on _saveData patch (verifier sub-leg): pass — after the merge, a new PDF attachment saved through /connector/saveAttachment with the trashed loser zA as its parent landed under the master: SJIV5CBT has parentItem U4MBXK8A. Zoplicate's log shows it finding the parent deleted, finding the candidate, and narrowing candidates by dc:replaces (zotero.out:7152-7169). Another writer's new child was re-parented with no prompt (step2/zoplicate-keep/savedata-subleg.log, api/since-savedata.json, zotero.out:7152-7169).
+- ◊ 2026-10-04 live: A4, comparison with Zotero's own merge pane and lifecycle 'merged': needs-live still — not run. The merge pane is GUI-only, and research-vault's lifecycle.py was not run on the merged pair. Human step in §6.4; the keep-merge to compare against is step2/zoplicate-keep/dbdiff.txt.
+
+**3. Zutilo.**
+
+- **Pin.** v4.2.2 = HEAD 3e0bf9fac8d6f873b2fbe4281a2b82a75dd48894 (2026-08-22). The shipped overlay is identical after CRLF normalisation. package.json:3 says 4.2.0. Licence MPL-2.0 (LICENSE.md:2; package.json:20); the GitHub API reports NOASSERTION because LICENSE.md opens with prose.
+- **Installed.** 4.2.2, active=false, userDisabled=true, appDisabled=false. The live pref shows Remove tags in the item submenu (prefs.js:158); it is hidden by default (zutilo.mjs:236-243).
+- **Writes (all user-invoked).**
+  - pasteTags (zoteroOverlay.js:542-566).
+  - removeTags, which calls removeAllTags on every selected item, including notes and attachments (:261-272).
+  - pasteJSON writes fields including extra and citationKey (:433-539), sets the item type (:460) and replaces creators (:502-503).
+  - Relations (:724-741, :947-952, :1000-1005).
+  - Reparenting through parentKey (:286-299).
+  - Linked-attachment path, title and url (:568-666).
+  - New items through duplicateSelectedItem (:914-1023).
+  - Prefs (zutilo.mjs:228-245) and the clipboard.
+- **A4† (verifier).** The desk's "complete from one file" is refuted, but the list closes from code with these additions:
+  - keys.js writes shortcut prefs (:26).
+  - Its shortcuts fire native Zotero write commands: recognize PDF, create parent items, rename attachment files from the parent, find PDF, attach a link or a stored file, and duplicate the item (keys.js:257-301, :333-335).
+  - copyItems_alt temporarily overwrites, then restores, Zotero's export.quickCopy.setting (zoteroOverlay.js:748-755).
+- **A2 fail.** There is no rename and no single-tag removal (zutilo.mjs:29-36; keys.js:88-101, :218-221). assembly-design.md:289 credits Zutilo with bulk tag operations for canonicalisation.
+- **A3 fail.** removeAllTags strips other writers' tags. pasteJSON overwrites Extra and copies a citekey outside BBT; citationKey is a field on 37 of 40 item types (zotero-schema 70c3aa9 schema.json). Even the into-empty-fields mode can copy another item's Extra into an empty target. Under an automatic-only reading this flips to pass.
+- 2026-10-03 normalisation: fail kept, on a moved basis. (b) passes: the citationKey overwrite happens only inside a paste the person runs. (a) fails through commands the person runs. removeTags calls removeAllTags on every selected item. pasteJSON in all or from-non-empty-fields mode overwrites non-empty fields, Extra included, and replaces creators. The item-type paste runs setType, which clears fields invalid for the new type. No pref removes these code paths. Shipped defaults hide those menu entries and leave the shortcuts unbound, but production shows removeTags. Pass under an automatic-only reading (addon/chrome/content/zutilo/zoteroOverlay.js:261-272, :460, :497-503, :522-532; addon/chrome/content/zutilo/zutilo.mjs:236-243, :247-250 @ 3e0bf9f; Zotero item.js:494-517 @ ca61760; production prefs.js:158).
+- § 2026-10-04 by-itself: fail → pass — counted: none. Every item write is a menu command or bound shortcut on the person's selection: getSelectedItems, CopyItems.targetItems for pasteJSON, or the person's item clipboard plus the selected new parent for relocateChildren. That covers removeTags/removeAllTags, pasteJSON with citationKey, Extra, setType and setCreators, pasteTags, relations, linked-attachment edits and duplicate. Startup registers chrome and menu popupshowing listeners only, its observers refresh menus, shortcuts and prefs, and it has no Zotero notifier, endpoint or timer that writes. Setting: none needed. Re-judgement and verifier agree (addon/chrome/content/zutilo/zoteroOverlay.js:34-40, :261-272, :286-299, :339-344, :433-539, :1326-1327; addon/chrome/content/zutilo/zutilo.mjs:167-171, :331; addon/bootstrap.js:19-33 @ 3e0bf9f).
+
+**4. arXiv Workflow.**
+
+- **Pin.** The installed xpi (sha256 b5e35372fcd805d4...; bundle content/scripts/arxiv-workflow.js) matches v0.3.9 @ 68dc716d386a2fbf4b25bcf8d611e13f3b05bed7. HEAD 6adc06879be6e9d52c7e24e27ff21854c9866d7b = v0.4.0 (2026-10-01). The asset zotero-arxiv-workflow.xpi manifest and repo addon/manifest.json:16-17 both say 7.999-10.*. arxiv-merge.ts, prefer-pdf.ts and update-pdf.ts are unchanged since v0.3.9. Licence AGPL-3.0 (LICENSE:1-2; package.json:32; import-sourcing.md:5408).
+- **Installed.** 0.3.9, active=false, userDisabled=true, appDisabled=false. The live profile overrides merge.arXivExtra=true and merge.trashUnannotatedPDF=true (prefs.js:58-59); both ship false (xpi prefs.js:13, :15). merge.reservedKeys is at its default (xpi prefs.js:12).
+- **Merge writes (arxiv-merge.ts).**
+  - The surviving preprint's item type is changed (:159).
+  - Every non-reserved field is replaced from the published item via non-strict fromJSON, including the native citationKey, and absent fields are cleared (:160, :164-173, :218-219; item.js:5969-5975, 6019-6025 @ ca61760).
+  - Extra is combined through combineExtraFields. arXiv: lines are stripped unless arXivExtra is on (:179-195).
+  - The published item gets a random-UUID Citation Key Extra line and is saved (:211-217).
+  - A linked-URL attachment to the arXiv URL is added when there is no snapshot (:224-238).
+  - With trashUnannotatedPDF on, unannotated preprint PDFs are trashed (:239-247).
+  - The published PDFs' dateAdded is backdated (:249-266).
+  - Finally Zotero.Items.merge runs (:270).
+- **Other writes.**
+  - Update: a new item via a translator into the selected collections (manager.ts:18-60 HEAD; :94 v0.3.9), and a PDF via addAvailableFile with its title set (manager.ts:298-305 HEAD; :231-238 v0.3.9).
+  - update-pdf.ts:47 and prefer-pdf.ts:53-55.
+  - Prefs.
+- **Verifier additions.**
+  - The same mergeItems.mjs effects as Zoplicate (mergeItems.mjs:98-106, :130-203, :453-474).
+  - The UUID Citation Key line stays on the trashed published item.
+  - The merge.arXivURL pref governs url (xpi prefs.js:14; arxiv-merge.ts:175).
+- **A2.** importPaper (manager.ts:276-310); import-sourcing.md:5357. Every path is user-initiated: there is no notifier, only a pref observer (hooks.ts:42).
+- **A3 fail.** The survivor is re-keyed outside BBT, and its former key is neither kept nor aliased.
+  - The :270 merge does reach the shim, but the shim's prefs are off. Even with them on, the shim would alias only the loser's key, which now equals the survivor's (better-bibtex.ts:145-148).
+  - The comment at :197-209 assumes BBT regenerates keys on save, which resetKeyOnChange=false prevents.
+  - The verifier made three corrections:
+    - lifecycle.py:91 is the trashed-attachment branch and :94 is 're-keyed'. With trashUnannotatedPDF live, a note that recorded the trashed PDF classifies as 'trashed' first.
+    - If the published item is still unkeyed when it is serialised, fromJSON clears the preprint's citationKey and BBT generates a fresh one (key-manager.ts:389-393, :449-463 @ f3c9299).
+    - "Filtered out" depends on BBT's key cache, which is delayed by fillKeyAfter=2.
+  - Either way the old key is lost.
+- **Desk exit line.** Same as the corrected line, without the clause about the UUID line on trashed items.
+- 2026-10-03 normalisation: fail kept, on a moved basis; it fails (b) on every path reading. Before Zotero's merge, the add-on's own fromJSON loads the published item's JSON, citationKey included, into the surviving preprint, because reservedKeys ships without citationKey. The survivor takes the published key, or, if the published item is unkeyed, is cleared and re-keyed by BBT. Zotero's merge alone would keep the master's key, so the person asked for a merge, not a re-key. (a) also fails: that fromJSON replaces every non-reserved field and clears fields the published item lacks, and arXiv: Extra lines drop unless merge.arXivExtra is on. The UUID Citation Key line goes onto the published item, which is then trashed. BBT reads that grammar only at export when the native key is empty, or through the menu command, so the line does not affect identity (src/modules/arxiv-merge.ts:159-173, :189-193, :211-219, :270; addon/prefs.js:12-16; package.json:11 @ 68dc716; Zotero item.js:5969-5975 @ ca61760; BBT translators/bibtex/exporter.ts:63-70 @ f3c9299). Seed keys that narrow it without changing the result: extensions.zotero.arxiv-workflow.merge.reservedKeys=collections,dateAdded,dateModified,key,tags,relations,citationKey leaves only a key fill, so the cell rests on (a) through a command the person runs; extensions.zotero.arxiv-workflow.merge.arXivExtra=true, already set on production (prefs.js:58), keeps arXiv: lines. Listing every field in reservedKeys would stop the clearing at :218, but it would also turn the merge into a fill.
+- § 2026-10-04 by-itself: fail → pass — counted: none. onStartup waits for Zotero and calls onMainWindowLoad, which registers right-click menus behind the features.* preferences and one preference observer for update.concurrency; src/ has no notifier, endpoint, interval or startup sweep. Merge needs exactly two selected items, one preprint and one published. Update imports the published version as a new item and merges it into the selected preprint inside the person's command, and prefer-PDF and update-PDF act on the selection. So the survivor's re-key, the field clearing, the dropped arXiv: Extra lines and the UUID Citation Key line all happen inside commands the person runs. src/addon.ts exposes an in-process api object on the Zotero global; it does nothing by itself and is not a REST, URI, MCP or CLI handler (verifier addition). Setting: none needed; merge.reservedKeys and extensions.zotero.arxiv-workflow.merge.arXivExtra=true (production prefs.js:58) narrow the person's command, but the pass does not rest on them. At 68dc716 update's import-then-merge is at manager.ts:204-243, not the manager.ts lines cited above for v0.3.9. Re-judgement and verifier agree (src/hooks.ts:11-48; src/modules/arxiv-merge.ts:20-43; src/modules/arxiv-update/index.ts:30-37; src/modules/arxiv-update/manager.ts:221-223, :243; src/modules/prefer-pdf.ts:18-24; src/modules/update-pdf.ts:19-25; addon/prefs.js:1-20 @ 68dc716).
+- ◊ 2026-10-04 live: A4, writes by itself (startup and on-add): pass — the v0.3.9 asset (sha256 b5e35372…9a2a) is the pin above; it loaded active, appDisabled=false. The fixtures included a preprint/published pair (fx2: preprint, arXiv DOI, citekey vaswani2017attention, a ZSCC line and a manual tag; fx3: conferencePaper, citekey vaswani2017neurips, a count line) and a PDF. After 60 s the library rows matched the control after normalisation, and the library version did not move during the wait. Beyond the control it wrote only its xpi, its extensions.json entry and an extensions.webextensions.uuids entry, plus addonStartup.json.lz4, the add-on manager's cache, which changes in every leg (verifier addition) (step2/arxiv-workflow/cmp-control.txt, dbdiff.txt, fsdiff.txt, fxrun.log).
+- ◊ 2026-10-04 live: A4, the §6.2 merge leg: needs-live still — the merge is a command the person runs. Human step in §6.4; the state before it is step2/arxiv-workflow/api/find-04-after-wait.json.
+
+### 4.2 identifiers-metadata
+
+**5. PMCID fetcher.**
+
+- **Pin.** Release v1.0.3 asset zotero-pmcid-fetcher-1.0.3.xpi, sha256 01b30c1a5aa38b0591e61e41775592b9e383eb67b429cb3afa3a79c7f7766164, byte-identical to the installed copy. HEAD 24b66f88634590748f84dc0f49bc13446f47a6de (2026-08-24). No licence: no LICENSE file at 24b66f8 and no package.json field. Nothing is quoted.
+- **Installed.** addons[13], active=true, appDisabled=false. prefs.js:36 lastAppVersion=10.0.5. prefs.js:113-115: auto=true, bundleSize=0, tags=true.
+- **Writes.**
+  - PMID and PMCID go to native fields where the type has them. In schema 44 only journalArticle does (zotero-schema 70c3aa9 schema.json:1646-1649, which the verifier found byte-identical to the 10.0.5 omni.ja schema).
+  - Otherwise it appends one key-value Extra line per identifier. It never overwrites (lib.js:217-223, 246, 327-331).
+  - Extra is set whole, from the snapshot taken at job start plus the appended lines (lib.js:229, 370).
+  - With tags on, MeSH descriptor names and PubMed keywords become manual type-0 tags (lib.js:350-363; Zotero item.js:4805-4806).
+  - Prefs (lib.js:139-142, 344-349).
+  - A Help-menu debug upload to filebin.net, on click only (bootstrap.js:2311, 2337, 2356-2370, 2465-2468).
+- **§15 item 05.** Answered from code as "both": identifiers go to the native field or to Extra, and tags carry only subject terms. This matches the lane-0 measurement of zero identifier-shaped tags.
+- **A2 caveat.** SNAPSHOT_FIELDS (literature_notes.py:34-52) has no PMID or PMCID, so journalArticle identifiers do not reach the literature note.
+- **A3 needs-live.** Extra is snapshotted at job start and written back whole after up to three throttled NCBI slots of at least 400 ms each (lib.js:34-42, 229, 370). This runs on both add and modify (155-156), so a concurrent Extra write inside that window is lost. Modify also re-runs efetch for items with a PMID but no PMCID, so MeSH tags the user deleted come back (246, 343, 353-363).
+- § 2026-10-04 by-itself: needs-live → pass — counted: an item notifier fires on add and modify from any writer and runs the fetch, which snapshots Extra at job start and writes it back whole after throttled NCBI requests, so a concurrent Extra write in that window can be lost; with tags on it also re-adds MeSH tags. The handler returns first thing unless the auto preference is truthy. Its other startup code runs no fetch: a bundleSize fix, a 400 ms interval that only releases throttle slots, and a Help-menu debug sender. The menu fetch acts on selected items, the person's own edit. Setting: extensions.zotero.pmcid.auto=false. The asset ships no prefs.js, so the shipped state is unset and reads as off, and production sets true (prefs.js:113); the re-judgement said the shipped value is true, and the verifier corrected it. This is README's declared automatic-mode key, and doctor.py:276-280 @ 3780fb7 reports a failure unless it is exactly True. With auto=false seeded, the §6.2 A3 leg no longer decides A3; it would still show what auto=true does. No licence: paraphrased (lib.js:34-42, 130-133, 139-142, 150-168 (gate 153), 181-196, 224-229, 370; prefs.xhtml:12 @ v1.0.3 asset sha256 01b30c1a…).
+
+**6. DOI Manager 1.6.0 (JuliusBairaktaris line).**
+
+- **Pin.** Release v1.6.0 asset zotero-doi-manager-1.6.0.xpi, sha256 a52a846d1b280184f633bfe6030574094b3d6d2c0cc44dad98a37111da09dea0, byte-identical to the installed copy.
+  - Tag v1.6.0 is the annotated tag object 23fd543db19e12e84e3ab056cc4a6696e8e20cd6, which dereferences to commit 2ec547cf494d97e1ea81f9801586eb9a18cffb3a. The verifier corrected this; the licence cite should name that commit.
+  - Successor v1.7.0: asset sha256 1767dfc53b9405b4777db7fecc534041a810c496889b311191e0404fb4cce1ab, tag 5fe8308e99d73fda98797ae48149c346a848dbd4.
+  - HEAD 9d4c921f326068ba5fe0f96fe1c289e73b358e71 (2026-10-02). History was rewritten, so HEAD and v1.7.0 have diverged by one commit each.
+  - Licence MPL-2.0.
+- **Installed.** addons[5], 1.6.0, active=false, userDisabled=false, appDisabled=true, targetApplications 8.0 to 9.0.*.
+  - update_url points at bwiernik's master updates.json, which lists only 1.5.1.
+  - The fork's own updates.json links a bwiernik v1.7.0 URL that returned 404 on 2026-10-03.
+  - So the installed copy cannot self-update to a Zotero-10 build.
+  - For the 1.7.0 build, both the shipped manifest and HEAD manifest.json:15-16 declare 10.0 to 10.0.*. Its A1 is needs-live (§6).
+- **Writes.**
+  - The DOI field, in place (doi-updater.js:241-243, 256-258, 270-275, 304-309).
+  - Three type-1 status tags whose strings come from prefs (prefs.js:2-4; doi-updater.js:66-70, 187, 315, 328-330).
+  - A linked-URL child attachment on a multiple match (doi-updater.js:319-326).
+  - The autoretrieve pref (menus.js:29).
+  - An automatic run on add: zoteroshortdoi.js:53-66, registered at 28-32. This is the verifier's cite; the desk had 62-73.
+  - The options pane also writes the tag and autoretrieve prefs (options.xhtml:10, 45, 48, 51; bootstrap.js:42-45).
+  - 1.7.0 adds a tag_found pref and tag (1.7.0 prefs.js:5; doi-updater.js:283-287).
+- **A3 pass, with notes.**
+  - Unreported side effect (verifier): the default autoretrieve mode, long, lower-cases the handle (prefs.js:1; doi-service.js:104-116). Every added item's DOI is rewritten to lower case, which changes the DOI string capture snapshots. 1.7.0 and 2.2.0 do the same.
+  - Short mode swaps a DOI for its shortDOI.
+  - The tag strings are configurable, so a string set to match another writer's tag would be removed.
+- **Desk exit line.** Omitted that the add-on already does not load, and omitted the lower-casing.
+- ‡ 2026-10-03 normalisation: pass → fail — short mode ships as a menu command and as an autoretrieve option. It replaces another writer's long DOI with a shortDOI alias handle and keeps the long DOI nowhere on the item, which is a rewrite under (a) on the all-paths reading. Lower-casing in long and check modes keeps the case-insensitive identifier and is not a rewrite. Tag removal touches only its three pref strings, and it has no citation-key code. The re-judgement returned pass on the drafts' same-identifier carve-out; the verifier refuted it, and its fail is used. Under an automatic-only reading at shipped defaults (autoretrieve=long) it would pass (lib/doi-updater.js:241-243, 66-70; lib/doi-service.js:104-117, 126-131; lib/menus.js:19, 60-61; zoteroshortdoi.js:53-66; prefs.js:1-4 @ v1.6.0 asset sha256 a52a846d…, tag object 23fd543 → 2ec547c). By grep, the 1.7.0 build (sha256 1767dfc5…) has the same write classes, short path included; it was not read in full. Seed keys: none confines the short-mode command; extensions.shortdoi.autoretrieve=long (shipped default) keeps the on-add path off short mode.
+- § 2026-10-04 by-itself: fail‡ → pass‡ — counted: an item notifier runs the autoretrieve mode on every added item, from any writer, sync downloads included. Shipped long lower-cases the DOI, expands a shortDOI to its long DOI from the handle record's alias, fills an empty DOI from a single Crossref hit, removes only its three pref-named tags, and adds a link attachment on a multiple hit; mode short would replace a long DOI with its shortDOI alias. The handler acts only on add events and returns when autoretrieve is unset or none, a shipped option. The short, long and check menu commands act on the selection, so the short-mode command that decided the first pass is the person's own edit. Setting: extensions.shortdoi.autoretrieve=none. Shipped long would also pass if expanding a shortDOI is not a rewrite; that is unruled, so none is named. Correction to the ‡ line above: long mode does more than lower-case, it replaces a shortDOI with its long DOI. This is README's declared automatic-mode key; doctor.py:278 @ 3780fb7 tests for True, which a string preference never matches. The 1.7.0 build has the same gate (bootstrap.js:70-75, gate 73 @ asset sha256 1767dfc5…). Re-judgement and verifier agree (zoteroshortdoi.js:28-32, 53-66 (gate 60), 74-78; lib/menus.js:19, 28-30, 42, 58-72; lib/doi-updater.js:66-70, 247-259, 286-311; lib/doi-service.js:104-117; prefs.js:1 @ v1.6.0 asset sha256 a52a846d…, tag object 23fd543 → 2ec547c).
+
+**7. DOI Manager 2.2.0 (reginalluna).**
+
+- **Pin.** Release v2.2.0 asset zotero-doi-manager-2.2.0.xpi, sha256 299c46a3131c3c7eb9fa8f6c0cfdf198db50f885750fe5ad6d03ab9407a40eb0. Tag a8211a4c08a9193ef1a5d27b747cd43d6f9ab724. HEAD 496ab21c58a176a68e444b10c01e50995303f96b (2026-08-20), unchanged since §38. Licence MPL-2.0.
+- **A1 ranges.** manifest.json:11-12 @496ab21 and the shipped manifest both declare 8.0 to 10.0.*. Not installed. It shares its id with the installed 1.6.0, so installing it replaces that copy.
+- **Writes.** As 1.6.0 (doi-updater.js:51-53, 164, 213, 228, 242, 272, 283, 290-299; prefs.js:4-6), plus a default-on monthly silent library-wide check (zoteroshortdoi.js:3, 52, 88-110; prefs.js:2-3). That check writes Crossref DOIs onto items that lack one (doi-updater.js:268-277).
+- **Verifier additions.**
+  - The last-run pref defaults to empty, so the first library-wide pass runs at the first startup after install, over every top-level item (zoteroshortdoi.js:29-34, 52, 89, 105). It adds status tags and link attachments (doi-updater.js:281-300).
+  - DOIs that differ from the handle are lower-cased (doi-service.js:78-83).
+  - Pref writes at zoteroshortdoi.js:108, menus.js:17 and options.xhtml:8, 19, 31, 34, 37.
+- ‡ 2026-10-03 normalisation: pass → fail — as in row 6, the short case replaces another writer's long DOI with a shortDOI alias and keeps no backup. It ships as a menu command and as an autoretrieve option. The monthly sweep runs check mode, which only lower-cases a DOI's handle and fills empty DOIs from Crossref. Tag removal is limited to its three pref strings. The re-judgement returned pass; the verifier refuted it, and its fail is used. Under an automatic-only reading at shipped defaults it would pass (lib/doi-updater.js:213-215, 50-54, 254-279; lib/doi-service.js:78-83; lib/menus.js:8, 47-48; zoteroshortdoi.js:70-80, 98-110; prefs.js:1-6 @ v2.2.0 asset sha256 299c46a3…, tag a8211a4). Seed keys: none confines the short-mode command.
+- § 2026-10-04 by-itself: fail‡ → pass‡ — counted: (i) the on-add notifier as in row 6, shipped long; (ii) a silent monthly check-mode sweep, started at init and re-checked on a daily timer, which first runs at the first startup after install because last_run ships empty. The sweep reads the user library's top-level items (Zotero.Items.getAll with onlyTopLevel; the verifier's correction of the re-judgement's "every item"). Check mode replaces the DOI with the lower-cased handle when they differ, fills empty DOIs from Crossref, and adds or removes its own three tags and link attachments. Each path has its own gate: the add handler returns on autoretrieve none, and the sweep returns when monthly_verify is false. Menu commands act on the selection. Setting: extensions.shortdoi.autoretrieve=none and extensions.shortdoi.monthly_verify=false; monthly_verify is not in README's automatic-mode column, which holds one key per add-on (zoteroshortdoi.js:1-3, 29-34, 41-53, 70-80 (gate 77), 82-86, 88-114 (gate 99, getAll 105); lib/doi-updater.js:234-250, 254-300; lib/doi-service.js:63-83; prefs.js:1-3 @ v2.2.0 asset sha256 299c46a3…, tag a8211a4).
+- ◊ 2026-10-04 live: A1 pass — the v2.2.0 asset (sha256 299c46a3…40eb0, the pin above) ships id zoteroshortdoi@wiernik.org, range 8.0–10.0.*. After the 60 s A1 run, extensions.json shows 2.2.0, active=true, userDisabled=false, appDisabled=false and stored range 8.0–10.0.*. Bootstrap startup was called (zotero-a1.out:5771) and its startup-complete line followed (:5779), with no load error. Within the 60 s its first-startup library sweep began: 5 Crossref OpenURL requests carrying its pid, 4 answered 200 and 1 answered 400 (first at :7802, the 400 at :8034). The leg reported 10 requests; the verifier counted request/completion pairs, corrected it to 5 and kept the result. The desk's monthly pass on a copy library (§6.1) was not run (a1/extensions.after.json; a1/zotero-a1.out:5771-5783, 7802-8052; a1/downloads.tsv; a1/manifests.tsv).
+
+**8. DOI Fix 1.1.6.**
+
+- **Pin.** Release v1.1.6 asset zotero-doi-fix.xpi, sha256 5d6fffd067c55f3b7964fbab63f27d972e88a22543bf16f9825cb1bf31a2d975, byte-identical to the installed copy. Tag a3a3eca7bbd16928d8ca5fb4dc26f4d918822987. HEAD 0b9dadb9e9a7820b39916fea74b75530e99dd859 (v1.1.9, 2026-10-02). Versions 1.1.7 to 1.1.9 fix a Zotero-10 context-menu label bug (issue #2), and doiManager.js is byte-identical in 1.1.9. Licence MIT.
+- **Installed.** addons[18], active=true, appDisabled=false. It runs from the menu only (bootstrap.js:115-140) and has no notifier.
+- **Writes.**
+  - DOI. Retrieve writes it only when empty (doiManager.js:96-108). Update replaces it only after the old DOI fails verification (:190-236).
+  - Before a replacement it appends a previous-DOI Extra line and keeps all other lines (:25, 721-736).
+  - An Extra DOI line that replaces existing DOI lines, written only for types without a DOI field (:750-761, 812-834). This path cannot be reached in schema 44: getRegularItems limits the add-on to 16 types, and all of them carry DOI (:26-43, 836-845).
+  - Four type-1 doi-fix: tags (:21-24, 684-719). It removes only its own (:702-713).
+  - Validate is read-only (:561-600).
+  - setField appears only at 735, 756 and 833.
+- ‡ 2026-10-03 normalisation: pass → fail — the menu Update command replaces another writer's DOI with a newly retrieved one. Verification is a Crossref /works lookup plus a 0.86 title-similarity gate. So a valid DataCite DOI, such as an arXiv 10.48550 or Zenodo DOI, fails verification and is replaced with a Crossref title match, and so is a valid DOI whose title differs. The prior-DOI Extra line keeps the old value, but the field is still rewritten. The old DOI is read at :194 and overwritten at :230 with network awaits in between and no re-check. Retrieve fills only an empty DOI, and tag removal touches only its own four tags. The re-judgement returned pass on the drafts' backup carve-out; the verifier refuted it, and its fail is used. It runs from the menu only, so an automatic-only reading would pass it (chrome/content/doiManager.js:19, 96-108, 194, 202-218, 229-232, 656-668, 702-713, 721-736; bootstrap.js:115-143 @ v1.1.6 asset sha256 5d6fffd0…, tag a3a3eca). Seed keys: none.
+- § 2026-10-04 by-itself: fail‡ → pass‡ — counted: none. Startup loads doiManager.js, whose init only records its config, then injects FTL and registers an item-context submenu; the only timer positions the menu. There is no notifier, timer or handler. Retrieve, Update and Validate each start from getSelectedItems, so Update's DOI replacement, which decided the first pass, is the person's own edit. Setting: none needed. Re-judgement and verifier agree (bootstrap.js:20-41, 110-143, 146-153; chrome/content/doiManager.js:48-55, 66-68, 166-168, 561-563 @ v1.1.6 asset sha256 5d6fffd0…, tag a3a3eca).
+
+**9. Linter for Zotero 3.3.2.**
+
+- **Pin.** Release v3.3.2 asset linter-for-zotero.xpi, sha256 1c169881d945e074d3f7c491cbdd13c5e8333b2815fd93bc66f2ba13984d2f21, byte-identical to the installed copy. §37 pin 095ada8b6cb8ed1e853b1c0f49b13d7020f514d0 (import-sourcing.md:5210). HEAD 2b747409e8c3df866fca327a8ad859d770694a5b (v4.0.1, 2026-09-09; shipped manifest 10.0 to 10.999). Licence AGPL-3.0-or-later (§37).
+- **Installed.** addons[7], active=true, appDisabled=false. The shipped manifest declares 7.999 to 10.999. Live prefs.js:72-76 override lint.onGroup=true, two rule toggles, update-metadata allow-type-changed=false, and a Semantic Scholar token (value not recorded). lint.onAdded is at its default, true.
+- **Writes.**
+  - In-place fields, per rule (§37 Fitting, import-sourcing.md ~5229). These include blanking nullish tokens (linter.js:9039-9065) and blanking misuse patterns (8914-8966).
+  - Creators (setCreators at 6192, 6204, 7216, 11033).
+  - Item type, from tool-update-metadata only (11022).
+  - Extra is rebuilt by correct-extra-order (5389-5430, 6556-6609).
+  - A short-doi key (6359, 10491). Keys are deleted by tool-clean-extra (9546-9560) and set by the CSL helper (10255-10270).
+  - Prefs (5641).
+  - The verifier's grep found no tag, note, attachment, IOUtils, database-write or relation calls.
+- **A2.** require-doi fills DOI from Crossref (prefs.js:39; linter.js:9216-9260). correct-doi-long verifies and expands DOIs (6339-6362). §37 C7 is at import-sourcing.md ~5285.
+- **A3 fail.**
+  - no-field-misuse is on by default (prefs.js:20) and runs in the automatic lint on add. It blanks values other writers keep in archive, archiveLocation, archiveID, callNumber, rights, libraryCatalog, the series* fields and shortTitle.
+  - The notifier is registered at priority 666, with a code comment that it runs after other plugins so it can clean up their data (11380-11395). On-add lint runs after at least 500 ms (11948-11975).
+  - The verifier found the rule broader than the desk said. shortTitle is blanked whenever its first word is not a prefix of the title (8929-8933). The archive and callNumber family is blanked when a value starts with a decimal number, such as a Dewey call number (8946).
+  - correct-extra-order reorders lines, groups same-key lines and drops blank lines.
+  - update-metadata in mode all overwrites Extra (10846-10851, 11035-11056).
+  - Duplicates are only reported (8973-9006).
+  - 4.0.1 keeps the same comment (11397) and the same regex (8953). One default changed: correct-pages-range went from true to false.
+  - The prefs that decide this result: rule.no-field-misuse, rule.no-value-nullish, rule.correct-extra-order, lint.onAdded, and update-metadata option.mode.
+- § 2026-10-04 by-itself: fail → pass — counted: a priority-666 item notifier lints every newly added regular item with a title, at least 500 ms after the add, and in group libraries only when lint.onGroup is on (production sets it on). The lint runs the standard rules, including no-field-misuse, no-value-nullish and correct-extra-order, which blank or reorder values other writers keep. onNotify returns first thing unless lint.onAdded is set. Startup otherwise registers prefs and window UI and runs a prefs-only compatibility migration, and the extra column only reads. Menu, shortcut and toolbar runs are the person's own edits. The bundled zotero-plugin-toolkit registers two URI handlers at load: the debug bridge asks for a confirm unless a password pref is set, so it is deliberate, and zotero://plugin?action=install installs an add-on from a URL with no prompt but writes no item data; reachability from outside Zotero was not checked. Setting: extensions.zotero.formatmetadata.lint.onAdded=false. It ships true and production leaves it at true, so the pass rests on a value production does not have; the key is not in README's automatic-mode column. Re-judgement and verifier agree (content/scripts/linter.js:3238-3290, 3301-3335, 5462, 5637-5638, 5714-5720, 5910-5929, 11275-11284, 11379-11395, 11845-11854, 11890, 11920-11927, 11948-11975 (gate 11950); prefs.js:2-3, 19-20, 67 @ v3.3.2 asset sha256 1c169881…; production prefs.js:72).
+
+**10. Metadata Hunter 0.8.0.**
+
+- **Pin.** Release v0.8.0 asset metadatahunter@federicotorrielli.github.io-0.8.0.xpi, sha256 fbab189b52b9063ca4a8e4cbf506a3c653f5cede94a4d3a68344dd0f0d23770a. HEAD 017cc64c5599e553c179f63fb75c80cea8cad2f4 (2026-08-31, the same as §38). Licence EUPL-1.2.
+- **A1 ranges.** addon/manifest.json:10-11 @017cc64 and shipped: 6.999 to 10.0.*. Menu-driven, with no notifier.
+- **Writes.**
+  - DOI (index.js:970, 1744, 1757) and abstractNote (986, 1721, 1746).
+  - Fills empty fields (1592-1604, 1693-1704), date (1708-1715), replaces creators (1725-1728) and changes item type (1686-1690; 1404-1411).
+  - Four manual tags with its own prefix (327-346).
+  - The published-version flow creates a new item through translators (1310-1375), moves the attachments and notes onto it (1383-1401), and trashes the original (1462-1472).
+  - Scratch items are created and then erased in the user library (1640-1670).
+- **Verifier additions.** The new item is filed into the original's collections (1316-1320, 1338-1342, 1359-1363). url is set on a BibTeX-created item (1366-1368).
+- **A3 fail.** The replacement does not use Zotero.Items.merge. The new item gets a new key and the old key stays on a trashed item; tags, Extra and relations are not carried over. The verifier added that enrichment overwrites an existing preprint DOI with the published one, without a backup (1750-1758).
+- 2026-10-03 normalisation: fail kept, on a moved basis. The published-version swap is set aside. It changes no existing item's key: the old key stays on the trashed original, and BBT keys the new item. Its trash of the original counts only under the §2a trash reading. The fail rests on (a) through menu commands. Enrichment overwrites an arXiv DOI (10.48550/arXiv.*) with the published version's DOI, found by a title race across sources, and keeps no backup. This path is reachable because isPreprint returns false for published item types before it checks the DOI. Enrichment also overwrites a year-only date, an abstract under 200 characters and creators, and can change the item type, which drops type-invalid fields. Pass under an automatic-only reading (content/scripts/index.js:1079-1086, 1113-1122 (1118), 1126-1128, 1284-1299, 1617-1618, 1684-1690, 1712-1715, 1720-1721, 1725-1728, 1753-1758 in the v0.8.0 asset sha256 fbab189b…; Zotero item.js:477-517 @ ca61760). Seed keys: none; its only prefs are batchSize and dblpHost.
+- § 2026-10-04 by-itself: fail → pass — counted: none. Startup registers its prefs pane and wires windows; window load adds menus, a toolbar button and a shortcut. There is no notifier or interval; the setTimeouts remove UI or race a request timeout. The toolbar button and the Ctrl/Cmd+Alt+D/P/M shortcuts call findDOIs, findPublishedVersions or enrichMetadata through resolveTargetItems, which takes the selection, else the selected collections, else the whole selected library, with no confirm (verifier detail). The verifier read a button or shortcut the person presses as deliberate whatever its scope; the no-selection, no-confirm case is left open in §2a. So the enrichment overwrites and the published-version swap run only when the person invokes them. Setting: none needed (content/scripts/index.js:160-176, 247, 357-376, 401-414, 443-470, 494-512, 517, 1946-1970 @ v0.8.0 asset sha256 fbab189b…).
+- ◊ 2026-10-04 live: A1 pass — the v0.8.0 asset (sha256 fbab189b…770a) is the pin above; shipped manifest 0.8.0, range 6.999–10.0.*. extensions.json shows active=true, userDisabled=false, appDisabled=false and stored range 6.999–10.0.*. Startup was called at zotero-a1.out:2249, and no error is attributed to its id (a1/extensions.after.json; a1/zotero-a1.out:2249; a1/a1-error-attribution.txt).
+- ◊ 2026-10-04 live: A4, writes by itself (startup and on-add): pass — the valid run is metadata-hunter-r2; the first run is invalid (§7 item 28). After the fixtures and 60 s, the library rows matched the control after normalisation, the library version did not move during the wait, and prefs.diff shows no add-on pref. Beyond the control it wrote only its xpi and extensions.json, besides the add-on manager's cache and the leg's user.js. Startup logged only its startup line and its pref pane (zotero.out:1447, :1449) (step2/metadata-hunter-r2/cmp-control.txt, dbdiff.txt, prefs.diff, fsdiff.txt; step2/metadata-hunter/run.log for the invalid run).
+- ◊ 2026-10-04 live: A4, the §6.2 find-published-version and enrich leg: needs-live still — both are commands the person runs (toolbar button, menu, or Ctrl/Cmd+Alt+D/P/M). Human step in §6.4; the state before them is step2/metadata-hunter-r2/api/find-04-after-wait.json.
+
+**11. ZotMeta 2.1.**
+
+- **Pin.** Release v2.1 asset zotmeta-2.1.xpi, sha256 2a20b823119cd3348afe03ed1d0ad099d2f6ab8d8d6f48389fdf03ef506fc99e. HEAD adc1bd7ce8aeb85ee70e3c561362ff751be57d66 (2026-10-01). Licence MIT.
+- **A1 ranges.** src/manifest.json:11-12 @adc1bd7 and shipped: 7.0 to 10.0.*. §38 recorded 7.0 to 9.0.* (import-sourcing.md:5409).
+- **Writes.**
+  - Field overwrites per its map (journal.js:143-155; book.js:138-145; arxiv.js:248-258).
+  - PMID and PMCID Extra lines (pubmed.js:209-235; journal.js:156).
+  - Identifier fields (utilities.js:598-610).
+  - Two type-0 status tags. The failure tag is written only when tagFailedItems is on, which is off by default (prefs.js:3; utilities.js:5-6, 455-495, 462).
+  - New parents for orphan PDFs (zotmeta.js:480-505).
+  - Prefs. Its SQL is SELECT only (preferences.js:281-360).
+- **A3 fail on a corrected basis.** The verifier changed the basis without flagging a refutation. applyMetadata overwrites title, creators and the other mapped fields with no backup and no conflict check (utilities.js:420-435). The desk's PMID/PMCID rationale does not hold:
+  - The default source order tries the DOI source first (utilities.js:396-401). getMetaData returns the first non-empty source (journal.js:77-83), and the DOI payload has no PMID or PMCID (journal.js:123-133).
+  - So Extra is written only when the DOI lookup fails or journalSource is set to pubmed.
+  - PubMed results that disagree with values already in Extra are rejected (pubmed.js:69, 76).
+  - The replace canonicalises the matched line and blanks later lines with the same key (pubmed.js:218-226). It does not install a different value.
+- § 2026-10-04 by-itself: fail → pass — counted: none. Startup registers the prefs pane, loads scripts and adds two item-menu commands on getSelectedItems (update metadata, create parent item) and a Tools entry that opens the prefs pane, whose showing handler only computes library stats. The legacy chrome.manifest overlay is not loaded by the Zotero 7+ bootstrap and would add only menus. There is no notifier or timer, so applyMetadata's unbacked overwrites run only when the person invokes them. Setting: none needed. Re-judgement and verifier agree (bootstrap.js:11-34; chrome/content/zotmeta.js:14-20, 26-88, 366-379, 442-457, 508-512; chrome/content/overlay.js:1-5 @ v2.1 asset sha256 2a20b823…).
+- ◊ 2026-10-04 live: A1 pass — the v2.1 asset (sha256 2a20b823…c99e) is the pin above; shipped manifest 2.1, range 7.0–10.0.*. extensions.json shows active=true, appDisabled=false and stored range 7.0–10.0.*. Startup at zotero-a1.out:1913; no attributed error (a1/extensions.after.json; a1/zotero-a1.out:1913).
+
+**12. Meta Refresh 0.5.0.**
+
+- **Pin.** Release v0.5.0 asset zotero-metadata-refresh.xpi, sha256 b1684aff357161c447645742ef9b3a3b4edeefdf39822e82c42b2810f74e2b3f. HEAD f8af2e5e0abc45a6dfec8f50e8ae4c7122489681 (2026-09-11). Licence AGPL-3.0.
+- **A1 ranges.** addon/manifest.json:14-15 @f8af2e5 and shipped: 10.0 to 10.*. §38 recorded 7.0 to 9.*.
+- **Writes.**
+  - Whitelisted fields, written only when the current value matches the planned old value (metarefresh.js:2339-2346).
+  - Author creators are replaced; editors and translators are kept (2348-2361).
+  - An Extra backup line holding a timestamp and JSON, when backupToExtra is on, which is the default (prefs.js:4; 2363-2377).
+  - A count line that replaces only its own earlier copy (2468-2503).
+  - Restore removes only its own backup line (2425-2452).
+  - Prefs (1613). Menu-driven, with no notifier (3236-3252).
+- **Verifier caveat (A3 pass stands).** Restore re-sets the backed-up fields and creators with no conflict check. A later edit by another writer to those same fields is overwritten. Restore also trims trailing newlines from Extra (2449).
+- ‡ 2026-10-03 normalisation: pass → fail — applyPlan overwrites whitelisted fields (title, venue, date, DOI, abstract) with fetched values and replaces every author creator. The Extra backup, the field conflict check and the preview dialog are not A3 exceptions. Creators get no apply-time conflict check, unlike fields. The verifier also corrected the caveat above: restore is previewed field by field behind a confirm. With backupToExtra=false the rewrites leave no record. The re-judgement returned pass; the verifier refuted it, and its fail is used. It is menu-driven, so an automatic-only reading would pass it (content/scripts/metarefresh.js:2339-2347, 2349-2361, 2363-2375, 2425-2452, 2729-2751, 2877, 2943-2959, 3018; prefs.js:4 @ v0.5.0 asset sha256 b1684aff…). Seed keys: none. extensions.zotero.metarefresh.backupToExtra=true, the shipped default, keeps only the backup line.
+- § 2026-10-04 by-itself: fail‡ → pass‡ — counted: none. onStartup registers prefs, menus, read-only columns and an item-pane section that only sets innerHTML; its Refresh and Restore buttons are clicks. runRefresh confirms scopes other than the selection and always previews before applyPlans, the preprint scan confirms and previews, restore is previewed behind a confirm, and the citation-count fetch writes its own line for the selection or after a confirm. Under the ruling a preview or confirm dialog is deliberate, so the field and creator rewrites are the person's confirmed edits. It bundles the same toolkit URI handlers as row 9. Setting: none needed. Re-judgement and verifier agree (content/scripts/metarefresh.js:33-129, 2079-2105, 2840-2884 (confirm 2863, preview 2877), 2943-2959, 2975-3025, 3027-3081, 3165-3207, 3224-3243 @ v0.5.0 asset sha256 b1684aff…).
+- ◊ 2026-10-04 live: A1 pass — the v0.5.0 asset (sha256 b1684aff…2b3f) is the pin above; shipped range 10.0–10.*. extensions.json shows active=true, appDisabled=false and stored range 10.0–10.*. Startup at zotero-a1.out:2341. Lines 2341-2392 hold only item-tree column deprecation warnings (defaultIn, disableIn) and transaction traces from its column registration, no error (a1/extensions.after.json; a1/zotero-a1.out:2341-2392; a1/a1-jar-ref-contexts.txt).
+
+**13. zotero-ner 1.5.1.**
+
+- **Pin.** Release v1.5.1 asset zotero-author-name-normalizer-detect-and-fix-author-name-variants.xpi, sha256 61deb2515c928d18f284962d721818cfd7fef3ee3e4827592209a221bbc9667d. HEAD 3b2a20918356281c9b64e7e7917697273f6fd51e (2026-09-30). Licence GPL-3.0.
+- **A1 ranges.** manifest.json:17-18 @3b2a209 and shipped: 6.999 to 10.*. §38 recorded 6.999 to 9.0.*.
+- **Writes.**
+  - Creator names, after a review dialog (zotero-ner-bundled.js:5040-5096).
+  - publisher, place and publicationTitle, after review and a check of the current value (dialog.html:1936-1938, 3140-3141, 3258-3262).
+  - Skipped pairs, kept in prefs and window storage (bundled.js:1337-1345).
+- **A4† (verifier).** The desk's list was incomplete; it closes from code with these additions:
+  - Export writes a JSON file into the Zotero data directory, falling back to the profile (dialog.html:1587-1614).
+  - Two localStorage keys hold settings and learned mappings (bundled.js:5772, 5813).
+  - Further localStorage keys in the dialog (dialog.html:902, 920, 3561).
+  - autoApplyLearned is never read (bundled.js:840, 5801).
+  - place is not a snapshot field.
+- **Desk exit line.** It said only that the add-on wrote ordinary creator and field values.
+- ‡ 2026-10-03 normalisation: pass → fail — it rewrites other writers' creator names and their publisher, place and publicationTitle. Reviewing variants first is not an A3 exception, because the hand-edit carve-out is ruled for B3/C1 only. The basis was also incomplete. In the surname branch, after the re-check, it title-cases an all-caps firstName and strips a trailing particle from it, and the dialog shows neither change. The re-judgement returned pass; the verifier refuted it, and its fail is used (content/scripts/zotero-ner-bundled.js:4548, 4569-4587, 5050-5096 (5059, 5061-5068); content/dialog.html:3259-3262 @ v1.5.1 asset sha256 61deb251…). Seed keys: none.
+- § 2026-10-04 by-itself: fail‡ → pass‡ — counted: none. Startup registers chrome, loads the bundle and adds window listeners. The test loader and run are gated by an unset testMode pref, and the asset ships no tests/. onStartup only logs, window load runs init and a listener that only selects an item, and the post-open analysis is read-only. Every write path in dialog.html is reached only from a click, Ctrl/Cmd+Enter inside the dialog, or after a confirm, and the bundle has no notifier. So the creator and field rewrites are the person's confirmed edits, including the firstName title-casing and particle strip the first pass found the dialog does not show; the ruling makes a review dialog deliberate whatever it shows. Setting: none needed. Re-judgement and verifier agree (bootstrap.js:32-125, 424-429; content/scripts/zotero-ner.js:191-200, 530-583, 921-940; content/dialog.html:1338-1342, 1470-1477, 3209, 3385, 3451, 3613, 4577, 4645, 4659, 4718-4730, 4945; content/scripts/zotero-ner-bundled.js:5050-5096 @ v1.5.1 asset sha256 61deb251…).
+- ◊ 2026-10-04 live: A1 pass — the v1.5.1 asset (sha256 61deb251…667d) is the pin above; shipped manifest 1.5.1, range 6.999–10.*. extensions.json shows active=true, appDisabled=false. A load error at zotero-a1.out:1694, Services.sys.mjs failing to load, comes from the fallback import in its bootstrap.js:14 catch branch. It did not stop startup: startup was called (:1701), the add-on initialised and added its Tools-menu items (:1747, :1751), and its init line reports every module flag as off (:1735). Whether its commands work was not tested; A1 is a load check (a1/zotero-a1.out:1684-1751; a1/extensions.after.json).
+
+**14. Scholar Sidekick 0.1.0.**
+
+- **Pin.** Release v0.1.0 asset scholar-sidekick-0.1.0.xpi, sha256 4dab0632cacd4f4b9928b1ab4078f585079880621d6b28e6a2737c5475893100. Tag 7641f19c28efea92f2649312f305d0e63ae881c4. HEAD edb6bd7e933f69816a817fa4bcd96a4c33ebe62d; its manifest says 0.1.1, but there is no 0.1.1 GitHub release. Licence MIT.
+- **A1 ranges.** addon/manifest.json:17-18 @edb6bd7 and shipped: 7.0 to 9.*. Neither declares Zotero 10. The vendor feed serves an unread 0.1.1 build, also capped at 9.* (§2.3).
+- **Writes.** New items only (main.js:1-2): fields and authors, a manual retracted tag when a retraction is flagged, a verification child note, membership in a chosen collection, and a library-wide colour for the retracted tag. The colour is set only when none exists yet (a getColor guard). Verification goes to the vendor API.
+- **A2.** The verifier calls the step arguable: it admits items upstream of capture, so search or capture. The spec decides.
+- **Desk exit line.** It omitted the synced tag colour.
+- ◊ 2026-10-04 live: A1 fail — the v0.1.0 asset (sha256 4dab0632…3100) is the pin above; shipped manifest 0.1.0, range 7.0–9.*. extensions.json shows active=false, userDisabled=false, appDisabled=true and stored range 7.0–9.*, and its id never appears in the A1 log, so startup was not called. A1b forced the add-on background update check, which fired at 2026-10-04T01:54:53-05:00; afterwards it was still appDisabled with the stored range unchanged. Its vendor update.json lists only 0.1.1, also capped at 9.*, so no compatibility raise is available (a1/extensions.after.json; a1b/extensions.after.json; a1b/update-manifests.txt; logs/12-a1b-run.txt).
+
+**15. arxiv-marker 0.2.2.**
+
+- **Pin.** Release v0.2.2 asset arxiv-marker-0.2.2.xpi, sha256 0681ef22778ef120f3c47b182652564e1725571ec31a5af08219d9a5692bfb94. HEAD 22c3c1cbd1f3d8656ab5cb70a2fe6d1cb3eb42ae (2026-09-30). Licence MIT.
+- **A1 ranges.** plugin/manifest.json:12-13 @22c3c1c and shipped: 6.999 to 99.99.99.
+- **Writes, after a review dialog (arxiv-marker.js:265-275).**
+  - Item type (121-124).
+  - Venue fields and DOI (resolver.js:818-833; arxiv-marker.js:125-138).
+  - Extra, rebuilt with three appended line kinds: an arXiv id, a Semantic Scholar citation count, and a resolved marker (resolver.js:835-842).
+  - An undo snapshot file, arxiv-marker-undo.json, in the data directory (146-160).
+  - Prefs (351, 356).
+  - No tags: buildTags only computes them (resolver.js:621-630). This contradicts §38, which recorded venue and CORE tags as written.
+- **A3 fail.**
+  - Its tool-line filter (resolver.js:758-759, applied at 836) drops lines in tangzhao20's citation-count grammar (zoterocitationcounts.js:64, 420-427 @c4ab4fe).
+  - setType clears fields that are invalid for the new type (item.js:477-516).
+  - Undo restores a whole-item JSON snapshot via fromJSON, discarding anything written since (184-188).
+  - It trims Extra and normalises CR line endings (835, 842).
+  - The verifier added that undo's fromJSON may also restore the native citationKey field. Whether that collides with BBT needs a live check (§6.3).
+- 2026-10-03 normalisation: fail kept; the first A3 bullet above is refuted. tangzhao20 at c4ab4fe always writes a source label with a suffix: /DOI, /arXiv or /title. The tool-line filter needs the Semantic Scholar label followed directly by the closing parenthesis, and it matched none of tangzhao20's lines in node tests run by both verifiers. It does match citation-tally v0.0.18's Semantic Scholar line, so the Extra rebuild strips that writer's line. The fail also holds on three other bases: setType clears type-invalid fields, venue fields and the DOI are overwritten, and undo's whole-item restore discards what other writers saved since. The review dialog hides Extra and shows only the type change. Undo's key revert is asked for, so (b) passes. Pass under an automatic-only reading. §7 item 8's arxiv-marker clause states the same refuted claim (content/scripts/resolver.js:758-759, 813-842; content/scripts/arxiv-marker.js:28-31, 121-139, 164-188; content/scripts/review.js:96, 101-105 @ v0.2.2 asset sha256 0681ef22…; tangzhao20 zoterocitationcounts.js:64, 425, 548, 560, 589, 600 @ c4ab4fe; citation-tally citationtally.js:3421 and locale/en-US/citationtally-addon.ftl:26 @ v0.0.18 asset sha256 50cc0678…).
+- § 2026-10-04 by-itself: fail → pass — counted: none. onStartup registers a prefs pane and four menu items: selected items, a chosen collection, a Tools auto run (the selection, else the current collection) and undo. run always opens the modal review and writes only if the person accepts, undo sits behind a confirm, and there is no notifier or timer. The Extra rebuild, type change and whole-item restore are therefore the person's own edits, and undo's key revert is asked for. The review dialog hides Extra, but the ruling makes it deliberate whatever it shows. Setting: none needed. Re-judgement and verifier agree (content/scripts/arxiv-marker.js:164-189 (confirm 177), 203-214, 217-285, 303-313, 365-387; content/scripts/review.js:111-117 @ v0.2.2 asset sha256 0681ef22…).
+- ◊ 2026-10-04 live: A1 pass — the v0.2.2 asset (sha256 0681ef22…fb94) is the pin above; shipped range 6.999–99.99.99. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:1755, and its preference pane registered (:1757); no attributed error (a1/extensions.after.json; a1/zotero-a1.out:1755-1757).
+
+**16. Cita 1.0.0-beta.28.**
+
+- **Pin.** Pre-release v1.0.0-beta.28 asset zotero-cita.xpi, sha256 51c02202124aad8ae05d672f076e2bca8ae63b6b9d26cfa119d0fafe4c435f04. HEAD 8ec0774cc59d78a08ac855618f5e6b5199e1642c (2026-10-02). Licence GPL-3.0 (LICENSE.md; §38 package.json:35).
+- **A1 ranges.** static/manifest.json:17-18 @8ec0774 and shipped: 6.999 to 10.0.*.
+- **Writes.**
+  - Citations storage. The default note mode writes child notes titled Citations or CitationsNNN, holding JSON under a do-not-edit warning (index.js:55158-55166, 55344-55350). The alternative Extra mode writes citation lines and corrupt-citation lines (55360-55366, 55418).
+  - Identifiers go to native fields, clearing same-key Extra lines; arXiv goes to archiveID; others become Extra lines (54714-54736).
+  - Relations (55555-55559).
+  - New items from citation targets, added to a collection (53181, 53893, 56698-56709).
+  - Type, title and archiveID from its editor.
+  - Export files (57850).
+  - A delete observer rewrites citation storage on items whose citations point at the deleted key (58287-58320; the verifier's scope is 58289-58300).
+  - Its SQL is SELECT only (52604-52709).
+- **Verifier additions.** Pref writes (54211, 41023, 41052). Related-item relation removals (55126-55135). Erasure of notes titled Citations.
+- **A3 fail.**
+  - setPID clears same-key Extra lines whoever wrote them. setExtraField removes every line of a key before appending (43018-43027).
+  - The verifier added two more bases:
+    - Any child note whose title starts with Citations is treated as Cita's (43062-43064), and note-mode setCitations erases them all (55370-55375).
+    - Unlinking removes the related-item relation in both directions, even when that relation existed before Cita linked it (55120-55135).
+- § 2026-10-04 by-itself: fail → fail (result kept; basis moved) — counted: the ZoteroOverlay constructor, built at every main-window load, registers an item observer unconditionally. On any permanent delete by any writer, Zotero's 30-day trash purge and deletes arriving by sync included, it loads citations for every regular item in that library and unlinks citations that point at the deleted key, which re-saves that item's citation storage. In note mode (shipped default) the re-save first erases every child note whose title starts with Citations. In extra mode it rewrites citation: lines, and the library-wide load also turns any non-JSON citation: Extra line into a corrupt-citation line, as opening an item or rendering the citation-count column does; the match is case-insensitive ^citation:, so BBT's Citation Key lines are not matched. Setting: none; extensions.cita.storage offers only note and extra and changes which data is exposed, and no preference gates the observer. The condition is narrow: a non-Cita note is erased only if it is titled Citations*, its first <pre> is empty or whitespace, and its item carries a Cita citation to the deleted key. The verifier corrected the re-judgement: unlinkFromZoteroItem is called unawaited, so a throw on a later item stops the loop but does not retract saves already queued for earlier items; the erasable set is unchanged. The setPID, setCitations and unlink paths the first pass failed on are the person's own edits. The relation-removal basis does not decide on this path, because the deleted key no longer resolves when the notifier fires; the verifier did not re-check that against Zotero's erase internals (chrome/content/scripts/index.js:42625, 42985-42990, 43062-43065, 55120-55137, 55160-55166, 55290-55297, 55353-55405 (erase 55370-55375, 55398), 55464-55525 (throw 55507; rewrite 55522-55525), 55548-55554, 58231-58238, 58288-58320 (58290, 58303), 58344, 59339-59341; chrome/content/preferences.xhtml:16-25 @ beta.28 asset sha256 51c02202…).
+
+**17. zotero-openalex 10.0.1.**
+
+- **Pin.** Release v10.0.1 asset zotero-openalex.xpi, sha256 84b082cc43e6f43b6c4585aad47c7433223eb1498c56c600a62db6f4107d8b5c. HEAD d7c08ebf240859d4c13856588c061c2716997bca (2026-08-17, the same as §38). Licence conflict: the LICENSE file is GPL-3.0 and package.json:22 declares AGPL-3.0-or-later. §38 had "not recorded".
+- **A1 ranges.** addon/manifest.json:16-17 @d7c08eb and shipped: 6.999 to 10.*.
+- **Writes.**
+  - Three of its own Extra keys: work id, count and count date (openalex.js:4987-4989). They are inserted before any Citation Key line, and earlier copies are replaced (6312-6345).
+  - Whitespace normalisation across the whole Extra (6352-6354, the verifier's cite): CRs removed, runs of blank lines collapsed, ends trimmed.
+  - url: an optional overwrite and a restore tool (5481-5485, 5662-5684).
+  - Opt-in, off by default: a DOI and an item-type change to preprint for arXiv items (prefs.js:3; 6496-6510; gated at 6367).
+  - Its own SQLite database through Zotero.DBConnection (4644-4651).
+  - Prefs (2103-2110).
+  - A startup sync, on by default, over every DOI-bearing regular item in user and group libraries (prefs.js:2; 5540-5580, 6558-6585).
+- **Verifier notes.** When the DOI field is empty, any DOI-shaped string in Extra becomes the lookup key (6363-6366, 6384-6394), so another writer's DOI-bearing line can yield the wrong work id. That is a correctness problem, not loss of another writer's data. If enabled, the opt-in correctArxivArticles path would fail A3.
+- 2026-10-03 normalisation: pass kept. It rewrites only its own three openalex.* Extra lines, inserted before a Citation Key line it leaves intact, and its whole-Extra pass changes whitespace only. The pass rests on two shipped defaults: extensions.zotero-openalex.correctArxivArticles=false and extensions.zotero-openalex.overwriteArticleURL=false (prefs.js:3-4). With either on, it rewrites another writer's data, through a type change that drops fields or a url overwrite. Rows 22 and 44 are written as gated fails; whether a pass may stand on an off-by-default destructive path instead is §7 item 2's open question. The identifiers verifier also noted a narrow lost-update window. synchronizeItemsWithWork snapshots Extra, then writes a value derived from that snapshot after its own transaction, and its error rollback writes the snapshot back (content/scripts/openalex.js:5013-5016, 5431-5433, 5662-5699, 6312-6354, 6367, 6497-6511; prefs.js:2-4 in the v10.0.1 asset sha256 84b082cc…). Resolved 2026-10-04 by the second ruling.
+- § 2026-10-04 by-itself: pass → pass (result kept; basis moved) — counted: a startup sync (autoUpdateOnStartup, shipped true) runs a few seconds after startup over every DOI-bearing regular item due for refresh, in user and group libraries. It rewrites its own three openalex Extra lines and normalises whitespace across Extra. It has a lost-update window: it snapshots Extra and url, awaits its store, then writes, and on error writes the snapshot back, so a concurrent Extra write by another writer can be overwritten. With correctArxivArticles or overwriteArticleURL on, the sync also changes type or url. main() returns before scheduling the sync when autoUpdateOnStartup is false, and runStartupSync checks it again; forceRun comes only from the Tools menu command. There is no notifier, and the column only reads. Setting: extensions.zotero-openalex.autoUpdateOnStartup=false. The verifier corrected the re-judgement: the shipped correctArxivArticles=false and overwriteArticleURL=false narrow the sync's writes but do not confine it, because of the lost-update window, so the pass rests on autoUpdateOnStartup=false alone and no longer on the shipped defaults of the line above. That key is not in README's automatic-mode column (content/scripts/openalex.js:5136, 5520-5543, 5663-5699, 6360-6369, 6586-6591, 6639-6672; prefs.js:2-4 @ v10.0.1 asset sha256 84b082cc…).
+- ◊ 2026-10-04 live: A1 pass — the v10.0.1 asset (sha256 84b082cc…8b5c) is the pin above; shipped range 6.999–10.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:1763. On first startup it created <dataDir>/zotero-openalex.sqlite and its WAL, and called api.openalex.org, which answered HTTP 429 with its daily budget used up (:3989-3997). That is a network refusal, not a load error (a1/zotero-a1.out:1763, 3989-3997; a1/post-a1-newfiles.txt; a1/extensions.after.json).
+
+### 4.3 counts-summaries
+
+The production baseline, taken from a /tmp copy of /mnt/d/Zotero/zotero.sqlite plus its WAL on 2026-10-03:
+
+- No Extra value contains any of the count grammars below.
+- No note contains TL;DR. There are 97 notes and 1,574 regular items.
+- Only the user library exists (libraryID 1).
+
+**18. scite-zotero-plugin.**
+
+- **Pin.** Release v2.0.5, asset scite-zotero-plugin-2.0.5.xpi, sha256 5acf2f3231cc69b3143a463e3a5bd8fe93c813087d872720ec6650527d984fb3. The installed copy is byte-identical. HEAD is 0dc5ce377e2f87e4c6c4d9e2c442f2023f90f0d7 (2026-02-02), unchanged since §38.
+- **Licence.** None in the xpi, the repo or package.json.
+- **Installed state.** 2.0.5: active=true, appDisabled=false.
+  - The shipped manifest.json:10-11 caps at 6.999–8.0.*.
+  - extensions.json stores maxVersion '*'.
+  - The release updates.json entry for 2.0.5 has strict_min_version 6.999 and no maximum.
+- **Why it loads despite the cap (verifier, now evidence).** In Zotero 10.0.5's omni.ja:
+  - modules/addons/AddonUpdateChecker.sys.mjs:189-198 sets maxVersion to '*' when an update entry has no strict_max_version.
+  - XPIDatabase.sys.mjs:723-748 (applyCompatibilityUpdate) raises the stored range to match.
+  - That the update check actually ran is still inferred.
+- **Writes.**
+  - No item writes.
+  - Tallies are held in memory (lib.js:3082) and shown in five columns and an item-pane section (lib.js:3108-3123).
+  - It reads the database read-only (3262-3280, at 3271).
+  - It ships one default pref (prefs.js:1), which is never read.
+  - Outbound: every DOI in the library, from the DOI field and from Extra, goes to api.scite.ai at startup and every 24 h (lib.js:3177, 3207, 3285).
+  - A legacy install.rdf capped at 6.0.* is ignored by Zotero 7 and later.
+- **A2† (desk fail, verifier pass).** The desk failed it: nothing reaches capture, and the §5.1 empty step was allowed. The verifier passed it for scoping-review, on the same column basis the desk accepted for open-citations (default config) and the other count plugins. If a column does not serve scoping-review, then scite's fail stands and the scoping-review half of every count plugin's A2 falls with it. See §7 item 4.
+- **Desk exit line.** "Uninstall it; it wrote nothing to the library, so nothing remains to read or migrate beyond one default pref."
+
+**19. Zotero TLDR (syt2).**
+
+- **Pin.** Release 1.0.7, asset zotero-tldr.xpi, sha256 2ce9f9dd923cc18233cf08c22890375f2e84a051196b6c51d880f6cc63469f9b. The installed copy is byte-identical. Tag 1.0.7 is 5d4dde170a05e83980ff3959ad8a90e87e815ed7. The repo is archived at HEAD ed129f2a4581f484416c645bfee0c687b12ddfb0 (2024-07-25).
+- **Licence.** AGPL-3.0 (LICENSE at 1.0.7; package.json:29).
+- **Installed state.** 1.0.7: active=true, appDisabled=false, installDate 2026-05-16.
+  - The shipped manifest.json:16-17 caps at 6.999–7.0.*. The cap is lifted by the same path as scite's.
+  - update.json's update_link begins with the literal string undefined, so there is no update path.
+- **Writes.**
+  - One child note per regular item, holding a TL;DR heading and the summary text, saved with parentID. A forced re-fetch overwrites it (zoterotldr.js:196-197).
+  - <dataDir>/Zotero TLDR/fetchedItems.json, rewritten after each lookup and on each item deletion (195).
+  - It runs at every startup over unmapped items in all libraries, and 3 s after any item is added (197).
+  - It writes no Extra, tags, fields or prefs. The bundled toolkit's ExtraField is instantiated but never called.
+  - The endpoint is an undocumented POST to the www.semanticscholar.org search API.
+- **A2† (desk pass for capture, verifier needs-live).** The desk's basis was CONTEXT.md:20 and capture.py:205-206. Production shows it has produced nothing:
+  - No note contains TL;DR.
+  - One POST sent as the plugin sends it got HTTP 202 with an empty text/html body.
+  - /mnt/d/Zotero/Zotero TLDR/fetchedItems.json is '{}' (2 bytes, mtime 2026-08-17). Even a no-match writes a false entry (197), so no lookup has ever completed.
+  - As shipped, it serves no step on this machine.
+- **A3 note.** User edits inside its note are overwritten only on a forced refresh: the item menu with exactly one item selected. CONTEXT.md:20 makes child notes the home of per-source prose, so this is a real exposure.
+- § 2026-10-04 by-itself: pass → pass (result kept; basis moved) — counted: a sweep over regular items in all libraries on every main-window load (the verifier's correction of "at startup"), and a pass 3 s after any item add. Both call onUpdateItems without force, and the filter drops items already in the fetchedItems map, so the automatic path only ever creates a new TL;DR child note. The only overwrite of an existing, possibly hand-edited TL;DR note is the item-menu force refresh with one item selected, the exposure in the A3 note above, which is now the person's own edit; the collection menu is not forced. Setting: none needed (src/hooks.ts:29, 46, 96-108, 119-142; src/modules/tldrFetcher.ts:26, 41-57; src/modules/Common.ts:51-52, 65-69 @ 5d4dde1, tag 1.0.7, the source of the installed xpi).
+- ◊ 2026-10-04 live: A1 (supplementary: the install path on 10.0.5) pass — the 1.0.7 asset (sha256 2ce9f9dd…9f9b) is the pin above; shipped range 6.999–7.0.*. With the add-on background update timer forced (user.js lastUpdateTime=1), the check ran and Zotero enabled the add-on at runtime (zotero-run1.out:1182), calling startup with reason ADDON_ENABLE (:1196). Stored range afterwards 6.999–*, active=true, appDisabled=false. This observes §7 item 6's cap raise: its update.json has a 1.0.7 entry with no strict_max_version (§7 item 24) (step2/tldr/zotero-run1.out:1182, 1196; step2/tldr/extensions.after-run1.json; step2/tldr/prefs.after-run1.js:12; a1b/update-manifests.txt).
+- ◊ 2026-10-04 live: A2 fail — run 2 was a normal APP_STARTUP restart with the timer pref removed (zotero.out:797). Startup throws a TypeError that Zotero.Profile.readPrefsFromFile is not a function (:886), beside a toolkit TypeError (:885); the same pair appeared on the runtime enable in run 1 (zotero-run1.out:1284-1285). The failing call is in its data-storage init, which onStartup awaits before it registers its notifier and runs the main-window sweep. Outcome: no semanticscholar request in either log, no <dataDir>/Zotero TLDR/ directory and no fetchedItems.json, no note containing TL;DR before or after (child notes went from 31 to 34, the 3 fixture notes), and the DOI-bearing fixtures matched the control 60 s after the add. On 10.0.5 it loads and produces nothing. This is consistent with the production reading in the A2† bullet above (fetchedItems.json '{}', mtime 2026-08-17); when production wrote that file was not established (step2/tldr/zotero.out:797, 885-886; step2/tldr/run.log; step2/tldr/cmp-control.txt; step2/tldr/api/since-V0-after-wait.json).
+
+**20. zotero-citation-tally.**
+
+- **Pin.** HEAD 9e2aec5e2b148d14500a9020f8634b0cec1a25da (2026-08-19, unchanged since §38). Release v0.0.18, asset citation-tally.xpi, sha256 50cc0678f4441b5ca84411158f92c7f23dba8f72d65e9239eef91b74d24e17a5.
+- **Licence.** AGPL-3.0.
+- **A1 ranges.** addon/manifest.json:16-17 @9e2aec5, the shipped manifest and release update.json 0.0.18 all give 9.999–10.*.
+- **Writes.**
+  - One Extra line per database, inserted before BBT's Citation Key line or appended (extraField.ts:13-15, 83-93; citationTally.ts:677-711; setField and saveTx at 709-710).
+  - It first strips matching legacy lines (extraField.ts:35-76).
+  - Prefs (citationTally.ts:214; preferenceScript.ts:225, 246; semanticScholarClient.ts:266).
+  - Added by the verifier, without flagging a refutation: the preference pane also writes fetchOnAdd, autoUpdate, autoUpdateCutoff and useColors (preferences.xhtml:59, 73, 87, 114).
+  - Column: citationTally.ts:1232.
+- **A3 fail.** Its pre-localisation pattern (extraField.ts:50-56) strips tangzhao20's Crossref/DOI and Semantic Scholar lines (zoterocitationcounts.js:425, 548 @c4ab4fe), whichever database is being refreshed. The verifier reproduced this in node on 2026-10-03. Lines that survive: INSPIRE-HEP, Crossref/title, Citation Key, GSCC and ZSCC.
+- **Desk exit line.** Uninstall it; its Citations Extra lines stay as ordinary Extra lines that capture carries verbatim, frozen at their last date. It omitted the lines it strips.
+- § 2026-10-04 by-itself: fail → fail (result kept; basis moved; the verifier refuted the re-judgement's pass) — counted: (i) on every item add the notifier runs setCitationCount on new regular items, because fetchOnAdd ships as the string 'true'; any other value returns early. (ii) The Tools-menu command that retallies outdated item citations calls startAutomaticUpdate with trigger manual, which skips the autoUpdate gate because that gate tests only trigger startup. It runs a Zotero.Search over the whole user library with no selection gate, queues every DOI or arXiv item with a missing or stale tally stamp (an item carrying only a tangzhao20 line counts as having no data), shows only a progress window, and sends each item through setCitationCount, whose pre-localisation strip removes tangzhao20's Crossref/DOI and Semantic Scholar/DOI lines. The re-judgement read (ii) as deliberate, a menu action closest to a button, and returned pass on extensions.zotero.citationtally.fetchOnAdd='false' with autoUpdate at its shipped 'never'. The verifier read (ii) as a sweep, neither a command on selected items nor a confirmed bulk change, and returned fail: no preference confines it, since fetchOnAdd gates only the notifier and autoUpdate only startup, and the only lever, an empty databaseOrder, stops all tallying, which is disabling outright. The verifier's fail is used; the reading is left open in §2a, and the re-judgement's own notes record this outcome under the verifier's reading (addon/prefs.js:3-4; src/hooks.ts:44, 62, 185-194; src/modules/citationTally.ts:686-710, 997-1016, 1147-1206, 1356-1399; src/modules/citationAutoupdate.ts:138-267, 273-285, 376-442, 508; src/utils/extraField.ts:53-56, 61-75 @ 9e2aec5; victim grammar zoterocitationcounts.js:425, 548 @ c4ab4fe).
+
+**21. zotero-citation-counts (tangzhao20).**
+
+- **Pin.** HEAD c4ab4fe40a4bfbb854d4a77bb05127e0b8f5c7c2 (2026-10-01). It differs from the v2.3.1 tag commit 3de6bd6 only in updates.json. Release v2.3.1, asset zotero-citation-counts-v2.3.1.xpi, sha256 16886224191ce1b055e4ebf32367cbb7e5e4a5edef8ba14f05f4f1106fd088a6.
+- **Licence.** MPL-2.0.
+- **A1 ranges.** manifest.json:11-12 @c4ab4fe and the shipped manifest give 6.999–10.*. §38 recorded 6.999–9.* at import-sourcing.md:5395. The updates.json 2.3.1 entry has no strict_max_version, so an installed copy would be lifted to '*'.
+- **Writes.**
+  - A first Extra line holding the count, source and date (zoterocitationcounts.js:418-429; labels at 548, 560). Before writing it, it drops every line that begins with a count or with Citations (419-422).
+  - A removal path deletes those lines and writes nothing back (399-411).
+  - Prefs (90, 197; preferences.xhtml:14, 31).
+  - Column: bootstrap.js:22.
+- **A3 fail.** Its filter removes citation-tally's grammar (extraField.ts:14) and the metadata-refresh Citations line (import-sourcing.md:5354). The verifier found it worse than that: useTitleFallback is off by default (prefs.js:2), and _getDoi throws when the DOI field is empty (435-442). So with default settings, a Crossref run deletes every count line, its own and other writers', from each item that has no DOI (565, 605).
+- **Desk exit line.** Uninstall it; its first-line count Extra line stays as an ordinary Extra line that capture carries verbatim. It omitted the lines it strips.
+- 2026-10-03 normalisation: fail kept; part of the A3 basis above is refuted. Meta Refresh's count line and its backup line both begin with a bracketed MetaRefresh prefix, which the anchored strip pattern does not match. The citation of import-sourcing.md:5354 put Meta Refresh's backup grammar next to arxiv-marker's Citations line. The writers it does strip are citation-tally and arxiv-marker. The strip runs on every write, and the removal path at the default useTitleFallback=false stands (zoterocitationcounts.js:399-411, 419-422, 565, 605; prefs.js:2 @ c4ab4fe; Meta Refresh src/modules/metarefresh/engine.ts:641-642, 696 @ f8af2e5; arxiv-marker plugin/content/scripts/resolver.js:839 @ 22c3c1c; citation-tally src/utils/extraField.ts:14 @ 9e2aec5).
+- § 2026-10-04 by-itself: fail → pass — counted: only the item-add notifier writes by itself, and only when autoretrieve names an API; it ships none. With it set, _setCitationCount drops every Extra line that begins with a count or with Citations, which covers citation-tally's and arxiv-marker's grammars, and at the default useTitleFallback=false the removal path deletes them all when the item has no DOI or, per the verifier, when a Crossref DOI lookup fails. The Tools submenu only sets the preference, and every item write starts from the item context menu on the selection, the person's own edit. No pattern can match a Citation Key line. Setting: extensions.citationcounts.autoretrieve=none (shipped default). Re-judgement and verifier agree (bootstrap.js:43-63; prefs.js:1-2; zoterocitationcounts.js:85-87, 150-199, 205-244, 399-429, 535-566, 590-606 @ c4ab4fe).
+- ◊ 2026-10-04 live: A1 pass — the v2.3.1 asset (sha256 16886224…88a6) is the pin above; shipped manifest 2.3.1, range 6.999–10.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:2538; only column deprecation warnings (a1/extensions.after.json; a1/zotero-a1.out:2538).
+
+**22. zotero-open-citations.**
+
+- **Pin.** HEAD 061322e7fee42b974d8b28cdf2400326ea765721 (2026-10-01), 5 commits after §38's d6304a1, touching only CREDITS.md, README.md and manifest.json. The repo is josesiqueira/zotero-open-citations. Release v0.7.1, asset zotero-open-citations.xpi, sha256 a4795d9462beb9466ea1e3adb77f3e01d06502574ffe0113fa0f61cf773fb269.
+- **Licence.** MPL-2.0.
+- **A1 ranges.** manifest.json:17-18 @061322e, the shipped manifest and release update.json all give 6.999–10.*. §38:5396 recorded 6.999–9.*.
+- **Writes.**
+  - A sidecar file, <dataDir>/zotero-open-citations-state.json (open-citations.js:302-330). It also reads the legacy zscj-state.json.
+  - An optional first Extra line headed ZSCC (165-177), written only when writeExtra is on (285). writeExtra is off by default (32).
+  - Prefs (68, 407). The pane setter in prefs.js:16 writes eight prefs.
+  - A daily automatic pass (400-409).
+- **A3 fail, only when writeExtra is on.** The line pattern makes both the prefix and the count optional (43-47, 169-178). The verifier reproduced three cases in node:
+  - A first line starting "12345 citations" loses its count.
+  - A first line starting "123456 citations" becomes a wrong count of 6.
+  - A bare five-digit first line is consumed.
+  - With the default (writeExtra off), it writes nothing to items, so A3 would pass.
+- **Desk exit line.** Uninstall it; the sidecar JSON is left orphaned, and any ZSCC first lines (only if writeExtra was on) stay as ordinary Extra lines. It omitted the truncated counts.
+- 2026-10-03 normalisation: fail (only with writeExtra on) kept. The re-judgement returned pass, with extensions.zotero.opencitations.writeExtra=false as a seed key. The verifier refuted it, and its result is used. A3 has no configuration clause. research-vault writes no Zotero prefs, and its declaration column, which can assert only an automatic-mode pref that must be true, cannot check writeExtra=false. With writeExtra on, the default autoDaily pass makes the truncating write automatic (lib/open-citations.js:27, 32, 43-47, 169-178, 285, 402-408; prefs.js:45-46 @ 061322e; research_vault/doctor.py:275-280; research_vault/templates/zotero-addons.md:1).
+- § 2026-10-04 by-itself: fail (only with writeExtra on, which is opt-in) → pass — counted: a 30-minute timer and a check 2 min after startup run a daily stale pass over up to 50 user-library items (autoDaily ships true). The verifier added two paths: a Tools-menu stale pass with no selection and no confirm, and a Tools-menu whole-library update, which confirms only above 100 items. Every Extra write funnels through writeCount behind the writeExtra gate; with writeExtra on, its optional-prefix, optional-count pattern truncates or consumes another writer's leading count line. There is no item notifier. Setting: extensions.zotero.opencitations.writeExtra=false (shipped default; getPref falls back to DEFAULTS under the extensions.zotero. prefix). It turns off the item write on every path, timed or menu, leaving only the sidecar JSON and the lastDailyRun pref; extensions.zotero.opencitations.autoDaily=false also confines the timed pass. This replaces the line above's ground that A3 has no configuration clause. writeExtra=false cannot be declared in README's column as built, because doctor.py:275-280 @ 3780fb7 fails a declared preference unless it is True (lib/open-citations.js:21-34, 43-47, 64-68, 169-178, 276-300, 322-331, 346-365, 377-419, 422-456, 529-536, 584-596; prefs.js:45-46 @ 061322e).
+- ◊ 2026-10-04 live: A1 pass — the v0.7.1 asset (sha256 a4795d94…b269) is the pin above; shipped range 6.999–10.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:5671; only deprecation warnings (:5683, :5699) (a1/extensions.after.json; a1/zotero-a1.out:5671).
+
+**23. zotero-google-scholar-citation-count.**
+
+- **Pin.** HEAD 315dcd5ca01248289fc65c71b27913062efaf191 (2026-08-31, the same as §38). Release v7.0.0, asset zotero-google-scholar-citation-count-7.0.0.xpi, sha256 2fb469b7e44a210df016714e915b4a1679073d99962d386d27a2dd63137d8606.
+- **Licence.** MPL-2.0.
+- **A1 ranges.** src/manifest.json:16-17 @315dcd5 and the shipped manifest give 9.999–10.*. The update_url returns 404, so there is no update path.
+- **Writes.**
+  - A first Extra line headed GSCC, holding the count, an ISO timestamp and a relevance score (gscc.js:186-205, 611-641, 857-876; setField and saveTx at 637-640). It rewrites the line in place when Extra already starts with GSCC, and prepends it otherwise.
+  - Pane prefs the desk left unread. The verifier closed them from code without flagging a refutation: seven prefs (prefs.xhtml:26, 50, 60, 91, 109, 127, 145; prefs.js:1-11).
+  - It scrapes scholar.google.com. §38 records the terms-of-service question.
+- **A3 edge.** The rewrite pattern is global and unanchored but cannot cross a newline, so the rest of any line containing the GSCC token is rewritten.
+- § 2026-10-04 by-itself: pass → pass (result kept; basis moved) — counted: only the item-add notifier writes by itself, and only when useAutoCountUpdate is true; it ships false. Its write prepends a GSCC first line or, when Extra already starts with GSCC, rewrites from any GSCC: token to the end of its line, so a different writer's line containing that token is the one theoretical exposure, on the opt-in path only. The selected-item and collection menus are deliberate. Setting: extensions.zotero.gscc.useAutoCountUpdate=false (shipped default). The re-judgement called it not required; the verifier notes that a pass independent of how the A3 edge above is read rests on it (src/prefs.js:1; src/gscc.js:342, 348-379, 517, 527, 537, 612-641, 861-876 @ 315dcd5).
+- ◊ 2026-10-04 live: A1 pass — the v7.0.0 asset (sha256 2fb469b7…8606) is the pin above; shipped range 9.999–10.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:4503, followed by its init-complete line (:4507) and its menu item (:4514); no error (a1/extensions.after.json; a1/zotero-a1.out:4503-4514).
+
+**24. zotero-getcitation.**
+
+- **Pin.** HEAD 445f4fee341fcc596fd89e4f8cfeaafee358cf03 (2026-04-03, the same body as §38:5404). Release v0.1.0, asset getcitation-0.1.0.xpi, sha256 f563e4b19c60b1e24b41bf62934971bf29badea90506b800862c2c4b3b125a2b.
+- **Licence.** None. Paraphrase only.
+- **A1 ranges.** manifest.json:16-17 @445f4fe, the shipped manifest and updates.json all give 6.999–9.*. The update entry carries strict_max_version, so it cannot be lifted, and the expected live reading is appDisabled=true.
+- **Writes.**
+  - Extra's first line becomes a bare integer, after it strips every line matching its citation-line patterns and every empty line (bootstrap.js:58-65, 846-856).
+  - A developer self-test restores the previous Extra (215-231).
+  - A rolling log in a pref (988-1009).
+  - Source-order and API-key prefs (preferences.js:92-101) and a log export file (136).
+  - Added by the verifier, without flagging a refutation: lifecycle timestamp prefs (107, 139, 162), devSelfTest prefs (181, 293), and two extra saveTx calls on a real item during the self-test (229-230).
+  - Column: bootstrap.js:118.
+- **A3 fail.** It strips:
+  - citation-tally lines (except INSPIRE);
+  - tangzhao20's DOI and arXiv lines (except INSPIRE-HEP);
+  - any digits-only line, which can be user content;
+  - three namespaced Semantic Scholar keys;
+  - all empty lines.
+
+  §38 Surplus (import-sourcing.md:5323) already recorded it as destructive.
+- **Desk exit line.** Uninstall it; an unlabelled integer stays as Extra's first line, and the other writers' count lines it stripped are gone for good. It omitted the bare-integer and blank lines.
+- § 2026-10-04 by-itself: fail → pass — counted: it has no notifier and no timer. At startup and window load it writes only its own timestamp and log prefs. When extensions.getcitation.devSelfTest.enabled reads true it runs a developer self-test that, after a successful lookup, writes one item's Extra through the stripping writer and then restores the prior Extra; the preference defaults to false and the test clears it. The Tools and item menu entries that update citation counts go through getTargetItems, the selection or its parents, so the stripping of other writers' count lines, digit-only lines and blank lines is the person's own edit. None of the patterns can match a Citation Key line. Setting: extensions.getcitation.devSelfTest.enabled=false (absent by default, so read as false; self-clearing). Re-judgement and verifier agree. No licence: paraphrased (bootstrap.js:2, 9, 58-65, 105-135, 161-167, 176-231, 297-350, 456-474, 494-529, 847-856; prefs.js:1-2 @ 445f4fe).
+- ◊ 2026-10-04 live: A1 fail, the reading the A1-ranges bullet expected — the v0.1.0 asset (sha256 f563e4b1…2a2b) is the pin above; shipped range 6.999–9.*. extensions.json shows active=false, appDisabled=true and stored range 6.999–9.*, and no startup call. After the forced update check in A1b it was still appDisabled; its updates.json entry for 0.1.0 keeps strict_max_version 9.* (a1/extensions.after.json; a1b/extensions.after.json; a1b/update-manifests.txt).
+
+**25. semantic-zotero.**
+
+- **Pin.** HEAD 5670cbc785110b6f13e0406d6776e1f2aab4993c (2026-10-03). Since §38:5415 recorded it as a dead Zotero 6 overlay, it has been rewritten as a bootstrap plugin; the Zotero 7–10 port landed 2026-09-30. Release v0.3.0, asset semantic-zotero-0.3.0.xpi, sha256 df8c9c18fbb11556d0b24d6a4d8897fc0a5ca720dfb660fe7c89429f3dded597.
+- **Licence.** MIT.
+- **A1 ranges.** manifest.json:15-16 @5670cbc, the shipped manifest and updates.json all give 7.0–10.*.
+- **Writes.**
+  - New items, typed preprint, with title, date, abstractNote, repository, archiveID, url, creators, and user-chosen tags and collections (add-dialog.ts:102-122). It never sets DOI (106-113).
+  - Reciprocal related-item relations while relateItems is on, which is the default (124-128; prefs.ts:33). This is its only write to an existing item (125-126).
+  - A PDF imported from a URL (130-136).
+  - Prefs, with migration and a clear of legacy keys (prefs.ts:19-45; preferences.ts:17-27).
+  - Its in-library check is a title match only and does not block adds (references-window.ts:143-149), so duplicates are possible.
+- ◊ 2026-10-04 live: A1 pass — the v0.3.0 asset (sha256 df8c9c18…d597) is the pin above; shipped range 7.0–10.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:1949, then its started line for 0.3.0 (:1953) (a1/extensions.after.json; a1/zotero-a1.out:1949-1953).
+
+### 4.4 attachments-fulltext-ocr
+
+**26. Attachment Scanner.**
+
+- **Pin.** Release v0.5.1, asset attachmentscanner-0.5.1.xpi, sha256 37b5da64195ca792aa3a713b621c34057d8e550438467085dd4eee96341ec3a9. Byte-identical to the installed copy. Tag bd64d535edb265a336bbdeb661fd4cd896aacf22. HEAD 84afa55a34cb37339ed428b18c94d7b489214335 (2026-09-30) adds only a locale.
+- **Licence.** MIT.
+- **Installed state.** addons[6]: active=true, appDisabled=false.
+  - prefs.js:28-32: junk_orphan_files=2, monitor_attachments=true, remove_pubmed_entry=true, remove_snapshot=true, scan_nonfiles=true.
+  - No tag prefs are set, so the shipped hash-prefixed tag preset applies (xpi prefs.js:13-16; attachmentscanner.js:58-61).
+  - baseAttachmentPath is unset.
+- **Writes.**
+  - Its own status tags: no source, broken, duplicate, non-file, plus linked and stored when check_link_mode is on (attachmentscanner.js:2-13, 465-483).
+  - A library-wide Zotero.Tags.rename whenever its tag prefs change (132-160).
+  - trashTx of PubMed entry links (454-457).
+  - trashTx of a snapshot when the item also has a PDF or EPUB (458-462).
+  - trashTx of broken files during manual scans with remove_broken set (423-427).
+  - trashTx of same-path duplicates, through a command the user confirms (563-610).
+  - An item notifier that runs on every modify while monitor_attachments is on (341-362; bootstrap.js:212).
+  - Removal of junk files under baseAttachmentPath when junk_orphan_files is 2 (620-650, 664). Inert in production, because baseAttachmentPath is unset.
+  - Prefs (bootstrap.js:51-56).
+  - No Extra, field, creator or note writes.
+  - Minor additions from the verifier:
+    - a second display column (287-301);
+    - a startup observer registered regardless of the pref until the first window loads (bootstrap.js:211-212);
+    - remove_broken reset to false at every startup (278).
+- **A3 fail (verifier: stronger).** Under production prefs the notifier trashes any imported_url snapshot whose item also has a PDF or EPUB.
+  - The local API leaves trashed children out of /children unless includeTrashed=1 is passed (Zotero @ ca61760 server_localAPI.js:1106-1108; item.js:2778-2781).
+  - research_vault/zotero.py:273-275 never passes it, so capture loses the snapshot at once. Measured: 5 of 5 trashed children absent, 2026-10-03.
+  - The trash holds 19 imported_url snapshots, 14 of them under a parent that still has a PDF or EPUB (latest 2026-10-02), plus 8 PubMed entries. That fits this rule but does not prove which writer trashed them.
+  - removeTag works by tag name, so on every check it strips an identical tag string set by any writer.
+  - Shipped defaults (xpi prefs.js:5-8) are all false.
+- **The desk's live leg is closed.** The desk asked whether /children returns trashed snapshots. The verifier answered that from code and measurement, so it is not pending.
+- 2026-10-03 normalisation: fail kept, on a moved basis. On every check it removes its configured status tags by name from any item whose condition has cleared, whoever set them. The shipped #nosource is the same string as Zotero Storage Scanner's tag, and a preferences button adopts all four of that add-on's tag strings. A tag-pref change runs a library-wide Zotero.Tags.rename, which also resets each renamed tag to manual. The re-judgement set the snapshot and PubMed-entry trashing aside as recoverable trash of child attachments. The verifier noted that Zotero empties the trash after 30 days by default, and the §2a trash reading would count that trashing too; the result does not turn on it. Setting tag_nosource, tag_broken, tag_duplicate and tag_nonfile to strings no other writer uses, before first run, would confine both tag paths. A3 has no configuration clause (attachmentscanner.js:2-13, 58-61, 132-160, 208-209, 465-483 @ v0.5.1 xpi sha256 37b5da64…; Zotero tags.js:283-364 (:314) and defaults/preferences/zotero.js:51 @ ca61760).
+- § 2026-10-04 by-itself: fail → pass — counted: an item notifier reacts to every modify by any writer while monitor_attachments is on (production true). On each check it removes its configured status tags by name, whoever set them (the shipped #nosource is Zotero Storage Scanner's string too); with check_link_mode on it also removes #linked and #stored by name (verifier addition); and with remove_pubmed_entry and remove_snapshot on (production true) it trashes PubMed-entry and snapshot children. Manual scans, the confirmed same-file removal and the tag-pref rename are the person's acts. Setting: extensions.attachmentscanner.monitor_attachments=false (shipped default; production true). Caveat: startup registers the same observer whatever this preference says, and only the first main-window load unregisters it, so exposure needs a launch with no main window at plugin start, which code does not settle. That gap closes only with extensions.attachmentscanner.tag_nosource, tag_broken, tag_duplicate and tag_nonfile set to strings no other writer uses (for example the shipped emoji preset), remove_snapshot=false and remove_pubmed_entry=false (shipped defaults), and check_link_mode=false (shipped default; production unset) or unique tag_linked and tag_stored. The verifier read the whole-library Tools scan, which has no confirm, as the person's menu action; if it were counted, the unique tag strings plus remove_broken=false, which resets at every startup, still confine it. preferencesChanged never re-applies monitor_attachments, so a runtime change takes effect only at the next window load or restart, and a tag-pref change by any writer while Zotero runs is renamed library-wide at the next prefs focus-out or scan. README's column for this add-on is blank (attachmentscanner.js:2, 6, 10-13, 128-160, 278, 281, 305-307, 343-363, 454-484, 502, 542-556; bootstrap.js:203, 211-212, 311, 320; prefs.js:5-8, 13-18 @ v0.5.1 xpi sha256 37b5da64…; Zotero zotero.js:443 @ ca61760).
+
+**27. ZotMoov.**
+
+- **Pin.** Release 1.2.32, asset zotmoov-1.2.32-fx.xpi, sha256 7770dc2c62d2aaab2662fd7402afadd058387bff69578481ac039bfc050ecc2b. Byte-identical to the installed copy. Tag 044deee12c7420fa670cc06623a02563ec93590b. HEAD 98be05b49079d6a5d8c0f26a40133b256a8c4df0 adds only a locale.
+- **Licence.** GPL-3.0.
+- **Installed state.** addons[8]: active=true, appDisabled=false.
+  - prefs.js:154-157: file_behavior=copy, enable_automove=false, copy_overwrite=true, dst_dir set to a OneDrive folder.
+  - Everything else is at defaults: delete_files=false, rename_title=true, add_zotmoov_tag=true, attach_search_dir empty.
+  - Measured: dst_dir holds 1 file, dated 2026-05-16. A local-API walk of 1,431 attachments found 0 linked_file attachments and no zotmoov tag.
+- **Copy path writes.** It copies the file to dst_dir with IOUtils.copy, and makes no item write (02-zotmoov.js:344-470).
+- **Move path writes.**
+  - It clones the attachment as a linked_file under a new key (272-273).
+  - It sets the title to the filename (275) and adds a zotmoov tag (278).
+  - It moves annotations and relations (287-288) and transfers the full-text index (289).
+  - It rewrites the old key inside the parent's child notes (292-300).
+  - It erases the original and removes its file (307-308).
+- **Other writes.**
+  - Convert-linked-to-stored (526-556).
+  - Attach-newest-file (menu-helper.js:80-176). It returns early at 91 when attach_search_dir is unset.
+  - Fix-note-links (40-76).
+  - Custom menus (custom-menus.js:98-148, 203).
+  - A delete queue (02-zotmoov.js:80-177).
+  - Four monkey-patches on Zotero internals (bindings.js:18, 32, 50, 78).
+  - A log file at <dataDir>/logs/ZotMoov/log.txt (bootstrap.js:40-42).
+  - Prefs.
+  - Added by the verifier:
+    - custom-menu Move and Copy routes (custom-menus.js:26-34, 37-66);
+    - automove pauses sync with Sync.Runner.delayIndefinite (notify-callback.js:106);
+    - a pref migration at install (bootstrap.js:21-26).
+- **A3 fail.** Moving replaces a stored attachment with a linked_file under a new key. That puts it outside capture's read set (capture.py:84-89, 101-105, 127-135). It also overwrites the title, which would erase RapidOCR's title marker (pdf-ocr-for-zotero.js:155412-155414).
+  - Verifier correction: under shipped defaults (file_behavior=move), the default-visible move-to-custom-directory command moves files even without dst_dir (02-zotmoov.js:589-615; xpi prefs.js:9, 26).
+  - Production's file_behavior=copy routes both menus to copy.
+- 2026-10-03 normalisation: fail kept, on a moved basis. Moving an attachment overwrites its title with the filename while rename_title is on, which is the shipped default; this would erase RapidOCR's title marker, and it alone decides the cell. Move and convert-linked also rewrite the old attachment key inside the parent's child notes, which keeps those links valid. The new attachment key is not a citation key, and Item.clone carries the fields, note, tags and related relations across, so the capture-read-set ground no longer counts. rename_title=false removes only the title overwrite (src/02-zotmoov.js:272-278, 292-300, 307, 535-547, 551, 608-614; prefs.js:17, 27 @ 1.2.32 xpi sha256 7770dc2c…; Zotero item.js:5337-5424 @ ca61760). Fix-note-links is at src/02-zotmoov-menu-helper.js:32-77 and is hidden by default; the (40-76) cite above is wrong.
+- § 2026-10-04 by-itself: fail → pass — counted: an item-add notifier with enable_automove on (shipped true), once dst_dir is set, moves each new attachment in move mode (shipped file_behavior=move). It clones the attachment to a linked_file and overwrites the title with the filename while rename_title is on (shipped default), which would erase RapidOCR's title marker; the verifier added that the same path rewrites the old attachment key inside the parent's child notes and saves them, and erases the original. addCallback returns before queueing when enable_automove is false; modifyCallback ignores the preference but only reschedules an execute that returns on an empty queue, which only addCallback fills. Menu moves, copies and convert-linked are the person's acts. The _eraseData patch deletes linked files only when delete_files is on, and the sync patches maintain ignore lists. Setting: extensions.zotmoov.enable_automove=false (production already sets it; shipped true); rename_title=false removes only the title overwrite. ZotMoov is not in README's table (src/05-zotmoov-bindings.js:10, 32-46; src/01-zotmoov-notify-callback.js:44-66, 99-115; src/02-zotmoov.js:206, 272-278, 292-300, 307, 617-642; prefs.js:5, 7, 9, 14, 17 @ 1.2.32 xpi sha256 7770dc2c…).
+
+**28. Open PDF for Zotero.**
+
+- **Pin.** Release v1.0.14, asset zotero-open-pdf-1.0.14.xpi, sha256 57c28fbef1cf8f510e8c96923939a36aea68adcc72b152ee5b0865de305ff5b1. Byte-identical to the installed copy. Tag 2e724b0342942a37bc3ae0bc4e95026275a9e83e. HEAD c8d77c1fe6306ae5fb92f7f7fef4fba6f61b0d1d.
+- **Licence.** None found anywhere at the pin. Nothing is quoted.
+- **Installed state.** addons[10]: active=true, appDisabled=false.
+- **Writes.**
+  - No item writes.
+  - A startup pref migration (lib.js:3052-3059).
+  - It opens attachments in the reader, the system handler or an external command (3025-3130; process launch 2993-3008).
+  - A Help-menu debug upload to filebin.net, encrypted and sent only on click (2730-2745, 2911). The verifier found it also carries the error console, the installed add-on list and an RDF export of the selected items (2791-2803, 2836-2878). That is library data leaving the machine.
+
+**29. Zotero Attanger.**
+
+- **Pin.** Release v1.5.0, asset zotero-attanger.xpi, sha256 dff7695564a80676fc706487b40c39fb813c74f5d4870f752c8786582a715ba7. Byte-identical to the installed copy. Tag = HEAD 9987661ea14d544aff27259800b2b7f00c5b59ee.
+- **Licence.** AGPL-3.0.
+- **Installed state.** addons[12]: active=false, userDisabled=true, appDisabled=false.
+  - No prefs are set, so defaults apply: attachType=linking, autoMove=true, destDir empty, autoRecognizeImportedPDF=true (xpi prefs.js:3, 8-10).
+  - The library has 0 linked_file attachments.
+- **Writes on add.**
+  - recognizeItems for standalone PDFs (zoteroattanger.js:4735-4758).
+  - Renaming the file while keeping the item key, when Zotero's autoRenameFiles is on (4769-4790, 5505-5571).
+  - Moving the file when autoMove is on, attachType is linking and destDir is set:
+    - copy to destDir and delete the source (5617-5720, 6052-6080);
+    - build a new linked_file under a new key (5723-5742);
+    - transfer annotations, relations, full-text index, tags and note (5950-5966);
+    - eraseTx the original (5743).
+- **Command writes.**
+  - Attach the newest file from sourceDir, deleting the source (5753-5770).
+  - Match files to items (5250-5380).
+  - Remove empty folders (5913-5947).
+- **Other writes.**
+  - Prefs.
+  - A temporary swap of the file handler while opening a file (5395-5408).
+  - Its Extra setter has no caller (3823-3848).
+  - It rewrites no notes on a move.
+  - Added by the verifier:
+    - the autoRenameOnModify path, off by default (4796-4830; xpi prefs.js:11);
+    - checkDir writes destDir and sourceDir (6010);
+    - the first manual move saves destDir from a folder picker (4999-5009, 5992-6011), which switches on the default auto-move for every later add.
+  - Zotero's autoRenameFiles defaults to true (defaults/preferences/zotero.js:37). Production prefs.js:60 is only the .done flag.
+- **A3 fail.** It uses the same replacement pattern as ZotMoov. fromJSON skips the key (item.js:5706-5707) and there is no replaceItemKey call, so note links to the old key dangle.
+- 2026-10-03 normalisation: fail kept, on a moved basis. It rewrites the attachment title to the new filename when the title equals the old filename, equals it without the extension, or is PDF on a PDF. With syncAttachmentTitle on, it rewrites any title. This happens on add while Zotero's autoRenameFiles is on, which is its default, and through its rename commands. It mirrors Zotero's own renameAttachmentFile title logic, and on the default path it needs another writer to have set the title equal to the filename, as ZotMoov does. The move's new attachment key is outside (a) and (b), and the note links left dangling are a broken reference, not a rewrite. A match-all filenameSkipRenameRules regex returns before any title write, and a fileTypes exclusion also stops it (chrome/content/scripts/zoteroattanger.js:4735-4790, 5428-5442, 5492-5578, 5723-5743, 5950-5966; prefs.js:39-41, 46-49, 57 @ v1.5.0 xpi sha256 dff76955…; Zotero item.js:3263-3276 and defaults/preferences/zotero.js:37 @ ca61760).
+- § 2026-10-04 by-itself: fail → pass — counted: one item notifier, reacting to any writer. On add, (i) with autoRecognizeImportedPDF on (shipped true) it runs Zotero's recognizer on standalone imported PDFs, before the skip rule, and the recognizer renames the file and resets the attachment title to Zotero's auto title; (ii) while Zotero's autoRenameFiles is on (Zotero default true), renameFile rewrites the attachment title to the new filename when the title equals the old filename, equals it without extension, or is PDF on a PDF, which is Zotero's own default title for a first PDF, and with syncAttachmentTitle on it rewrites any title. On modify, autoRenameOnModify (shipped false) runs the same rename. Automove (autoMove shipped true, armed once destDir is set, including by the first manual move's folder picker) makes a new linked attachment key and leaves note links dangling, outside (a) and (b) per §2a. The rename, move and match commands are the person's acts. Setting: extensions.zotero.zoteroattanger.filenameSkipAutoMoveRenameRules=".*", a match-all rule that returns before rename and move on add and on modify and leaves the person's commands alone, together with extensions.zotero.zoteroattanger.autoRecognizeImportedPDF=false; optionally autoMove=false. This replaces the line above's filenameSkipRenameRules, which also gates the commands. The enable preference is read by nothing, and the Extra setter has no caller. Verifier caveat: isFilenameMatched returns false for an empty basename, so a file named only by its extension is not skipped, a degenerate case that does not change the result. Attanger is not in README's table (chrome/content/scripts/zoteroattanger.js:3823-3848, 4593-4607, 4635-4655, 4735-4790, 4796-4798, 4864-4875, 5428-5449, 5537-5578, 5723-5743, 5992-6011; prefs.js:2, 9-11, 50-53, 57 @ v1.5.0 xpi sha256 dff76955…; Zotero recognizeDocument.js:295-310 and item.js:4427-4447 @ ca61760).
+
+**30. Zotero OCR.**
+
+- **Pin.** Release 0.9.5.1, asset zotero-ocr-0.9.5.1.xpi, sha256 f100b3e60cb4f3bb69166576eb57e76f7002b24ff52648c2a6827d68b535af8e. Byte-identical to the installed copy. Tag cc87c21c89f6938edd3f8c0ff2b088d8d4925ff1.
+  - 0.9.6 was released 2026-09-06: tag 9c9a4fa, asset zotero-ocr-0.9.6.xpi, sha256 9362734df35f4d53a60c8ec63a4134a3579bbc223a5d97d8488eca6dc8c9e0bf. It adds only a useCropBox option, default true (prefs.js:17), and progress text.
+  - HEAD 741ef6fbbbbd063988f88bbd6cb52ca1179ed36b.
+- **Licence.** AGPL-3.0 (§35).
+- **Installed state.** addons[1]: active=false, userDisabled=true, appDisabled=false. Defaults apply. The library has 0 OCR-titled attachments.
+- **Writes (context menu only).**
+  - It rasterises with pdftoppm (zotero-ocr.js:265-290) and runs tesseract (356-386).
+  - A child note holding the OCR text (456-464).
+  - Up to 5 page-HTML stored attachments, each carrying a remote hocrjs script tag (465-508).
+  - The OCR PDF as a stored sibling with an .ocr title suffix (510-528).
+  - An empty parent for a standalone PDF (236-238).
+  - Leftover .ocr.txt, .ocr.hocr, page images and a list file in the original's storage directory (530-537).
+  - With overwritePDF on (non-default), it writes over the original in place and does not re-index it (263).
+  - Pref normalisation (347, 367, 375).
+- **How capture sees the output.**
+  - Zotero indexes the twin up to fulltext.pdfMaxPages, default 100 (attachments.js:150, 3357-3358; fulltext.js:623-625, 797-798; defaults/preferences/zotero.js:114). A twin over 100 pages is therefore captured as partial (research_vault/fulltext.py:47-48).
+  - The HTML pages are indexed as text (fulltext.js:805; mime.js:136-137), and each one becomes a fulltext/ file (capture.py:101-105).
+  - The note lands in the literature-note body (capture.py:206; literature_notes.py:443).
+- **Code that ships but is never loaded.** bootstrap.js:20 loads only zotero-ocr.js. Shipped but never loaded: zotero-ocr-abtest.js, moduleimports-claudeAI.js, chrome/content/zoteroocr.js, overlay.xul, chrome.manifest and install.rdf.
+
+**31. Zotadata.**
+
+- **Pin.** Release v1.5.5, asset zotadata.xpi, sha256 ef6f0498f2d03fd68d21af641ca18bbfe586fd9480ff81c7da322b6b87b020ac. HEAD 782c5470173cb0d81dc1366477344ba99063e420 (the §38 read; 0 commits since).
+- **Licence.** Conflicting: LICENSE says MIT, package.json:18 says AGPL-3.0-or-later.
+- **A1 ranges.** addon/manifest.json:10-11 @782c547 and the shipped manifest give 8.0 to 9.*. By analogy only: zoteroshortdoi 1.6.0, capped at 9.0.*, is appDisabled=true here.
+- **Writes.** Every path is user-invoked; autoretrieve defaults to none (prefs.js:4).
+  - Fields overwritten from external sources (zotadata.js:6700-6755, 9621-9648, 9772-9786, 10143-10268, 10366, 10556, 10982-11054).
+  - Creators replaced (4406, 6769, 9700, 9770, 10268, 10778, 11017).
+  - Item type changed (6700-6704, 6732-6739, 6791).
+  - Automatic status tags (5883-5888, 6448-6483, 6797-6845, 9255-9318, 10583-10648).
+  - New attachments (6105, 6208, 8340-8370), each with a note naming its source (11155).
+  - Child notes (8460-8466).
+  - Attachments it judges broken are trashed (3858-3865).
+  - Translator lookups save the translated item and then trash it (9706-9730, 10659-10722).
+  - Shadow-library sources exist but default off (prefs.js:3; 8685, 8718).
+  - Its Extra setter has no caller (3258-3286).
+- **A3 fail.** It overwrites a field whenever the current value differs from the fetched one or is shorter than 10 characters (9773-9786). It also replaces creators, changes item types and trashes attachments.
+- **Desk exit line.** It omitted the trashed translator side-items.
+- § 2026-10-04 by-itself: fail → pass — counted: none. The template onNotify is empty, and the bundle has no notifier registration, scheduler or local-server endpoint; onStartup builds the plugin, registers menus and loads prefs. All four commands (check attachments, fetch metadata, process arXiv, find files) start from the active pane's selected items, and the bundle has no library-wide Search or getAll, so the field and creator overwrites, type changes, trashing and translator side-items are the person's own edits. The autoretrieve preference is declared but never read. Setting: none needed. Re-judgement and verifier agree (content/scripts/zotadata.js:5516-5521, 6408-6413, 11234-11246, 11310-11315, 11518-11522, 11572-11576, 11660-11680, 11755-11776, 11786-11787; prefs.js:4 @ v1.5.5 asset sha256 ef6f0498…).
+- ◊ 2026-10-04 live: A1 fail — the v1.5.5 asset (sha256 ef6f0498…20ac) is the pin above; shipped range 8.0–9.*. extensions.json shows active=false, appDisabled=true and stored range 8.0–9.*, and no startup call. After the forced update check in A1b it was still appDisabled; its update_url (releases/latest/download/update.json) returns HTTP 404, so no compatibility raise is possible. The A1-ranges bullet's analogy now has a direct observation (a1/extensions.after.json; a1b/extensions.after.json; a1b/update-manifests.txt).
+- ◊ 2026-10-04 live: A4, the §6.2 metadata-update and find-PDF leg: needs-live still — blocked by A1: the add-on cannot load on 10.0.5, so no leg can run there. It needs a Zotero 8.x or 9.x test instance (manifest range 8.0–9.*) where a person runs metadata-update and find-PDF on three fixture items (same raw logs as the line above).
+
+**32. RapidOCR for Zotero.**
+
+- **Pin.** Release v2.1.0, asset pdf-ocr-for-zotero-2.1.0.xpi, sha256 70cba55d56fb440d51db25313e512c6fc73b6160c85ecb19994f4a70aed42954. HEAD 3962bdb8093c7a52cb228dcd579d0eb133e54d9d is the v2.1.0 tag commit. There are 37 commits since 2026-09-04. §38's SHA for this repo was truncated.
+- **Licence.** No LICENSE file. README.md:117 and package.json:15 claim MPL-2.0 (claim only). Nothing is quoted.
+- **A1 ranges.** addon/manifest.json:16-17 and the shipped manifest give 9.0 to 10.0.*.
+- **Writes.**
+  - In-process WASM OCR, drawn as an invisible text overlay into a copy of the PDF. The original vector content is kept, and the overlay sits under its own marker (pdf-ocr-for-zotero.js:154216-154218, 156146-156148).
+  - A stored sibling with a bracketed OCR title suffix, indexed with complete:true (154226-154242, 156161-156182).
+  - After user confirmation, a title-only journalArticle parent for a standalone PDF, with the original reparented under it (154243-154260, 156186-156222).
+  - Page-OCR and strip-OCR rewrite the derived file in place and re-index it (156145-156152, 156399-156460).
+  - Prefs (prefs.js:4-13; preferences.js:33).
+  - The bundle contains no external network endpoint.
+- **A3 note.** It recognises its derived attachment only by the title suffix (155412-155414), so a retitle removes the marker. Strip-OCR falls back to the original file but removes only blocks under its own marker (156340-156351, 156408, 154117-154124, 154194).
+- ◊ 2026-10-04 live: A1 pass — the v2.1.0 asset (sha256 70cba55d…2954) is the pin above; shipped range 9.0–10.0.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:6997, then its pref pane (:6999) and its startup-complete line (:7001) (a1/extensions.after.json; a1/zotero-a1.out:6997-7001).
+
+**33. zotero-docling.**
+
+- **Pin.** Release v0.3.3, asset zotero-docling.xpi, sha256 3233a9918b1aff78a05671d381e7aee5be8457dacbc83618dc1ebed43d78dcb7. HEAD 5ef7c769627f15a8e157382fa94a8a3ba070233a (2026-06-19).
+- **Licence.** AGPL-3.0.
+- **A1 ranges.** addon/manifest.json:16-17 (templated id) and the shipped manifest give 6.999 to *.
+- **Writes.**
+  - It POSTs the PDF to a docling-serve the user runs, by default at localhost:5001 (prefs.js:1, 9).
+  - It imports the returned markdown as a stored text/markdown sibling named after the PDF (zoteroDocling.js:6720-6762), when attachToItem is on (prefs.js:27). Zotero indexes it as text.
+  - An optional export copy (6766-6779).
+  - Three docling status tags on the parent. It removes only those three (6451-6480).
+  - Force-reconvert permanently erases (eraseTx) any child with the same .md name (6113-6133, 7512-7517).
+  - Remove-images rewrites the selected .md files (7283-7333).
+  - A zip export (7140-7160).
+  - Auto-convert from the notifier, off by default (prefs.js:2; 7680, 7818).
+- **A3 fail.** Force-reconvert erases a same-named .md child no matter who wrote it. MdBundle pairs files by the same base-name rule (import-sourcing.md:5421). The verifier notes that force-reconvert asks for confirmation by default (7472-7473; prefs.js:32).
+- § 2026-10-04 by-itself: fail → pass — counted: with autoConvert on (shipped false), an item-add notifier converts new PDF attachments with no options, so force is off and the skip-if-exists check applies; it adds its own .md sibling and replaces only its three docling/ status tags, by name. The same-named .md erase is reached only from runBatch's force branch, which the reconvert menu sets behind a confirm, so it is the person's act. Setting: none needed; autoConvert=false is the shipped default (prefs.js:2) and turns off even its own-data writes. Re-judgement and verifier agree (content/scripts/zoteroDocling.js:6125-6133, 6451-6480, 6648-6665, 7472-7474, 7512-7517, 7577-7582, 7677-7699, 7752-7775; prefs.js:2-3, 32 @ v0.3.3 asset sha256 3233a991…).
+- ◊ 2026-10-04 live: A1 pass — the v0.3.3 asset (sha256 3233a991…dcb7) is the pin above; shipped range 6.999–*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:4713; no attributed error (a1/extensions.after.json; a1/zotero-a1.out:4713).
+
+**34. Mktero.**
+
+- **Pin.** Release v0.4.2, asset mktero-0.4.2.xpi, sha256 89593072bcd06ba4b4b0fc6e363812910d78babeb858090a57cf586c52900184. HEAD a5ae8df706d7b027dd26f9d628e8b05f89a5380d. More than 100 commits since §38 read 3f5baaf.
+- **Licence.** MIT.
+- **A1 ranges.** manifest.json:15-16 and the shipped manifest give 7.0 to 10.0.*.
+- **Writes.** From a partial read of a 298,584-line bundle.
+  - Conversion through MinerU (cloud by default), a local MinerU, or Mistral (prefs.js:2, 5).
+  - Save-to-library writes:
+    - a child note of rendered HTML with an embedded manifest;
+    - stored text attachments, related to the note and the PDF;
+    - embedded images (bootstrap.js:123090-123146, 123438-123590).
+  - On re-save it erases the attachments it replaces (123615-123623). It refuses to overwrite a snapshot the user has modified (123093-123095).
+  - The reader creates, recolours, comments on and deletes any editable annotation (168570-168600, 168708, 169329-169336).
+  - Reference import writes an OpenAlex ID Extra line (241311, verifier cite).
+  - Cross-library copy clones items and adds a linked-item relation (241150-241192, 241294-241311).
+  - Obsidian export writes markdown plus an assets folder into the configured vault path (prefs.js:25-26; 124428-124530). That is a write into a vault from outside the CLI.
+  - AI translation through a configured cloud API (prefs.js:14-24).
+  - Cache and temp files (verifier): the cache root is <profile>/mktero-cache/v1 (28072-28076). Temp files go to PathUtils.tempDir, with <profile>/mktero-temp only as a fallback (298268).
+- **A2† (desk fail, verifier pass for capture).** The desk failed it. The verifier passed it because save-snapshot imports a stored text/markdown attachment under the regular item (123439-123448, 123548-123572), which Zotero indexes (mime.js:136-137) and capture reads (capture.py:84-89, 101-105). That is the same basis the desk used to pass docling.
+- **A3 needs-live.** The bundle was not read to the end.
+- ‡ 2026-10-03 normalisation: needs-live → pass — a list of every Zotero save, erase and field, note or tag write call in the bundle shows writes to three places only. It writes its own snapshot note (found by its own manifest) and the attachments that manifest lists. It writes items it creates: an OpenAlex ID Extra line on a new item, and a cross-library clone. And it writes annotations. It makes no tag call and no citation-key write. The verifier kept the pass but corrected the basis. createFromText reuses any existing editable highlight with the same type, text and position, and overwrites its comment and colour; for segments after the first, an existing comment is wiped. The person chose a text span, not that annotation. The pass rests on annotation comment and colour lying outside (a)'s Extra, tags, fields or child notes. If fields include annotation properties, that path and the delete and recolour actions fail it. The list also omitted three writes that do not change the result: own-note creation and rollback, titles on new attachments, and a relation possibly written onto the source item (bootstrap.js:122904-122927, 123085-123147, 123336-123338, 123530-123623, 168518-168531, 168590-168598, 168621-168649, 241144-241191, 241294-241321 @ v0.4.2 asset sha256 89593072…). The §6.2 Mktero leg no longer decides A3. Seed keys: none.
+- § 2026-10-04 by-itself: pass‡ → pass‡ (result kept; the verifier refuted the re-judgement's basis) — the re-judgement found no by-itself write: one item notifier refreshes an open Markdown tab's overlay and the other invalidates a cache. The verifier found two paths that write without a command. (i) The annotation notifier's overlay refresh calls resolveAnnotations, which requests synchronisation of pending local Markdown annotations. (ii) Every PDF reader toolbar render, which happens when a PDF is opened, calls synchronizePending for that item. Both end in createFromText, which saves new annotations and, where an editable highlight of the same type, text and exact position already exists, whoever made it, overwrites its comment and colour; segments after the first get an empty comment, and the loop can erase annotations it just created. No preference gates this sync. A reader could class the deferred sync as finishing the person's own Markdown highlight; the verifier classed it as by-itself, because the principle names notifier and on-open triggers. The pass rests only on §2a's Annotations reading, that annotation comment and colour lie outside (a)'s Extra, tags, fields and child notes, which the second ruling does not displace; if annotation properties counted as fields, the cell would fail with no confining setting. Setting: none (bootstrap.js:119626-119645, 119803-119806, 119876-119933, 120455-120488, 168472-168572, 168590-168598, 168621-168655, 242555-242600, 242986-243002, 295596-295624, 295862-295872, 296089-296095, 298311-298314, 298557-298583; prefs.js:1-26 @ v0.4.2 asset sha256 89593072…).
+- ◊ 2026-10-04 live: A1 pass — the v0.4.2 asset (sha256 89593072…0184) is the pin above; shipped range 7.0–10.0.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:7003. On first startup it wrote <profile>/mktero-readiness/v1/index.json. The uncaught exception at :6994 comes before both RapidOCR's startup (:6997) and Mktero's; the attribution helper files it under both (a1/extensions.after.json; a1/zotero-a1.out:6994-7022; a1/post-a1-newfiles.txt; a1/a1-error-attribution.txt).
+- ◊ 2026-10-04 live: A4, writes by itself (startup and on-add): pass — at startup it registered two item notifiers, mktero-reference-index and mktero-annotation-sync (zotero.out:1697-1703), and wrote <profile>/mktero-readiness/v1/index.json, an empty records list at schemaVersion 1. fsdiff, which covers only the data directory and the profile, shows no mktero-cache; temp files elsewhere were not observed (verifier). AlternateServices.bin, an HTTP cache file, is also new beyond the control (verifier addition). After fixtures including a PDF child and 60 s, the library rows matched the control after normalisation and the library version did not move (step2/mktero/cmp-control.txt, mktero-readiness-index.json, fsdiff.txt, zotero.out:1697-1703).
+- ◊ 2026-10-04 live: A4, the §6.2 convert/save/export leg and the verifier's reader-triggered annotation sync: needs-live still — both automatic write paths in the § line above need the reader: the toolbar render on PDF open, and the overlay refresh of an open Markdown tab. Human step in §6.4 (step2/mktero/fsdiff.txt).
+
+**35. MinerU for Zotero.**
+
+- **Pin.** Release v0.9.3, asset mineru-for-zotero.xpi, sha256 02c9607fe283c5ba2d98f69e70c1399369b318670e94b4885022deec7b455457. HEAD 1d1936e1006d68abb57af2f7656bf8cef8451583 (the v0.9.3 publish).
+- **Licence.** AGPL-3.0.
+- **A1 ranges.** addon/manifest.json:16-17 and the shipped manifest give 6.999 to 10.0.*. §38 recorded 6.999 to 9.* at 946cadb.
+- **Writes.**
+  - No item writes. Its Extra setter (3439-3467) has no caller.
+  - Parse results go to <profile>/mineru-copy (mineruForZotero.js:6137-6140; 5903-5975).
+  - Temp zips (4489-4505).
+  - Parsing uses mineru.net by default (prefs.js:2; 4813) or a local API (prefs.js:4).
+  - GET endpoints on Zotero's local server (8497-8515). The verifier found they are registered unconditionally at startup (12263); apiEnabled only gates each request (8598).
+- **A2 fail.** Its output never becomes an attachment, so capture never sees it (capture.py:99-105).
+
+### 4.5 notes-ui-workflow
+
+**36. MarkDB-Connect.**
+
+- **Pin:** 825ef2d1015181b2ce5765607d9587f75d3a7f9d. This is main HEAD on 2026-10-03, unchanged since §33. Tag v0.2.4, asset markdb-connect.xpi; the installed 0.2.4 matches.
+- **Licence:** MIT (LICENSE:1-21; import-sourcing.md:4726).
+- **Installed state:** 0.2.4, active=true, appDisabled=false, targetApplications 9.999 to 10.*.
+  - Prefs (prefs.js:86-91): sourcedir is C:\Users\eranr\Memoria-test\20-sources\01-papers, which did not exist on 2026-10-03; yamlkeyword is citekey; obsidianvaultname is research-wiki.
+  - removetags is unset, so it falls back to keepsynced (addon/prefs.js:26).
+  - The ObsCite tag sits on 3 items, all type 0.
+- **Writes:**
+  - Its own configured tag, saved as type 0 (mdbcScan.ts:743-751). It removes the tag only under keepsynced (737-739).
+  - Prefs. The verifier corrected the cites: the configuration stamp is written at mdbcScan.ts:886, not in mdbcParam.ts. Invalid prefs are reset in mdbcParam.ts:81-538, migration rewrites prefs in mdbcStartupHelpers.ts:141-392, and the folder picker sets sourcedir at mdbcUX.ts:499. Other pref writes: preferenceScript.ts:69, 82 and mdbcLogger.ts:23.
+  - JSON debug dumps (mdbcUX.ts:99-113, 127-141).
+  - It also launches obsidian://, logseq:// and file URLs, which write nothing (155, 180, 205-206, 248).
+- **A3 note:**
+  - The strip happens whenever at least one note matches and a tagged item has no match (737-739).
+  - A non-existent sourcedir throws (mdbcParam.ts:32-36), so the scan returns empty (mdbcScan.ts:108). Zero records make the run a dry run (794-800).
+  - removeTag removes the tag by name, whatever its type.
+  - addonly is a valid removetags value (mdbcConstants.ts:11).
+- § 2026-10-04 by-itself: pass → pass (result kept; basis moved) — counted: a sync runs by itself at main-window load. Under removetags=keepsynced it removes the configured tag (tagstr, shipped ObsCite) by name, whatever its type and whoever set it, from every item that has the tag but no matched note; otherwise it only adds that tag. It registers no notifier or timer and writes no key. Setting: extensions.zotero.mdbc.removetags=addonly, a valid value. It ships keepsynced and production leaves it unset, so the pass rests on a value production does not have; README's column for MarkDB-Connect is blank. Re-judgement and verifier agree (src/hooks.ts:15-26, 52; src/modules/mdbcScan.ts:737-745, 787-800; src/modules/mdbcConstants.ts:11; addon/prefs.js:26; package.json:13 @ 825ef2d; production prefs.js:86-91).
+
+**37. Better Notes.**
+
+- **Pin:** 4215a882e9f3528ddd4820c20b2c29e732c14e7e. This is master HEAD on 2026-10-03, unchanged since §29. Tag v3.3.3, asset better-notes-for-zotero.xpi; the installed copy matches.
+- **Licence:** AGPL-3.0 (LICENSE:1-2; import-sourcing.md:4140).
+- **Installed state:** 3.3.3, active=false, userDisabled=true, appDisabled=false. syncNoteIds is empty (prefs.js:49).
+- **Writes:**
+  - Creates notes: createNote.ts:122-139; annotationNote.ts:245-261, which copies the annotation's tags; picker.ts:98-125; userGuide.ts:100-102.
+  - Rewrites note HTML: note.ts:45-67; markdownMode.ts:1172; diffWindow.ts:113. Markdown import replaces the whole body (import/markdown.ts:51-66).
+  - Image attachments (note.ts:385, 481).
+  - Removes its own legacy link tags (annotationNote.ts:180-218).
+  - A tag mirror between annotation and linked note, on by default (279-330; addon/prefs.js:26).
+  - Export copies, and erases its own temporary ones (export/api.ts:38-50, 153).
+  - An IndexedDB store, BN_Two_Way_Relation (relationWorker.ts:6).
+  - Files: export/markdown.ts:24, 60; docx.ts:14; latex.ts:28-104; freemind.ts:8; editorWindow.ts:717; imageViewer.ts:103; outlinePane.ts:379-408.
+  - Prefs (import-sourcing.md:4249).
+  - Templates execute JavaScript supplied by the user or the community (§29, :4153).
+  - Added by the verifier:
+    - PDF export empties Zotero's global print header and footer prefs (export/pdf.ts:36-41).
+    - The note picker sets extensions.zotero.lastViewedFolder (notePicker.ts:429).
+    - Exports copy attachment files (convert.ts:735, 1353).
+    - The IndexedDB store already exists on production (storage/permanent/chrome/idb/2522908828BnNo_iTtwaol_eWRa_y.sqlite).
+- **A3†:**
+  - The desk passed it, on the basis that it removes only its own legacy tags.
+  - The verifier found that the default-on mirror removes a tag name from the paired note when that tag is removed from the annotation, and the reverse, whoever set it (annotationNote.ts:281-330, at 326; hooks.ts item-tag notifier).
+  - The verifier also found that the editor and template surfaces leave child-note non-destruction unprovable from code.
+  - There is no setField on regular items and no Items.merge.
+- **Desk exit line:** disable it; the notes remain ordinary notes, but the pairing data in BN_Two_Way_Relation is lost.
+- ‡ 2026-10-03 normalisation: needs-live† → fail† — the default-on tag mirror (extensions.zotero.Knowledge4Zotero.annotationNote.enableTagSync, shipped true) takes every item-tag notifier event, from any writer. When a tag is removed from an annotation, it removes that tag by name from the paired child note, and the reverse, whoever set the tag and with no action by the person. The pairing can reach a note Better Notes did not create, through a legacy zotero://note/ tag. That destructive path is confirmed from code, so the open editor and template surfaces, which are an A4 matter, cannot hold A3 at needs-live. There is no merge and no write to a regular item's key, so (b) passes. The re-judgement returned needs-live; the verifier refuted it, and its fail is used (src/hooks.ts:117, 202-210; src/modules/annotationNote.ts:180-215, 247, 286, 323-329; addon/prefs.js:26 @ 4215a88). The §6.2 Better Notes leg no longer decides A3. Seed keys: none. enableTagSync=false would stop the mirror, but A3 has no configuration clause.
+- § 2026-10-04 by-itself: fail†‡ → pass†‡ — counted: the tag mirror, on by default, runs on the item-tag notifier: a tag added to or removed from an annotation or its paired note by any writer is replayed on the other, by name, whoever set it. syncAnnotationNoteTags returns before any write when enableTagSync is false. The Markdown sync runs by itself on a 30 s timer and, per the verifier, on the item-modify notifier for notes any writer modified; both filter to enrolled notes first, and a Zotero-side change yields NoteAhead or NeedDiff, which opens the diff window, so neither overwrites another writer's Zotero-side change. Linked notes are enrolled without the person only when sync.autoSyncLinkedNotes is on. Opening a note injects UI only, and the zotero://note URI handler only opens notes. No setField, relation write or merge, so (b) holds. Setting: extensions.zotero.Knowledge4Zotero.annotationNote.enableTagSync=false, which ships true and is unset on production, with extensions.zotero.Knowledge4Zotero.sync.autoSyncLinkedNotes=false (shipped default) kept. This replaces the line above's ground that A3 has no configuration clause. Re-judgement and verifier agree (src/hooks.ts:117, 179-190, 202-210; src/modules/annotationNote.ts:281-329 (gate 286); src/modules/sync/hooks.ts:9-33; src/modules/sync/autoLink.ts:20-23; src/modules/noteLink.ts:3-25; addon/prefs.js:1-4, 26 @ 4215a88; production prefs.js:49).
+- ◊ 2026-10-04 live: A4, writes by itself (startup, on-add, 30 s sync timer): pass — the v3.3.3 asset better-notes-for-zotero.xpi has sha256 48d426018338becd78c71f85159c36c03bbe3f6299ab5a564099e23790b01c1e, first recorded here. After the fixtures and 75 s, more than two sync periods, the library rows matched the control: no note created, no tag changed. Prefs it wrote: seven template.[…] prefs, templateKeys, latestTourVersion=1, syncNoteIds holding a list with one empty string, and three pane-open prefs. showUserGuide ran on main-window load (zotero.out:1624-1625); that a GUI tour appeared is inferred from that call and the pref, not logged (verifier). No Better Notes IndexedDB file appeared under storage/permanent/chrome/idb; only Zotero's pre-existing 674100139… store changed, as it does in the control (step2/better-notes/cmp-control.txt, prefs.diff, fsdiff.txt, zotero.out:1569-1630; step2/downloads.tsv).
+- ◊ 2026-10-04 live: A4, the §6.2 tag-mirror and annotation-note leg: needs-live still — it needs an annotation, which only the reader can make. Human step in §6.4 (step2/better-notes/dbdiff.txt).
+
+**38. Actions and Tags.**
+
+- **Pin:** 469dbcbd01782095a2f2de525d6d9194eedab0e5. This is master HEAD (pushed 2026-08-24). Tag v2.6.1, asset actions-and-tags-for-zotero.xpi; the installed copy matches.
+- **Licence:** AGPL-3.0.
+- **Installed state:** 2.6.1, active=false, userDisabled=true, appDisabled=false, range 10.0 to 10.999.999.
+  - There is one rule, hara0, which tags every new item triage:needed (prefs.js:25-27).
+  - Live counts: triage:needed is on 49 items and /unread on 73, all type 1. /unread is the tag of the shipped default rule, default0 (actions.ts:67-77).
+  - Nothing in research-vault @3780fb7 writes triage:needed.
+- **Writes:**
+  - Rule tags, added as type 1, removed, or toggled by name (actions.ts:222-265), then saved (330-332). Saving an unchanged item is a no-op (dataObject.js:1145-1148 @ ca61760).
+  - customScript rules run the rule text with the full Zotero global (266-313).
+  - triggerAction writes nothing itself (315-328).
+  - Prefs (119-131; preferenceWindow.ts:112-113; libraries.ts:24).
+  - Backup export is YAML, not JSON as the desk said (backup.ts:43-44).
+- **A2:** depends on configuration. The capability is confirmed (menu.ts:39-42, 296-322, 324-355). The production rule serves no step, and the rule for #135 does not exist yet.
+- **A3 and A4:** a remove or toggle rule strips its tag whoever set it. A script rule can do anything (README.md:192 warns about this), and each script rule reopens A4.
+- § 2026-10-04 by-itself: pass → pass (result kept; basis moved) — counted: event rules run through notifier hooks on item add, annotation or note add, file open, colour change and tab close, from any writer, and on startup, window load and window unload. The shipped default rule default1 removes /unread by name on tab close, whoever set the tag; remove and toggle work by name; a script rule runs arbitrary code; and triggerAction calls named rules without checking whether they are enabled. Dispatch filters on event and enabled, and the add operation checks hasTag first and never retypes a tag. Setting: extensions.actionsTags.rulesInit=true, with extensions.actionsTags.rules listing no enabled rule that has a non-zero event and operation remove (2), toggle (3), script (4) or triggerAction (5); shipped rulesInit=false seeds default0 and default1 at first start. Production already meets this: rules holds only hara0, one createItem add rule, and rulesInit=true (prefs.js:25-27). The verifier corrected the re-judgement's alternative, extensions.actionsTags.disabledLibraries=<libraryID>: it is partial, because dispatch checks the library only when the event has a target item, so a script or triggerAction rule on startup or window events still runs. This replaces the superseded "datum the person names" basis (src/utils/actions.ts:67-90, 125-131, 229-265, 266-328; src/modules/dispatch.ts:7-32; src/modules/notify.ts:23-27, 38-131; src/hooks.ts:56-75; addon/prefs.js:2, 6 @ 469dbcb; production prefs.js:25-27).
+
+**39. Chartero.**
+
+- **Pin:** 161476ad505e6732a18ffd5ccdd81e7d626e2aa8. This is main HEAD (last push 2026-04-22). Tag v2.11.0, asset chartero.xpi; the installed copy matches.
+- **Licence:** conflicting. LICENSE:1-2 says Apache-2.0; package.json:42 says AGPL-2.0-or-later.
+- **Installed state:** 2.11.0, active=false, userDisabled=true, appDisabled=false, range 9.0 to 10.1.
+  - Leftover prefs: referencesCache (prefs.js:61) and the dashboard pane (prefs.js:101).
+  - There is no Chartero main item in the library or the trash.
+- **Writes:**
+  - One computerProgram main item per library, with several fields and a programmer creator (history.ts:196-219).
+  - A child note per opened attachment holding a JSON reading record, rewritten every scan period (102-106, 149-163, 178-186).
+  - A dc:relation to each user attachment it tracks (183-186; misc.ts:120-124).
+  - Trashes its own invalid notes (misc.ts:108-141; history.ts:122-130).
+  - Untrashes its own items (misc.ts:29-46) and disables the trash menu for them (179-186).
+  - Notes imported from legacy history (62-94).
+  - Prefs (addon.ts:113-121; prefs.ts:36-72; reference.vue:146).
+  - SVG export (utils.ts:37).
+  - A dev-only attachment write (addon.ts:179-180).
+- **A4†:** the verifier found writes the desk missed.
+  - It merges duplicate main items with Zotero.Items.merge (history.ts:233-259, merge at 249-255). That trashes the duplicates, moves their notes, adds merge relations and triggers BBT's shim.
+  - compressHistory saves user attachments without skipDateModifiedUpdate, so their dateModified moves (misc.ts:122).
+  - Another write at wordCloud.vue:134.
+- **A3:** passes, but the desk's "no merge" basis was false; the merge goes through the shim BBT patches. compressHistory, which the user triggers, trashes any non-Chartero child note under its main item (misc.ts:115-119).
+- **Desk exit line:** the same cleanup list, without the duplicate merge or the pref.
+- ‡ 2026-10-03 normalisation: pass → fail — the merge of duplicate main items is out of A3, and (b) has nothing to judge. compressHistory is bound to a preferences button. It trashes every child note under each Chartero main item that does not parse as its own record, with skipNotifier, and lists or confirms none of them first; the only prompt is a restart confirm afterwards. So a note another writer placed there is trashed although the person never chose it. The automatic clearHistory trashes only cached Chartero notes. The fail rests on both §2a readings: (a) covers commands the person runs, and trash counts as destroying. Under either alternative it is pass. Both verifiers returned fail; the notes-ui re-judgement's pass was refuted (src/bootstrap/modules/history/misc.ts:108-119, 143; src/bootstrap/modules/prefs.ts:10; src/bootstrap/modules/history/history.ts:122-130 @ 161476a; Zotero defaults/preferences/zotero.js:51 and items.js:1216 @ ca61760). Seed keys: none; compressHistory is a button, and no pref gates it. Resolved 2026-10-04 by the second ruling.
+- § 2026-10-04 by-itself: fail‡ → pass‡ — counted: nothing that touches A3. By itself it rewrites its own chartero# record notes on the scan timer; on first record it creates a note and adds a relation from the read attachment to it, saved with skipDateModifiedUpdate; on the item notifier it untrashes its main item and any note under it, which reverses a trash and destroys nothing; and it merges duplicate main items, which is out of A3. compressHistory, the path the first pass failed on, is bound to a preferences button, so it is the person's act. clearHistory has no caller at 161476a, so the ‡ line's automatic clearHistory is dead code. The only other item write is a dev-only test attachment. Setting: none needed. Re-judgement and verifier agree (src/bootstrap/modules/prefs.ts:10; src/bootstrap/modules/history/misc.ts:29-46, 108-143; src/bootstrap/modules/history/history.ts:102-107, 122-131, 149-187, 248-255; src/bootstrap/events.ts:199; src/bootstrap/addon.ts:179-191 @ 161476a).
+
+**40. KeepZotero.**
+
+- **Pin:** 7437aef717ae9cd588b3c7bb27b3e3704f2a05d5 (last push 2025-04-13). Tag v0.2.0, asset keepzotero-0.2.0-fx.xpi; the installed copy matches.
+- **Licence:** BSD-3-Clause.
+- **Installed state:** 0.2.0, active=false, userDisabled=true, appDisabled=false.
+  - The shipped manifest.json:12 caps at 7.0.*, but extensions.json stores 6.999 to *, taken from keepzotero-update.json.
+  - This is the false alarm recorded at import-redesign-design.md:448.
+- **Writes:**
+  - Five prefs, written only through pane bindings (prefs.js:1-5; preferences.xhtml:9-15). Its code only reads them (keepzotero.js:83).
+  - Window behaviour (93-142).
+  - No item, file or database write (keepzotero.js:1-142; bootstrap.js:1-41).
+- **Desk exit line:** said five prefs remain. The verifier corrected this: production prefs.js has no such line.
+
+**41. Zotero Focused Mode.**
+
+- **Pin:** d2c6b4ef018c29f2e271f866731364341e7db211 (pushed 2026-09-02). Tag v0.6.7, asset zotero-focused-mode.xpi; the installed manifest is equal after a JSON parse.
+- **Licence:** BSD-2-Clause.
+- **Installed state:** 0.6.7, active=false, userDisabled=true, appDisabled=false, range 6.999 to 10.0.*.
+- **Writes:**
+  - Two prefs, written only through pane bindings (prefs.js:1-2; preferences.xhtml:9, 19). Its code only reads them (toggle.js:313, 601, 609).
+  - UI changes only.
+- **Desk exit line:** said two prefs remain. Corrected as for KeepZotero.
+
+**42. Add-on Market for Zotero.**
+
+- **Pin:** 4759387f3d61f2f068bfe9a9f28be82d9354e494 (main HEAD). Release V10.0.1, asset zotero-addons.xpi.
+  - The installed 10.0.0 is one feature commit behind (1f07fa6).
+  - Its shipped bundle, content/scripts/zoteroaddons.js, was read.
+- **Licence:** AGPL-3.0.
+- **Installed state:** 10.0.0, active=false, userDisabled=true, appDisabled=false, range 6.999 to 11.*. Prefs at prefs.js:147-150; autoUpdate is unset.
+- **Writes:**
+  - Installs, updates, uninstalls, enables and disables add-ons through AddonManager (AddonInstallService.ts:109-140, 171-214; TableActions.ts:18-72; addonDetail.ts:95-125).
+  - Startup auto-update, if autoUpdate is set (hooks.ts:46-49).
+  - Prefs (configuration.ts:101-137; addonTable.ts:882; TableColumnManager.ts:60).
+  - Three zotero:// routes (registerScheme.ts:25-60). One of them, execJS, runs any payload that carries a valid signature from the author's embedded key (146-170; crypto.ts:101; shipped zoteroaddons.js:9091, 9171-9194).
+  - Added by the verifier: the configSource route repoints the catalogue source from any zotero:// link without asking (registerScheme.ts:84-107). The install route does ask (125-143).
+  - No item write API appears in src.
+- **A2:** marginal. Zotero's own add-on manager covers the same leg.
+- **A3:** passes for the shipped code only.
+- **A4:** fails. The execJS write set cannot be closed from code, and a live reading cannot close it either.
+- § 2026-10-04 by-itself: pass → fail — counted: onStartup registers the zotero://zoteroaddoncollection handler unconditionally, and under the ruling a URI handler is remote. Its execJS route verifies a payload's signature against the author's embedded key, then builds and awaits an AsyncFunction from the payload with full privileges, no prompt and no preference read, so it can rewrite any Extra, tags, fields, notes or key at the signer's request. configSource changes only catalogue-source prefs without asking, and install confirms; neither affects A3. Setting: none; no preference gates registerConfigScheme or execJS. No destructive payload has been observed. The verifier grounds the fail in consistency: rows 38 (script rules) and 44 (MCP writes) have the same arbitrary-write capability and pass only because a named setting confines them. A shipped-code-only reading would pass it, as the A3 bullet above did. Re-judgement and verifier agree (src/hooks.ts:27; src/modules/registerScheme.ts:25-82, 84-123, 125-143, 146-171 @ 4759387).
+
+**43. Notero.**
+
+- **Pin:** 011be2ca9ddc6b34326f7e5ce75089266cbf94bc (main HEAD, unchanged since §34). Release v2.1.0, asset notero-2.1.0.xpi.
+- **Licence:** MIT (import-sourcing.md:4874).
+- **A1 ranges:** package.json:82-83, written into the manifest by generate-install-manifest.mts:29-30, and the shipped manifest.json:16-17 both declare 10.0 to 10.0.*. Not installed.
+- **Writes:**
+  - The tag notion, type 0 (item-data.ts:215-218; constants.ts:3).
+  - A linked-URL Notion attachment whose note holds a banner and sync JSON (72-103, 180-213).
+  - Erases surplus Notion link attachments (76-79).
+  - Prefs (notero-pref.ts:116-120; collection-sync-config.ts:61).
+  - Notion pages, remotely (import-sourcing.md:4910).
+- **A3†:**
+  - The desk passed it: it touches only its own tag and attachment.
+  - The verifier failed it: ownership is decided by URL shape. Every child attachment of any link mode whose url matches the Notion page pattern counts as Notero's (item-data.ts:21-31; url.ts:5-17). All but the highest-ID match are permanently erased, not trashed (76-79). The survivor's url is overwritten (88) and its note replaced (101, 212).
+- **Desk exit line:** stop it; synced items keep a notion tag and the Notion attachment.
+- § 2026-10-04 by-itself: fail† → pass† — counted: a notifier-driven sync runs for items in a collection with sync enabled, on item modify, tag change and collection-item add by any writer. Each sync permanently erases every Notion-URL link attachment except the highest-ID one, whoever created them, and overwrites the survivor's url and note. handleNotifierEvent returns before any sync when no collection has syncEnabled. syncOnModifyItems=false alone does not confine it, because collection-item add bypasses that preference. The menu syncs act on the collections or items the person selected, and only the collection sync config pane writes collectionSyncConfigs, so the setting confines Notero without disabling it. Setting: extensions.notero.collectionSyncConfigs with no collection set to syncEnabled=true; the shipped default is the empty string. Re-judgement and verifier agree (src/content/services/sync-manager.ts:36, 49-75, 106-138; src/content/data/item-data.ts:21-31, 70-103; src/content/services/ui-manager.ts:92, 116; src/content/prefs/collection-sync-config.ts:61; src/prefs.js:1, 5 @ 011be2c).
+
+**44. Zotero MCP (cookjohn).**
+
+- **Pin:** 81d0777b49ded0959d197c7610d8b6e5f32c2485 (main HEAD), 6 commits after §25's 5b0640f.
+  - The new commits add trash_item (7fca2a1) and pref and l10n fixes.
+  - Release v1.6.0, asset zotero-mcp-plugin-1.6.0.xpi, predates trash_item.
+  - The id comes from the v1.6.0 manifest; the repo manifest's id is a placeholder (addon/manifest.json:14).
+- **Licence:** MIT (import-sourcing.md:3713).
+- **A1 ranges:** addon/manifest.json:16-17 and the shipped v1.6.0 manifest.json:14, 16-17 both declare 6.999 to 10.99.99. Not installed.
+- **Writes:** every write sits behind write.enabled, which is off by default. The gate is checked at tool listing (streamableMCPServer.ts:1165-1173) and on each call (1258-1450).
+  - write_note (2178-2285).
+  - write_tag: add, remove or set (2325-2369).
+  - write_metadata: any field the caller names, plus creators (2405-2465).
+  - write_item (2514-2566; 2705-2706).
+  - add_by_identifier (2799-2949).
+  - Collection create, update and delete (apiHandlers.ts:1113-1298).
+  - trash_item, HEAD only (1617-1618).
+  - Vector DB zotero-mcp-vectors.sqlite (vectorStore.ts:98-99).
+  - Prefs, including an embedding API key (serverPreferences.ts:48-68; embeddingService.ts:429-446).
+- **A4†:** the verifier found writes the desk missed.
+  - write_item reparent sets parentKey on any attachment or note (2599-2634).
+  - Collection membership add and remove (apiHandlers.ts:1400, 1501).
+  - Vector DB delete and recreate (vectorStore.ts:194-247).
+  - A pref at hooks.ts:200.
+  - The write gate hides only six tools. The five collection tools stay listed and refuse only when called.
+  - The ungated test route is read-only (mcpTest.ts:37-226).
+- **A3:** fails when the gate is on. write_tag set removes every tag (2352-2360). write_metadata can rewrite Extra or the native citationKey outside BBT (2422-2431). reparent can move another writer's child note. With the default setting, no write tool is callable.
+- **Desk exit line:** omitted the moved attachments and the API key.
+- 2026-10-03 normalisation: fail (only with write.enabled on; default off) kept. Both re-judgements wrote an unqualified fail. Both verifiers kept the gate, because at the default no write tool is listed and each call is refused. With the gate on, write_tag set removes every existing tag, including tags the caller never named. write_metadata's key write is a caller's request, so (b) no longer contributes. The notes-ui verifier would not rest the fail on write_metadata's named-field overwrite, for consistency with rows 38 and 53. The v1.6.0 release carries both tools (zotero-mcp-plugin/src/modules/streamableMCPServer.ts:1165-1173, 1259-1412, 2352-2360, 2426-2431 @ 81d0777; same file :2302, :2380 @ v1.6.0 e87f266). Seed key: extensions.zotero.zotero-mcp-plugin.write.enabled unset or false (shipped default).
+- § 2026-10-04 by-itself: fail (only with write.enabled on; default off) → pass — counted: remote MCP tool calls. With write on, write_tag set removes every tag, write_metadata can rewrite Extra or an existing native citationKey, write_item reparents child notes, trash_item (HEAD only) trashes items, and the collection tools edit collections. Unless write.enabled is exactly true, tools/list drops the six write tools and every write case in handleToolCall throws, add_by_identifier included except job polling and dry runs, and httpServer routes reach no write outside the gated handlers. The v1.6.0 release carries the same gate. Setting: extensions.zotero.zotero-mcp-plugin.write.enabled unset or false; the key is absent from addon/prefs.js, so the shipped state reads as off. Re-judgement and verifier agree (zotero-mcp-plugin/src/modules/streamableMCPServer.ts:1165-1173, 1258-1340, 1386-1446; zotero-mcp-plugin/src/modules/httpServer.ts:397-500; zotero-mcp-plugin/addon/prefs.js:1-2 @ 81d0777; same file :1140, 1232-1397 @ v1.6.0 e87f266).
+- ◊ 2026-10-04 live: A1 pass — asset https://github.com/cookjohn/zotero-mcp/releases/download/v1.6.0/zotero-mcp-plugin-1.6.0.xpi, sha256 13a81600a5476578bff3b9014aa0cec63b2fc71480475d127dc1d9d6e4776c5b, first recorded here. Shipped manifest 1.6.0, range 6.999–10.99.99. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:6346. The log holds 22 non-fatal warnings that ChromeUtils.import() has been removed, attributed to its xpi; the leg reported 214, which the verifier showed is the count of stack-frame lines under those warnings, and corrected, keeping the result. On first startup it created <dataDir>/zotero-mcp-vectors.sqlite and its WAL; the A1 restore removed them (a1/extensions.after.json; a1/zotero-a1.out:6346-6348; a1/post-a1-newfiles.txt; logs/11-a1-restore.txt).
+
+### 4.6 search-new
+
+**45. Zotero Reading List.**
+
+- **Pin:** 1a1c9b36a1cd9492e168edbe47952f6dcb3e3f02 (HEAD master, 2026-09-16). Release v1.7.0, asset zotero-reading-list.xpi. Its tag commit 7edba22 differs from the pin only in README.md and the package files.
+- **Licence:** GPL-3.0.
+- **A1 ranges:** addon/manifest.json:16-17 (id templated from package.json:7) and the shipped manifest.json:14, 16-17 both declare 7.0.9.999 to 10.0.*.
+- **Writes:**
+  - Read_Status and Read_Status_Date Extra lines. It strips its own lines, then appends (overlay.ts:19-20, 790-796; extraField.ts:56-74). Cleared at 827-828.
+  - An automatic status tag, only when tag sync is on. Tag sync is off by default (345). The tag is icon plus status, or the bare status in the NoEmoji format (508-523, 806-814). Removed at 842-856.
+  - Prefs (prefs.ts:26-28, 50-52).
+  - Opt-in triggers (302, 340-343, 579-596, 618-645).
+  - An export patch that hides its lines (741-773).
+  - Library-wide passes (prefs-menu.ts:655-675; preferences.xhtml:145, 148).
+- **A2† (narrowed):**
+  - The desk claimed scoping-review and daily-log (claim, README.md:5).
+  - daily-log fails: Read_Status_Date is a latest-change timestamp, not a log (extraField.ts:62-73), and the vault's daily-log is the CLI-written log/.
+  - scoping-review holds only weakly. The default statuses are reading progress (overlay.ts:24-30); custom statuses could hold screening decisions (README:9). It records no reasons and no PRISMA counts.
+- **A3 fail:**
+  - A case-sensitive substring match removes any tag that contains a status name (842-856).
+  - The verifier found the library-wide read-status-to-tags button strips this way even with sync off (preferences.xhtml:147-149, calling 934-944).
+  - NoEmoji tags collide with user tags such as Read (518-520).
+  - The tags-to-status pass clears Read_Status when a user tag also matches (896-906).
+  - The Extra path is clean (extraField.ts:25-34).
+- **Desk exit line:** stop invoking it; its lines and tags stay, and exports stop hiding them.
+- § 2026-10-04 by-itself: fail → pass — counted: two opt-in notifier triggers set the read status, on new items (off unless label-new-items is set) and on file open (off by default), and preference observers toggle them. A status write replaces only its own Read_Status and Read_Status_Date Extra lines. Only with tag-synchronisation on does it also strip every tag that contains a status name, by case-sensitive substring, whoever set it. The library-wide passes are preference buttons, and turning tag sync on asks first. Setting: extensions.zotero.zotero-reading-list.tag-synchronisation=false (shipped default). Re-judgement and verifier agree (src/modules/overlay.ts:257-261, 302, 340-345, 366-385, 580-660, 785-802, 842-856; src/utils/extraField.ts:25-74; src/prefs-menu.ts:655-674 @ 1a1c9b3).
+- ◊ 2026-10-04 live: A1 pass — asset sha256 15ebdaf441e620168458d84c1b29e9b72a291debdea0f59d8d21052f62839670, first recorded here. Shipped manifest 1.7.0, range 7.0.9.999–10.0.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:1988; only shim warnings (13 attributed to its xpi) and deprecation warnings (a1/extensions.after.json; a1/zotero-a1.out:1988-1990).
+
+**46. Zotero Duplicate Cleaner.**
+
+- **Pin:** 265f30352df37be1406487a73e27aae185defdf1 (HEAD master, 2026-09-04T16:01Z). Release v0.15.6, asset zotero-dedup-plugin-0.15.6.xpi.
+  - Its bootstrap.js is three sources concatenated per build.ps1:16-19, with the merge at shipped :376.
+  - Tag 18d1d2d is one commit behind the pin.
+- **Licence:** MIT.
+- **A1 ranges:** manifest.json:13-14 and the shipped manifest both declare 7.0 to *. update_url points at www.zotero.org (manifest.json:12). 0 stars. Its id domain is local.dev.
+- **Writes:**
+  - Before merging, fills the primary's empty fields from donors, including extra and the native citationKey (bootstrap.js:41-56).
+  - Merges through Zotero.Items.merge (89, 167), picking the master automatically (37-40, 81-86).
+  - Groups by DOI, or by item type plus exact normalised title (286-290).
+  - Trashes missing-file PDFs on the survivor (57-80, at 75), byte-identical orphan PDFs (117-137, at 134), and identical duplicate PDFs and notes (resource-cleanup.js:69-100, 143-157).
+  - Invalid mode trashes regular items that have no attachments and no relations (resource-cleanup.js:33-47, 121-140).
+  - OrphanMetadata mode runs Zotero's recognizer (bootstrap.js:567-581).
+  - Every path asks for confirmation first (554-559).
+- **A4†:** the verifier found merge effects the desk missed. Zotero's mergeItems.mjs @10.0.5 also:
+  - sets the master's dateAdded to the earliest (24-27, 72);
+  - merges donor attachments, with replaces relations and moved annotations (16-18, 80-120);
+  - rewrites item keys inside moved notes (34-35).
+  - BBT's patch skips its whole body when the three extraMerge prefs are false, which is the default (better-bibtex.ts:105 @f3c9299; preferences.yaml:456-470).
+- **A3 needs-live:**
+  - The merge goes through Items.merge only in form.
+  - A key that the pre-merge fill copies into an unkeyed survivor persists, because BBT keeps an existing native key (key-manager.ts:448-450).
+  - Invalid mode trashes keyed metadata-only items.
+  - Grouping DOI-less items by title can merge two different works that share a title.
+- **Desk exit line.** Uninstall it; its merges are ordinary Zotero merges (donors in the trash, dc:replaces relations, any BBT-written Extra), and nothing of its own remains. It omitted the copied donor values and the other trashed items.
+- ‡ 2026-10-03 normalisation: needs-live → fail — merges are out of A3. The pre-merge fill writes a field only when it is blank, so no existing key changes, and the §6.2 leg no longer decides A3. The two verifiers rest (a) on different trash paths. Notes-ui verifier: after every merge, trashMissingGroupPDFs trashes any unprotected PDF on the survivor whose file state is missing, including a stored file not yet downloaded, without checking that it duplicates the retained PDF. The person does not select these PDFs, and the confirm text does not mention them (bootstrap.js:17-22, 57-80, 88-90, 554-559). Identity verifier: invalid mode trashes regular items that have no children and no relations, or whose attachments are all missing files. It does so after a confirm that gives a count and warns the records may not be duplicates (resource-cleanup.js:33-47, 121-140; bootstrap.js:548-559). That verifier rates the post-merge cleanup weaker, because it carries tags and collections to the retained PDF and skips protected attachments (bootstrap.js:109-116). The first basis needs the §2a trash reading; the second also needs a confirmed trash to count. If no trash is destroying, it is pass. The identity verifier also asked whether a group keyed on item type plus exact title, which can join two distinct works, counts as a merge of duplicates; the result is the same either way (@ 265f303). The notes-ui re-judgement's needs-live was refuted. Seed keys: none; invalid mode is a scan mode chosen in its panel, and the default is duplicates. Resolved 2026-10-04 by the second ruling.
+- § 2026-10-04 by-itself: fail‡ → pass‡ — counted: nothing that touches A3. Startup and window load only add a Tools menu item, retrying with setTimeout, and there is no notifier or timer. Every merge, blank-field fill, post-merge PDF trash, invalid-mode trash and recognise runs from the panel's process-selected button after a confirm that states the scan mode. That is a bulk change the person confirms, deliberate whatever its scope, including the post-merge PDF trash the confirm text does not mention. The pre-merge fill writes only blank fields, so no existing key changes. Setting: none needed. Re-judgement and verifier agree (bootstrap.js:548-559, 644-685 @ 265f303).
+- ◊ 2026-10-04 live: A1 pass — asset sha256 fa30987667182716e687346950db18333444cef1a36071c532ed57d857210e15, first recorded here. Shipped manifest 0.15.6, range 7.0–*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:1753; no attributed error. The §6.2 leg for this row was not run (a1/extensions.after.json; a1/zotero-a1.out:1753).
+
+**47. Zotero Review Assistant.**
+
+- **Pin:** 0001fac6d0e9cee8c2245178932dcca1d728554b (HEAD main, 2025-11-14). Release v2.0.2, asset zotero-review-assistant.xpi; its manifest says 2.0.1.
+- **Licence:** none. There is no LICENSE file. README.md:38-40 claims GPL and points to a file that is missing. Nothing is quoted.
+- **A1 ranges:** manifest.json:13-16 and the shipped manifest both declare 6.999 to 9.999.*. README.md:6 claims Zotero 7 only. There is no Zotero-10 release.
+- **Writes:**
+  - Status and PRISMA tags, matched exactly against its own lists (columns.utils.ts:45-53, 97-134).
+  - Comment tags, matched by substring on its prefix (71-90, at 83). The defaults all carry its own status prefix (prefs.default.ts:10-32), and the prefix is not exposed in the UI.
+  - Prefs (prefs.ts:4-6).
+  - A PRISMA .docx (prisma.ts:38-50).
+  - A log appended to a hard-coded developer path (bootstrap.js:8; index.js:37742; verifier: also preferences.js:24198; devtools.ts:8-26). On Windows this is expected to fail harmlessly; not observed.
+- ◊ 2026-10-04 live: A1 fail — the release v2.0.2 asset has sha256 18501186e8ce8fe4562668a11d89a0e6d326283a10af0f2e78ad79be9abdba7c, first recorded here; its shipped manifest says version 2.0.1, range 6.999–9.999.*. extensions.json shows 2.0.1, active=false, appDisabled=true and stored range 6.999–9.999.*, and no startup call. After the forced update check in A1b it was still appDisabled; its update.json lists only a 2.0.2 entry, capped at 9.999.* (a1/extensions.after.json; a1b/extensions.after.json; a1b/update-manifests.txt).
+
+**48. Pubpeer Plugin for Zotero.**
+
+- **Pin:** a2d3898c75445f5106c3cc3c6572fded75e35620 (HEAD on 2026-10-03). Release v1.0.9, asset zotero-pubpeer-1.0.9.xpi.
+- **Licence:** none. Nothing is quoted.
+- **A1 ranges:** package.json:39-40 (the manifest is generated) and the shipped manifest.json:12-15 both declare 7.0.0 to 10.*.
+- **Writes:**
+  - No item writes.
+  - Its users pref (pubpeer.ts:208-210).
+  - Runtime patches to getField (91-102) and addCitation (105-128).
+  - A pane section (224) and a column (301).
+  - A synthetic modify notification (152).
+  - DOIs are POSTed to pubpeer.com (428-435), with a daily refresh (215, 461-482, 489).
+  - Added by the verifier: it also POSTs on every item add or modify (492-497), and registers a debug-log uploader (219-222).
+- **A2:** claim, from README.md:4. Appraisal is an optional item in PRISMA-ScR.
+- ◊ 2026-10-04 live: A1 pass — asset sha256 a3ec4a7ab83af85515add91621d28eec2063099614f53f78dfa737773282a841, first recorded here. Shipped manifest 1.0.9, range 7.0.0–10.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:2596. At startup it POSTed the test library's DOIs to pubpeer.com, which answered HTTP 429 (:2887, :2889); that is a network refusal, not a load error (a1/extensions.after.json; a1/zotero-a1.out:2596, 2887-2920).
+
+**49. zotxt.**
+
+- **Pin:** 8153be81c022909c3573c3b562dd8094449df7b3 (HEAD master, 2026-08-11). Release v9.0.0, asset zotxt-9.0.0.xpi; its bootstrap.js is identical to the pin.
+- **Licence:** GPL-3.0.
+- **A1 ranges:** extension/manifest.json:9-12 and the shipped manifest both declare 6.999 to 15.*.
+- **Writes:**
+  - No item writes.
+  - Registers and removes endpoints (bootstrap.js:516-542).
+  - The select endpoint changes the pane selection (400-427).
+  - Exports run in memory (83-103).
+  - A shipped translator is never installed.
+- **Lookup:** it searches the native citationKey field (core.js:135-165). BBT is needed for prefix completion and key export (translator a515a220-6fef-45ea-9842-8025dfebcc8f). The verifier notes that lookup also depends on BBT having filled the field (key-manager.ts:448-463 @f3c9299).
+- **A2:** claim, from README.md:13-18.
+- ◊ 2026-10-04 live: A1 pass — asset sha256 ffbe69457143c95c5cff45f851b8de8a58d4b4f20ce29908d1d85380d66c7829, first recorded here. Shipped manifest 9.0.0, range 6.999–15.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:2245, and core.js loaded (:2247); no error (a1/extensions.after.json; a1/zotero-a1.out:2245-2247).
+
+**50. Folder Import for Zotero.**
+
+- **Pin:** a23ea42e0301371d6237fd81f5418ddb50eefd15 (HEAD = v1.0.2). Release asset zotero-folder-import-1.0.2.xpi.
+- **Licence:** none. Nothing is quoted.
+- **A1 ranges:** package.json:43-44 (templated) and the shipped manifest.json:8-11 both declare 8.0.1 to 10.*.
+- **Writes:**
+  - A collection per folder, reused by name (folder-import.ts:75-95).
+  - Linked attachments (109-117) or stored imports (121-129).
+  - A temporary rmlint JSON when the rmlint pref is set. This runs a user-configured external binary over storage (209-252).
+  - Zotero's autoRecognizeItems (331-335), gated by autoRecognizeFiles (recognizeDocument.js:142 @10.0.5), which creates parents, reparents attachments and may rename them (256-310).
+  - A debug-log upload, only when the user starts it (159-160).
+- **A2:** claim, from README.md:4.
+- ◊ 2026-10-04 live: A1 pass — asset sha256 fd1d270580807dba8bff386052f2a98648c34d644beb09e5da6d70d7f8185e1b, first recorded here. Shipped manifest 1.0.2, range 8.0.1–10.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:4521; no attributed error (a1/extensions.after.json; a1/zotero-a1.out:4521).
+
+**51. Zotero Watch Folder.**
+
+- **Pin:** 10e912124f28fff4563a145f3bf622eb65777b35 (HEAD main, 2026-10-03). Release v2.8.6, asset zotero-watch-folder-2.8.6.xpi. Tag 32bc412 differs from the pin only in a badge; the shipped code is one bundle.
+- **Licence:** GPL-3.0.
+- **A1 ranges:** manifest.json:13-16 and the shipped manifest both declare 6.999 to 10.*.
+- **Writes:** from an API grep; the list is not closed.
+  - Attachments (fileImporter.mjs:87-93).
+  - Parents (metadataFallback.mjs:189-274; metadataRetriever.mjs:249-267).
+  - Its own hash Extra line (duplicateDetector.mjs:894-907; backfill at watchFolder.mjs:2905-2917). The verifier notes the strip regex at :897 is not line-anchored, which is harmless.
+  - _duplicate and _needs-review tags (duplicateDetector.mjs:936; metadataRetriever.mjs:391, 420).
+  - File renames, on by default (fileRenamer.mjs:203).
+  - Collections (canonicalPath.mjs:436-483; reconcile.mjs:416-418; suppressionResolver.mjs:464-595; watchFolder.mjs:1350, 2776-2783).
+  - Smart-rule setField, off by default (smartRules.mjs:752-768).
+  - Reclaim from stored to linked under new keys (storageStrategy.mjs:260-338).
+  - Trash or eraseTx when a watched file disappears (watchFolder.mjs:2578-2645).
+  - Mirror trash (mirrorExecutor.mjs:915-940, 1197-1215).
+  - Untrash (watchFolder.mjs:581-584).
+  - File moves and deletes in the watch folder.
+  - Tracking JSON (trackingStore.mjs:21, 252-253).
+  - Further grep sites: suppressionResolver.mjs:196-203, 527-535, 686-694; watchFolder.mjs:1835, 2032-2039, 2205-2248, 2588-2590, 2778, 2916.
+- **A3 needs-live:** the verifier corrected the desk's destructive path.
+  - Propagating a deletion into Zotero happens only in mode3 (watchFolder.mjs:2414-2433), and only after a one-time whole-library acknowledgement (2440-2450).
+  - The default is mode1 (bootstrap.js:136), which only marks the file missing. Automatic trashing happens only inside mode3.
+  - Runtime defaults come from bootstrap.js:107-159; prefs.js:4-7 says Zotero does not load prefs.js.
+  - The parent picked for deletion can be a pre-existing item with a citation key, if the watched attachment was merged into it.
+- **Desk exit line.** Stop it; what it wrote is ordinary Zotero data (items, watchfolder-hash Extra lines, _duplicate and _needs-review tags), except that reclaimed linked attachments keep pointing into the watch folder. It omitted the collections, the renamed files and the tracking JSON.
+- ‡ 2026-10-03 normalisation: needs-live → fail (only with mode3 on; default mode1) — merging is out, and trashing is not a re-key, so (b) has nothing to judge. In mode3, after the one-time acknowledgement, a file deleted from the watch folder resolves to its parent when the attachment is the parent's last live child, and the parent is permanently erased or trashed. The prompt lists only file paths, and diskDeleteSync=auto trashes with no prompt. scopeMode defaults to library, so the parent can be another writer's item. In mode1 and mode2, a deleted file is only marked missing. The two verifiers' result strings differed. The identity verifier kept needs-live for the shipped default and called the mode3 path a gated fail like row 44; the notes-ui verifier returned fail, to be handled as row 44 is. The cell records the form both support. The notes-ui verifier also named reclaim, a command the person runs. Reclaim replaces each eligible stored attachment with a new linked one, carrying over only the parent, collections and tags, and then trashes the original. What gates reclaim was not recorded; if it runs at mode1, the gate qualifier does not hold. The mode1 write list stays open under A4 (content/watchFolder.mjs:2415-2416, 2440-2450, 2463-2475, 2578-2592, 2621-2637; content/storageStrategy.mjs:189-219, 296-311, 333-338; bootstrap.js:130, 133, 136, 141 @ 10e9121). Seed key: extensions.zotero.watchFolder.mode=mode1 (shipped default). Resolved 2026-10-04 by the second ruling.
+- § 2026-10-04 by-itself: fail‡ (only with mode3 on; default mode1) → pass‡ — counted: a background poll, off until enabled (enabled ships false). In mode3 only, when a watched folder is deleted it trashes the folder's tracked attachments with no prompt below the bulk threshold, and with diskDeleteSync=auto a deleted file trashes its attachment's parent, possibly another writer's item, with no prompt; the verifier corrected the re-judgement's "trashes or erases": with auto, permanent stays false, and erase follows only the person's Delete Permanently choice in the ask prompt. In mode1, start() returns before anything runs, the item-add handler and collection watcher start only from the coordinator, the scan-cycle hook returns while the coordinator is not running, the notifier ignores trash and modify, and a deleted file is only marked missing. Its other writes in mode1 are its own imports, its own watchfolder-hash Extra token, its own _needs-review tag, renames of files it imported, and collection moves, which are outside (a)'s list. Reclaim and empty-trash are preference buttons behind confirms, which answers the line above's open "what gates reclaim": they are the person's acts. Setting: extensions.zotero.watchFolder.mode=mode1 (shipped default); inside mode3, diskDeleteSync=ask (shipped) puts the file-deletion path behind a confirm (bootstrap.js:120, 130, 136; content/syncCoordinator.mjs:124-131, 148-151, 186-187; content/watchFolder.mjs:1557-1577, 2415-2433, 2463-2475, 2578-2592, 2760-2783; content/mirrorExecutor.mjs:804-829, 915-920; content/duplicateDetector.mjs:894-907; content/preferences.js:632-653, 763-800 @ 10e9121).
+- ◊ 2026-10-04 live: A1 pass — asset sha256 b7f66be93a64f745fc84ab8f9358914b7fb7882801c2d36dcb8bd81deed1a5d5, first recorded here. Shipped manifest 2.8.6, range 6.999–10.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:5791, and its services initialised (:5793-5805; TrackingStore path at :5805, the verifier's correction of :5806). Off by default, it created no file in the 60 s (a1/extensions.after.json; a1/zotero-a1.out:5791-5807; a1/post-a1-newfiles.txt).
+- ◊ 2026-10-04 live: A4, mode1 poll (import, byte-identical re-drop, file delete): pass — run with non-default prefs in user.js: enabled=true, sourcePath=/tmp/lane23-live/zotero/watch and setupCompleted=true, which bypassed the setup wizard and its unsafe-root check; mode1 is the shipped default. Observed: each new PDF became a stored attachment titled PDF in the library root, with no collection and no tags. It sent each PDF to Zotero's recognizer at services.zotero.org, which created the parents: DOI.org (Crossref) metadata for the DOI file, and metadata from the PDF's title for the other (libraryCatalog Zotero). In this leg only the no-DOI parent got a watchfolder-hash Extra line; in the next leg all three parents did. The stored files were renamed by Zotero's recognizer (zotero.out:1895, 3204), not by Watch Folder, which logged the filename unchanged (:2078). It wrote <dataDir>/zotero-watch-folder-tracking-v2.json. The byte-identical re-drop was skipped as already tracked by hash (:8171) and added to tracking. Deleting a file in mode1 only set its tracking state to missing (:8443); the library was untouched. Fixtures added by another writer were unchanged: no row removed against the control. Not seen in mode1, though the Writes bullets list them: collections, _duplicate and _needs-review tags (step2/watch-folder/cmp-control.txt, dbdiff.txt, api/since-01-after-import.json, tracking-03-after-delete.json, zotero.out:1494-3312, 8171, 8443, user.js, run.log).
+- ◊ 2026-10-04 live: A4, re-drop with the non-default duplicateAction=import: pass — the same prefs plus duplicateAction=import. A byte-identical copy was still skipped as tracked (zotero.out:3767). A same-DOI file with different bytes was imported as a second attachment and parent, citationKey silver.etal2016a, Extra a watchfolder-hash line, and no _duplicate tag. Watch Folder's own renamer then renamed both Silver stored files, the earlier import included, from the et-al filename to the single-author filename (:5348, :5350) (step2/watch-folder-dupimport/api/since-03-after-v2.json, dbdiff.txt, tracking-03.json, zotero.out:3767, 4037-4155, 5298-5350).
+- ◊ 2026-10-04 live: A4, the §6.2 mode3 delete (Trash and Keep) and reclaim legs: needs-live still — mode3 deletion needs the one-time whole-library acknowledgement dialog and an answer to the diskDeleteSync=ask prompt, and reclaim is a preferences-pane button behind a confirm. Human step in §6.4 (step2/watch-folder/run.log).
+
+**52. ZotSeek.**
+
+- **Pin:** cd46e39da57f6e19072d34c4032277321b89000b (HEAD = tag v1.22.4). Release asset zotseek-1.22.4.xpi.
+- **Licence:** none as a file. MIT is claimed in package.json:6 and README.md:916. Nothing is quoted. Its id uses the zotero.org domain, but it is not Zotero's.
+- **A1 ranges:** manifest.json:14-17 and the shipped manifest both declare 7.999 to 10.0.*.
+- **Writes:**
+  - No item writes. setRelated has no caller (zotero-api.ts:315-320).
+  - zotseek.sqlite, ATTACHed to Zotero's live connection and written in Zotero.DB transactions (index.ts:1357; vector-store-sqlite.ts:297), with backups (901, 1304) and compaction (index.ts:655-700).
+  - Models (model-download.ts:35-295).
+  - Prefs.
+  - Collections, added only on user action (collection-export.ts:93-137).
+  - Endpoints (server-manager.ts:36-40).
+- **A4†:**
+  - The verifier found a migration that drops two old plugin-prefixed tables and their indexes from zotero.sqlite's main schema (vector-store-sqlite.ts:124, 420-520, at 513-520).
+  - The MCP endpoint is POST, and its tools are read-only (mcp-endpoint.ts:229).
+  - attachmentText does not index into Zotero (item.js:4180-4203 @10.0.5).
+- ◊ 2026-10-04 live: A1 pass — asset sha256 944a7f3aafe418d635453727ab63645774c128d0506132afd945b8597ba148e1 (103,296,613 bytes), first recorded here. Shipped manifest 1.22.4, range 7.999–10.0.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:846 and its bootstrap startup-complete line at :1682; 14 non-fatal shim warnings are attributed to its xpi. On first startup it created <dataDir>/zotseek.sqlite (a1/extensions.after.json; a1/zotero-a1.out:846-1682; a1/post-a1-newfiles.txt).
+
+**53. Reading Time.**
+
+- **Pin:** 687bf99643f6f9055f3dd79da22e812273fef8b3 (HEAD master, 2026-09-30). Release v0.43.1, asset reading-time.xpi; its bootstrap.js is identical.
+- **Licence:** none. Nothing is quoted.
+- **A1 ranges:** manifest.json:14-17 and the shipped manifest both declare 9.999 to 10.0.*.
+- **Writes:**
+  - time-tracker.sqlite, opened through Zotero.DataDirectory.getDatabase (bootstrap.js:144-170). Sessions and goals are keyed by item key (322-394) and move to the parent on reparent (405-430).
+  - Prefs (461, 1625, 1636).
+  - A user-named tag, added or removed by exact name on an explicit click (1630-1656, writes at 1653-1655).
+  - A column (2722).
+- **A2† (desk pass, verifier fail):**
+  - The desk claimed daily-log (claim, manifest.json:5).
+  - The vault's daily-log is the CLI-written log/ (2026-09-17-pre-lane-2-design-skills-evidence.md:310).
+  - This add-on keeps sessions in a sidecar database nothing in the vault reads, and writes nothing capture carries apart from the optional tag.
+  - It fails unless the spec reads daily-log as an activity record that is independent of the vault.
+- § 2026-10-04 by-itself: pass → pass (result kept; basis moved) — counted: nothing that touches A3. Sessions go into time-tracker.sqlite. setTag is reached only from toggleComplete, through the mark-button click handlers, and from toggleRead; checkGoals on the 1 s ticker only notifies and writes no tag; and the item notifier is not used. The tag write is the person's click, which replaces the superseded "datum the person names" basis. Setting: none needed. Re-judgement and verifier agree. No licence: paraphrased (bootstrap.js:1255-1257, 1604-1656, 1661-1665, 1706-1720, 2247 @ 687bf99).
+
+**54. Replication Checker for Zotero (FLoRA).**
+
+- **Pin:** c25486d781903e93ea59188bc180511d8d15d141 (HEAD main, 2026-10-02; the repo was renamed from forrtproject/fred_zotero). Latest release v0.1.14, asset replication-checker-for-zotero.xpi (2026-08-28, older than the pin).
+- **Licence:** AGPL-3.0.
+- **A1 ranges:** addon/manifest.json:14-17 (templated; id from package.json:8) and the shipped manifest both declare 6.999 to 999.*.
+- **Writes:**
+  - Localized tags, never removed (tags.ts:40-42; ftl:166-176, 299-311; replicationChecker.ts:910-913, 1155-1180, 1846-1861; reproductionHandler.ts:231-245, 458-469).
+  - Its own notes (zoteroIntegration.ts:217-228; replicationChecker.ts:1630-1708).
+  - New items with fields, Extra, DOI and tags (replicationChecker.ts:1904-2023, 2313-2509; reproductionHandler.ts:504-605, 1044-1088; zoteroIntegration.ts:180-196).
+  - Copies of read-only originals (studyUtils.ts:57-82).
+  - Related links (replicationChecker.ts:1873-1956, 2290-2293).
+  - Collections (collectionUtils.ts:150-329).
+  - Trash on ban (1123).
+  - Prefs.
+  - It runs automatically by default (addon/prefs.js:2-3).
+- **A4†:** the verifier found writes the desk missed.
+  - Ban removes related links, including links the user made (replicationChecker.ts:1084-1092, 1090; reproductionHandler.ts:757, 783).
+  - It renames and moves collections (collectionUtils.ts:119-125, 155-160, 229, 247-258, 375).
+  - A full overwrite replaces its own note and loses any user edits inside it (replicationChecker.ts:2417-2420; 1648-1652).
+  - Specific pref writes (baseBlacklistManager.ts:116; onboarding.ts:89; hooks.ts:442).
+- **A3 needs-live:**
+  - copyItemToLibrary copies every used field, including the native citationKey, by setField. That bypasses BBT's clone patch (better-bibtex.ts:89-93).
+  - The verifier narrowed this. The copy runs only for non-editable libraries, after a confirm dialog (527-528, 2540-2553). BBT never writes a native key in a read-only library (library.ts:23-40; key-manager.ts:435-446).
+  - So a key is copied only when the source already carries one written from outside, for example another member's BBT arriving through sync. key-manager.ts:448-450 makes the copied key persist.
+  - Ban trashes items carrying its own tag, after a confirm dialog (1846). That can include user items it tagged earlier.
+- **Desk exit line:** stop it; its data stays as ordinary Zotero data.
+- ‡ 2026-10-03 normalisation: needs-live → fail (pass if a trash the person selects and confirms is not destroying; unruled) — (b) passes from code. copyItemToLibrary creates a new item and copies the used fields into it, a key included, so a new item gets a first key and no existing key changes. BBT keeping that key is BBT's act, and the §6.2 leg no longer decides A3 (src/utils/studyUtils.ts:57-82; BBT content/key-manager.ts:448-450 @ f3c9299). The verifiers split on (a). The identity verifier returned fail. Ban filters the selection to items carrying its replication or reproduction tag, confirms with a count only, and trashes them. Auto-check puts that tag on any pre-existing item whose DOI or URL matches a replication, so a ban can trash another writer's item (src/modules/replicationChecker.ts:1037-1042, 1055-1065, 1122-1124, 1796-1807, 1846-1847). The notes-ui verifier returned pass, reading a trash of items the person selects and confirms as not destroying. It added that the overwrite of the add-on's own note loses user edits inside it during the check and add-originals flows, and passed that on Zotero TLDR's precedent (replicationChecker.ts:2402-2420, 1648-1652, 920, 1298 @ c25486d). The ruling does not settle the split, so the cell carries both outcomes. Seed keys: none confines ban. Resolved 2026-10-04 by the second ruling.
+- § 2026-10-04 by-itself: fail‡ (pass if a trash the person selects and confirms is not destroying; unruled) → pass‡ — counted: a timer, monthly by default, runs checkEntireLibrary on the active library. When that library is read-only, handleReadOnlyReproductions runs with no confirm: it matches existing personal-library items by DOI, URL, Extra or title and, for a reproduction with multiple originals, overwrites the matched item's whole Extra with fixed text, a by-itself path the first pass did not record. Its reproduction copies, also unconfirmed, are new items, so nothing is destroyed. On editable libraries it adds tags and rewrites its own note. The new-item check (autoCheckNewItems, on by default) adds tags and, for multiple originals, an Original Articles note created only when none with that heading exists, before its dialog; both are additive (the verifier's correction of the re-judgement's "asks before any note or item write"). Ban and the replication read-only copy are confirmed, so they are deliberate, including the replication path's overwrite of an existing matched item's Extra (replicationChecker.ts:2724). With autoCheckFrequency=disabled the interval is 0 and startAutoCheck returns before setting a timer; the other checkEntireLibrary callers are the Tools menu, collection checks and onboarding prompts. Setting: extensions.zotero.replication-checker.autoCheckFrequency=disabled; it ships monthly, so the pass rests on a non-default value. Fact for A4, not re-judged here: the whole-Extra overwrites at reproductionHandler.ts:956-957 and replicationChecker.ts:2724 can hit a pre-existing item, while the write list above records Extra writes on new items only (addon/prefs.js:2-3; src/modules/replicationChecker.ts:323-355, 376-460, 521-552, 1149-1190, 1389-1438, 2545-2554, 2724; src/modules/reproductionHandler.ts:800-805, 856-863, 902-957; src/utils/studyUtils.ts:236-254; src/utils/zoteroIntegration.ts:14-15; src/hooks.ts:339, 451, 466 @ c25486d).
+- ◊ 2026-10-04 live: A1 pass — asset sha256 77a452bba2ba9b829275e73d6db920c7b10d82abd89e5d5906ef4f1d0c1c35ae, first recorded here. Shipped manifest 0.1.14, range 6.999–999.*. extensions.json shows active=true, appDisabled=false. Startup at zotero-a1.out:4998, and its locale file loaded (:5591). The log holds 22 non-fatal shim warnings attributed to its xpi; the leg reported 214, which the verifier showed counts stack-frame lines, and corrected, keeping the result. The §6.2 leg for this row was not run (a1/extensions.after.json; a1/zotero-a1.out:4998-5651).
+
+## 5. Exclusions
+
+The task's rule keeps §38's dead, superseded, capped and out-of-scope entries as exclusions that cite §38, unless HEAD has changed. The counts-summaries verifier re-checked six of them at HEAD with gh api on 2026-10-03; none had changed.
+
+The same verifier found that a shipped cap does not decide loadability. An update manifest with no strict_max_version raises the stored range (§7 item 6). The cap-based reasons below are therefore §38's record, not an observed load failure.
+
+| Excluded | Family | Reason | Cite |
+|---|---|---|---|
+| Better Authors (betterauthors@github.com) | identity-hygiene | Out of scope: it serves no step. It registers three item-tree display columns and writes no item data. Its only other writes are its own prefs and the toolkit debug-bridge password pref setter (betterauthors.js:42). Installed 6.0.1: active=true, appDisabled=false. Licence AGPL-3.0 (LICENSE:1-2; package.json:23). Exit: stop it; it wrote nothing. | src/modules/betterAuthors.ts:245, 288, 353 (registerColumn) @ v6.0.1 416ad5ebd15e50f96db80d52b37e0eabeedbffa2. HEAD 1e8a0710ee5efc5a251a779d0f8f0dc3b826cb28 has no src/ or addon/ change. Shipped content/scripts/betterauthors.js:1391, 1425, 1479. |
+| zotero-shortdoi, origin (bwiernik) | identifiers-metadata | Dead and superseded. HEAD bf70d0b was pushed 2024-08-10. Manifest range 6.999–7.0.*. updates.json advertises only 1.5.1. Its live descendants are rows 6–7. | import-sourcing.md:5391 (§38); manifest.json:15-16 @bf70d0b |
+| dahliasan/zotero-doi-manager v1.7.0 | identifiers-metadata | Duplicate of the Julius v1.7.0 build, under the same id. lib/ and bootstrap.js are identical. manifest.json differs only in update_url. prefs.js and options.xhtml differ only in line endings. The locale .ftl files differ and were not content-diffed. Single commit 82b02cb (2026-09-25). | asset sha256 35779f85f8da60548986c942428c74dcc678df7fff7675b451dd977e84dcfa1c vs Julius v1.7.0 1767dfc5… |
+| zotero-citationcounts-eschnett | counts-summaries | Dead: a Zotero 6 overlay (install.rdf 6.*). HEAD 2b25d39 was last pushed 2023-11-09. | import-sourcing.md:5401 |
+| ZoteroCitationCountsManager-FrLars21 | counts-summaries | Capped at 6.999–7.0.* (manifest.json:11-12). Its update_url points at Zotero's make-it-red sample, so no range override is possible. HEAD 33d44be (2024-07-10). | import-sourcing.md:5402 |
+| ZoteroCitationCountsAgent-flychen50 | counts-summaries | Capped at 6.999–7.0.*, with the same update_url. HEAD 600519b (2025-11-06). | import-sourcing.md:5403 |
+| zTLDR (aguvener) | counts-summaries | Capped at 6.999–8.*. Its release update.json 1.0.0 also caps at 8.*, so the range cannot be raised. HEAD a71ba09 (2026-03-13). | import-sourcing.md:5405 |
+| zoTLDR-menyoung | counts-summaries | Out of scope: a chat sidebar. Its 7.999–8.* cap would be raised to '*' by its update.json 0.2.4, which sets no maximum, so the exclusion rests on scope, not on the cap. HEAD e329c28 (2026-07-19). | import-sourcing.md:5407, 5378 |
+| inciteful-zotero-plugin | counts-summaries | Out of scope: an off-site graph search that writes nothing to Zotero. HEAD 694c68b (2026-08-20). The verifier noted an asymmetry: semantic-zotero (search) and scite (writes nothing) were both screened. | import-sourcing.md:5416, 5378 |
+| zotero-mas-metadata | counts-summaries (raised by the verifier) | Estimated counts from a retired API; capped at Zotero 5.0.*. No desk read at HEAD. | import-sourcing.md:5424 |
+| zotero-mcp, second published copy | notes-ui-workflow | A separately published MIT copy, capped at Zotero 9. The cookjohn original is row 44. | import-sourcing.md:3795 (§25 F9) |
+| ZotPDF2md | attachments-fulltext-ocr | §38 records manifest 7.0–7.*. It has no licence and writes .md files to an export folder rather than to the item. The verifier found HEAD aabf248 manifest.json:13-14 still at 7.0–7.*. | import-sourcing.md:5422 |
+
+## 6. Live legs pending
+
+### 6.1 A1, shared procedure (32 cells) (pre-run)
+
+Use the unsynced test instance at localhost:23129.
+
+1. Confirm it runs Zotero 10.0.5 with `python -m research_vault probe --base http://localhost:23129`. testing.md records neither that profile's path nor its version.
+2. Install the shipped xpi from file.
+3. Restart Zotero.
+4. Read that profile's extensions.json entry for the add-on id. appDisabled=false passes.
+5. Also record whether an add-on update check ran. A compatibility update can raise the stored range (§7 item 6).
+6. Uninstall afterwards where the desk asked for it (Notero, Zotero MCP).
+
+| # | Candidate | Asset |
+|---|---|---|
+| 7 | DOI Manager 2.2.0 | zotero-doi-manager-2.2.0.xpi. It replaces 1.6.0 under the same id. The desk also asked for one monthly pass on a copy library, diffing DOI fields, tags and child attachments. |
+| 6 (successor) | DOI Manager 1.7.0 (Julius) | the v1.7.0 asset, sha256 1767dfc5… |
+| 10 | Metadata Hunter | metadatahunter@federicotorrielli.github.io-0.8.0.xpi |
+| 11 | ZotMeta | zotmeta-2.1.xpi |
+| 12 | Meta Refresh | zotero-metadata-refresh.xpi (v0.5.0) |
+| 13 | zotero-ner | zotero-author-name-normalizer-detect-and-fix-author-name-variants.xpi (v1.5.1) |
+| 14 | Scholar Sidekick | scholar-sidekick-0.1.0.xpi |
+| 15 | arxiv-marker | arxiv-marker-0.2.2.xpi |
+| 16 | Cita | zotero-cita.xpi (beta.28) |
+| 17 | zotero-openalex | zotero-openalex.xpi (v10.0.1) |
+| 20 | citation-tally | citation-tally.xpi (v0.0.18) |
+| 21 | tangzhao20 | zotero-citation-counts-v2.3.1.xpi |
+| 22 | open-citations | zotero-open-citations.xpi (v0.7.1) |
+| 23 | gscc | zotero-google-scholar-citation-count-7.0.0.xpi |
+| 24 | getcitation | getcitation-0.1.0.xpi. Expected reading: appDisabled=true. |
+| 25 | semantic-zotero | semantic-zotero-0.3.0.xpi |
+| 31 | Zotadata | zotadata.xpi (v1.5.5) |
+| 32 | RapidOCR | pdf-ocr-for-zotero-2.1.0.xpi |
+| 33 | zotero-docling | zotero-docling.xpi (v0.3.3) |
+| 34 | Mktero | mktero-0.4.2.xpi |
+| 35 | MinerU | mineru-for-zotero.xpi (v0.9.3) |
+| 43 | Notero | notero-2.1.0.xpi |
+| 44 | Zotero MCP | zotero-mcp-plugin-1.6.0.xpi. Re-read A3/A4 against this release; it lacks trash_item. |
+| 45 | Reading List | zotero-reading-list.xpi (v1.7.0) |
+| 46 | Duplicate Cleaner | zotero-dedup-plugin-0.15.6.xpi |
+| 47 | Review Assistant | zotero-review-assistant.xpi (v2.0.2) |
+| 48 | PubPeer | zotero-pubpeer-1.0.9.xpi |
+| 49 | zotxt | zotxt-9.0.0.xpi |
+| 50 | Folder Import | zotero-folder-import-1.0.2.xpi |
+| 51 | Watch Folder | zotero-watch-folder-2.8.6.xpi |
+| 52 | ZotSeek | zotseek-1.22.4.xpi |
+| 53 | Reading Time | reading-time.xpi (v0.43.1) |
+| 54 | FLoRA | replication-checker-for-zotero.xpi (v0.1.14) |
+
+### 6.2 A2, A3 and A4 (15 cells, pre-normalisation; pre-second-ruling) (pre-run)
+
+All of these run on the test instance only.
+
+- **2 Zoplicate, A4.**
+  - Take a duplicate pair whose items carry different BBT citekeys, different plugin Extra lines (PMCID/PMID) and different tags.
+  - Merge it once through Zoplicate and once through Zotero's own merge pane.
+  - Before and after, read: the survivor's citationKey, the Extra bytes, tags, dc:replaces, and the trashed loser.
+  - Expected from code: the master key survives, no tex.ids alias appears, the loser's Extra lines are absent from the survivor, and lifecycle reports 'merged'.
+  - Added by the verifier: save a child under a trashed parent, to observe the _saveData re-parenting.
+- **4 arXiv Workflow, A4.**
+  - Take a preprint/published pair with distinct citekeys, PMCID/PMID Extra lines, a manual tag and an unannotated PDF.
+  - Run the merge.
+  - Before and after, read: citationKey, the Extra bytes, item type and fields, attachments (trashed or added), and the loser's Extra.
+  - Check whether BBT reacts while two live items briefly share one native key.
+  - Added by the verifier: record which outcome occurs when the published item is still unkeyed at merge time.
+- **5 PMCID fetcher, A3.**
+  - Run with auto and tags on, and add one journalArticle and one non-journal item with PMC-indexed DOIs. Read fields, Extra and tags before and after. This also confirms the §15 item 05 split.
+  - For the lost-update window, seed a concurrent Extra write inside the fetch window. The verifier notes that Linter writes Extra on add only for a shortDOI or for out-of-order Extra, so the leg needs one of those or a manual Extra edit; otherwise it proves nothing.
+- **10 Metadata Hunter, A4.**
+  - Run find-published-version on a keyed preprint, and enrich on a DOI item.
+  - Record: new items and their keys, translator-supplied tags, notes and Extra, trash state, and whether the scratch items fire other plugins' on-add observers or receive BBT keys.
+- **16 Cita, A4.**
+  - Run both storage modes: fetch identifiers, fetch citations, link a citation to a library item, then delete a linked item.
+  - Diff child notes, Extra, relations and item versions across the library.
+- **19 Zotero TLDR, A2.**
+  - Count child notes that begin with the TL;DR paragraph.
+  - Run the update-TL;DR menu on one item with a DOI.
+  - Recount, and re-read fetchedItems.json.
+  - No new note and no map entry would confirm the endpoint is dead.
+- **31 Zotadata, A4.**
+  - Run metadata-update and find-PDF on 3 fixture items.
+  - Diff /items?since=<version>, including trashed items.
+  - Count the trashed translator items and their attachments, check whether BBT keyed them, compare Extra byte for byte, and list the tags added.
+- **34 Mktero, A3 and A4.**
+  - Convert and save one PDF.
+  - Diff children, notes, annotations and Extra.
+  - Diff the profile and data directories (cache root per the verifier: <profile>/mktero-cache/v1).
+  - Point obsidianVaultPath at a scratch directory and list the files written.
+- **37 Better Notes, A3 and A4.**
+  - Snapshot items, notes, tags, relations and attachment versions (local API, plus ?since=), and the profile's IndexedDB.
+  - Enable it with default prefs.
+  - Create a note from an annotation.
+  - Open a note it did not write, without editing it.
+  - Add and remove a tag on the annotation, then restart. Diff.
+  - Added by the verifier: tag a paired note from another writer, then remove that tag on the annotation.
+- **46 Duplicate Cleaner, A3.**
+  - Merge a pair whose auto-picked master has an empty citationKey.
+  - Read both items' citationKey and Extra, and BBT's duplicate-key report, before and after.
+- **51 Watch Folder, A3 and A4.**
+  - Watch a scratch directory holding two PDFs, one with a DOI and one without.
+  - Snapshot item JSON and the tracking JSON before and after each of: import; a re-drop with duplicateAction=import; a file delete answered Trash; a delete answered Keep; reclaim with linked_watch_folder; autoRename.
+  - Per the verifier, deletion propagation needs mode3 and the one-time acknowledgement, so the delete steps must set mode3 or they test nothing.
+- **54 FLoRA, A3 (as corrected by the verifier).**
+  - Use a read-only group item that already carries a native citationKey written outside this user's BBT, for example by another member's BBT through sync, with no personal-library item sharing its DOI.
+  - Run the check from that library.
+  - Read the personal copy's citationKey and BBT's duplicate-key report before and after.
+  - The desk's version (a read-only group item with a BBT key) cannot produce a copied key, because BBT never writes keys in read-only libraries.
+
+Attachment Scanner's desk leg (does /children return trashed snapshots) is not pending. The verifier closed it from code and measurement (§4, row 26).
+
+### 6.3 Other live reads the workers proposed (not needs-live cells) (pre-run)
+
+- **Better BibTeX.**
+  - Confirm extraMerge* are still unset. The auto-update framing is moot (§7 item 5).
+  - Confirm whether the kh-vault auto-export (prefs.js:133) is intended.
+- **Non-strict fromJSON (one leg covering Zoplicate, arXiv Workflow and the native merge pane).** Read the Extra byte outcome of a merge on real Extra content that holds field-shaped lines.
+- **Native citationKey written by field copy or restore (one leg).** Cases: Duplicate Cleaner's fill, FLoRA's copy, arxiv-marker's undo, Zutilo's pasteJSON. Record how BBT 9.0.63 treats each.
+- **Zotero OCR and RapidOCR capture legs.** OCR one image-only PDF with default prefs and read /items/<parent>/children before and after. Then re-capture and record:
+  - which key _best_attachment resolves to (capture.py:138-144);
+  - whether the OCR note text appears in the body;
+  - how many fulltext/ files the page-HTML children add;
+  - indexedPages against totalPages on a scan over 100 pages (Zotero OCR), or indexedPages = totalPages (RapidOCR).
+- **#135 (Actions and Tags).** Register the rule, then confirm that the OS handler for obsidian:// is present and that wsl.exe exec runs capture.
+- **Scholar Sidekick 0.1.1.** Read the vendor build.
+- **Reading List.** Check whether its export patch strips its lines from the BBT library CSL route that capture uses (zotero.py:339-351).
+
+### 6.4 Run 2026-10-04
+
+◊ marks a §3 cell this run set or confirmed; earlier marks stay. Raw logs are under /tmp/lane23-live/zotero/ (INDEX.txt lists them), and paths below are relative to it unless they name the Obsidian leg. An adversarial verifier re-read every cell against those files. Where it set supported=false (rows 7, 44 and 54), its corrected result is used and the row's §4 line says so; it changed no result. The run's Obsidian leg judged screen B and C cells only, so none of its cells is folded here; its findings that bear on this screen are §7 items 32 and 33.
+
+**Setup.**
+
+- Test instance: Zotero 10.0.5 with BBT 9.0.68, profile ~/.zotero/zotero/rfnse7tz.default, data directory ~/Zotero (logs/00-probe-initial.txt; logs/10-a1-run.txt). Production runs BBT 9.0.63, so every ◊ result was observed beside a newer BBT than §4 pins (§7 item 22).
+- A Step 0 snapshot of the data directory and profile (snapshot/, snapshot.manifest.sha256; logs/02-step0-snapshot.txt). Every leg was restored from it before it started, and its data directory and profile were discarded after (logs/11-a1-restore.txt, logs/13-a1b-restore.txt, step2/<leg>/run.log).
+- Install route: each shipped xpi copied into the profile's extensions/ as <id>.xpi, with user.js setting extensions.autoDisableScopes=0 and extensions.startupScanScopes=1 (§7 item 23).
+- Every leg start added -ZoteroDebugText so add-on errors reach the log (§7 item 27).
+
+**A1 (§6.1).** One batch: 27 add-ons sideloaded into one profile and started once for 60 s (a1/candidates.tsv, a1/user.js, logs/10-a1-run.txt), not one add-on at a time; cross-add-on interaction was therefore possible (§7 item 26). Readings: a1/extensions.after.json (as a table: a1/a1-extensions-table.tsv), the debug log a1/zotero-a1.out and a1/a1-error-attribution.txt. Asset URLs and hashes are in a1/downloads.tsv, shipped manifests in a1/manifests.tsv. A1b then restarted the four add-ons left appDisabled with the add-on background update timer forced (a1b/user.js). The check fired at 01:54:53 (logs/12-a1b-run.txt), and each add-on's update manifest was fetched (a1b/update-manifests.txt).
+
+| # | Candidate | A1 | Raw log |
+|---|---|---|---|
+| 7 | DOI Manager 2.2.0 | pass (verifier corrected the observation; result stands) | a1/extensions.after.json; a1/zotero-a1.out:5771-5783, 7802-8052 |
+| 10 | Metadata Hunter | pass | a1/zotero-a1.out:2249; a1/a1-error-attribution.txt |
+| 11 | ZotMeta | pass | a1/zotero-a1.out:1913 |
+| 12 | Meta Refresh | pass | a1/zotero-a1.out:2341-2392 |
+| 13 | zotero-ner | pass, with a non-fatal load error | a1/zotero-a1.out:1684-1751 |
+| 14 | Scholar Sidekick | fail; still appDisabled after A1b | a1/ and a1b/extensions.after.json; a1b/update-manifests.txt |
+| 15 | arxiv-marker | pass | a1/zotero-a1.out:1755-1757 |
+| 17 | zotero-openalex | pass | a1/zotero-a1.out:1763, 3989-3997 |
+| 21 | tangzhao20 | pass | a1/zotero-a1.out:2538 |
+| 22 | open-citations | pass | a1/zotero-a1.out:5671 |
+| 23 | gscc | pass | a1/zotero-a1.out:4503-4514 |
+| 24 | getcitation | fail, as expected; still appDisabled after A1b | a1/ and a1b/extensions.after.json; a1b/update-manifests.txt |
+| 25 | semantic-zotero | pass | a1/zotero-a1.out:1949-1953 |
+| 31 | Zotadata | fail; still appDisabled after A1b; update URL 404 | a1/ and a1b/extensions.after.json; a1b/update-manifests.txt |
+| 32 | RapidOCR | pass | a1/zotero-a1.out:6997-7001 |
+| 33 | zotero-docling | pass | a1/zotero-a1.out:4713 |
+| 34 | Mktero | pass | a1/zotero-a1.out:6994-7022; a1/post-a1-newfiles.txt |
+| 44 | Zotero MCP | pass (verifier corrected the observation; result stands) | a1/zotero-a1.out:6346-6348; a1/post-a1-newfiles.txt |
+| 45 | Reading List | pass | a1/zotero-a1.out:1988-1990 |
+| 46 | Duplicate Cleaner | pass | a1/zotero-a1.out:1753 |
+| 47 | Review Assistant | fail; still appDisabled after A1b | a1/ and a1b/extensions.after.json; a1b/update-manifests.txt |
+| 48 | PubPeer | pass | a1/zotero-a1.out:2596, 2887-2920 |
+| 49 | zotxt | pass | a1/zotero-a1.out:2245-2247 |
+| 50 | Folder Import | pass | a1/zotero-a1.out:4521 |
+| 51 | Watch Folder | pass | a1/zotero-a1.out:5791-5807 |
+| 52 | ZotSeek | pass | a1/zotero-a1.out:846-1682; a1/post-a1-newfiles.txt |
+| 54 | FLoRA | pass (verifier corrected the observation; result stands) | a1/zotero-a1.out:4998-5651 |
+
+**Step 2 legs (§6.2, plus one supplementary A1).** Each leg restored the snapshot, sideloaded one add-on beside BBT, started Zotero, saved fixtures through the connector (fixtures/: fxcommon, zA, zB, and synthetic PDFs from fixtures/mkpdf.py), waited, and compared the result with a BBT-only control run of the same procedure (step2/control/). "Matched the control" means step2/<leg>/cmp-control.txt shows no row difference after normalisation.
+
+| # | Leg | Result | Raw log (under step2/ unless named) |
+|---|---|---|---|
+| 2 | Zoplicate A4, on-add at shipped action=ask | pass | zoplicate-ask/cmp-control.txt, zoplicate-sqlite.txt, zotero.out:2205, 4249 |
+| 2 | Zoplicate A4, automatic merge at action=keep (user.js) | pass | zoplicate-keep/dbdiff.txt, api/, zotero.out:3056, 5117, user.js |
+| 2 | Zoplicate A4, _saveData patch (verifier sub-leg) | pass | zoplicate-keep/savedata-subleg.log, api/since-savedata.json, zotero.out:7152-7169 |
+| 2 | Zoplicate A4, comparison with Zotero's merge pane; lifecycle 'merged' | needs-live still | zoplicate-keep/dbdiff.txt (the state to compare against) |
+| 4 | arXiv Workflow A4, writes by itself | pass | arxiv-workflow/cmp-control.txt, dbdiff.txt, fxrun.log |
+| 4 | arXiv Workflow A4, merge leg | needs-live still | arxiv-workflow/api/find-04-after-wait.json |
+| 10 | Metadata Hunter A4, writes by itself (run r2) | pass | metadata-hunter-r2/cmp-control.txt, dbdiff.txt; metadata-hunter/run.log (invalid run) |
+| 10 | Metadata Hunter A4, find-published-version and enrich | needs-live still | metadata-hunter-r2/api/find-04-after-wait.json |
+| 19 | Zotero TLDR A1, install path on 10.0.5 (supplementary) | pass | tldr/zotero-run1.out:1182, 1196; tldr/extensions.after-run1.json; tldr/prefs.after-run1.js:12 |
+| 19 | Zotero TLDR A2 | fail | tldr/zotero.out:797, 885-886; tldr/run.log; tldr/cmp-control.txt |
+| 31 | Zotadata A4 | could not run: does not load on 10.0.5 | a1/extensions.after.json and a1b/extensions.after.json (not under step2/) |
+| 34 | Mktero A4, writes by itself | pass | mktero/cmp-control.txt, mktero-readiness-index.json, zotero.out:1697-1703 |
+| 34 | Mktero A4, convert/save/export and reader-triggered sync | needs-live still | mktero/fsdiff.txt |
+| 37 | Better Notes A4, writes by itself (75 s) | pass | better-notes/cmp-control.txt, prefs.diff, zotero.out:1569-1630 |
+| 37 | Better Notes A4, tag mirror and annotation note | needs-live still | better-notes/dbdiff.txt |
+| 51 | Watch Folder A4, mode1 import, re-drop and delete (user.js) | pass | watch-folder/cmp-control.txt, dbdiff.txt, tracking-03-after-delete.json, user.js |
+| 51 | Watch Folder A4, re-drop at duplicateAction=import (user.js) | pass | watch-folder-dupimport/dbdiff.txt, api/since-03-after-v2.json |
+| 51 | Watch Folder A4, mode3 delete and reclaim | needs-live still | watch-folder/run.log |
+
+The arXiv Workflow and Mktero legs waited 60 s after the last save, Better Notes 75 s and the Zoplicate legs 30 s (each leg's fxrun.log).
+
+**Legs that could not run, with the human step each needs.** Each needs Zotero's GUI or a command the person runs, which the run could not drive.
+
+- **2 Zoplicate.** On a fresh pair like zA/zB, open Duplicate Items, select the pair and click Merge Items. Then read the survivor's citationKey, Extra bytes, tags and dc:replaces, and the trashed loser, against the keep-merge in step2/zoplicate-keep/dbdiff.txt. research-vault's lifecycle.py classification of the merged pair was not run either; that part needs no GUI.
+- **4 arXiv Workflow.** Select fx2 (preprint) and fx3 (conferencePaper) together and run its merge from the context menu. Then read citationKey, the Extra bytes, item type and fields, attachments and the loser's Extra. Repeat with an unkeyed published item, and check BBT while the two live items share one key.
+- **10 Metadata Hunter.** Run Find Published Version on the keyed preprint fx2 and Enrich Metadata on the DOI item fx1 (toolbar, menu or Ctrl/Cmd+Alt+D/P/M). Record new items and their keys, tags, notes and Extra, trash state, and whether the scratch items get BBT keys or fire other add-ons' observers.
+- **31 Zotadata.** Needs a Zotero 8.x or 9.x test instance (manifest range 8.0–9.*), where a person runs metadata-update and find-PDF on three fixture items.
+- **34 Mktero.** Open fx1's PDF in Zotero's reader, make a Mktero Markdown highlight, convert and save one snapshot, set obsidianVaultPath to a scratch directory and export. Then diff children, annotations, Extra, <profile>/mktero-cache/v1 and the scratch directory.
+- **37 Better Notes.** Highlight fx1's PDF and create a note from it with Better Notes; open a note it did not write, without editing it; add and remove a tag on the annotation; tag the paired note from another writer; restart Zotero. Then diff items, notes, tags, relations and the profile IndexedDB.
+- **51 Watch Folder.** Run the setup wizard choosing mode3 and acknowledge; delete a watched file and answer Move to Trash, then Keep on a second file; press Reclaim with pdfStorageStrategy=linked_watch_folder. Snapshot item JSON and the tracking JSON before and after each step.
+
+**Not attempted in this run.** The leg's logs record no reason.
+
+- §6.1 A1: row 6's successor DOI Manager 1.7.0 (Julius), 16 Cita, 20 citation-tally, 35 MinerU, 43 Notero and 53 Reading Time. a1/candidates.tsv lists 27 add-ons, none of them these.
+- §6.2: 5 PMCID fetcher (A3), 16 Cita (A4), 46 Duplicate Cleaner (A3) and 54 FLoRA (A3). Rows 5, 46 and 54's §4 lines already record that their leg no longer decides A3.
+- §6.3: none of its reads.
+- Partly run: row 7's monthly pass on a copy library was not run; only its first-startup sweep was seen starting (§4 row 7). §6.2 row 2 asked for a pair with different PMCID/PMID Extra lines, but the connector moved those lines into native fields before the merge (§7 item 25), so the keep-merge did not test merge-time Extra migration.
+
+**Verifier corrections applied.** None changed a result.
+
+- DOI Manager 2.2.0: 5 Crossref OpenURL requests (4 answered 200, 1 answered 400), not 10.
+- Zotero MCP and FLoRA: 22 shim warnings each, not 214; 214 counts the stack-frame lines under them.
+- Watch Folder A1: the TrackingStore path is logged at :5805, not :5806.
+- Mktero A4: fsdiff covers only the data directory and the profile, so temp files elsewhere were not observed; AlternateServices.bin is also new beyond the control.
+- Better Notes A4: the tour is inferred from the showUserGuide call, not logged as shown.
+- arXiv Workflow A4: addonStartup.json.lz4 also changed, as in every leg.
+
+**Incidents and restore.** §7 items 28 and 34.
+
+## 7. Open questions the workers raised
+
+Each item names the families that raised it.
+
+### Questions whose answers change §3 results
+
+1. **A3 scope** (identity-hygiene verifier; search-new desk). Does A3 judge automatic paths only, or all shipped behaviour, including user-invoked commands? The desk applied both readings: BBT passed on automatic paths, while Zutilo failed on user-invoked commands. Resolved 2026-10-03: see Standards as applied. Resolved 2026-10-04 by the second ruling.
+   - On the all-paths reading, BBT, Zutilo, Zoplicate and arXiv Workflow fail.
+   - On an automatic-only reading, BBT, Zutilo and arXiv Workflow pass. Zoplicate fails nothing on this profile, because action=cancel and its only automatic item write (the _saveData re-parenting) moves children rather than destroying them.
+   - Also open: does "destroy" cover user-confirmed recoverable trash (Duplicate Cleaner, FLoRA ban) and user-chosen permanent erase (Watch Folder)? Resolved 2026-10-04 by the second ruling.
+2. **Configuration-gated results** (counts and notes-ui verifiers). One rule is needed for all of these:
+   - Opt-in paths that destroy data: open-citations writeExtra, Zotero MCP write.enabled, openalex correctArxivArticles. Resolved 2026-10-04 by the second ruling.
+   - Service that exists only through configuration: Actions and Tags' A2 rests on a script rule production does not have.
+   - Production prefs versus shipped defaults: Attachment Scanner fails on production prefs and would pass on shipped defaults. Resolved 2026-10-04 by the second ruling.
+3. **BBT consolidation clause** (identity-hygiene). On Zotero 10.0.5, no merge path on this profile records a loser's citekey as an alias:
+   - Zotero.Items.merge is a deprecated shim over mergeItems.mjs (items.js:1037-1041 @ ca61760).
+   - The native merge pane calls mergeItems.mjs directly (duplicatesMergePane.js:34, 203-211), exactly as Zoplicate does.
+   - BBT's shim is gated on extraMerge*, which ship false and are unset here (defaults.js:54-56).
+   - What every merge does leave is dc:replaces (mergeItems.mjs:426-477), which lifecycle.py:33-83 reads.
+
+   The options are to restate A3's clause against dc:replaces plus lifecycle detection, or to require extraMergeCitekeys=true as a doctor row, accepting that only deprecated-API callers honour it. Resolved 2026-10-03: see Standards as applied. Related:
+   - Spec §15 item 03 (assembly-design.md:521) treats the hazard as specific to Zoplicate; it is wider.
+   - Not a hazard, but previously unrecorded: the native pane clones the master for display (duplicatesMergePane.js:195), BBT blanks a clone's key (better-bibtex.ts:89-93), and toJSON omits the blank, so the master's key survives a native merge.
+4. **A2 criterion** (counts verifier; search-new desk).
+   - Does an in-Zotero column serve scoping-review? The desk failed scite and passed the count plugins on the same basis.
+   - Every Extra writer is credited with capture because capture carries Extra verbatim (CONTEXT.md:57). That is true of any writer.
+   - Step-map scope: does search cover Zotero-side retrieval (ZotSeek)? Does scoping-review cover appraisal (PubPeer, FLoRA) and reading status (Reading List)? Does daily-log cover a log the vault never reads (Reading Time)? Does protecting capture without serving a step meet A2 (Duplicate Cleaner)? Is Scholar Sidekick search or capture?
+
+### Facts for the spec
+
+5. **The auto-update premise is refuted** (identity-hygiene verifier).
+   - prefs.js:46 sets extensions.update.autoUpdateDefault=false, and every candidate's applyBackgroundUpdates=1 follows it.
+   - No xpi in extensions/ is newer than Sep 3, although BBT 9.0.64 shipped Sep 9.
+   - Newer builds move only by hand: BBT 9.0.68, arXiv Workflow 0.4.0, Linter 4.0.1, Zotero OCR 0.9.6, DOI Fix 1.1.9. None has been observed loaded.
+   - A1 observations are version-bound. Zoplicate's 10.0.* cap would appDisable it on Zotero 10.1.
+6. **The cap bypass is evidence, not inference** (counts verifier).
+   - In the 10.0.5 omni.ja, AddonUpdateChecker.sys.mjs:189-198 and XPIDatabase.sys.mjs:723-748 raise a stored range to '*' when an update entry lacks strict_max_version.
+   - That is why scite, Zotero TLDR and KeepZotero load despite their shipped caps (the assembly spec §14 catalogue-staleness row).
+   - It also means §38's cap-based exclusions do not settle loadability (§5).
+7. **Which channel carries identifiers** (identifiers-metadata).
+   - SNAPSHOT_FIELDS (literature_notes.py:34-52) carries DOI, extra and tags, but not PMID or PMCID.
+   - Schema 44 makes PMID and PMCID native on journalArticle, and both the PMCID fetcher and Cita write them there.
+   - events.py:258 tests lowercase pmid, while Zotero's JSON key is PMID.
+8. **Shared Extra keys and colliding grammars** (identifiers-metadata, counts-summaries).
+   - PMID and PMCID have three writers: the PMCID fetcher (appends), ZotMeta (canonicalises in place and blanks duplicates) and Cita (clears and re-appends, or moves to the native field).
+   - DOI lines have one writer, DOI Fix, and that path is unreachable on 10.
+   - No key is owned by one plugin.
+   - The count plugins citation-tally, tangzhao20, getcitation and open-citations (with writeExtra on) strip or mangle each other's lines. arxiv-marker strips tangzhao20's line. gscc and open-citations leave each other alone.
+   - Declaring more than one count plugin is a hazard of its own.
+9. **Writers racing on add** (identifiers-metadata).
+   - Writers on the same add: PMCID fetcher (add and modify, writing back a stale whole Extra), DOI Manager (add), Linter (add, priority 666), openalex (startup sweep), reginalluna (monthly sweep). Only Linter's priority orders them.
+   - Linter's correct-doi-long expands short DOIs on add (prefs.js:62; linter.js:6350-6362), while DOI Manager's short mode converts long DOIs to short. The two would fight.
+10. **One mechanism behind merge-time Extra rewrites** (identity-hygiene, identifiers-metadata, search-new).
+    - Zoplicate (mergeItems.ts:48), arXiv Workflow (arxiv-merge.ts:218) and the native merge pane (duplicatesMergePane.js:209) all call fromJSON non-strict, which migrates Extra lines into fields (item.js:5656-5697). That is the class of §14's local-API PATCH row (assembly-design.md:493). One live leg closes all three.
+    - Whole-item replace or restore can set the native citationKey outside BBT: arxiv-marker undo, Metadata Hunter's translator items, Duplicate Cleaner's fill, FLoRA's copy, Zutilo's pasteJSON. A second leg reads BBT 9.0.63's reaction.
+11. **DOI Manager id ambiguity** (identifiers-metadata).
+    - README.md:125 and research_vault/templates/zotero-addons.md:5 declare zoteroshortdoi@wiernik.org. The desk cited README.md:16; the verifier corrected it to :125.
+    - Three lines ship under that id with different write behaviour: Julius 1.7.0, reginalluna 2.2.0 (with a default-on monthly sweep) and dahliasan 1.7.0.
+    - The installed 1.6.0 neither loads on 10.0.5 nor self-updates.
+    - Doctor checks id plus appDisabled, which cannot tell the three lines apart.
+12. **A BBT auto-export on a CLI-owned path name** (identity-hygiene).
+    - An enabled library-wide Better CSL JSON auto-export targets kh-vault/system/bibliography.json (prefs.js:133; last written 2026-10-03 17:42).
+    - research_vault/bibliography.py:3-5 and :15 own that relative path and regenerate it, with no auto-export.
+    - kh-vault lacks wiki/, literature/ and .raw/ (measured), so it is not a user vault by AGENTS.md's definition.
+    - Nothing checks for an auto-export targeting a vault. doctor.py:230-240 probes only BBT's git pref.
+    - doctor.py:232 @ 3780fb7 treats an absent git pref as off, but BBT 9.0.63 ships git=config (defaults.js:64). Where the pref is absent, doctor would report git=off while the effective mode pushes from any export target that opts in (auto-export.ts:194-254). kh-vault has no opt-in.
+13. **Canonicalising tags at rest** (identity-hygiene).
+    - Zotero's native rename (tags.js:283-364 @ ca61760) does it in one UPDATE OR REPLACE that sets type=0 (:314), so collisions merge silently and automatic tags become manual.
+    - The old tag row is purged (:347), and the old name survives only in the transient notifier payload (:330-345).
+    - No undo is staged. UndoHistory is in memory only and capped at 100 (undoHistory.js:27, 48).
+    - Items are marked synced=0 (:320-324), so the change reaches zotero.org (§14 sync row, assembly-design.md:494).
+    - assembly-design.md:289 says automatic tags regrow on refresh; that does not address the above. Zutilo has no rename and no single-tag removal.
+    - What survives of the original form: the literature note's tags snapshot until the next capture (CONTEXT.md:57); zotero.sqlite.bak (2026-10-03 16:19) and zotero.sqlite.1.bak (2026-10-02) in D:\Zotero until they are overwritten; and any export taken beforehand.
+14. **Spec lines the evidence dates or contradicts** (identity-hygiene, attachments, notes-ui).
+    - assembly-design.md §14 rows 484 and 487 say Attachment Scanner uses an emoji preset (cited as prefs.js:32-35) and has two tag generations. Production has only the hash preset.
+    - §7.0, line 289, credits Zutilo with bulk tag operations.
+    - §15 item 03, line 521, frames the merge hazard as specific to Zoplicate.
+    - Lines 496 and 557 say a MarkDB run would strip the 3 ObsCite tags today. At 825ef2d, an invalid sourcedir returns early and zero records make a dry run, and the tags are still present while MarkDB is active. The armed hazard is a partly readable vault.
+    - Sequencing for MarkDB: production yamlkeyword is citekey (prefs.js:91), while literature notes carry citationKey (literature_notes.py:57). So removetags=addonly must be set before or together with the yamlkeyword fix.
+15. **Zotero child notes land in literature-note bodies** (attachments-fulltext-ocr).
+    - Capture renders Zotero child notes (capture.py:206; literature_notes.py:443).
+    - Notes that would land there: OCR text notes, Mktero snapshot notes, Zotadata download notes, TL;DR notes, Cita's JSON Citations notes and Notero's sync-JSON notes, unless the lane filters them. §35 already flagged the OCR note.
+    - An OCR twin gives its parent two PDF children. With production's monitor on, that triggers Attachment Scanner's duplicate tag (attachmentscanner.js:430-443, 471-474), and capture carries the tag. Mktero's two JSON children trigger it too.
+16. **Tag counts disagree** (attachments and notes-ui verifiers).
+    - /tags numItems reports ObsCite 4, triage:needed 50, #nosource 445 and #nonfile 10.
+    - Item queries give 3, 49, 175 and 2, with or without includeTrashed.
+    - numItems is a raw itemTags count (tags.js:243-246). The cause of the gap is open.
+17. **#135** (notes-ui).
+    - Actions and Tags 2.6.1 can be configured for both actions without a build: a customScript rule shown in the item menu (actions.ts:43-65, 266-308; menu.ts:39-42, 297-305, 325-352).
+    - Opening a note uses Zotero.launchURL on an obsidian:// URL for literature/<citationKey>. The vault path is built at literature_notes.py:158, not :160; the issue says literatures/<key>.md. launchURL hands non-HTTP schemes to the OS handler (zotero.js:1231-1262 @ ca61760).
+    - Adding uses Zotero.Utilities.Internal.exec on wsl.exe with the capture verb (utilities_internal.js:670-702; capture.py:445; __main__.py:785-788). pyproject defines no console script.
+    - Both need a live check.
+    - Re-enabling the add-on re-arms rule hara0, which tags every new item triage:needed. Nothing in research-vault gives that tag a meaning, and 49 items already carry it, plus 73 /unread tags.
+    - Zutilo can do neither action. MarkDB-Connect already ships the open half, given sourcedir, yamlkeyword=citationKey and removetags=addonly.
+18. **Add-on Market's execJS** (notes-ui). It runs remote JavaScript signed by the author (registerScheme.ts:146-170; shipped zoteroaddons.js:9091). Should a vault declare or reject an add-on whose write list includes that? Resolved 2026-10-04 by the second ruling. For A3 only: the route is remote and counted (row 42); whether a vault declares such an add-on is the spec's question.
+19. **Licences** (all families).
+    - Conflicts at the pin: Chartero (Apache-2.0 vs AGPL-2.0-or-later), Zotadata (MIT vs AGPL-3.0-or-later), zotero-openalex (GPL-3.0 vs AGPL-3.0-or-later), BBT (MIT vs ISC; already in §28).
+    - No licence recorded: PMCID fetcher, scite, Open PDF, getcitation, Review Assistant, PubPeer, Folder Import, Reading Time.
+    - Claimed only: RapidOCR (MPL-2.0) and ZotSeek (MIT).
+    - Zutilo's LICENSE.md says MPL-2.0 while GitHub reports NOASSERTION.
+    - Zotero core and zotero-schema: the identity-hygiene verifier recorded no licence at ca61760 and 70c3aa9. The notes-ui desk names AGPL-3.0 for zotero/zotero@ca61760.
+    - Nothing from an unlicensed body is quoted here.
+20. **Pins and drift** (all families).
+    - BBT HEAD 71cec80 is one test-only commit past the v9.0.68 tag, 1af0bfe.
+    - DOI Manager v1.6.0 is annotated tag 23fd543, which points to commit 2ec547c.
+    - Zotero ca61760 was checked against the installed omni.ja. mergeItems.mjs is byte-identical; item.js, items.js, duplicatesMergePane.js, tags.js and undoHistory.js differ only in formatting.
+    - Schema 44 in the omni.ja is byte-identical to zotero-schema 70c3aa9.
+    - Zoplicate's HEAD carries an unreleased cross-type merge that writes a child note (6d94dc1).
+    - Some A3 and A4 reads are at repo HEAD while the installed or released version differs: Add-on Market 10.0.0 versus V10.0.1, and MCP v1.6.0, which lacks trash_item. Re-read them against the version actually installed when a live leg runs.
+21. **Data leaving the machine** (counts, attachments, search-new).
+    - scite sends every library DOI to api.scite.ai at startup and daily.
+    - Zotero TLDR sends every unmapped title to semanticscholar.org at each startup, although its map has stayed empty.
+    - PubPeer POSTs DOIs on every add or modify.
+    - Open PDF's click-gated upload includes an RDF export of the selected items.
+
+### Facts from the live run (2026-10-04)
+
+Each item names its method and raw log. Paths are under /tmp/lane23-live/zotero/ unless an item names the Obsidian leg, whose paths are under /tmp/lane23-live/obsidian/.
+
+22. **The test instance** (probe and file reads).
+    - Zotero 10.0.5, schema 44, BBT 9.0.68 (xpi sha256 d3699a34…), profile ~/.zotero/zotero/rfnse7tz.default, data directory ~/Zotero (logs/00-probe-initial.txt; logs/10-a1-run.txt; logs/12-a1b-run.txt).
+    - Production runs BBT 9.0.63, so every ◊ result was observed beside a newer BBT than §4's pins. Like item 5's, these observations are version-bound.
+    - It did not sync. libraries.lastSync stayed 2026-06-29T16:30:21-05:00 in the snapshot and after restarts, with 2 items synced=0, although the profile sets sync.server.username and autoSync defaults to true. The log shows Zotero reading the sync password and then skipping auto-sync because sync is not enabled (logs/03-snapshot-db-state.txt; step2/tldr/zotero.out:890-892). logins.json was not read; the permission system denied it.
+23. **Sideload route** (file install). Copying a shipped xpi into the profile's extensions/ directory as <id>.xpi, with user.js setting extensions.autoDisableScopes=0 and extensions.startupScanScopes=1, installs and enables it at the next start. extensions.json then records foreignInstall=true, location app-profile and no sourceURI (a1/user.js; logs/10-a1-run.txt; a1/a1-extensions-table.tsv). On that start the add-on background update check did not run (its timer pref is unchanged in a1/prefs.after.js:12), so A1 was read before any compatibility raise.
+24. **Forcing the add-on update check.** user.js app.update.lastUpdateTime.addon-background-update-timer=1 makes the check run at startup; in A1b it fired at 01:54:53 (pref value 1791096893; logs/12-a1b-run.txt).
+    - Zotero TLDR: the check raised the stored range from 6.999–7.0.* to 6.999–* and Zotero enabled the add-on at runtime, startup reason ADDON_ENABLE (step2/tldr/zotero-run1.out:1182, 1196; step2/tldr/extensions.after-run1.json). This is item 6's mechanism observed, on the test instance. It does not show when production's raises happened; row 18's "still inferred" is about production.
+    - Scholar Sidekick, getcitation and Review Assistant, whose update entries carry strict_max_version 9.* or 9.999.*, and Zotadata, whose update URL returns 404: nothing changed (a1b/extensions.after.json; a1b/update-manifests.txt).
+25. **The connector moves field-shaped Extra lines** (BBT-only control run). /connector/saveItems moved the fixtures' Citation Key:, PMID: and PMCID: Extra lines into the native citationKey, PMID and PMCID fields, so an item saved this way keeps only Extra lines that are not fields, such as count lines (step2/control/dbdiff.txt). The Zoplicate and arXiv Workflow legs therefore carried no field-shaped Extra line into a merge, and item 10's merge-time migration was not exercised.
+26. **A1 ran as a batch.** All 27 add-ons ran together in one profile for 60 s. That log holds 13 'uncaught exception: undefined' lines against 1 in a BBT-only start of the restored instance (logs/11-a1-restore.txt), so add-ons could have interacted; each A1 reading (appDisabled and the startup call) is per add-on. Within the 60 s, add-ons sent the test library's data out: pubpeer.com and api.openalex.org answered HTTP 429, and DOI Manager 2.2.0's first-startup Crossref sweep sent 5 requests (§4 rows 7, 17 and 48; item 21).
+27. **Debug logging.** Starting Zotero with -ZoteroDebugText sends add-on errors to the log, and Zotero then writes browser.dom.window.dump.enabled=true into prefs.js. Every leg's profile was discarded, and the final start used the plain command (logs/30-step3-final-restore.txt).
+28. **Probe timing.** One local-API request reached /api/ before Zotero finished initialising, before the zotero-loaded event. Zotero logged a creator-not-found error while loading items, then held every API call waiting for library 1's items (step2/metadata-hunter/zotero-invalid-run.out:311). That run was invalidated and re-run as metadata-hunter-r2; the start helper then waited for the zotero-loaded log line before probing (step2/metadata-hunter/run.log; step2/metadata-hunter-r2/run.log).
+29. **dateAdded in a Zotero 10.0.5 merge.** In Zoplicate's keep merge, which calls mergeItems.mjs directly, the master's dateAdded stayed 07:08:52 while the loser's was 07:08:44 (step2/zoplicate-keep/dbdiff.txt). That contradicts the earliest-dateAdded effect §4 records for mergeItems.mjs in rows 2 and 46. Zotero's own merge pane was not run, so whether its path differs is unobserved.
+30. **SQLite side files.** By the leg's reading, Zotero holds its database in exclusive locking mode and writes no zotero.sqlite-shm; the Step 0 data directory had none (logs/02-step0-snapshot.txt). The leg's read-only Python sqlite3 opens of the snapshot database created one, which every restore copied into ~/Zotero (32,768 bytes beside a 0-byte WAL) until it was removed before the final start (logs/30-step3-final-restore.txt). The leg verifier's method, a read-only open with immutable=1, creates none.
+31. **Watch Folder and the recognizer.** In mode1, Watch Folder sent each watched PDF to Zotero's recognizer at services.zotero.org (step2/watch-folder/zotero.out:1761, 1765, 2208, 2212). The fixture PDFs were synthetic (fixtures/mkpdf.py), so no third-party content was uploaded. This is data leaving the machine, as in item 21.
+32. **Production Zotero 10.0.5 and BBT 9.0.63** (the Obsidian leg's read-only requests to production; obsidian logs/step3-curl.log and logs/step3-curl/).
+    - Zotero 10.0.5's server cancels, with an empty reply, a request whose User-Agent starts with Mozilla/ or that carries an Origin header, unless it sends zotero-allowed-request or x-zotero-connector-api-version or the endpoint opts in; narrow exemptions cover /test/ paths and a navigation request to /connector/ping (Zotero server.js:411-427 @ e60dc9a; local copy obsidian downloads/zotero-e60dc9a/server.js). Measured on production through BBT's endpoints: an added Origin header, and Electron's default User-Agent, were both cancelled; a request with neither was answered.
+    - BBT's json-rpc.ts and pull-export.ts at v9.0.63, v9.0.65 and v9.0.68 contain no allowRequestsFromUnsafeWebContent opt-in (code read; obsidian logs/step3-bbt-later-versions.log). So BBT's JSON-RPC answers a client that sends neither header, such as curl, and cancels a browser-shaped one.
+    - BBT 9.0.63's item.search on 10.0.5: the string-term form fails with an invalid-condition error on blockStart (v9.0.65 switched to groupStart; code read, unmeasured); conditions carrying a fourth 'required' element fail as no longer supported, and v9.0.65 and v9.0.68 still pass caller terms through; array conditions without that element work. research-vault calls only api.ready, item.attachments and item.export (§4 row 1). item.export (CSL JSON) answered 200 at 01:53.
+    - Production has one library, My Library (id 1), with no groups and 48 top-level collections; the CAYW probe answers ready; the local API is enabled in prefs.js.
+33. **Production's auto-exports** (the Obsidian leg's read-only read of production prefs.js, sha256 d546a541…; obsidian logs/step3-prod-prefs.log). Two BBT auto-exports are enabled. One exports library 1 as Better CSL JSON to `\\wsl.localhost\Ubuntu\home\eranr\kh-vault\system\bibliography.json`, last updated 2026-10-03T17:42:41-05:00; that is item 12's, and its path, system/bibliography.json, is on §2a's machine-surface roster. The other exports collection 57 as Better BibLaTeX to `C:\Users\eranr\memoria-private\.memoria\memoria.bib`, the second prefs.js:133-134 entry, which row 1 and item 12 leave unnamed. The Obsidian leg's verifier was not permitted to read the production profile, so this item is leg-reported, not verified.
+34. **Test-instance state after the run.**
+    - Final restore at 02:46 from the Step 0 snapshot, which leaves no user.js. The stray zotero.sqlite-shm was removed (item 30). Zotero was started with the plain command (pid 2746068), and the probe answered Zotero 10.0.5 with BBT 9.0.68. extensions.json lists only better-bibtex@iris-advies.com 9.0.68, active and not appDisabled; its sha256 0a6fa2b3… and prefs.js's f4d41fcb… equal the snapshot's (logs/30-step3-final-restore.txt).
+    - Ordering: the full-tree compare against snapshot.manifest.sha256 ran at 02:46:04, before the stray -shm was removed at 02:46:33, and the manifest itself lists that -shm. After the removal the tree is the Step 0 file set, which had no -shm.
+    - The leg expected the WAL to be checkpointed at the next shutdown. The leg verifier found it checkpointed while Zotero ran, at 02:51:32. Re-read at 03:21:18 with Zotero still running as pid 2746068: zotero.sqlite is sha256 982b10f9…, not the snapshot's 118a7fdf…, both it and the 0-byte WAL carry mtime 02:51:32, and there is no -shm (/tmp/lane23-live/fold-A/restore-check.txt). The leg verifier's read-only diff against the snapshot database finds changes only in version.lastcheck and version.repository; libraries is unchanged.
+    - Kept on disk: the snapshot copy (/tmp/lane23-live/zotero/snapshot, about 2.7 GB) and the scratch watch folder (/tmp/lane23-live/zotero/watch). Every post-leg data directory and profile was discarded.
+    - The Zotero leg did not contact or touch production Zotero (localhost:23119 and its profile). Production's only contacts were the Obsidian leg's read-only requests and its read of prefs.js (items 32 and 33).
+    - Incidents: at Step 0, pgrep -f matched the agent's own bash wrapper, which received SIGTERM along with Zotero; Zotero still exited cleanly (logs/01-step0-stop.txt). Stopping a backgrounded helper also stopped the Zotero it had started (the invalid metadata-hunter run).
