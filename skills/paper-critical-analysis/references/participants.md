@@ -38,4 +38,4 @@ A paper should show the deception was necessary (no alternative design such as r
 
 ## Signs of fair treatment
 
-The researcher holds power, participants may feel evaluated, and fairness is the researcher's responsibility. Signs to look for in what the paper reports: sessions on time and prepared; data kept confidential and never released identifiably; interactions limited to the study; participants made comfortable; participants' time spent as freely as the design allows; benefits not over-claimed.
+The researcher holds power, participants may feel evaluated, and fairness is the researcher's responsibility. Beyond the questions above, signs to look for in what the paper reports: sessions on time and prepared; participants made comfortable; data never released identifiably.
