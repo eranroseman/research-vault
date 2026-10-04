@@ -96,7 +96,7 @@ Marks in the report:
 - A locator means the paper says it.
 - A W ID such as `(W12)` means a source outside the paper said it. The evidence file gives the source, its URL or saved copy, and what it said.
 - `[inferred]` marks the writer's own reasoning.
-- A computed number reads `derived` and cites the C, W or P entry that holds the computation. (P covers the judge's own computations, such as Scalability rates, which are neither in-paper conflicts nor outside sources.)
+- A computed number reads `derived` and cites the C, W or J entry that holds the computation. (J covers the judge's own computations, such as Scalability rates, which are neither in-paper conflicts nor outside sources.)
 - Recalled knowledge appears only under Coverage.
 
 ### The evidence file
@@ -111,7 +111,7 @@ It is the audit trail, and each section is filled during the stage that produces
 - claims, each with a `Needed:` line naming the evidence that would settle it;
 - the not-stated list (N1…), the inconsistency list (C1…) with its reconciliation log, and the external-check list (W1…);
 - the related works read, and the released-artifact checks, each as W entries;
-- the judge's points under assigned IDs (P1…), and its Recalled lines;
+- the judge's points under assigned IDs (J1…), and its Recalled lines;
 - the pruning record: word counts before and after, and the editor's change list with each item applied or rejected;
 - the verifier's list with each item's disposition;
 - the participant data deleted at the end.
@@ -206,17 +206,17 @@ It returns, for each of the nine topics in order, a verdict sentence of about 30
 
 The bar a paper is judged against depends on its type: empirical, theoretical, survey, systems, position, replication or negative results. Recalled knowledge goes only in the Recalled section.
 
-The main context drops any point whose Evidence field cites nothing admissible, logs the count, and assigns P IDs.
+The main context drops any point whose Evidence field cites nothing admissible, logs the count, and assigns J IDs.
 
 **Done when:** all nine topics and the Recalled section are returned, and every point that is kept carries admissible evidence.
 
 ### Stage 4: write
 
-Build Context and Summary from the evidence file. Write the critical discussion in prose, placing every P point under the topic it bears on most; points may merge into paragraphs as long as each keeps its locators and IDs. Then write Coverage. There is no length limit at this stage.
+Build Context and Summary from the evidence file. Write the critical discussion in prose, placing every J point under the topic it bears on most; points may merge into paragraphs as long as each keeps its locators and IDs. Then write Coverage. There is no length limit at this stage.
 
 Save the result as the draft.
 
-**Done when:** every P point is in the report, and every heading in the outline is filled.
+**Done when:** every J point is in the report, and every heading in the outline is filled.
 
 ### Stage 5: edit
 
@@ -248,13 +248,17 @@ The editor returns a change list instead of editing the file. Each item gives th
 Run `python3 skills/paper-critical-analysis/scripts/check_report.py <report>`. It reads the report and its evidence file and fails on any of:
 
 - a missing outline heading;
+- a section holding nothing but the template's own text;
 - a leftover template placeholder;
+- the template preamble left in place;
 - a topic with no locator or ID;
 - a Credibility section that states no confidence;
 - a missing Coverage line;
-- a `derived` number with no C, W or P ID in its sentence;
+- an unfilled Coverage line or mandated-check slot, or a slot citing an undefined ID;
+- a `derived` number with no C, W or J ID in its sentence;
 - a missing provenance key;
-- a broken ledger: an N, C, W or P ID that appears neither in the report nor on Coverage's "evidence file only" line.
+- a broken ledger: an N, C, W or J ID that appears neither in the report nor on Coverage's "evidence file only" line;
+- a missing evidence file.
 
 The template headings are the checker's single source of truth: the checker reads them from `templates/report-template.md`.
 

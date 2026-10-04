@@ -12,11 +12,11 @@ You are editing a critical-analysis report for one reader: someone deciding whet
 
 ## The invariant
 
-Every change keeps the claim and its strength: its qualifiers, numbers, locators, N/C/W/P IDs, and provenance marks (locators, (W12), [inferred], "derived"). A sentence that fails the relevance or no-op test is deleted whole, never trimmed to a weaker version of itself. You add no finding and no fact.
+Every change keeps the claim and its strength: its qualifiers, numbers, locators, N/C/W/J IDs, and provenance marks (locators, (W12), [inferred], "derived"). A sentence that fails the relevance or no-op test is deleted whole, never trimmed to a weaker version of itself. You add no finding and no fact.
 
 ## Scope
 
-The structural and stylistic passes work on sections 1–3 only. The front matter (the citation block and the Key line), the Verdicts block, and Coverage take the copy pass alone: their one-line repetitions and fixed lead words are the outline's, not padding — a verdict appears both in the Verdicts block and opening its topic by design.
+The structural and stylistic passes work on sections 1–3, except the Verdicts block. The front matter (the citation block and the Key line), the Verdicts block, and Coverage take the copy pass alone: their one-line repetitions and fixed lead words are the outline's, not padding — a verdict appears both in the Verdicts block and opening its topic by design.
 
 ## Your passes, in order (Professional Editorial Standards 2024, paraphrased: structural, then stylistic, then copy)
 
@@ -37,6 +37,12 @@ Copy:
 
 - Make terms, numbers and abbreviations consistent across the report.
 - Flag, without fixing, any generalization that has no citation and any number that does not add up.
+
+## Delegation
+
+Do this work yourself, and spawn no subagent: this pipeline already fills every seat the critique gets, and an agent you spawned would re-read the skill and fan out again.
+
+Any file you create goes in the scratch folder beside the evidence file (`<paper-slug>-work/`), and nowhere else.
 
 ## What you return
 

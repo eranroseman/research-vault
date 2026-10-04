@@ -1,6 +1,6 @@
 # Report template
 
-Keep the headings, their order, and their numbering; `scripts/check_report.py` reads its required headings from this file, so this template is the single source of truth for the report's structure. The bullets are the guide's questions; answer them in prose. Replace every `{{placeholder}}`. Keep the `Key:` line verbatim — the checker requires it. A sentence containing the word "derived" must cite the C, W or P entry holding the computation; the checker flags any use of the word without one, so keep "derived" out of ordinary prose. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
+Keep the headings, their order, and their numbering; `scripts/check_report.py` reads its required headings from this file, so this template is the single source of truth for the report's structure. The bullets are the guide's questions; answer them in prose. Replace every `{{placeholder}}`. Keep the `Key:` line verbatim — the checker requires it. A sentence containing the word "derived" must cite the C, W or J entry holding the computation; the checker flags any use of the word without one, so keep "derived" out of ordinary prose. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
 
 ______________________________________________________________________
 
@@ -8,7 +8,7 @@ ______________________________________________________________________
 
 {{Authors (year). Title. Venue, pages or DOI.}} Version read: {{preprint and number, or published}}. Report written {{date}}.
 
-Key: a locator cites the paper; (W12) cites a source outside the paper through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C, W or P entry holding its computation; recalled knowledge appears only under Coverage.
+Key: a locator cites the paper; (W12) cites a source outside the paper through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C, W or J entry holding its computation; recalled knowledge appears only under Coverage.
 
 ## 1. Context
 

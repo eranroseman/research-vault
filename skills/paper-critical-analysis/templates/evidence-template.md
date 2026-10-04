@@ -1,6 +1,6 @@
 # Evidence template
 
-The evidence file is the report's audit trail; each section is filled during the stage that produces it, so an interrupted run resumes from the stage log. `scripts/check_report.py` reads its required headings from this file. A ledger entry starts on its own line — `- N1:`, `- C1:`, `- W1:`, or `- P1:` — and detail may continue on indented lines beneath it; the checker reads IDs from exactly that first-line shape, and every ID defined here must appear in the report or on Coverage's "Evidence file only" line. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
+The evidence file is the report's audit trail; each section is filled during the stage that produces it, so an interrupted run resumes from the stage log. `scripts/check_report.py` reads its required headings from this file. A ledger entry starts on its own line — `- N1:`, `- C1:`, `- W1:`, or `- J1:` — and detail may continue on indented lines beneath it; the checker reads IDs from exactly that first-line shape, and every ID defined here must appear in the report or on Coverage's "Evidence file only" line. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
 
 ______________________________________________________________________
 
@@ -71,7 +71,7 @@ The mandated checks each hold a fixed slot, filled with the W IDs that discharge
 
 ## Judge points
 
-Filled at stage 3's return: the kept points under assigned IDs, `- P1: <Kind; Locator; Observation; Evidence; Why it matters>`, then the judge's Recalled lines, then the count of points dropped as inadmissible.
+Filled at stage 3's return: the kept points under assigned IDs, `- J1: <Kind; Locator; Observation; Evidence; Why it matters>`, then the judge's Recalled lines, then the count of points dropped as inadmissible.
 
 ## Pruning record
 

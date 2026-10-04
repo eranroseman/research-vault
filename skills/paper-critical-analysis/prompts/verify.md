@@ -19,7 +19,7 @@ Report against this convention, not against a reading of your own.
 
 ## What you check
 
-1. Every locator, quote and number the report attributes to the paper: find it in the paper. An item passes when the locator resolves to text that says what the report says it says, the quote matches the paper verbatim, and the number appears at the stated place. A number the report marks "derived" is checked against the C, W or P entry it cites, not recomputed.
+1. Every locator, quote and number the report attributes to the paper: find it in the paper. An item passes when the locator resolves to text that says what the report says it says, the quote matches the paper verbatim, and the number appears at the stated place. A number the report marks "derived" is checked against the C, W or J entry it cites, not recomputed.
 2. Every W entry the report cites: re-open it at its URL, or at its saved copy in the scratch folder when the URL fails, and check that the source says what the entry says it said.
 3. Every applied change-list item: compare After with Before for lost or added meaning — a dropped qualifier, a strengthened claim, a changed number; for a move, check the one-line claim that stayed against what moved.
 

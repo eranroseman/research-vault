@@ -8,17 +8,32 @@ The required headings are read from ``templates/report-template.md`` and
 ``templates/evidence-template.md`` beside this script; the templates are the
 single source of truth for structure.
 
-Errors (exit status 1): a required heading is missing; a section is empty; a
-``{{placeholder}}`` is still in place; a critical-discussion topic cites no
-locator and no N/C/W/P ID and does not say "not applicable"; Credibility
-states no confidence; a Coverage lead line from the template is missing; a
-sentence containing "derived" cites no C, W or P entry; the ``Key:``
-provenance line is missing; a mandated-check slot in the evidence file's
-External-check list is unfilled; the ledger is broken (an ID defined in the
-evidence file appears neither in the report nor on Coverage's "Evidence file
-only" line, or the report cites an ID the evidence file never defines); the
-evidence file is missing. Warnings (exit status 0) point at things only a
-reader can judge.
+Errors (exit status 1):
+
+- a required heading is missing;
+- a section is empty: it holds nothing but its template's own text, line for
+  line (a parent heading whose subsections hold the content may stay bare,
+  and the ``Key:`` line always counts as content);
+- a ``{{placeholder}}`` is still in place;
+- the template's preamble, everything above its first thematic break, is
+  still in place;
+- a critical-discussion topic cites no locator, no named front-matter part or
+  "whole paper", and no N/C/W/J ID, and says neither "not applicable" nor
+  "not assessable";
+- Credibility states no confidence level (high, medium, or low);
+- a Coverage lead line from the template is missing or unfilled;
+- a sentence containing "derived" cites no C, W or J entry (a table header
+  row is exempt);
+- the ``Key:`` provenance line is missing;
+- a mandated-check slot in the evidence file's External-check list is
+  missing, unfilled, or cites an ID the evidence file never defines;
+- the ledger is broken: an ID defined in the evidence file appears neither in
+  the report nor on Coverage's "Evidence file only" line, or the report cites
+  an ID the evidence file never defines;
+- the evidence file is missing.
+
+A line inside a fenced code block is never a heading or a placeholder.
+Warnings (exit status 0) point at things only a reader can judge.
 """
 
 import argparse
@@ -37,8 +52,9 @@ EVIDENCE_TEMPLATE = SKILL_DIR / "templates" / "evidence-template.md"
 # forms too so a hand-written template still parses.
 BREAK_RE = re.compile(r"^(?:_{3,}|-{3,}|\*{3,})\s*$")
 HEADING_RE = re.compile(r"^(#{1,6})\s+\S")
+FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 PLACEHOLDER_RE = re.compile(r"\{\{")
-NOT_APPLICABLE_RE = re.compile(r"\bnot applicable\b", re.IGNORECASE)
+NOT_APPLICABLE_RE = re.compile(r"\bnot (?:applicable|assessable)\b", re.IGNORECASE)
 # "none found", "not checked", "not applicable" each need a tail saying where
 # you looked or why: a following ":" ";" "," or a "because"-style connective.
 BARE_PHRASE_RE = re.compile(
@@ -46,8 +62,12 @@ BARE_PHRASE_RE = re.compile(
     r"(?!\s*[:;,]\s*\S)(?!\s+(?:because|since|as|for)\b)",
     re.IGNORECASE,
 )
+# A stated level, after the word ("Confidence: medium", "confidence is low")
+# or before it ("medium confidence"); "confidence interval" is not one.
 CONFIDENCE_RE = re.compile(
-    r"\bconfidence\b.*?\b(?:high|medium|low)\b", re.IGNORECASE | re.DOTALL
+    r"\bconfidence(?:\s+level)?(?:\s*:\s*|\s+(?:is|was|remains|stays)\s+)"
+    r"(?:high|medium|low)\b|\b(?:high|medium|low)\s+confidence\b",
+    re.IGNORECASE,
 )
 BARE_SIGNIFICANT_RE = re.compile(
     r"(?<!statistically )(?<!non-)(?<!non )\bsignificant\b", re.IGNORECASE
@@ -58,16 +78,22 @@ LOCATOR_RE = re.compile(
     r"appendix|appendices|eq\.|equations?|footnotes?|references?)\s*(?:[A-Z]|\d|\[)"
 )
 SECTION_NAME_RE = re.compile(r"\b(?:Abstract|Introduction|Related Work|Conclusions?)\b")
-ID_RE = re.compile(r"\b[NCWP]\d+\b")
-CWP_ID_RE = re.compile(r"\b[CWP]\d+\b")
-DEFINED_ID_RE = re.compile(r"^- ([NCWP]\d+):", re.MULTILINE)
+# SKILL.md's Locators section: a named front-matter part, or "whole paper".
+FRONT_MATTER_RE = re.compile(
+    r"\b(?:whole paper|title|abstract|author block|keywords)\b", re.IGNORECASE
+)
+ID_RE = re.compile(r"\b[NCWJ]\d+\b")
+CWJ_ID_RE = re.compile(r"\b[CWJ]\d+\b")
+DEFINED_ID_RE = re.compile(r"^- ([NCWJ]\d+):", re.MULTILINE)
 DERIVED_RE = re.compile(r"\bderived\b", re.IGNORECASE)
-# An abbreviation such as p., pp., Fig., Eq., Sect., e.g., i.e. or et al. does
-# not end a sentence.
+# An abbreviation such as p., pp., Fig., Eq., Sect., Sec., Tab., cf., vs.,
+# e.g., i.e. or et al. does not end a sentence.
 SENTENCE_SPLIT_RE = re.compile(
     r"(?<=[.!?])(?<!\bp\.)(?<!\bpp\.)(?<!\b[Ff]ig\.)(?<!\b[Ee]q\.)"
-    r"(?<!\b[Ss]ect\.)(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\bal\.)\s+"
+    r"(?<!\b[Ss]ect\.)(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\bal\.)"
+    r"(?<!\bcf\.)(?<!\bvs\.)(?<!\b[Ss]ec\.)(?<!\b[Tt]ab\.)\s+"
 )
+TABLE_SEPARATOR_RE = re.compile(r"^\|?\s*:?-{3,}")
 KEY_LINE_RE = re.compile(r"^Key: ", re.MULTILINE)
 
 
@@ -77,17 +103,39 @@ def _without_key_lines(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not line.startswith("Key: "))
 
 
+def fenced(lines: list[str]) -> list[bool]:
+    """Whether each line belongs to a fenced code block, fence lines included.
+    A fence opens on three or more backticks or tildes and closes on the next
+    line starting with the same run, so ``~~~`` inside a backtick fence stays
+    code."""
+    flags: list[bool] = []
+    fence = ""
+    for line in lines:
+        stripped = line.strip()
+        if fence:
+            flags.append(True)
+            if stripped.startswith(fence):
+                fence = ""
+            continue
+        match = FENCE_RE.match(stripped)
+        fence = match.group(1) if match else ""
+        flags.append(bool(match))
+    return flags
+
+
 def template_headings(path: Path) -> list[Heading]:
     """Required headings from a template: every heading after its first
-    thematic break. A heading carrying a ``{{placeholder}}`` matches by the
-    prefix up to the braces."""
+    thematic break, outside fenced code. A heading carrying a
+    ``{{placeholder}}`` matches by the prefix up to the braces."""
     required: list[Heading] = []
     seen_break = False
-    for line in path.read_text(encoding="utf-8").splitlines():
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for line, in_fence in zip(lines, fenced(lines), strict=True):
+        if in_fence:
+            continue
         if not seen_break:
             seen_break = bool(BREAK_RE.match(line))
-            continue
-        if HEADING_RE.match(line):
+        elif HEADING_RE.match(line):
             full = line.rstrip()
             prefix = full.split("{{")[0].rstrip() if "{{" in full else full
             required.append((prefix, full))
@@ -100,7 +148,8 @@ def _report_headings() -> list[Heading]:
 
 def is_topic(heading: str) -> bool:
     """A critical-discussion topic: a level-3 heading between ``## 3.`` and
-    ``## 4.`` in the report template, excluding the Verdicts block."""
+    ``## 4.`` in the report template, excluding the Verdicts block. Matched
+    case-insensitively, like the structure check."""
     topics = []
     inside = False
     for prefix, _ in _report_headings():
@@ -113,45 +162,58 @@ def is_topic(heading: str) -> bool:
             and prefix.startswith("### ")
             and not prefix.startswith("### Verdicts")
         ):
-            topics.append(prefix)
-    return any(heading.startswith(topic) for topic in topics)
+            topics.append(prefix.lower())
+    return any(heading.lower().startswith(topic) for topic in topics)
+
+
+def template_leads(path: Path, heading: str) -> dict[str, str]:
+    """A template section's ``- <lead>: …`` bullets: each lead (the text
+    between ``- `` and the first colon) with its stripped template line. A
+    ledger-entry example such as ``- W1:`` is not a lead."""
+    text = path.read_text(encoding="utf-8")
+    section = text[text.index(heading) :]
+    end = section.find("\n## ", 1)
+    if end != -1:
+        section = section[:end]
+    return {
+        line[2 : line.index(":")]: line.strip()
+        for line in section.splitlines()
+        if line.startswith("- ") and ":" in line and not DEFINED_ID_RE.match(line)
+    }
 
 
 def coverage_leads() -> list[str]:
     """The Coverage section's required lead words, from the template's own
-    bullets: the text between ``- `` and the first colon."""
-    text = REPORT_TEMPLATE.read_text(encoding="utf-8")
-    coverage = text[text.index("## 4.") :]
-    return [
-        line[2 : line.index(":")]
-        for line in coverage.splitlines()
-        if line.startswith("- ") and ":" in line
-    ]
+    bullets."""
+    return list(template_leads(REPORT_TEMPLATE, "## 4."))
 
 
 def external_check_leads() -> list[str]:
     """The External-check section's mandated-slot leads, from the evidence
     template's own bullets, excluding the ``- W1:`` entry-shape example."""
-    text = EVIDENCE_TEMPLATE.read_text(encoding="utf-8")
-    section = text[text.index("## External-check list") :]
-    end = section.find("\n## ", 1)
-    if end != -1:
-        section = section[:end]
-    return [
-        line[2 : line.index(":")]
-        for line in section.splitlines()
-        if line.startswith("- ") and ":" in line and not DEFINED_ID_RE.match(line)
-    ]
+    return list(template_leads(EVIDENCE_TEMPLATE, "## External-check list"))
+
+
+def lead_line(section: str, lead: str) -> str | None:
+    """The first line of ``section`` starting ``- <lead>:``, stripped."""
+    stripped = [line.strip() for line in section.splitlines()]
+    return next((line for line in stripped if line.startswith(f"- {lead}:")), None)
+
+
+def is_unfilled(line: str, lead: str, template_line: str) -> bool:
+    """Nothing after the lead's colon, or the template's own line verbatim."""
+    return not line[len(f"- {lead}:") :].strip() or line == template_line
 
 
 def sections(lines: list[str]) -> list[Section]:
-    """Split lines into sections; text before the first heading is dropped."""
+    """Split lines into sections; text before the first heading is dropped. A
+    line inside a fenced code block is body, never a heading."""
     out: list[Section] = []
     level = 0
     heading = ""
     body: list[str] = []
-    for line in lines:
-        match = HEADING_RE.match(line)
+    for line, in_fence in zip(lines, fenced(lines), strict=True):
+        match = None if in_fence else HEADING_RE.match(line)
         if match:
             if level:
                 out.append((level, heading, body))
@@ -182,23 +244,47 @@ def find_section(found: list[Section], prefix: str) -> str | None:
     return None
 
 
+def has_content(body: list[str], own_text: set[str]) -> bool:
+    """A body holds content when one of its lines, stripped, is non-blank and
+    is not a line of the template; the ``Key:`` line always counts."""
+    return any(
+        line.startswith("Key: ") or (line.strip() and line.strip() not in own_text)
+        for line in body
+    )
+
+
 def structure_errors(
-    label: str, lines: list[str], found: list[Section], required: list[Heading]
+    label: str, lines: list[str], found: list[Section], template: Path
 ) -> list[str]:
-    """Missing headings, empty sections, and leftover placeholders."""
+    """Missing headings, empty sections, the template preamble, and leftover
+    placeholders, each judged against ``template``, the file's own."""
+    template_lines = template.read_text(encoding="utf-8").splitlines()
+    own_text = {line.strip() for line in template_lines if line.strip()}
     errors: list[str] = []
     headings = [heading.lower() for _, heading, _ in found]
-    for prefix, full in required:
+    for prefix, full in template_headings(template):
         if not any(heading.startswith(prefix.lower()) for heading in headings):
             errors.append(f"{label}: missing heading: {full}")
+    if any(line.strip() == template_lines[0].strip() for line in lines):
+        errors.append(
+            f"{label}: template preamble still in place; keep only what is below "
+            "the template's first thematic break"
+        )
     for index, (level, heading, body) in enumerate(found):
-        if any(line.strip() for line in body):
+        if has_content(body, own_text):
             continue
         next_level = found[index + 1][0] if index + 1 < len(found) else 0
         if level == 1 or next_level <= level:
-            errors.append(f"{label}: empty section: {heading}")
-    for number, line in enumerate(lines, start=1):
-        if PLACEHOLDER_RE.search(line):
+            what = (
+                " (nothing but the template's own text)"
+                if any(line.strip() for line in body)
+                else ""
+            )
+            errors.append(f"{label}: empty section{what}: {heading}")
+    for number, (line, in_fence) in enumerate(
+        zip(lines, fenced(lines), strict=True), start=1
+    ):
+        if not in_fence and PLACEHOLDER_RE.search(line):
             errors.append(
                 f"{label}: line {number}: template placeholder still in place"
             )
@@ -206,7 +292,8 @@ def structure_errors(
 
 
 def evidence_errors(found: list[Section]) -> list[str]:
-    """Each topic cites a locator or an N/C/W/P ID, or says not applicable."""
+    """Each topic cites a locator, a named front-matter part or an N/C/W/J
+    ID, or says not applicable or not assessable."""
     errors: list[str] = []
     for index, (level, heading, _) in enumerate(found):
         if level != 3 or not is_topic(heading):
@@ -217,6 +304,7 @@ def evidence_errors(found: list[Section]) -> list[str]:
             or LOCATOR_RE.search(text)
             or ID_RE.search(text)
             or SECTION_NAME_RE.search(text)
+            or FRONT_MATTER_RE.search(text)
         ):
             continue
         errors.append(f"report: no locator or ID cited: {heading}")
@@ -224,33 +312,67 @@ def evidence_errors(found: list[Section]) -> list[str]:
 
 
 def derived_errors(lines: list[str]) -> list[str]:
-    """Every sentence containing "derived" cites the C, W or P entry holding
+    """Every sentence containing "derived" cites the C, W or J entry holding
     the computation. A sentence ends at ., !, ? or the line break; the
-    abbreviations p., pp., Fig., Eq., Sect., e.g., i.e., or et al. do not end
-    one."""
+    abbreviations p., pp., Fig., Eq., Sect., Sec., Tab., cf., vs., e.g., i.e.,
+    or et al. do not end one. A table header row, a ``|`` line above a
+    separator row, names columns and is exempt; data rows are checked."""
     errors: list[str] = []
-    for number, line in enumerate(lines, start=1):
-        if line.startswith("Key: "):
+    for index, line in enumerate(lines):
+        header = (
+            line.startswith("|")
+            and index + 1 < len(lines)
+            and TABLE_SEPARATOR_RE.match(lines[index + 1].strip())
+        )
+        if line.startswith("Key: ") or header:
             continue
         errors.extend(
             [
-                f"report: line {number}: derived number cites no C, W or P entry"
+                f"report: line {index + 1}: derived number cites no C, W or J entry"
                 for sentence in SENTENCE_SPLIT_RE.split(line)
-                if DERIVED_RE.search(sentence) and not CWP_ID_RE.search(sentence)
+                if DERIVED_RE.search(sentence) and not CWJ_ID_RE.search(sentence)
             ]
         )
     return errors
 
 
 def coverage_errors(found: list[Section]) -> list[str]:
+    """Each Coverage lead from the template is present and filled."""
     coverage = find_section(found, "## 4.")
     if coverage is None:
         return []  # the missing heading is already reported
-    return [
-        f"report: Coverage is missing its '{lead}' line"
-        for lead in coverage_leads()
-        if f"- {lead}:" not in coverage
-    ]
+    errors: list[str] = []
+    for lead, template_line in template_leads(REPORT_TEMPLATE, "## 4.").items():
+        line = lead_line(coverage, lead)
+        if line is None:
+            errors.append(f"report: Coverage is missing its '{lead}' line")
+        elif is_unfilled(line, lead, template_line):
+            errors.append(f"report: Coverage '{lead}' line is unfilled")
+    return errors
+
+
+def slot_errors(found: list[Section], defined: set[str]) -> list[str]:
+    """Each mandated-check slot is present, filled, and cites only IDs the
+    evidence file defines."""
+    external = find_section(found, "## External-check list")
+    if external is None:
+        return []  # the missing heading is already reported
+    errors: list[str] = []
+    leads = template_leads(EVIDENCE_TEMPLATE, "## External-check list")
+    for lead, template_line in leads.items():
+        line = lead_line(external, lead)
+        if line is None:
+            errors.append(f"evidence: External-check list is missing its '{lead}' slot")
+        elif is_unfilled(line, lead, template_line):
+            errors.append(f"evidence: External-check list '{lead}' slot is unfilled")
+        else:
+            errors.extend(
+                f"evidence: External-check list '{lead}' slot cites {entry}, "
+                "which the evidence file never defines"
+                for entry in dict.fromkeys(ID_RE.findall(line))
+                if entry not in defined
+            )
+    return errors
 
 
 def ledger_errors(report_text: str, evidence_text: str) -> list[str]:
@@ -284,7 +406,7 @@ def check_report(text: str, evidence_text: str | None) -> tuple[list[str], list[
     """Return (errors, warnings) for the report, and the cross-file rules."""
     lines = text.splitlines()
     found = sections(lines)
-    errors = structure_errors("report", lines, found, _report_headings())
+    errors = structure_errors("report", lines, found, REPORT_TEMPLATE)
     errors.extend(evidence_errors(found))
     errors.extend(derived_errors(lines))
     errors.extend(coverage_errors(found))
@@ -310,15 +432,8 @@ def check_evidence(text: str) -> tuple[list[str], list[str]]:
     """Return (errors, warnings) for the evidence file."""
     lines = text.splitlines()
     found = sections(lines)
-    required = template_headings(EVIDENCE_TEMPLATE)
-    errors = structure_errors("evidence", lines, found, required)
-    external = find_section(found, "## External-check list")
-    if external is not None:
-        errors.extend(
-            f"evidence: External-check list is missing its '{lead}' slot"
-            for lead in external_check_leads()
-            if f"- {lead}:" not in external
-        )
+    errors = structure_errors("evidence", lines, found, EVIDENCE_TEMPLATE)
+    errors.extend(slot_errors(found, set(DEFINED_ID_RE.findall(text))))
     return errors, phrase_warnings("evidence", lines)
 
 

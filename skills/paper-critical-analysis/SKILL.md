@@ -23,7 +23,7 @@ Eight stages, 0–7, every one on every paper. Each ends on a completion bar, re
 
 ## Rules
 
-- **Provenance.** The reader must be able to tell apart what the paper says, what an outside source says, and what the writer infers. The report's `Key:` line states the marks: a locator cites the paper; a W ID such as (W12) cites an outside source through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C, W or P entry holding its computation; recalled knowledge appears only under Coverage.
+- **Provenance.** The reader must be able to tell apart what the paper says, what an outside source says, and what the writer infers. The report's `Key:` line states the marks: a locator cites the paper; a W ID such as (W12) cites an outside source through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C, W or J entry holding its computation; recalled knowledge appears only under Coverage.
 - **Nothing silent.** Write `none found; checked: <where>`, `not checked: <reason>` or `not applicable: <reason>` rather than leaving a gap; a section whose stage has not run yet reads `pending: stage <n>`.
 - **Integrity.** Concerns are neutral observations, given with their benign explanations; never accusations.
 - **Write scope.** Every file the run creates goes in the output folder.
@@ -48,7 +48,7 @@ Each row sets both the file stage 2 walks and the path stage 3's brief hands the
 
 ## Stage 0 — Settle conditions
 
-Settle every row before reading, and record each under Conditions in the evidence file; a condition discovered mid-run costs a stage its work. Create the output folder, the evidence file from `templates/evidence-template.md`, and the scratch folder first. Save every fetched source to the scratch folder as it arrives.
+Settle every row before reading, and record each under Conditions in the evidence file; a condition discovered mid-run costs a stage its work. Create the output folder, the evidence file from `templates/evidence-template.md` (everything below its first thematic break), and the scratch folder first. Save every fetched source to the scratch folder as it arrives.
 
 | Condition                           | What it changes                                                                                                                                                                                                                         |
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -88,15 +88,15 @@ Each mandated check above fills its fixed slot in the evidence file's External-c
 
 **Fresh context, required.** Run one subagent whose whole context is `prompts/judge.md` with its placeholders filled: the paper and its supplements, the page images, the evidence file, the Locators section above (verbatim), and the background file paths the load table assigns. Not the conversation that did the reading — judgment in a fresh context, bound to citable evidence, is better calibrated than judgment in the context that read the paper. That brief is the judging contract; edit it there, not here.
 
-It returns the nine subsections and a Recalled section. The nine, in order: Importance, Credibility, Novelty, Applicability, Generalizability, Scalability, Assumptions, Readability and Ethics. Screen the return: drop any point whose Evidence field cites nothing admissible (the brief defines admissible), log the dropped count, assign P IDs to the kept points, and record them with the Recalled lines under Judge points in the evidence file. The Recalled lines surface later as Coverage's `Recalled:` entries, never as findings.
+It returns the nine subsections and a Recalled section. The nine, in order: Importance, Credibility, Novelty, Applicability, Generalizability, Scalability, Assumptions, Readability and Ethics. Screen the return: drop any point whose Evidence field cites nothing admissible (the brief defines admissible), log the dropped count, assign J IDs to the kept points, and record them with the Recalled lines under Judge points in the evidence file. The Recalled lines surface later as Coverage's `Recalled:` entries, never as findings.
 
-**Done when:** all nine subsections and the Recalled section are returned, and every kept point carries admissible evidence under a P ID.
+**Done when:** all nine subsections and the Recalled section are returned, and every kept point carries admissible evidence under a J ID.
 
 ## Stage 4 — Write
 
-Build Context and Summary from the evidence file, going back to the paper only for a slot it does not cover. Write the critical discussion in prose: the Verdicts block first, then the nine topics, placing every P point under the topic it bears on most; points may merge into paragraphs as long as each keeps its locators and IDs. Then write Coverage, with `Verification: pending: stage 7`; every N, C, W or P ID the report's body does not cite goes on Coverage's `Evidence file only:` line — the checker closes that ledger. There is no length limit at this stage. Save the result as the report, and copy it to the draft path — the draft is what stage 5 is measured against.
+Write the report in `templates/report-template.md`'s outline, starting from below its first thematic break. Build Context and Summary from the evidence file, going back to the paper only for a slot it does not cover. Write the critical discussion in prose: the Verdicts block first, then the nine topics, placing every J point, tagged with its J ID, under the topic it bears on most; points may merge into paragraphs as long as each keeps its locators and IDs. Then write Coverage, with `Verification: pending: stage 7`; every N, C, W or J ID the report's body does not cite goes on Coverage's `Evidence file only:` line — the checker closes that ledger. There is no length limit at this stage. Save the result as the report, and copy it to the draft path — the draft is what stage 5 is measured against.
 
-**Done when:** every P point is in the report, every heading in `templates/report-template.md` is filled, and the draft is saved.
+**Done when:** every J point is in the report, every heading in `templates/report-template.md` is filled, and the draft is saved.
 
 ## Stage 5 — Edit
 
@@ -106,7 +106,7 @@ Build Context and Summary from the evidence file, going back to the paper only f
 
 ## Stage 6 — Check
 
-Run `python3 scripts/check_report.py <report>` — the path is relative to this skill's directory; the checker finds the evidence file beside the report. The templates are its single source of truth: it reads required headings from `templates/report-template.md` and `templates/evidence-template.md`, and fails on a missing heading, a leftover placeholder, a topic with no locator or ID, a Credibility section stating no confidence, a missing Coverage line, a "derived" number citing no C, W or P entry, a missing provenance key, an unfilled mandated-check slot, or a broken N/C/W/P ledger. Fix the report, not the checker.
+Run `python3 scripts/check_report.py <report>` — the path is relative to this skill's directory; the checker finds the evidence file beside the report. The templates are its single source of truth: it reads required headings from `templates/report-template.md` and `templates/evidence-template.md`, and fails on a missing heading, an empty section (one holding nothing but the template's own text), a leftover placeholder or template preamble, a topic with no locator or ID, a Credibility section stating no confidence, a missing or unfilled Coverage line, a "derived" number citing no C, W or J entry, a missing provenance key, a missing or unfilled mandated-check slot or one citing an undefined ID, a broken N/C/W/J ledger, or a missing evidence file. Fix the report, not the checker.
 
 **Done when:** the checker reports no errors.
 
