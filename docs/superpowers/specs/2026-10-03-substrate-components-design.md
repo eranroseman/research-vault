@@ -1,6 +1,14 @@
-# Lanes 2–3: what research-vault declares for the two component classes it cannot pin
+# Declare, provision, observe: the Zotero and Obsidian components research-vault cannot pin, and how it sees what they do
 
 Status: **draft, in brainstorming** (2026-10-04). Sections are recorded here as the operator approves them; the spec is not yet reviewed. Evidence siblings: `2026-10-03-substrate-components-design-zotero-screen-evidence.md` (screen A, Zotero add-ons), `…-obsidian-screen-evidence.md` (screen B, seam-free Obsidian plugins), `…-obsidian-zotero-screen-evidence.md` (screen C, Obsidian plugins that read Zotero). The verdicts are this spec's; the evidence carries per-must results only.
+
+## Shape of this spec (decided 2026-10-04)
+
+**One spec, one argument:** decision 12's three legs for the components research-vault cannot pin — declare, provision, observe — with *observe* covering both a component's state (doctor) and its effects (machine-surface detection and the capture monitor). Rulings 5 and 6 exempt ordinary editing and commands on the selection only because research-vault sees every change to what it owns, so the detection work and the declarations it licenses belong in one document.
+
+**Plans are the plan writer's call; one ordering constraint binds them:** the detection and capture-monitor work lands before the seeded `.obsidian/` ships, and #190 (doctor's preference grammar) and #193 (prevent or detect machine-surface writes by agents) land before lane 4 opens.
+
+**Lane 4 keeps annotation handling** (operator, 2026-10-04, #18): assembly decision 28 stands, and the ingest spec's `:137` claim to supersede it is amended in this spec's commits. #18's surviving requirement — pass Zotero's annotation colour through raw, adopt no colour taxonomy — becomes a lane-4 screening must.
 
 ## Rulings that shaped the screens
 
