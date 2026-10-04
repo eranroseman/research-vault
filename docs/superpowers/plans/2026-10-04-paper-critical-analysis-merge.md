@@ -34,8 +34,9 @@ Every task's requirements implicitly include these, copied from the spec:
 - **Evidence-file ID shape:** a ledger entry is a list item starting `- N1:` / `- C1:` / `- W1:` / `- P1:` (regex `^- ([NCWP]\d+):`). The checker reads definitions from exactly that shape.
 - **ID citation shape in the report:** `\b[NCWP]\d+\b` (so `W3C`, `P2P` never match — no word boundary splits them).
 - **Provenance key:** the report carries one literal line starting `Key: ` (template supplies it; checker requires `^Key: `).
-- **`derived` sentence rule:** a sentence is a run of text ending at `.`, `!`, `?` or a line break; any sentence containing the word `derived` must also contain `\b[CW]\d+\b`. Prose uses of "derived" false-positive by design; the fix is rewording the prose, and the template says so.
+- **`derived` sentence rule:** a sentence is a run of text ending at `.`, `!`, `?` or a line break; any sentence containing the word `derived` must also contain `\b[CWP]\d+\b` (P covers the judge's own computations, per the spec). Prose uses of "derived" false-positive by design; the fix is rewording the prose, and the template says so.
 - **Coverage leads:** the Coverage section's required lines are the template's own bullets, matched by their lead text up to the first colon: `Not read`, `Not checked`, `For the reader to double-check`, `Verification`, `Recalled`, `Evidence file only`.
+- **External-check slots:** the evidence template's External-check section carries one fixed slot per mandated stage 2 check (`Venue rigor`, `Authors' previous work`, `Reference counts`, `Tree backward`, `Tree forward`, `Related works read`, `Undefined concepts`, `Headline recomputations`); the checker requires each `- <lead>:` in the evidence file the same way it requires Coverage leads (run F: a check with no slot can be skipped invisibly).
 - **Sections pending a later stage:** the checker runs at stage 6, before the verifier exists; a section whose stage has not run yet is filled `pending: stage <n>` rather than left empty (the templates say this; "nothing silent" covers it).
 - **Default evidence path:** `report_path.with_suffix(".evidence.md")` (`.md` → `.evidence.md`).
 
@@ -98,7 +99,7 @@ Write exactly this content (mdformat form: thematic break as underscores, ordere
 ```markdown
 # Report template
 
-Keep the headings, their order, and their numbering; `scripts/check_report.py` reads its required headings from this file, so this template is the single source of truth for the report's structure. The bullets are the guide's questions; answer them in prose. Replace every `{{placeholder}}`. Keep the `Key:` line verbatim — the checker requires it. A sentence containing the word "derived" must cite the C or W entry holding the computation; the checker flags any use of the word without one, so keep "derived" out of ordinary prose. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
+Keep the headings, their order, and their numbering; `scripts/check_report.py` reads its required headings from this file, so this template is the single source of truth for the report's structure. The bullets are the guide's questions; answer them in prose. Replace every `{{placeholder}}`. Keep the `Key:` line verbatim — the checker requires it. A sentence containing the word "derived" must cite the C, W or P entry holding the computation; the checker flags any use of the word without one, so keep "derived" out of ordinary prose. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
 
 ______________________________________________________________________
 
@@ -106,7 +107,7 @@ ______________________________________________________________________
 
 {{Authors (year). Title. Venue, pages or DOI.}} Version read: {{preprint and number, or published}}. Report written {{date}}.
 
-Key: a locator cites the paper; (W12) cites a source outside the paper through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C or W entry holding its computation; recalled knowledge appears only under Coverage.
+Key: a locator cites the paper; (W12) cites a source outside the paper through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C, W or P entry holding its computation; recalled knowledge appears only under Coverage.
 
 ## 1. Context
 
@@ -218,7 +219,7 @@ Write exactly this content:
 ````markdown
 # Evidence template
 
-The evidence file is the report's audit trail; each section is filled during the stage that produces it, so an interrupted run resumes from the stage log. `scripts/check_report.py` reads its required headings from this file. Ledger entries are one list item per entry, starting `- N1:`, `- C1:`, `- W1:`, or `- P1:` — the checker reads IDs from exactly that shape, and every ID defined here must appear in the report or on Coverage's "Evidence file only" line. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
+The evidence file is the report's audit trail; each section is filled during the stage that produces it, so an interrupted run resumes from the stage log. `scripts/check_report.py` reads its required headings from this file. A ledger entry starts on its own line — `- N1:`, `- C1:`, `- W1:`, or `- P1:` — and detail may continue on indented lines beneath it; the checker reads IDs from exactly that first-line shape, and every ID defined here must appear in the report or on Coverage's "Evidence file only" line. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
 
 ______________________________________________________________________
 
@@ -274,6 +275,17 @@ Every place two locations in the paper conflict. One entry per line: `- C1: <bot
 
 One entry per outside check: `- W1: <claim checked>; <source>; <URL or saved copy>; <what the source said>`. The related works read and the released-artifact checks are W entries too.
 
+The mandated checks each hold a fixed slot, filled with the W IDs that discharged it or `not checked: <reason>` — the checker reports an unfilled slot, so a skipped check is a visible hole rather than a silent one:
+
+- Venue rigor:
+- Authors' previous work:
+- Reference counts:
+- Tree backward:
+- Tree forward:
+- Related works read:
+- Undefined concepts:
+- Headline recomputations:
+
 ## Judge points
 
 Filled at stage 3's return: the kept points under assigned IDs, `- P1: <Kind; Locator; Observation; Evidence; Why it matters>`, then the judge's Recalled lines, then the count of points dropped as inadmissible.
@@ -321,8 +333,8 @@ _spec.loader.exec_module(check_report)
 KEY_LINE = (
     "Key: a locator cites the paper; (W12) cites a source outside the paper "
     "through the evidence file; [inferred] marks the writer's own reasoning; "
-    'a number marked "derived" cites the C or W entry holding its computation; '
-    "recalled knowledge appears only under Coverage."
+    'a number marked "derived" cites the C, W or P entry holding its '
+    "computation; recalled knowledge appears only under Coverage."
 )
 
 
@@ -379,6 +391,9 @@ def build_evidence() -> str:
             lines.append("- C1: Table 2 says 4.2, abstract says 4.4; recomputed in code.")
         elif heading.startswith("## External-check"):
             lines.append("- W1: venue rigor; CORE; saved copy; ranked A.")
+            lines.extend(
+                f"- {lead}: W1." for lead in check_report.external_check_leads()
+            )
         elif heading.startswith("## Judge points"):
             lines.append("- P1: Not reported; Table 2; no denominator; N1; weakens the rate.")
             lines.append("- P2: Not reported; Section 5; minor wording slip; C1; low stakes.")
@@ -509,6 +524,15 @@ def test_a_missing_evidence_heading_is_an_error(tmp_path):
     status, out = run(build_report(), evidence, tmp_path)
     assert status == 1
     assert "missing heading" in out
+
+
+def test_an_unfilled_mandated_check_slot_is_an_error(tmp_path):
+    """Run F: a mandated check that silently never ran was invisible because
+    the list had no slot-by-slot accounting. The slots make it a hole."""
+    evidence = build_evidence().replace("- Tree forward: W1.\n", "")
+    status, out = run(build_report(), evidence, tmp_path)
+    assert status == 1
+    assert "Tree forward" in out and "slot" in out
 ```
 
 - [ ] **Step 4: Run the tests to verify they fail**
@@ -535,11 +559,13 @@ Errors (exit status 1): a required heading is missing; a section is empty; a
 ``{{placeholder}}`` is still in place; a critical-discussion topic cites no
 locator and no N/C/W/P ID and does not say "not applicable"; Credibility
 states no confidence; a Coverage lead line from the template is missing; a
-sentence containing "derived" cites no C or W entry; the ``Key:`` provenance
-line is missing; the ledger is broken (an ID defined in the evidence file
-appears neither in the report nor on Coverage's "Evidence file only" line, or
-the report cites an ID the evidence file never defines); the evidence file is
-missing. Warnings (exit status 0) point at things only a reader can judge.
+sentence containing "derived" cites no C, W or P entry; the ``Key:``
+provenance line is missing; a mandated-check slot in the evidence file's
+External-check list is unfilled; the ledger is broken (an ID defined in the
+evidence file appears neither in the report nor on Coverage's "Evidence file
+only" line, or the report cites an ID the evidence file never defines); the
+evidence file is missing. Warnings (exit status 0) point at things only a
+reader can judge.
 """
 
 import argparse
@@ -580,7 +606,7 @@ LOCATOR_RE = re.compile(
 )
 SECTION_NAME_RE = re.compile(r"\b(?:Abstract|Introduction|Related Work|Conclusions?)\b")
 ID_RE = re.compile(r"\b[NCWP]\d+\b")
-CW_ID_RE = re.compile(r"\b[CW]\d+\b")
+CWP_ID_RE = re.compile(r"\b[CWP]\d+\b")
 DEFINED_ID_RE = re.compile(r"^- ([NCWP]\d+):", re.MULTILINE)
 DERIVED_RE = re.compile(r"\bderived\b", re.IGNORECASE)
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
@@ -640,6 +666,21 @@ def coverage_leads() -> list[str]:
         line[2 : line.index(":")]
         for line in coverage.splitlines()
         if line.startswith("- ") and ":" in line
+    ]
+
+
+def external_check_leads() -> list[str]:
+    """The External-check section's mandated-slot leads, from the evidence
+    template's own bullets, excluding the ``- W1:`` entry-shape example."""
+    text = EVIDENCE_TEMPLATE.read_text(encoding="utf-8")
+    section = text[text.index("## External-check list") :]
+    end = section.find("\n## ", 1)
+    if end != -1:
+        section = section[:end]
+    return [
+        line[2 : line.index(":")]
+        for line in section.splitlines()
+        if line.startswith("- ") and ":" in line and not DEFINED_ID_RE.match(line)
     ]
 
 
@@ -723,16 +764,16 @@ def evidence_errors(found: list[Section]) -> list[str]:
 
 
 def derived_errors(lines: list[str]) -> list[str]:
-    """Every sentence containing "derived" cites the C or W entry holding the
-    computation. A sentence ends at ., !, ? or the line break."""
+    """Every sentence containing "derived" cites the C, W or P entry holding
+    the computation. A sentence ends at ., !, ? or the line break."""
     errors: list[str] = []
     for number, line in enumerate(lines, start=1):
         if line.startswith("Key: "):
             continue
         for sentence in SENTENCE_SPLIT_RE.split(line):
-            if DERIVED_RE.search(sentence) and not CW_ID_RE.search(sentence):
+            if DERIVED_RE.search(sentence) and not CWP_ID_RE.search(sentence):
                 errors.append(
-                    f"report: line {number}: derived number cites no C or W entry"
+                    f"report: line {number}: derived number cites no C, W or P entry"
                 )
     return errors
 
@@ -804,8 +845,16 @@ def check_report(text: str, evidence_text: str | None) -> tuple[list[str], list[
 def check_evidence(text: str) -> tuple[list[str], list[str]]:
     """Return (errors, warnings) for the evidence file."""
     lines = text.splitlines()
+    found = sections(lines)
     required = template_headings(EVIDENCE_TEMPLATE)
-    errors = structure_errors("evidence", lines, sections(lines), required)
+    errors = structure_errors("evidence", lines, found, required)
+    external = find_section(found, "## External-check list")
+    if external is not None:
+        errors.extend(
+            f"evidence: External-check list is missing its '{lead}' slot"
+            for lead in external_check_leads()
+            if f"- {lead}:" not in external
+        )
     return errors, phrase_warnings("evidence", lines)
 
 
@@ -870,7 +919,9 @@ The templates are the checker's single source of truth: required headings
 are parsed from them, the Coverage leads from the template's own bullets,
 and the nine topics from the outline between sections 3 and 4. New rules
 from the merge spec: locator-or-ID per topic, the Key provenance line,
-derived numbers citing their C or W entry, the six Coverage lines, and the
+derived numbers citing their C, W or P entry, the six Coverage lines, the
+mandated-check slots in the evidence file (run F: a skipped check must be
+a visible hole), and the
 N/C/W/P ledger closed in both directions. The passing test fixture is
 built from the shipped templates through the checker's own parser.
 
@@ -1391,6 +1442,10 @@ You are editing a critical-analysis report for one reader: someone deciding whet
 
 Every change keeps the claim and its strength: its qualifiers, numbers, locators, N/C/W/P IDs, and provenance marks (locators, (W12), [inferred], "derived"). A sentence that fails the relevance or no-op test is deleted whole, never trimmed to a weaker version of itself. You add no finding and no fact.
 
+## Scope
+
+The structural and stylistic passes work on sections 1–3 only. The front matter (the citation block and the Key line), the Verdicts block, and Coverage take the copy pass alone: their one-line repetitions and fixed lead words are the outline's, not padding — a verdict appears both in the Verdicts block and opening its topic by design.
+
 ## Your passes, in order (Professional Editorial Standards 2024, paraphrased: structural, then stylistic, then copy)
 
 Structural:
@@ -1452,9 +1507,9 @@ Report against this convention, not against a reading of your own.
 
 ## What you check
 
-1. Every locator, quote and number the report attributes to the paper: find it in the paper. An item passes when the locator resolves to text that says what the report says it says, the quote matches the paper verbatim, and the number appears at the stated place. A number the report marks "derived" is checked against the C or W entry it cites, not recomputed.
+1. Every locator, quote and number the report attributes to the paper: find it in the paper. An item passes when the locator resolves to text that says what the report says it says, the quote matches the paper verbatim, and the number appears at the stated place. A number the report marks "derived" is checked against the C, W or P entry it cites, not recomputed.
 2. Every W entry the report cites: re-open it at its URL, or at its saved copy in the scratch folder when the URL fails, and check that the source says what the entry says it said.
-3. Every reworded sentence in the change list whose item was applied: compare After with Before for lost or added meaning — a dropped qualifier, a strengthened claim, a changed number.
+3. Every applied change-list item: compare After with Before for lost or added meaning — a dropped qualifier, a strengthened claim, a changed number; for a move, check the one-line claim that stayed against what moved.
 
 ## Delegation
 
@@ -1511,7 +1566,7 @@ Eight stages, 0–7, every one on every paper. Each ends on a completion bar, re
 
 ## Rules
 
-- **Provenance.** The reader must be able to tell apart what the paper says, what an outside source says, and what the writer infers. The report's `Key:` line states the marks: a locator cites the paper; a W ID such as (W12) cites an outside source through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C or W entry holding its computation; recalled knowledge appears only under Coverage.
+- **Provenance.** The reader must be able to tell apart what the paper says, what an outside source says, and what the writer infers. The report's `Key:` line states the marks: a locator cites the paper; a W ID such as (W12) cites an outside source through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C, W or P entry holding its computation; recalled knowledge appears only under Coverage.
 - **Nothing silent.** Write `none found; checked: <where>`, `not checked: <reason>` or `not applicable: <reason>` rather than leaving a gap; a section whose stage has not run yet reads `pending: stage <n>`.
 - **Integrity.** Concerns are neutral observations, given with their benign explanations; never accusations.
 - **Write scope.** Every file the run creates goes in the output folder.
@@ -1568,7 +1623,9 @@ The deepest findings come only from exhaustive reconciliation and artifact check
   - if code or data are released, the analysis code behind each headline number — every number in the abstract and conclusion — with those numbers recomputed from the released data (`references/released-artifacts.md`).
   - When a citation index fails, fall back in order: OpenAlex, Crossref, OpenCitations, Semantic Scholar. Each failure becomes a W entry, and any count left incomplete is labelled partial.
 
-**Done when:** every `Needed:` line is resolved to an entry or to evidence; every number is reconciled or entered in C; every Context question is answered or marked `not checked: <reason>`; every released artifact relevant to a headline number has been examined.
+Each mandated check above fills its fixed slot in the evidence file's External-check section with the W IDs that discharged it or `not checked: <reason>` — the checker reports an unfilled slot, so a skipped check is a hole, not a silence.
+
+**Done when:** every `Needed:` line is resolved to an entry or to evidence; every number is reconciled or entered in C; every Context question is answered or marked `not checked: <reason>`; every mandated-check slot is filled; every released artifact relevant to a headline number has been examined.
 
 ## Stage 3 — Judge
 
@@ -1592,7 +1649,7 @@ Build Context and Summary from the evidence file, going back to the paper only f
 
 ## Stage 6 — Check
 
-Run `python3 scripts/check_report.py <report>` (it finds the evidence file beside it). The templates are its single source of truth: it reads required headings from `templates/report-template.md` and `templates/evidence-template.md`, and fails on a missing heading, a leftover placeholder, a topic with no locator or ID, a Credibility section stating no confidence, a missing Coverage line, a "derived" number citing no C or W entry, a missing provenance key, or a broken N/C/W/P ledger. Fix the report, not the checker.
+Run `python3 scripts/check_report.py <report>` — the path is relative to this skill's directory; the checker finds the evidence file beside the report. The templates are its single source of truth: it reads required headings from `templates/report-template.md` and `templates/evidence-template.md`, and fails on a missing heading, a leftover placeholder, a topic with no locator or ID, a Credibility section stating no confidence, a missing Coverage line, a "derived" number citing no C, W or P entry, a missing provenance key, an unfilled mandated-check slot, or a broken N/C/W/P ledger. Fix the report, not the checker.
 
 **Done when:** the checker reports no errors.
 
@@ -1869,3 +1926,5 @@ Checked against the spec on 2026-10-04, before saving:
 - Every checker rule in the spec's stage 6 list has an error path and a failing fixture (Task 1 steps 3/5); "template headings are the checker's single source of truth" is `template_headings()` + the built-from-template fixture.
 - Every migration bullet has a task: skill rewrite (3), delete (4), three test files (1/3/4 — test_templates.py confirmed no-change), README (4), ATTRIBUTION (4), terminology (checked, no change), vault AGENTS.md row (no change), evals README (4), critique-skills-tuning (after landing).
 - Type/name consistency pass: `{LOCATOR_CONVENTION}`/`{PAPER_PATHS}`/`{EVIDENCE_PATH}` uniform across briefs, SKILL.md, and tests; `- N1:` shape uniform across evidence template, checker `DEFINED_ID_RE`, and fixture; stage headings uniform between SKILL.md and `STAGES`; `Key:` line identical in template, fixture constant, and checker regex; the nine topics identical in brief, SKILL.md sentence, template headings, and `NINE`.
+
+Amended 2026-10-04, after review (spec updated in the same commit): "derived" may cite a P entry, since the judge's own computations (Scalability rates) are neither in-paper conflicts nor outside sources; the editor's structural and stylistic passes are scoped to sections 1–3 so the Verdicts block, front matter and Coverage — repetitive by design — survive; the stage 2 mandated checks get fixed slots in the evidence template that the checker enforces (run F: a skipped check must be a visible hole, not a silence); the verifier checks every applied change-list item, moves included; the spec's locator row absorbed the named front-matter parts and `whole paper` (run F: absent-throughout findings fell outside the verifier's scope without it).

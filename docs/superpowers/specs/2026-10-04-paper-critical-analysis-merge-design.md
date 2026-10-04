@@ -44,17 +44,17 @@ The run artifacts are local and git-ignored (`sources/bloom-skill-comparison/`, 
 
 ## Decisions
 
-| Question                | Decision                                                                                                                                                               |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Depth and cost          | One depth, balanced to the guide's intent. Target about 8M fresh tokens and about 2 hours on a paper the size of Bloom.                                                |
-| Scope in the repository | Replace both skills. Keep the name `paper-critical-analysis`, which the vault template already seeds into users' `AGENTS.md`.                                          |
-| What the skill reads    | The paper, every available appendix and supplement, files the paper names as holding its content, the authors' released code and data, and 3–5 selected related works. |
-| Architecture            | Reader, judge, editor and verifier: one main context and three fresh-context subagents.                                                                                |
-| Report shape            | The guide's outline in prose. The audit trail lives in a separate evidence file.                                                                                       |
-| Length                  | Write uncapped, then prune with a fresh-context editor. No word bound.                                                                                                 |
-| Web access              | Required. The skill stops if the probe fails.                                                                                                                          |
-| Locators                | Section, page, figure, table, equation, footnote or reference number. No paragraph counting.                                                                           |
-| Fan-out                 | None. Very long papers are read in chunks, with notes written after each chunk.                                                                                        |
+| Question                | Decision                                                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Depth and cost          | One depth, balanced to the guide's intent. Target about 8M fresh tokens and about 2 hours on a paper the size of Bloom.                                                   |
+| Scope in the repository | Replace both skills. Keep the name `paper-critical-analysis`, which the vault template already seeds into users' `AGENTS.md`.                                             |
+| What the skill reads    | The paper, every available appendix and supplement, files the paper names as holding its content, the authors' released code and data, and 3–5 selected related works.    |
+| Architecture            | Reader, judge, editor and verifier: one main context and three fresh-context subagents.                                                                                   |
+| Report shape            | The guide's outline in prose. The audit trail lives in a separate evidence file.                                                                                          |
+| Length                  | Write uncapped, then prune with a fresh-context editor. No word bound.                                                                                                    |
+| Web access              | Required. The skill stops if the probe fails.                                                                                                                             |
+| Locators                | Section, page, figure, table, equation, footnote or reference number; a named front-matter part; or `whole paper` for something absent throughout. No paragraph counting. |
+| Fan-out                 | None. Very long papers are read in chunks, with notes written after each chunk.                                                                                           |
 
 ## Outputs
 
@@ -96,7 +96,7 @@ Marks in the report:
 - A locator means the paper says it.
 - A W ID such as `(W12)` means a source outside the paper said it. The evidence file gives the source, its URL or saved copy, and what it said.
 - `[inferred]` marks the writer's own reasoning.
-- A computed number reads `derived` and cites the C or W entry that holds the computation.
+- A computed number reads `derived` and cites the C, W or P entry that holds the computation. (P covers the judge's own computations, such as Scalability rates, which are neither in-paper conflicts nor outside sources.)
 - Recalled knowledge appears only under Coverage.
 
 ### The evidence file
@@ -237,7 +237,7 @@ It works for one reader: someone deciding whether to trust and use the paper. It
   - Make terms, numbers and abbreviations consistent.
   - Flag, without fixing, any generalization that has no citation and any number that does not add up.
 
-The invariant is that every change keeps the claim and its strength, its qualifiers, numbers, locators, IDs and provenance marks. A sentence that fails the relevance or no-op test is deleted whole, never trimmed.
+The invariant is that every change keeps the claim and its strength, its qualifiers, numbers, locators, IDs and provenance marks. A sentence that fails the relevance or no-op test is deleted whole, never trimmed. The structural and stylistic passes work on the report's sections 1–3 only; the front matter, the Verdicts block and Coverage take the copy pass alone — their repetitions and fixed leads are the outline's, not the writer's.
 
 The editor returns a change list instead of editing the file. Each item gives the text before and after, and the test applied. The main context applies or rejects each item and records why.
 
@@ -252,7 +252,7 @@ Run `python3 scripts/check_report.py <report>`. It reads the report and its evid
 - a topic with no locator or ID;
 - a Credibility section that states no confidence;
 - a missing Coverage line;
-- a `derived` number with no C or W ID in its sentence;
+- a `derived` number with no C, W or P ID in its sentence;
 - a missing provenance key;
 - a broken ledger: an N, C, W or P ID that appears neither in the report nor on Coverage's "evidence file only" line.
 
@@ -266,7 +266,7 @@ A fresh-context subagent receives `prompts/verify.md`, the paper and its supplem
 
 - every locator, quote and number the report attributes to the paper;
 - every W entry the report cites, re-opened at its URL or saved copy;
-- every reworded sentence in the change list, compared with its original for lost or added meaning.
+- every applied change-list item, compared with its original for lost or added meaning.
 
 It returns failures only, with the counts checked, and creates no files.
 
