@@ -249,12 +249,15 @@ CDT), CheckIfExist 2 h 49 m, against "about 2 hours"; the growth sits in the
 two stages the merge added or widened — the editor (31 and 49 minutes;
 51 items + 14 flags on Bloom) and the verifier (57 and ~35 minutes; 283 + 32
 
-- 51 checks on Bloom, 326 + 40 + 46 on CheckIfExist). Fresh-token totals
-  were not mined from the subagent transcripts (the comparison runs' method);
-  runner-main contexts were 0.93M (Bloom) and 0.70M (CheckIfExist) tokens,
-  plus three fresh-context subagents each. Web fetches: 93 (Bloom), 190
-  (CheckIfExist, 74 of them issued by the paper's own tool under test).
-  Disposition of the quality-pass/time-over outcome is the user's call,
-  recorded here when made.
+- 51 checks on Bloom, 326 + 40 + 46 on CheckIfExist). Fresh input tokens,
+  mined from the four transcripts per run (uncached + cache-write, the
+  comparison runs' definition): Bloom 22.2M — main 13.9M, judge 4.9M, editor
+  1.3M, verifier 2.2M — against the ~8.5M bar and PCA run 2's 10.4M;
+  CheckIfExist 13.4M (7.3M + 2.4M + 2.5M + 1.2M; no token bar was set for
+  this paper). Cache reads: 395M and 241M. Web fetches: 93 (Bloom), 190
+  (CheckIfExist, 74 of them issued by the paper's own tool under test). The
+  token bar is therefore failed by about 2.6× on Bloom, not merely
+  unmeasured; disposition of the quality-pass/cost-over outcome is the
+  user's call, recorded here when made.
 
 Deferred review findings for these runs to walk: issues #218 (C and W prefix collisions), #219 (evidence-template and Key-line gaps), #220 (brief, test and attribution polish).
