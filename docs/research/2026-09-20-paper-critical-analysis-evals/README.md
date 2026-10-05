@@ -202,11 +202,59 @@ Planned acceptance runs, one per paper, recorded here as they happen:
   against the four comparison runs on three ledgers — the answer key per
   item, the merge's targeted fixes (each miss names the change that should
   have covered it), and calibration and shape; a targeted-fix miss blocks
-  acceptance, variance is recorded. Not yet run.
+  acceptance, variance is recorded.
 - **CheckIfExist** (Abbonato 2026, arXiv:2602.15871): answer key built from
   the run E and F records before the run; tests a paper with no participants
-  and heavy web use. Not yet run.
+  and heavy web use.
 - **A human read** of one report: is it the guide's result, in prose a person
   would want to read? Not yet done.
+
+### Results (2026-10-04, skill at 89f3a8c, one Opus runner per paper)
+
+Run artifacts are local and git-ignored (`sources/bloom-skill-comparison-run3/`,
+`sources/checkifexist-run/`; setup, isolation and the pre-registered
+CheckIfExist key in `sources/bloom-skill-comparison/run3-setup.md` and
+`checkifexist-answer-key.md`).
+
+**Bloom: 19 of 20** — above every comparison run (CAR 12, CAR-uncapped 14.5,
+CAR run 2 15, PCA 17, PCA run 2 18), including two items no prior run scored
+(A6, and C2 via the taxonomy). The one miss, C4 (Figure 3's plan keys against
+the schema), was found by exactly one of the four prior runs and is recorded
+as variance. **CheckIfExist: 13.5 of 15** on the pre-registered key (missed
+A3, a run-B-only item — variance; half credit on B2, where Crossref's Simple
+Text Query surfaced as a Recalled line rather than a W-backed finding because
+nothing fetched it — a placement note, not a silent miss). Beyond both keys:
+the Bloom run recomputed the paper's numbers from the released data (H1 as
+the control arm's change, the usage reversal, the satisfaction double
+rescale, filter-bypassing notifications, 53 unreported field activations);
+the CheckIfExist run executed the released tool — all ten known-fabricated
+references returned "Partial Match", and the batch export would replace nine
+with unrelated real records.
+
+**Targeted-fix ledger: all pass, both legs.** The paper-content row judged
+the taxonomy and found the bout rule (the fix that failed on wording in PCA
+run 2 now binds); the code-reading mandate reached H1 without luck; all
+eight mandated-check slots filled on both legs (the undefined-concepts slot
+produced CheckIfExist's central finding); verdicts open the discussion;
+ledgers closed with nothing silently dropped; credential paths recorded and
+never opened; raw participant CSVs deleted and logged; no `/tmp` scratch
+(the write-scope audit found only a benign `.mypy_cache` at the repo root
+from the runner type-checking its own scripts). Calibration held: H2 read as
+undetermined with its intervals, Credibility closed low with the evidence
+that would raise it. Both checkers finished `ok` with zero warnings; none of
+the #218–#220 watch items fired.
+
+**Cost — the one bar not met.** Wall time: Bloom 3 h 28 m (17:07–20:35
+CDT), CheckIfExist 2 h 49 m, against "about 2 hours"; the growth sits in the
+two stages the merge added or widened — the editor (31 and 49 minutes;
+51 items + 14 flags on Bloom) and the verifier (57 and ~35 minutes; 283 + 32
+
+- 51 checks on Bloom, 326 + 40 + 46 on CheckIfExist). Fresh-token totals
+  were not mined from the subagent transcripts (the comparison runs' method);
+  runner-main contexts were 0.93M (Bloom) and 0.70M (CheckIfExist) tokens,
+  plus three fresh-context subagents each. Web fetches: 93 (Bloom), 190
+  (CheckIfExist, 74 of them issued by the paper's own tool under test).
+  Disposition of the quality-pass/time-over outcome is the user's call,
+  recorded here when made.
 
 Deferred review findings for these runs to walk: issues #218 (C and W prefix collisions), #219 (evidence-template and Key-line gaps), #220 (brief, test and attribution polish).
