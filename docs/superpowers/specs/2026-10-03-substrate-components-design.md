@@ -71,6 +71,27 @@ Declared in the README add-on table (and `research_vault/templates/zotero-addons
 
 **Not declared:** Zotero MCP (agent access is `research_vault/zotero.py`, ruling 9); Zoplicate (its bulk-merge pre-fill from siblings); Zotero OCR (writes beside a linked PDF with no existence check); citation-count add-ons that strip each other's lines; and the remaining rows the evidence classifies EXCLUDE (screen A §8).
 
+### Build verdict: a research-vault library module (decided 2026-10-06)
+
+**Verdict: `build`**, tier **mature tool** (`docs/agents/sourcing.md`: the high bar), home #140, designed in its own spec after this one.
+
+**Jobs.** (1) Identifier completion and verification: DOI, PMID and PMCID, looked up only by identifier from an authoritative source and written to Zotero's native fields. (2) Checking an item's bibliographic fields (pages, issue, volume, date, venue, creators) against the registry record for its identifier. Both run as an audit over the whole library that reports a worklist with item keys, with an optional repair of what the audit found.
+
+**`floor_failed`: screen A's must A3 part (1)** — every value written comes from an authoritative source looked up by identifier, or is a lossless format change — met by no candidate for these jobs in every path it offers:
+
+- **DOI Manager 2.2.0** — every menu command first fills an empty DOI from a Crossref metadata query taken without an identifier check, and no setting removes it (rows 6–7; #217).
+- **DOI Fix** — Retrieve takes a single OpenURL hit unchecked; Update validates against Crossref only and replaces a valid DataCite DOI with a title match (row 8).
+- **PMCID fetcher** — its automatic job writes Extra back from a stale snapshot, losing concurrent edits, and its tag fetch sends a PMCID as a PMID, attaching an unrelated article's MeSH headings (row 5; #213, two production items affected).
+- **Linter for Zotero** — `require-doi` fills from a Crossref match on the item's own metadata, unchecked; its extra-zeros helper shifts page and issue ranges (row 9; #197, #200, six production page ranges and one issue range shifted).
+- **ZotMeta** — takes a DOI or arXiv ID from the first matching string in the PDF's text and overwrites title and creators from it (row 11; #214).
+- **No candidate checks existing fields against the registry record** for job (2); Meta Refresh corrects from the record but does not report a disagreement as a finding, and passes A3 only with five non-default keys (row 12).
+
+**Form: a script plus a skill** (operator, 2026-10-06). A CLI verb in `research_vault` performs every Zotero write — the README's rule that the agent composes and explains while the CLI writes — reusing `research_vault/zotero.py`, the capture ledger, findings and acknowledgement, and the repository's tests and mutation gate. A skill on top carries the judgement rules cannot (for example, whether a borderline registry record is the same work). The local API applies every PATCH with `fromJSON(json, {strict: false})` (Zotero 10.0.5 `server_localAPI.js:1983`), re-running Zotero's normalisation over the record; every write therefore runs a pre-flight that computes what that normalisation would change and refuses or plans around it. The module's spec opens by measuring that round trip on the test instance against a sample of real items.
+
+**Rejected form: research-vault's own Zotero plugin.** Writing in-process (`item.setField`, `saveTx`) would avoid the PATCH normalisation and live in Zotero's UI, but: a second codebase in a second language outside pytest, the mutation gate and CI, testable only against a running Zotero; an `.xpi` to ship with version caps, an update channel and a human install step; the common scaffolding (zotero-plugin-toolkit) carries the unprompted-install route (#199); and agents could drive it only through an endpoint, a remote write route the rulings count against it.
+
+**Transition.** Until the module ships, the add-ons above that §1 declares stay declared for their jobs. When it ships, DOI Manager and the PMCID fetcher leave the table, Meta Refresh drops to optional, and the README table and doctor rows change with them.
+
 ## §2 The seeded `.obsidian/` (in progress)
 
 Decided 2026-10-04:
