@@ -1,0 +1,36 @@
+# Evals for plugins/experiment-proposal
+
+Run records for the plugin at `plugins/experiment-proposal/`, kept out of the shipped plugin. Spec: `docs/superpowers/specs/2026-10-13-experiment-proposal-plugin-design.md`, section Evals. Every answer key under `fixtures/` was written and committed before any run. Each scenario runs three times, and its pass bar holds only if all three runs meet it.
+
+## Harness
+
+- Every run happens in a fresh scratch project outside this repository: `tmp=$(mktemp -d) && cd "$tmp" && git init -q && git commit --allow-empty -qm init && mkdir proposal`. Fixtures are copied in; nothing is run inside the repository.
+- The plugin is loaded from the branch's checkout with `--plugin-dir <checkout>/plugins/experiment-proposal` (Claude Code) or from the installed plugin (Task 10's install test).
+- Headless runs: `claude -p --plugin-dir <plugin> --permission-mode acceptEdits --allowedTools "Read,Edit,Write,Agent,Bash(Rscript:*),Bash(git:*),Bash(python3:*)" "<prompt>"`, with `--continue` for the next turn of the same scenario. `design` from scratch is interactive and is driven by the author in a normal session with the plugin loaded, following `fixtures/from-scratch-answers.md`; the executor records.
+- No R: a shim directory first on `PATH` whose `Rscript` exits 127 (`printf '#!/bin/sh\necho "Rscript: not installed (eval shim)" >&2\nexit 127\n' > "$tmp/no-r/Rscript"; chmod +x "$tmp/no-r/Rscript"; PATH="$tmp/no-r:$PATH"`). On a machine without R the shim is unnecessary but harmless.
+- Records: one file per run under `runs/`, named `<scenario>-<n>.md`, holding the date, the plugin commit, the exact command, the transcript's decisive lines, each pass-bar criterion with pass or fail, and the verdict. Relative paths only; never a home-directory path.
+
+## Scenarios and pass bars
+
+| Scenario                                                                            | Fixture                                                     | Pass bar                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Baseline: no plugin, the mouse-versus-trackball idea                              | `fixtures/baseline-prompt.md`                               | None; the runs record the failures (the RED step), scored against the design tree with the key in the fixture.                                                                                                                                                                                                                                            |
+| 2 `design` from material with planted gaps                                          | `fixtures/material-with-gaps.md`, its `.key.md`             | Every planted gap is marked weak or missing; no settled decision is asked again.                                                                                                                                                                                                                                                                          |
+| 3 `design` from scratch on a within-subjects text-entry idea with an ordinal rating | `fixtures/from-scratch-answers.md`                          | Every design-tree item is settled, provisional or "pilot settles"; the mixed-model plan is complete; power is computed, the rating's through the `clmm` loop; `design` consults the subagent at least once; the freeze commit exists.                                                                                                                     |
+| 4 `design` with no R                                                                | the from-scratch idea, the no-R shim                        | The participant-count item is BLOCKED with install commands; the brief does not freeze until the user records a waiver; the waiver covers items 8.5, 8.6 and 8.7 as one Open items entry.                                                                                                                                                                 |
+| 5 `review` on a proposal with 12 planted defects                                    | `fixtures/proposal-with-defects.md`, `.brief.md`, `.key.md` | At least 11 caught and none passed: a defect is caught when the item the key names fails, and passed when that item is marked pass. Every draft-checked pass quotes evidence. When the user picks two fixes by number, `review` applies only those and re-checks the affected items. With the brief or the draft removed, `review` stops and names which. |
+| 6 Hand-off                                                                          | the review scenario's project                               | With research-grill missing, a clear install message; otherwise the exact command and the seed list.                                                                                                                                                                                                                                                      |
+| 7 Installs                                                                          | the branch checkout                                         | Claude Code: namespaced names, name-only invocation, the subagent available, the checklist path resolving. Codex: the gaps recorded; if a Codex session cannot open the checklist through `${CLAUDE_PLUGIN_ROOT}`, the fallback is applied and the install test run again.                                                                                |
+
+`lit-search` has no scenario; the compile check in `tests/test_experiment_proposal_plugin.py` is its only test.
+
+## Runs
+
+| Run | Scenario | Plugin commit | Outcome |
+| --- | -------- | ------------- | ------- |
+
+(filled by Tasks 10 and 11, one row per run, in order)
+
+## R on the author's machine
+
+No `Rscript` on 2026-10-14. Scenarios 1, 2, 4, 5, 6 and 7 run before R is installed; scenario 3 and the template's dry run (`templates/power-simr.R` with `n_sims = 20`) wait for the user-gated install of R and the four packages. The record of that dry run goes here when it runs.
