@@ -109,3 +109,30 @@ Removed marketplace `research-vault`.
 ```
 
 Removed: the plugin and the `research-vault` marketplace, both added by this test, and the empty `~/.codex/plugins/cache/research-vault/` folder left behind. Final `codex plugin marketplace list`: `caveman`, `eranroseman`, `jrjsmrtn-skills`, `obsidian-skills`, `ponytail`, `openai-curated`; no `research-vault`.
+
+## Post-landing install from GitHub (2026-10-14, main at 2717e9d, tag experiment-proposal--v0.1.0)
+
+- Host: codex-cli 0.147.0, run from a fresh `mktemp -d` directory outside any repository.
+- Source: the GitHub repository, not a local path. The earlier deferral ("the from-git form was not tried") is closed by this section.
+- Before: `codex plugin marketplace list` showed `caveman`, `<personal-marketplace>`, `jrjsmrtn-skills`, `obsidian-skills`, `ponytail` and `openai-curated`; none named `research-vault`.
+- Both commands worked in the form the README gives; no unsupported form, so `codex plugin --help` was not needed.
+
+```text
+$ codex plugin marketplace add eranroseman/research-vault
+Added marketplace `research-vault` from https://github.com/eranroseman/research-vault.git.
+Installed marketplace root: ~/.codex/.tmp/marketplaces/research-vault
+$ codex plugin add experiment-proposal@research-vault
+Added plugin `experiment-proposal` from marketplace `research-vault`.
+Installed plugin root: ~/.codex/plugins/cache/research-vault/experiment-proposal/0.1.0
+$ codex plugin list
+Marketplace `research-vault`
+~/.codex/.tmp/marketplaces/research-vault/.claude-plugin/marketplace.json
+
+PLUGIN                               STATUS              VERSION  PATH
+research-vault@research-vault        not installed
+experiment-proposal@research-vault   installed, enabled  0.1.0    ~/.codex/.tmp/marketplaces/research-vault/plugins/experiment-proposal
+```
+
+`codex plugin list` printed every marketplace; only the `research-vault` block is quoted. The installed cache folder `~/.codex/plugins/cache/research-vault/experiment-proposal/0.1.0` holds `LICENSE`, `README.md`, `THIRD-PARTY-NOTICES.md`, `agents/hci-researcher.md`, `references/`, `skills/{design,lit-search,review,the-ethics-board}` and `templates/`.
+
+Verdict: pass. The marketplace was read from `.claude-plugin/marketplace.json`, and `experiment-proposal@research-vault` installed from the GitHub clone as 0.1.0, installed and enabled, with the four skills and the agent present in the cache. The README's Codex install line is now tested from git. No session check was run, so the earlier findings on Codex's own skill and agent listing stand unchanged. The plugin and the `research-vault` marketplace are left installed.

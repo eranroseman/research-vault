@@ -145,3 +145,35 @@ $ claude plugin marketplace remove research-vault
 ```
 
 Removed: the plugin and the `research-vault` marketplace, both added by this test. Left behind: Claude Code's own cache folder `~/.claude/plugins/cache/research-vault/` holding an orphan-marked copy (`.orphaned_at`), which Claude Code garbage-collects itself. Final `claude plugin marketplace list`: the same ten marketplaces as before the test, no `research-vault`; `claude plugin list` shows no `experiment-proposal`.
+
+## Post-landing install from GitHub (2026-10-14, main at 2717e9d, tag experiment-proposal--v0.1.0)
+
+- Host: Claude Code, run from a fresh `mktemp -d` directory outside any repository.
+- Source: the GitHub repository, not a local path. The earlier deferral ("the from-git form was not tried") is closed by this section.
+- Before: `claude plugin marketplace list` showed eleven marketplaces (`claude-code-plugins`, `ponytail`, `claude-plugins-official`, `caveman`, `obsidian-skills`, `jrjsmrtn-skills`, `openai-codex`, `<personal-marketplace>`, `agricidaniel-claude-obsidian`, `typesafe-ai`, `open-science-skills`); none named `research-vault`, so the add form applied, not the update form.
+
+```text
+$ claude plugin marketplace add eranroseman/research-vault
+Adding marketplace…Cloning via SSH: git@github.com:eranroseman/research-vault.git
+Clone complete, validating marketplace…
+✔ Successfully added marketplace: research-vault (declared in user settings)
+$ claude plugin install experiment-proposal@research-vault
+Installing plugin "experiment-proposal@research-vault"...✔ Successfully installed plugin: experiment-proposal@research-vault (scope: user)
+$ claude plugin details experiment-proposal@research-vault
+experiment-proposal 0.1.0
+  Source: experiment-proposal@research-vault
+
+Component inventory
+  Skills (4)  design, lit-search, review, the-ethics-board
+  Agents (1)  hci-researcher
+  Hooks (0)
+  MCP servers (0)
+  LSP servers (0)
+$ claude plugin list
+  ❯ experiment-proposal@research-vault
+    Version: 0.1.0
+    Scope: user
+    Status: ✔ enabled
+```
+
+Verdict: pass. The four skills (`design`, `lit-search`, `review`, `the-ethics-board`) and the agent (`hci-researcher`) are listed, with no hooks, MCP servers or LSP servers, at version 0.1.0 and user scope. The command output does not show the `experiment-proposal:` prefix; the earlier local-path section recorded that prefix from the session registry, and no session check was repeated here. The plugin and the `research-vault` marketplace are left installed.
