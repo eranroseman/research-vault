@@ -1,0 +1,10 @@
+---
+interface:
+  display_name: Experiment design
+  short_description: Settle an HCI experiment's design decisions in rounds and freeze
+    them in a brief
+  default_prompt: 'Run the design skill: check the R prerequisites, extract decisions
+    from the material the user names, ask the open items in rounds with a recommendation
+    each, and write proposal/design-brief.md.'
+policy:
+  allow_implicit_invocation: false

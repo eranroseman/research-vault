@@ -547,3 +547,72 @@ def test_the_power_template_parses_where_rscript_exists():
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+# --------------------------------------------------------------------------
+# The skills we wrote: citations resolve, paths resolve, contracts hold
+# --------------------------------------------------------------------------
+
+PLUGIN_ROOT_PATH = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([A-Za-z0-9_./-]+)")
+
+
+def _skill_text(name: str) -> str:
+    return (SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("name", ["design", "review"])
+def test_every_item_the_skill_cites_exists(name):
+    missing = _cited_ids(_skill_text(name)) - set(_checklist_items())
+    assert not missing, f"{name} cites items that do not exist: {sorted(missing)}"
+
+
+@pytest.mark.parametrize("skill_dir", SKILL_DIRS, ids=lambda p: p.name)
+def test_every_plugin_root_path_a_skill_names_exists(skill_dir):
+    """`${CLAUDE_PLUGIN_ROOT}/<path>` in skill text must resolve inside the
+    plugin folder; the Codex fallback moves files, and this is what keeps the
+    skill text honest when it does."""
+    if skill_dir.name == "the-ethics-board":
+        pytest.skip("vendored upstream text; it names no plugin path")
+    text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+    named = {m.group(1).rstrip(".,;:)") for m in PLUGIN_ROOT_PATH.finditer(text)}
+    assert named, f"{skill_dir.name} names no plugin path (did the path shape change?)"
+    missing = sorted(p for p in named if not (PLUGIN / p).exists())
+    assert not missing, f"{skill_dir.name} names paths that do not exist: {missing}"
+
+
+def test_design_reads_the_checklist_and_the_template_and_calls_the_subagent():
+    text = _skill_text("design")
+    assert "${CLAUDE_PLUGIN_ROOT}/references/checklist.md" in text
+    assert "${CLAUDE_PLUGIN_ROOT}/templates/power-simr.R" in text
+    assert "../../references/checklist.md" in text  # the unexpanded-variable fallback
+    assert "hci-researcher" in text
+    assert "experiment-proposal:hci-researcher" in text
+    assert "Never read the guide" in text
+
+
+def test_design_checks_r_prerequisites_and_blocks_the_count_loudly():
+    text = _skill_text("design")
+    assert 'Rscript -e \'for (p in c("lme4","lmerTest","ordinal","simr"))' in text
+    assert 'install.packages(c("lme4","lmerTest","ordinal","simr")' in text
+    assert "BLOCKED" in text
+    assert "waived" in text
+    assert "waiver" in text
+    assert "item 8.5" in text
+    for status in ("settled", "pilot settles", "provisional", "weak", "missing"):
+        assert status in text, f"design never names the status {status}"
+
+
+def test_design_runs_rounds_with_the_three_question_parts_and_freezes_by_commit():
+    text = _skill_text("design")
+    assert "Why this matters:" in text
+    assert "Recommended:" in text
+    assert "frontier" in text
+    assert "Matt Pocock" in text
+    assert "## Decisions" in text
+    assert "## Looked up" in text
+    assert "## Open items" in text
+    assert "## Amendments" in text
+    assert "Draft:" in text
+    assert "git commit" in text
+    assert "/experiment-proposal:lit-search" in text
+    assert "/experiment-proposal:the-ethics-board" in text
