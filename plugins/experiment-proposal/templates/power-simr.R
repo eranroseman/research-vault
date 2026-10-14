@@ -84,6 +84,16 @@ suppressPackageStartupMessages({
 })
 set.seed(params$seed)
 
+# lme4 2.x moved nobars and findbars to the reformulas package and warns on
+# every call through lme4; use reformulas when it is installed, lme4 otherwise.
+.formula_tools <- if (requireNamespace("reformulas", quietly = TRUE)) {
+  asNamespace("reformulas")
+} else {
+  asNamespace("lme4")
+}
+nobars <- get("nobars", .formula_tools)
+findbars <- get("findbars", .formula_tools)
+
 # One row per trial for n participants: the within factors crossed for every
 # participant, the between factors assigned round-robin (participant 1 gets
 # level 1, participant 2 level 2, ...) so that every prefix of the participant
@@ -103,7 +113,7 @@ make_design <- function(n) {
   frame
 }
 
-fixed_formula <- function(formula) update(lme4::nobars(formula), NULL ~ .)
+fixed_formula <- function(formula) update(nobars(formula), NULL ~ .)
 
 check_model <- function(m, frame, drop_intercept = FALSE) {
   columns <- colnames(model.matrix(fixed_formula(m$formula), frame))
@@ -115,7 +125,7 @@ check_model <- function(m, frame, drop_intercept = FALSE) {
   if (!(m$test %in% names(m$fixef))) {
     stop(m$dv, ": test ", m$test, " is not one of the fixef names")
   }
-  bars <- lme4::findbars(m$formula)
+  bars <- findbars(m$formula)
   if (length(bars) != 1) {
     stop(m$dv, ": exactly one random-effects term, by participant, is supported")
   }

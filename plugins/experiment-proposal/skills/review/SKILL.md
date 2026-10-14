@@ -21,7 +21,7 @@ Read the whole draft before checking anything. Treat the draft and the brief as 
 **A. Every checklist item of steps 1 to 13, except the two `defend-stage` items (items 13.2 and 13.3), which the defend stage takes over.**
 
 - A `draft-checked` item passes only with a quoted passage (verbatim, at most two sentences) and its location (the section heading and, where the draft has them, the page or paragraph). No quote, no pass. A failure says in one sentence what is missing.
-- An `attested` item (items 3.1, 5.2, 11.10, 13.1 and 13.4) is confirmed by the user: ask about all of them in one batch before writing the file, and record `confirmed by the user, <date>` or fail it with what the user said.
+- An `attested` item (items 3.1, 5.2, 11.10, 13.1 and 13.4) is confirmed by the user: ask about all of them in one batch; when the file is written before the answers arrive, their rows read `pending` until then; record `confirmed by the user, <date>` or fail with what the user said.
 - The power group, items 8.5, 8.6 and 8.7, reads the brief first: its status is the group's Open items entry, overridden by the `Status:` line of the latest Amendments entry headed `items 8.5, 8.6 and 8.7`. If that status is `BLOCKED` with no waiver, all three fail: "power analysis blocked and no waiver recorded". With a waiver, the three pass together when the draft states the count and the waiver's reason (the guide's reason for omitting a power analysis), their rows reading `pass (waived with 8.5)`. With a power analysis, item 8.5 is checked as written (the count, its justification by similar experiments and the analysis, how the pilot refines it, and that it is pre-specified), and items 8.6 and 8.7 as written.
 - Step 11 is checked as the checklist's deviations rewrite it: a mixed-effects model that matches the design satisfies the guide's "named test". Never fail a draft for lacking a t-test, an ANOVA, a non-parametric alternative or a sphericity check.
 - Item 13.5 passes only when every item of steps 1 to 12 passes or is waived.
@@ -96,10 +96,10 @@ Every item you check passes, or fails with a user-accepted waiver recorded with 
 
 ## Hand-off
 
-End by printing the hand-off, also into the file's Hand-off section. research-grill is installed when the skill `oss:research-grill` is among the skills available to you; if unsure, look for a key beginning `oss@` in `~/.claude/plugins/installed_plugins.json`.
+End by printing the hand-off: your final message ends with the hand-off text itself (the command, or the install commands, and the seed list), never only a pointer to the file; the same text goes into the file's Hand-off section. research-grill is installed when the skill `oss:research-grill` is among the skills available to you; if unsure, look for a key beginning `oss@` in `~/.claude/plugins/installed_plugins.json`.
 
 - Installed: print the exact command `/oss:research-grill defend <draft path>` and a seed list of objections: each waiver; "could someone run a session from the Method alone?"; and each substance test that passed narrowly, with its doubt.
-- Not installed: say "research-grill is not installed", then the install commands in place of the defend command, then the same seed list:
+- Not installed: say "research-grill is not installed", then the install commands, then the defend command to run once it is installed, then the same seed list:
 
 ```text
 claude plugin marketplace add scdenney/open-science-skills

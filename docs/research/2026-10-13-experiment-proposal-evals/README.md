@@ -50,4 +50,24 @@ Run records for the plugin at `plugins/experiment-proposal/`, kept out of the sh
 
 ## R on the author's machine
 
-No `Rscript` on 2026-10-14. Scenarios 1, 2, 4, 5, 6 and 7 run before R is installed; scenario 3 and the template's dry run (`templates/power-simr.R` with `n_sims = 20`) wait for the user-gated install of R and the four packages. The record of that dry run goes here when it runs.
+Scenarios 1, 2, 4, 5, 6 and 7 ran before R was installed; scenario 3 needs R and the four packages. The R facts below were taken on 2026-10-14.
+
+| Fact       | Value              | Method, date                               |
+| ---------- | ------------------ | ------------------------------------------ |
+| R          | 4.3.3 (2024-02-29) | `Rscript --version`, 2026-10-14            |
+| lme4       | 2.0.6              | `packageVersion("lme4")`, 2026-10-14       |
+| lmerTest   | 3.2.1              | `packageVersion("lmerTest")`, 2026-10-14   |
+| ordinal    | 2026.7.26          | `packageVersion("ordinal")`, 2026-10-14    |
+| simr       | 1.0.11             | `packageVersion("simr")`, 2026-10-14       |
+| reformulas | 0.4.4              | `packageVersion("reformulas")`, 2026-10-14 |
+| nloptr     | 2.2.1              | `packageVersion("nloptr")`, 2026-10-14     |
+| Deriv      | 4.2.0              | `packageVersion("Deriv")`, 2026-10-14      |
+
+Installation, as the user did it on 2026-10-14: `r-base` and `r-base-dev` from apt; `cmake` and `libnlopt-dev` from apt, which `nloptr` needs to build; lme4, lmerTest, ordinal and simr from CRAN into the personal library (`R_LIBS_USER`). Deriv 4.2.0 came from the CRAN archive, because the current Deriv needs R 4.5 or later. Method: the user's report of the commands run, not a probe; the versions above are probed.
+
+Dry runs of `templates/power-simr.R`, both with the template's own grid and models:
+
+- Before the reformulas shim, with `n_sims = 20`: exit 0 in 61 s, a power-curve table with movement_time, error and rating rows, "Participant count: 12", and two lme4 deprecation warnings (`nobars` and `findbars` have moved to the reformulas package). The shim removes both. Method: the run's `time` and stderr, 2026-10-14.
+- After the shim, with `n_sims = 5` (`sed 's/n_sims = 200/n_sims = 5/'`, run in a scratch directory): exit 0 in 15.9 s wall time (`time Rscript power-dry.R`), nothing on stderr, no "moved to the reformulas package" warning, the same table shape (18 rows: movement_time, error, rating at n = 12, 16, 20, 24, 32, 40), "Primary measure: movement_time", "Participant count: 12", and two "At n =" lines (error 0.40, rating 1.00). Five simulations make the power values noisy; the run checks the plumbing only. Method: the same, 2026-10-14.
+
+Scenario 3, `design` from scratch, runs next with R present: the run records go in `runs/` and in the table above.
