@@ -44,6 +44,8 @@ params <- list(
   #            lists them (intercept first, then each slope)
   #   sigma    residual SD (lmer only)
   #   thresholds   the K-1 cut points of a K-category rating (clmm only)
+  #   trials   observations per participant per condition for this model; defaults
+  #            to trials_per_condition; 1 for a once-per-condition questionnaire rating
   models = list(
     list(
       dv = "movement_time",
@@ -69,7 +71,8 @@ params <- list(
       test = "devicetrackball",
       fixef = c("devicetrackball" = -0.8),
       sd_participant = c(1.0),
-      thresholds = c(-2, -0.7, 0.7, 2)
+      thresholds = c(-2, -0.7, 0.7, 2),
+      trials = 1
     )
   )
 )
@@ -98,11 +101,11 @@ findbars <- get("findbars", .formula_tools)
 # participant, the between factors assigned round-robin (participant 1 gets
 # level 1, participant 2 level 2, ...) so that every prefix of the participant
 # sequence, which is what powerCurve subsets, stays balanced.
-make_design <- function(n) {
+make_design <- function(n, trials = params$trials_per_condition) {
   frame <- expand.grid(
     c(list(participant = factor(seq_len(n))),
       params$within,
-      list(trial = seq_len(params$trials_per_condition))),
+      list(trial = seq_len(trials))),
     stringsAsFactors = TRUE
   )
   for (name in names(params$between)) {
@@ -112,6 +115,8 @@ make_design <- function(n) {
   }
   frame
 }
+
+trials_of <- function(m) if (is.null(m$trials)) params$trials_per_condition else m$trials
 
 fixed_formula <- function(formula) update(nobars(formula), NULL ~ .)
 
@@ -142,7 +147,7 @@ check_model <- function(m, frame, drop_intercept = FALSE) {
 # lmer and glmer: build the model at the largest n and let simr refit it along
 # the participant grid.
 power_simr <- function(m) {
-  frame <- make_design(max(params$n_grid))
+  frame <- make_design(max(params$n_grid), trials_of(m))
   check_model(m, frame)
   varcorr <- diag(m$sd_participant^2, nrow = length(m$sd_participant))
   model <- if (m$family == "lmer") {
@@ -175,12 +180,12 @@ simulate_ordinal <- function(m, frame) {
 }
 
 power_clmm <- function(m) {
-  check_model(m, make_design(min(params$n_grid)), drop_intercept = TRUE)
+  check_model(m, make_design(min(params$n_grid), trials_of(m)), drop_intercept = TRUE)
   rows <- lapply(params$n_grid, function(n) {
     hits <- 0L
     fits <- 0L
     for (i in seq_len(params$n_sims)) {
-      frame <- simulate_ordinal(m, make_design(n))
+      frame <- simulate_ordinal(m, make_design(n, trials_of(m)))
       fit <- tryCatch(
         suppressWarnings(ordinal::clmm(m$formula, data = frame, link = "logit")),
         error = function(e) NULL
