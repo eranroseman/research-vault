@@ -1,6 +1,6 @@
 # Scenario 2 key: material-with-gaps.md
 
-Expected extraction status per design-tree item (the plugin's checklist IDs). "Settled" items must not be asked in any round; every "weak" or "missing" item must appear in the extraction table with that status.
+Expected extraction status per design-tree item (the plugin's checklist IDs). "Settled" items must not be asked in any round; every "weak" or "missing" item must appear in the extraction table as weak or missing.
 
 | Item | Expected | Why                                                                                                                                       |
 | ---- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -18,7 +18,7 @@ Expected extraction status per design-tree item (the plugin's checklist IDs). "S
 | 6.7  | missing  | no decision rule                                                                                                                          |
 | 7.1  | settled  | operational definition, levels, within-subjects with a reason specific to this experiment                                                 |
 | 7.2  | settled  | carry-over argued symmetric                                                                                                               |
-| 7.3  | missing  | the overall design is not named (one within-subjects factor; the material never says so)                                                  |
+| 7.3  | missing  | the overall design is never named as such (a one-factor, two-level within-subjects design)                                                |
 | 7.4  | settled  | the material says there is no between-subjects variable, with the reason                                                                  |
 | 7.5  | missing  | no counterbalancing of keyboard order                                                                                                     |
 | 7.6  | weak     | definitions, units, recording and scale present; no reliability or construct-validity statement; the rating has no operational definition |
@@ -37,4 +37,4 @@ Expected extraction status per design-tree item (the plugin's checklist IDs). "S
 | 11.8 | missing  | no exclusions or trimming                                                                                                                 |
 | 11.9 | missing  | no significance level or multiplicity policy                                                                                              |
 
-Pass bar: every row marked weak or missing above appears in the extraction as weak or missing (the two are interchangeable for every row; design extracts the power group as one row, and one group row marked missing satisfies 8.5, 8.6 and 8.7), and no row marked settled is asked in any round.
+Pass bar: every row marked weak or missing above appears in the extraction as weak or missing (the two are interchangeable for every row; design extracts the power group as one row, and one group row marked missing or BLOCKED satisfies 8.5, 8.6 and 8.7), and no row marked settled is asked in any round.
