@@ -616,3 +616,52 @@ def test_design_runs_rounds_with_the_three_question_parts_and_freezes_by_commit(
     assert "git commit" in text
     assert "/experiment-proposal:lit-search" in text
     assert "/experiment-proposal:the-ethics-board" in text
+
+
+def test_review_reads_the_brief_the_draft_and_the_checklist_and_stops_on_a_missing_one():
+    text = _skill_text("review")
+    assert "${CLAUDE_PLUGIN_ROOT}/references/checklist.md" in text
+    assert "../../references/checklist.md" in text
+    assert "proposal/design-brief.md" in text
+    assert "Draft:" in text
+    assert "proposal/review.md" in text
+    assert "stop and say which" in text
+    assert "run /experiment-proposal:design first" in text
+
+
+def test_review_passes_only_with_evidence_checks_the_four_dimensions_and_applies_picked_fixes():
+    text = _skill_text("review")
+    assert "No quote, no pass" in text
+    assert "confirmed by the user" in text
+    assert "defend-stage" in text
+    assert "items 13.2 and 13.3" in text
+    assert "BLOCKED" in text
+    assert "waiver" in text
+    assert "Cross-section consistency" in text
+    assert "Brief against draft" in text
+    assert "## Amendments" in text
+    for test in (
+        "Delta",
+        "Falsifiability",
+        "Swap",
+        "Necessity",
+        "Method fit",
+        "Executability",
+    ):
+        assert test in text, f"review never names the {test} test"
+    assert "pass narrowly" in text
+    assert "fix 1" in text
+    assert "Which fixes" in text
+    assert "## Summary" in text
+    assert "## Waivers" in text
+
+
+def test_review_hands_off_to_research_grill_or_prints_its_install_commands():
+    text = _skill_text("review")
+    assert "/oss:research-grill defend" in text
+    assert "claude plugin marketplace add scdenney/open-science-skills" in text
+    assert "claude plugin install oss@open-science-skills" in text
+    assert "seed list" in text
+    assert "could someone run a session from the Method alone?" in text
+    assert "declares no dependency" in text
+    assert "~/.claude/plugins/installed_plugins.json" in text
