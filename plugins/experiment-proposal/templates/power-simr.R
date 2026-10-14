@@ -115,8 +115,17 @@ check_model <- function(m, frame, drop_intercept = FALSE) {
   if (!(m$test %in% names(m$fixef))) {
     stop(m$dv, ": test ", m$test, " is not one of the fixef names")
   }
-  if (length(lme4::findbars(m$formula)) != 1) {
+  bars <- lme4::findbars(m$formula)
+  if (length(bars) != 1) {
     stop(m$dv, ": exactly one random-effects term, by participant, is supported")
+  }
+  re_columns <- ncol(model.matrix(reformulate(deparse(bars[[1]][[2]])), frame))
+  if (length(m$sd_participant) != re_columns) {
+    stop(m$dv, ": sd_participant needs ", re_columns,
+         " value(s), one per random-effect column, in the formula's order")
+  }
+  if (m$family == "lmer" && is.null(m$sigma)) {
+    stop(m$dv, ": sigma (the residual SD) is required for an lmer model")
   }
 }
 
@@ -171,8 +180,9 @@ power_clmm <- function(m) {
       fits <- fits + 1L
       if (is.finite(p) && p < params$alpha) hits <- hits + 1L
     }
-    interval <- binom.test(hits, max(fits, 1L))$conf.int
-    data.frame(dv = m$dv, n = n, power = hits / max(fits, 1L),
+    if (fits == 0L) stop(m$dv, ": every clmm fit failed at n = ", n)
+    interval <- binom.test(hits, fits)$conf.int
+    data.frame(dv = m$dv, n = n, power = hits / fits,
                lower = interval[1], upper = interval[2])
   })
   do.call(rbind, rows)
