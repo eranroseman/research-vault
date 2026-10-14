@@ -1226,6 +1226,8 @@ params <- list(
   #            lists them (intercept first, then each slope)
   #   sigma    residual SD (lmer only)
   #   thresholds   the K-1 cut points of a K-category rating (clmm only)
+  #   trials   observations per participant per condition for this model; defaults
+  #            to trials_per_condition; 1 for a once-per-condition questionnaire rating
   models = list(
     list(
       dv = "movement_time",
@@ -1251,7 +1253,8 @@ params <- list(
       test = "devicetrackball",
       fixef = c("devicetrackball" = -0.8),
       sd_participant = c(1.0),
-      thresholds = c(-2, -0.7, 0.7, 2)
+      thresholds = c(-2, -0.7, 0.7, 2),
+      trials = 1
     )
   )
 )
@@ -1280,11 +1283,11 @@ findbars <- get("findbars", .formula_tools)
 # participant, the between factors assigned round-robin (participant 1 gets
 # level 1, participant 2 level 2, ...) so that every prefix of the participant
 # sequence, which is what powerCurve subsets, stays balanced.
-make_design <- function(n) {
+make_design <- function(n, trials = params$trials_per_condition) {
   frame <- expand.grid(
     c(list(participant = factor(seq_len(n))),
       params$within,
-      list(trial = seq_len(params$trials_per_condition))),
+      list(trial = seq_len(trials))),
     stringsAsFactors = TRUE
   )
   for (name in names(params$between)) {
@@ -1294,6 +1297,8 @@ make_design <- function(n) {
   }
   frame
 }
+
+trials_of <- function(m) if (is.null(m$trials)) params$trials_per_condition else m$trials
 
 fixed_formula <- function(formula) update(nobars(formula), NULL ~ .)
 
@@ -1324,7 +1329,7 @@ check_model <- function(m, frame, drop_intercept = FALSE) {
 # lmer and glmer: build the model at the largest n and let simr refit it along
 # the participant grid.
 power_simr <- function(m) {
-  frame <- make_design(max(params$n_grid))
+  frame <- make_design(max(params$n_grid), trials_of(m))
   check_model(m, frame)
   varcorr <- diag(m$sd_participant^2, nrow = length(m$sd_participant))
   model <- if (m$family == "lmer") {
@@ -1357,12 +1362,12 @@ simulate_ordinal <- function(m, frame) {
 }
 
 power_clmm <- function(m) {
-  check_model(m, make_design(min(params$n_grid)), drop_intercept = TRUE)
+  check_model(m, make_design(min(params$n_grid), trials_of(m)), drop_intercept = TRUE)
   rows <- lapply(params$n_grid, function(n) {
     hits <- 0L
     fits <- 0L
     for (i in seq_len(params$n_sims)) {
-      frame <- simulate_ordinal(m, make_design(n))
+      frame <- simulate_ordinal(m, make_design(n, trials_of(m)))
       fit <- tryCatch(
         suppressWarnings(ordinal::clmm(m$formula, data = frame, link = "logit")),
         error = function(e) NULL
@@ -1604,9 +1609,9 @@ Quote its answer as the basis of the recommendation (`Recommended (hci-researche
 Items 8.5, 8.6 and 8.7 are one group. Its statuses are `settled`, `BLOCKED` and `waived` only; `provisional` and `pilot settles` do not apply to it (a value the pilot will refine is recorded inside the entry). Run this section when the rounds have ended and the group is still `missing` or `BLOCKED`, and again whenever section 9 or step 4 reopens the group:
 
 1. If R did not pass the check, the group is `BLOCKED`: go to step 6.
-2. Collect the power parameters in one numbered batch (P1, P2, ...) in the question format of section 4, one question per PARAMETERS field the brief does not already decide, each with a recommendation and its basis: the target power (recommended 0.80); alpha (from item 11.9 when settled, else 0.05); the trials per condition (from item 2.2); the factors and levels (from items 7.1 and 7.3); for each model, the family (from item 11.4), the formula (from items 11.5 and 11.6), the coefficient to test (from item 11.5), the effect size on the model's scale (from item 6.6), the baseline values of the other coefficients (an lmer intercept, a glmer baseline rate), the random-effect and residual SDs, and for a rating the number of categories and the thresholds, each from Looked up, the subagent (section 5), or a pilot or prior study the user names; and the participant grid, in multiples of the number of between-subjects groups (item 7.4) and of the counterbalanced orders (item 7.5). A parameter the user cannot answer takes the recommendation; the entry marks that parameter `provisional` (the group's own status is unaffected) and Open items lists it.
-3. Copy the template to `proposal/power.R` and fill only its PARAMETERS block from the brief and the batch, one `models` entry per dependent variable with the primary measure first, and `n_sims = 200`. A `clmm` model's power run uses `(1 | participant)` whatever item 11.6 says, and the entry notes that simplification. Show the filled block and ask the user's OK to run it; a declined run goes to step 6.
-4. Run `Rscript proposal/power.R` in the background (the Bash tool's background mode; a search over the full grid takes about ten minutes at 200 simulations, measured 2026-10-14) and wait for it to finish, then read its output: a power-curve table, the line `Participant count: <n> (...)` for the primary measure, and one `At n = <n>, <dv>: power <p>` line per other model. If the run stops with an error, record the error text in the entry and put the choice to the user: simplify that model for the power run only (noted in the entry), amend the analysis item the model came from (section 9 if the brief is frozen, a new round otherwise), or waive (step 6).
+2. Collect the power parameters in one numbered batch (P1, P2, ...) in the question format of section 4, one question per PARAMETERS field the brief does not already decide, each with a recommendation and its basis: the target power (recommended 0.80); alpha (from item 11.9 when settled, else 0.05); the trials per condition (from item 2.2), and for any model whose observations per participant per condition differ from it, that count (1 for a once-per-condition questionnaire rating); the factors and levels (from items 7.1 and 7.3); for each model, one entry per dependent variable of item 7.6 and never fewer (a measure is never dropped from the power run), the family (from item 11.4), the formula (from items 11.5 and 11.6), the coefficient to test (from item 11.5), the effect size on the model's scale (from item 6.6), the baseline values of the other coefficients (an lmer intercept, a glmer baseline rate), the random-effect and residual SDs, and for a rating the number of categories and the thresholds, each from Looked up, the subagent (section 5), or a pilot or prior study the user names; and the participant grid, in multiples of the number of between-subjects groups (item 7.4) and of the counterbalanced orders (item 7.5). A parameter the user cannot answer takes the recommendation; the entry marks that parameter `provisional` (the group's own status is unaffected) and Open items lists it.
+3. Read the template and write `proposal/power.R` as a copy of it with only the PARAMETERS block filled from the brief and the batch, one `models` entry per dependent variable with the primary measure first, and `n_sims = 200`. A `clmm` model's power run uses `(1 | participant)` whatever item 11.6 says, and the entry notes that simplification. Show the filled block and ask the user's OK to run it; a declined run goes to step 6.
+4. Tell the user the run takes 10 to 20 minutes at 200 simulations over the full grid with three models (measured 2026-10-14), and about as long again for the confirmation. Run `Rscript proposal/power.R` in the background and wait for it within the same turn, polling its output until the `Participant count` line or an error appears; never end the turn while it runs, since a headless session kills it. Then read its output: a power-curve table, the line `Participant count: <n> (...)` for the primary measure, and one `At n = <n>, <dv>: power <p>` line per other model. If the run stops with an error, record the error text in the entry and put the choice to the user: simplify that model for the power run only (noted in the entry), amend the analysis item the model came from (section 9 if the brief is frozen, a new round otherwise), or waive (step 6).
 5. The count is the smallest grid value whose power for the primary measure meets the target in the 200-simulation search. Set `n_sims = 1000` and `n_grid` to the chosen count and the next grid value, run again in the background, and let that run govern: if the count falls short of the target at 1000, take the next grid value and run again at 1000. Record the governing run (the 200-simulation curve over the full grid stays in the entry as the search): the count, the other models' power at that count beside it, the curve table with the assumed values, and the date. The group is `settled`: item 8.5's entry holds the count with `Source: proposal/power.R, run <date>`; item 8.6's holds the effect size and its source by the ranking; item 8.7's holds the range. When no grid value reaches the target, record that and put the choice to the user: extend the grid, change an effect size with a reason, or waive; the group stays open until one is done.
 6. The waiver. Ask whether the user records one: a stated reason the count is justified without a power analysis, such as similar experiments and their counts, a resource limit named as such, or a heuristic the field uses. Record the reason verbatim as one Open items entry covering items 8.5, 8.6 and 8.7; all three are `waived`. Without a waiver the group stays open and the brief cannot freeze.
 
@@ -2538,7 +2543,7 @@ Novice smartphone users entering text: does a swipe keyboard beat tap typing? Wi
 | 7.8  | Typing skill, mood, time of day, phrase order.                                                                                                                                                                |
 | 7.9  | History: run all sessions within three weeks; maturation: one 40-minute session; instrumentation: freeze the app before the first participant.                                                               |
 | 8.3  | The four criteria above, screened by a sign-up form; none selects on typing speed.                                                                                                                           |
-| 8.5  | Answer yes to every power-parameter question (P1, P2, ...), yes to running `proposal/power.R`, and accept the count it reports.                                                                                                              |
+| 8.5  | Answer yes to every power-parameter question (P1, P2, ...), except: keep all three models (never drop the rating or the error model), and the rating has 1 observation per participant per condition; yes to running `proposal/power.R`; accept the count it reports.                                                                                                              |
 | 8.6  | The SESOI from 6.6, first in the ranking.                                                                                                                                                                    |
 | 8.7  | Yes: report the curve.                                                                                                                                                                                       |
 | 11.2 | Trials (phrases) are the unit; no aggregation.                                                                                                                                                               |
@@ -3088,7 +3093,7 @@ Expected: the table with `movement_time`, `error` and `rating` rows, `Primary me
 
 - [ ] **Step 3: From scratch (scenario 3), interactive, three sessions**
 
-The author opens `claude --plugin-dir "$P"` in a fresh scratch project, runs `/experiment-proposal:design` with the idea from `fixtures/from-scratch-answers.md`, and answers from the sheet. The executor records after each session: the brief's statuses (every design-tree item settled, provisional or pilot settles; 2.4 provisional; 2.2 pilot settles), the subagent calls (at least one), the `proposal/power.R` run, the `rating` row in its table (the clmm loop), the count, and the freeze commit.
+The author opens `claude --plugin-dir "$P"` in a fresh scratch project, runs `/experiment-proposal:design` with the idea from `fixtures/from-scratch-answers.md`, and answers from the sheet; with the author delegating, the executor drives it headless with `claude -p --continue` turns, one per round and as many as the run needs (no cap; a turn that waits for R may take twenty minutes), answering strictly from the sheet and "I don't know" otherwise. The executor records after each session: the brief's statuses (every design-tree item settled, provisional or pilot settles; 2.4 provisional; 2.2 pilot settles), the subagent calls (at least one), the `proposal/power.R` run, the `rating` row in its table (the clmm loop), the count, and the freeze commit.
 
 - [ ] **Step 4: USER-GATED, install research-grill, then hand-off with it present**
 
@@ -3214,4 +3219,5 @@ Amended 2026-10-14, during execution (ruling on the executor's pre-flight questi
 - **Review, after the scenario 5 and 6 runs** (3/3 passes, four behaviour-versus-text flags): the attested rows may read `pending` when the file is written before the batch is answered; the hand-off text itself ends the final message, never only a pointer to the file; with research-grill absent the install commands come first and the defend command follows for later use. Synced in a final skill round after the remaining scenarios, with scenario 6 re-run to confirm the printed hand-off; scenario 5 is not re-run.
 - **The dry run** (Task 11 Step 2, R 4.3.3, lme4 2.0.6, simr 1.0.11): the template runs end to end; it now takes `nobars` and `findbars` from reformulas when that package is installed, since lme4 2.x warns on every call; `design` runs `Rscript` in the background, because a 200-simulation search takes about ten minutes and the Bash tool caps a foreground command at ten, and the 1000-simulation confirmation runs on the chosen count and the next grid value only.
 - **After scenario 4** (3/3 passes): the answer sheet's 7.5 and 11.5 rows now cover the assignment, the phrase-set pairing, the contrast values and the order term, which the no-R runs asked and the sheet left to "I don't know"; a freeze requested in the waiver turn counts as the user's approval.
+- **After the first scenario 3 runs** (1/3 at 6bb6ed7): the template takes an optional per-model `trials` (default `trials_per_condition`; 1 for a once-per-condition rating), since one trial count for every model mis-simulated the rating and two sessions dropped the model; `design` never drops a measure from the power run, asks the per-model count in the batch, writes `proposal/power.R` from the template with Write rather than `cp`, and waits for the background run within the same turn with a 10-to-20-minute estimate; the sheet keeps all three models with the rating at one observation per condition; the driver has no turn cap.
 - **Interim test reds, as designed:** after Task 2 the `lit-search` folder exists without its `SKILL.md`, so its rows of the parametrized skill tests fail until Task 7, and `test_the_four_skills_ship` turns green at Task 6; the design skill's amendment pointer reads section 9.
