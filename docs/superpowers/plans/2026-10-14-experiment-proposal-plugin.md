@@ -942,7 +942,7 @@ def test_checklist_names_its_provenance_deviations_and_credits():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `../../.venv/bin/python -m pytest tests/test_experiment_proposal_plugin.py -q -k checklist`
+Run: `../../.venv/bin/python -m pytest tests/test_experiment_proposal_plugin.py -q -k "checklist or dependency or design_tree"`
 Expected: 4 failed (`FileNotFoundError` on the checklist).
 
 - [ ] **Step 3: Write the checklist**
@@ -981,7 +981,7 @@ Each item is one line: `- **ID** (kind; scope; depends on IDs) holds-when text`.
 ## Step 2: plan
 
 - **2.1** (draft-checked; review-only; depends on 7.1, 7.6, 8.5, 9.1, 10.2, 11.4) Every Method and Planned Analysis value is decided or marked as one the pilot will settle: each independent variable with its levels and its within- or between-subjects label, each dependent variable with its unit, the number of participants, the materials, the session phases, and the model for each hypothesis.
-- **2.2** (draft-checked; design-tree; depends on 7.3) The conditions each participant sees are counted, and the session estimate, from welcome to debriefing with consent, questionnaires and moving between tasks included, is as short as the design allows and fits the time available.
+- **2.2** (draft-checked; design-tree; depends on 7.3) The conditions each participant sees are counted, with the number of trials per condition, and the session estimate, from welcome to debriefing with consent, questionnaires and moving between tasks included, is as short as the design allows and fits the time available.
 - **2.3** (draft-checked; design-tree; depends on 2.2) The pilot plan says how many people take part, what the pilot will refine, and whether its data will be reported; pilot data stay out of the main sample unless the pilot runs exactly as the proposal describes.
 - **2.4** (draft-checked; design-tree; depends on 2.3) A timeline names what each later phase delivers (pilot, data collection, analysis, write-up) and when, within the time available; the proposal includes it when the template asks for one.
 - **2.5** (draft-checked; design-tree; depends on 2.4) Each expected challenge, such as too few sign-ups, a manipulation that fails in the pilot, or running short of time, has a planned response stated in the section it affects.
@@ -1034,7 +1034,7 @@ Each item is one line: `- **ID** (kind; scope; depends on IDs) holds-when text`.
 - **8.2** (draft-checked; review-only; depends on 8.3) The recruitment method is stated, with how candidates can decline without consequence.
 - **8.3** (draft-checked; design-tree; depends on 7.7) Each eligibility criterion is listed with how it will be screened, and none selects people for an extreme score on a measure of the behaviour studied.
 - **8.4** (draft-checked; review-only; depends on 8.3) The section says whether the sample is randomly selected or a convenience sample, and names the population the results will cautiously describe.
-- **8.5** (draft-checked; design-tree; depends on 6.6, 7.3, 7.6, 11.4, 11.6) The participant count is justified by similar experiments and by a power analysis, or by a stated reason for omitting one; the section says how the pilot will refine it; and the number is pre-specified. The plugin's power analysis is `proposal/power.R`, run by `design`; while an R prerequisite is missing this item is BLOCKED, and only a recorded waiver, a reason the count is justified without a power analysis, lifts the block.
+- **8.5** (draft-checked; design-tree; depends on 2.2, 6.6, 7.3, 7.6, 11.4, 11.6) The participant count is justified by similar experiments and by a power analysis, or by a stated reason for omitting one; the section says how the pilot will refine it; and the number is pre-specified. The plugin's power analysis is `proposal/power.R`, run by `design`; while an R prerequisite is missing this item is BLOCKED, and only a recorded waiver, a reason the count is justified without a power analysis, lifts the block.
 - **8.6** (draft-checked; design-tree; depends on 8.5) The effect size the power analysis assumes is sourced in this order of preference, and the choice is named: the smallest effect size of interest (item 6.6) first; then a pilot or prior study of the same measure and design, with its imprecision and any selection inflation stated; a field convention such as Cohen's benchmarks last, and only with that said. Waived together with item 8.5 when the count is justified without a power analysis.
 - **8.7** (draft-checked; design-tree; depends on 8.6) The participant count is reported across a range of plausible effect sizes, as a power curve or a table, never as one number alone; the count the proposal commits to is read off that range at the effect size it assumes. Waived together with item 8.5 when the count is justified without a power analysis.
 - **8.8** (draft-checked; review-only; depends on 7.5, 8.5) The between-subjects groups, if any, are equal in size, and each group (the whole sample, in a within-subjects design) is a multiple of the number of counterbalanced orders, if any, so every group and order is used equally often.
@@ -1094,12 +1094,12 @@ Each item is one line: `- **ID** (kind; scope; depends on IDs) holds-when text`.
 ```
 
 Run: `../../.venv/bin/mdformat --number --wrap keep plugins/experiment-proposal/references/checklist.md`
-Then: `grep -c '^- \*\*' plugins/experiment-proposal/references/checklist.md`
-Expected: `81`. (mdformat keeps `-` bullets and bold IDs; if the count differs, an item line wrapped or a bullet changed shape.)
+Then: `grep -c '^- \*\*[0-9]' plugins/experiment-proposal/references/checklist.md`
+Expected: `81` (the four bullets under "How to read an item" also start with a bold word, which is why the pattern requires a digit). mdformat keeps `-` bullets and bold IDs; if the count differs, an item line wrapped or a bullet changed shape.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `../../.venv/bin/python -m pytest tests/test_experiment_proposal_plugin.py -q -k checklist`
+Run: `../../.venv/bin/python -m pytest tests/test_experiment_proposal_plugin.py -q -k "checklist or dependency or design_tree"`
 Expected: 4 passed.
 
 - [ ] **Step 5: Commit**
@@ -1579,9 +1579,9 @@ Quote its answer as the basis of the recommendation (`Recommended (hci-researche
 
 ## 6. The participant count, item 8.5
 
-When items 6.6, 7.3, 7.6, 11.4 and 11.6 are settled, pilot-settled or provisional, and R passed the check:
+When items 2.2, 6.6, 7.3, 7.6, 11.4 and 11.6 are settled, pilot-settled or provisional, and R passed the check:
 
-1. Copy the template to `proposal/power.R` and fill only its PARAMETERS block from the brief: the within and between factors with their levels, trials per condition, one `models` entry per dependent variable (the primary measure first; its family from item 11.4, its formula from items 11.5 and 11.6, the coefficient to test, the effect size on the model's scale from item 6.6, variance assumptions from Looked up or the subagent), the participant grid (multiples of the group count and of the counterbalanced orders), alpha and target power. Everything below END OF PARAMETERS stays as the template has it.
+1. Copy the template to `proposal/power.R` and fill only its PARAMETERS block from the brief: the within and between factors with their levels, the trials per condition from the item 2.2 entry, one `models` entry per dependent variable (the primary measure first; its family from item 11.4, its formula from items 11.5 and 11.6, the coefficient to test, the effect size on the model's scale from item 6.6, variance assumptions from Looked up or the subagent), the participant grid (multiples of the group count and of the counterbalanced orders), alpha and target power. Everything below END OF PARAMETERS stays as the template has it.
 2. Show the filled block and ask the user's OK to run it.
 3. Run `Rscript proposal/power.R` and read its output: a power-curve table, the line `Participant count: <n> (...)` for the primary measure, and one `At n = <n>, <dv>: power <p>` line per other model.
 4. Record in the item 8.5 entry: the count (the smallest grid value whose power for the primary measure meets the target), the other models' power at that count beside it, the curve table with the assumed effect sizes, and the run's date. When no grid value reaches the target, record that and put the choice to the user: extend the grid, change an effect size with a reason, or waive.
@@ -2485,7 +2485,7 @@ Novice smartphone users entering text: does a swipe keyboard beat tap typing? Wi
 | 1.1  | "Does entering phrases with a swipe keyboard, compared with a tap keyboard, change words per minute for novice smartphone users?" Levels: tap, swipe.                                                        |
 | 1.2  | The university IRB; minimal-risk expedited review, about three weeks; a consent form and the phrase set are required.                                                                                         |
 | 1.3  | Keystroke logs and phrase times only, no names linked, no recordings; the two experimenters have access; raw data kept five years, then deleted.                                                             |
-| 2.2  | Yes to the recommendation (two conditions, about 40 minutes).                                                                                                                                                |
+| 2.2  | Yes to the recommendation (two conditions, 20 phrases per keyboard, about 40 minutes).                                                                                                                                                |
 | 2.3  | Four people from the lab; the pilot will decide the phrase count; its data will not be reported.                                                                                                             |
 | 2.4  | "I don't know yet" (record as provisional).                                                                                                                                                                  |
 | 2.5  | Too few sign-ups: extend recruiting to a second course; a keyboard app failing in the pilot: freeze a fallback build.                                                                                         |
@@ -3150,4 +3150,5 @@ Amended 2026-10-14, during execution (ruling on the executor's pre-flight questi
 
 - **The waiver covers items 8.5, 8.6 and 8.7.** As first written, 8.6 depended on 8.5 and 8.7 on 8.6, and `design`'s frontier admitted an item only when its dependencies were settled, pilot-settled or provisional, so a waived 8.5 left 8.6 and 8.7 `missing` forever and the brief could never freeze without R; `review` had the matching gap. The dependency graph is unchanged. The checklist's 8.6 and 8.7 now say they are waived together with 8.5; `design` never asks them in a round (the power run settles them or the waiver covers them), records the waiver as one Open items entry for the three, and its Done-when allows `waived` for all three; `review` passes the three together on a waiver. The scenario 4 pass bar and the Task 11 expectation say so.
 - **The commit trailer names the model doing the work:** the executor's session, not the plan author's.
+- **Trials per condition belong to item 2.2** (ruling on the executor's Task 3 question): the power template's `trials_per_condition` had no brief entry to be filled from. Item 2.2 now counts the trials per condition with the conditions, item 8.5 depends on 2.2 as well, `design`'s power step fills the template from the 2.2 entry, and the from-scratch answer sheet names the count. The graph gains one edge and stays acyclic; the pinned sets are unchanged.
 - **Interim test reds, as designed:** after Task 2 the `lit-search` folder exists without its `SKILL.md`, so its rows of the parametrized skill tests fail until Task 7, and `test_the_four_skills_ship` turns green at Task 6; the design skill's amendment pointer reads section 9.
