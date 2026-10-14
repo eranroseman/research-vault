@@ -1297,8 +1297,17 @@ check_model <- function(m, frame, drop_intercept = FALSE) {
   if (!(m$test %in% names(m$fixef))) {
     stop(m$dv, ": test ", m$test, " is not one of the fixef names")
   }
-  if (length(lme4::findbars(m$formula)) != 1) {
+  bars <- lme4::findbars(m$formula)
+  if (length(bars) != 1) {
     stop(m$dv, ": exactly one random-effects term, by participant, is supported")
+  }
+  re_columns <- ncol(model.matrix(reformulate(deparse(bars[[1]][[2]])), frame))
+  if (length(m$sd_participant) != re_columns) {
+    stop(m$dv, ": sd_participant needs ", re_columns,
+         " value(s), one per random-effect column, in the formula's order")
+  }
+  if (m$family == "lmer" && is.null(m$sigma)) {
+    stop(m$dv, ": sigma (the residual SD) is required for an lmer model")
   }
 }
 
@@ -1353,8 +1362,9 @@ power_clmm <- function(m) {
       fits <- fits + 1L
       if (is.finite(p) && p < params$alpha) hits <- hits + 1L
     }
-    interval <- binom.test(hits, max(fits, 1L))$conf.int
-    data.frame(dv = m$dv, n = n, power = hits / max(fits, 1L),
+    if (fits == 0L) stop(m$dv, ": every clmm fit failed at n = ", n)
+    interval <- binom.test(hits, fits)$conf.int
+    data.frame(dv = m$dv, n = n, power = hits / fits,
                lower = interval[1], upper = interval[2])
   })
   do.call(rbind, rows)
@@ -3155,4 +3165,5 @@ Amended 2026-10-14, during execution (ruling on the executor's pre-flight questi
 - **The commit trailer names the model doing the work:** the executor's session, not the plan author's.
 - **Trials per condition belong to item 2.2** (ruling on the executor's Task 3 question): the power template's `trials_per_condition` had no brief entry to be filled from. Item 2.2 now counts the trials per condition with the conditions, item 8.5 depends on 2.2 as well, `design`'s power step fills the template from the 2.2 entry, and the from-scratch answer sheet names the count. The graph gains one edge and stays acyclic; the pinned sets are unchanged.
 - **The power group** (ruling on the Task 5 review's six Important findings): items 8.5, 8.6 and 8.7 are one group with the statuses `settled`, `BLOCKED` and `waived` only; it is never a round question, extraction settles it only when the material states count, justification, effect-size source and range, and section 6 settles it after the rounds end. Section 6 now collects every PARAMETERS field the brief does not decide in one numbered batch with recommendations (target power, alpha from item 11.9, baselines, SDs, thresholds, the grid), runs at 200 simulations to choose the count and records a 1000-simulation run, uses a random intercept only for a `clmm` power run, and gives a failed run and a declined run a path (simplify for the run, amend, or waive). The prerequisite check marks nothing in an amendment that leaves the group untouched. A bare "yes" records `accepted recommendation: <basis>` as the rationale.
+- **Two template guards** (ruling on the Task 4 review): `check_model` now also checks that `sd_participant` has one value per random-effect column and that an lmer model sets `sigma`; `power_clmm` stops when every fit at a grid value failed instead of reporting power 0.00. The other Task 4 minors wait for the final review.
 - **Interim test reds, as designed:** after Task 2 the `lit-search` folder exists without its `SKILL.md`, so its rows of the parametrized skill tests fail until Task 7, and `test_the_four_skills_ship` turns green at Task 6; the design skill's amendment pointer reads section 9.
