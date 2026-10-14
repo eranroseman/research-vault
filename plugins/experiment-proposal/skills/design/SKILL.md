@@ -28,13 +28,13 @@ If `Rscript` is not found, or the command stops, report exactly what is missing 
 - R itself: Debian or Ubuntu `sudo apt install r-base`; macOS `brew install r`; otherwise https://cran.r-project.org/.
 - The packages: `Rscript -e 'install.packages(c("lme4","lmerTest","ordinal","simr"), repos="https://cloud.r-project.org")'`.
 
-Then record the result, and after extraction (section 3), unless extraction settled the power group or this run is an amendment that leaves it untouched (section 9), mark items 8.5, 8.6 and 8.7, the power group, `BLOCKED` (not pending, not later) as one Open items entry, first in the list, and go on with everything else. Never skip the check silently, and never let a BLOCKED group freeze (section 6).
+Then record the result, and after extraction (section 3), unless extraction settled the power group, a resumed brief already settles or waives it (section 2), or this run is an amendment that leaves it untouched (section 9), mark items 8.5, 8.6 and 8.7, the power group, `BLOCKED` (not pending, not later) as one Open items entry, first in the list, and go on with everything else. Never skip the check silently, and never let a BLOCKED group freeze (section 6).
 
 Also check `git rev-parse --show-toplevel` in the project. The freeze is a commit; with no repository, say so and tell the user the brief can be written but not frozen until there is one.
 
 ## 2. Start
 
-With paths to existing material (an idea file, notes, a draft, a brief from another project): read all of it, then extract (section 3). With only an idea in the conversation: every design-tree item starts `missing`. If `proposal/design-brief.md` exists and its Status line says frozen, this run is an amendment (section 9): read the brief, treat every entry as settled, and ask only about what the user wants to change. If it exists and its Status line says open, resume it: treat its entries as settled, keep its Open items, re-run the prerequisite check, and continue with the rounds and section 6 from what is still open (a group BLOCKED by a missing R prerequisite becomes `missing` again once the check passes).
+With paths to existing material (an idea file, notes, a draft, a brief from another project): read all of it, then extract (section 3). With only an idea in the conversation: every design-tree item starts `missing`. If `proposal/design-brief.md` exists and its Status line says frozen, this run is an amendment (section 9): read the brief, treat every entry as settled, and ask only about what the user wants to change. If it exists and its Status line says open, resume it: every entry keeps its status (a provisional or pilot-settles entry is not asked again unless the user asks to revisit it), the Open items stay, the prerequisite check runs again, and the rounds and section 6 continue from what is still open (a group BLOCKED by a missing R prerequisite becomes `missing` again once the check passes).
 
 ## 3. Extraction
 
@@ -157,7 +157,7 @@ Frozen entries are never edited. To change a decision the user re-runs this skil
 git commit -m "Amend the design brief: item 7.1" -- proposal/design-brief.md
 ```
 
-A different draft path named at review time is `review`'s to note in `proposal/review.md`; the brief stays unchanged. The prerequisite check of section 1 still runs in an amendment but marks nothing unless the amendment touches the power group or one of its inputs; then section 6 runs again and the amendment entry carries the group's new status.
+An amendment of the power group is headed `### <date>, items 8.5, 8.6 and 8.7, <title>` and carries a fifth line, `- Status: settled | waived | BLOCKED`, which `review` reads as the group's current status; an amendment that leaves the group BLOCKED is written but not committed until section 6 settles or waives the group. A different draft path named at review time is `review`'s to note in `proposal/review.md`; the brief stays unchanged. The prerequisite check of section 1 still runs in an amendment but marks nothing unless the amendment touches the power group or one of its inputs; then section 6 runs again and the amendment entry carries the group's new status.
 
 ## Rules
 
