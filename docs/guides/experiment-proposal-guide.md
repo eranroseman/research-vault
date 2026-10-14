@@ -1,6 +1,6 @@
 # How to Write an Experiment Project Proposal
 
-*Master copy since 2026-10-14; moved here from the Backchat repository at its commit 98b978f, whose copy is deleted after this move. The experiment-proposal plugin's checklist (`plugins/experiment-proposal/references/checklist.md`) derives from the Done-when lists below; the plugin's skills read the checklist, never this file.*
+*Master copy since 2026-10-14; moved here from the Backchat repository at its commit 98b978f, whose copy is to be deleted after this branch merges. The experiment-proposal plugin's checklist (`plugins/experiment-proposal/references/checklist.md`) derives from the Done-when lists below; the plugin's skills read the checklist, never this file.*
 
 An **experiment proposal** describes the full experiment you plan to run with human participants; this guide takes you through planning that experiment and writing the proposal in 13 steps. Each step ends with a **Done when:** list, and the step is finished when every item holds. A running example, a study comparing a mouse and a trackball for selecting targets on a screen, shows parts of filled-in sections; replace its participants, values, and hypothesis directions with ones your literature review or pilot justifies. Use the guide for experiments, such as HCI studies that pit a new interaction technique or application against the ones people already use, or set two interaction styles head to head; archival studies, such as systematic literature reviews, follow a different structure.
 

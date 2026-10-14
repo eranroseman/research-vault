@@ -86,7 +86,7 @@ One row per item, in checklist order, each beginning with the bold ID; the examp
 
 ## Applying fixes
 
-Ask: "Which fixes should I apply? Give their numbers." Apply exactly those, editing the draft in place and nothing else; then re-check the items those fixes touch, item 13.5, and checks B and C when a fix touched one of their findings; rewrite their rows (a re-checked row reads pass or fail as the re-check finds, followed by `(fix N applied)`, and a pass quotes the new passage; the fix stays counted under Fixes proposed), the Summary, the Waivers section and the Hand-off, and say what changed. Never apply an unpicked fix, and never improve a passage you were not asked to touch.
+Ask: "Which fixes should I apply? Give their numbers." Apply exactly those, editing the draft in place and nothing else; then re-check the items those fixes touch, item 13.5, and checks B and C when a fix touched one of their findings; rewrite their rows (a re-checked row reads pass, pass narrowly or fail as the re-check finds, followed by `(fix N applied)`, and a pass quotes the new passage; the fix stays counted under Fixes proposed), the Summary, the Waivers section and the Hand-off, and say what changed. Never apply an unpicked fix, and never improve a passage you were not asked to touch.
 
 A failure the user will not fix: offer a waiver. Record it under Waivers with the user's reason verbatim and the date, and mark the row `fail (waived)`. One waiver covers the power group's three rows with one reason.
 

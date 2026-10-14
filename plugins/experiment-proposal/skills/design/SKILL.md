@@ -157,7 +157,7 @@ Frozen entries are never edited. To change a decision the user re-runs this skil
 git commit -m "Amend the design brief: item 7.1" -- proposal/design-brief.md
 ```
 
-An amendment of the power group is headed `### <date>, items 8.5, 8.6 and 8.7, <title>` and carries a fifth line, `- Status: settled | waived | BLOCKED`, which `review` reads as the group's current status; an amendment that leaves the group BLOCKED is written but not committed until section 6 settles or waives the group. A different draft path named at review time is `review`'s to note in `proposal/review.md`; the brief stays unchanged. The prerequisite check of section 1 still runs in an amendment but marks nothing unless the amendment touches the power group or one of its inputs; then section 6 runs again and the amendment entry carries the group's new status.
+Whenever section 6 runs again during an amendment, whether the user amended the group itself or one of its inputs, a group amendment entry headed `### <date>, items 8.5, 8.6 and 8.7, <title>` records the result, with a fifth line, `- Status: settled | waived | BLOCKED`, which `review` reads as the group's current status; for a waiver its `Reason:` line is the user's reason verbatim. Never commit the brief while its current group status is BLOCKED (the Open items entry, or the latest group amendment's Status line): that holds for the freeze and for every amendment commit. A different draft path named at review time is `review`'s to note in `proposal/review.md`; the brief stays unchanged. The prerequisite check of section 1 still runs in an amendment but marks nothing unless the amendment touches the power group or one of its inputs; then section 6 runs again and the amendment entry carries the group's new status.
 
 ## Rules
 
