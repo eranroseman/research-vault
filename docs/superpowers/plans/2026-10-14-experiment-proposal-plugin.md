@@ -1266,6 +1266,16 @@ suppressPackageStartupMessages({
 })
 set.seed(params$seed)
 
+# lme4 2.x moved nobars and findbars to the reformulas package and warns on
+# every call through lme4; use reformulas when it is installed, lme4 otherwise.
+.formula_tools <- if (requireNamespace("reformulas", quietly = TRUE)) {
+  asNamespace("reformulas")
+} else {
+  asNamespace("lme4")
+}
+nobars <- get("nobars", .formula_tools)
+findbars <- get("findbars", .formula_tools)
+
 # One row per trial for n participants: the within factors crossed for every
 # participant, the between factors assigned round-robin (participant 1 gets
 # level 1, participant 2 level 2, ...) so that every prefix of the participant
@@ -1285,7 +1295,7 @@ make_design <- function(n) {
   frame
 }
 
-fixed_formula <- function(formula) update(lme4::nobars(formula), NULL ~ .)
+fixed_formula <- function(formula) update(nobars(formula), NULL ~ .)
 
 check_model <- function(m, frame, drop_intercept = FALSE) {
   columns <- colnames(model.matrix(fixed_formula(m$formula), frame))
@@ -1297,7 +1307,7 @@ check_model <- function(m, frame, drop_intercept = FALSE) {
   if (!(m$test %in% names(m$fixef))) {
     stop(m$dv, ": test ", m$test, " is not one of the fixef names")
   }
-  bars <- lme4::findbars(m$formula)
+  bars <- findbars(m$formula)
   if (length(bars) != 1) {
     stop(m$dv, ": exactly one random-effects term, by participant, is supported")
   }
@@ -1596,8 +1606,8 @@ Items 8.5, 8.6 and 8.7 are one group. Its statuses are `settled`, `BLOCKED` and 
 1. If R did not pass the check, the group is `BLOCKED`: go to step 6.
 2. Collect the power parameters in one numbered batch (P1, P2, ...) in the question format of section 4, one question per PARAMETERS field the brief does not already decide, each with a recommendation and its basis: the target power (recommended 0.80); alpha (from item 11.9 when settled, else 0.05); the trials per condition (from item 2.2); the factors and levels (from items 7.1 and 7.3); for each model, the family (from item 11.4), the formula (from items 11.5 and 11.6), the coefficient to test (from item 11.5), the effect size on the model's scale (from item 6.6), the baseline values of the other coefficients (an lmer intercept, a glmer baseline rate), the random-effect and residual SDs, and for a rating the number of categories and the thresholds, each from Looked up, the subagent (section 5), or a pilot or prior study the user names; and the participant grid, in multiples of the number of between-subjects groups (item 7.4) and of the counterbalanced orders (item 7.5). A parameter the user cannot answer takes the recommendation; the entry marks that parameter `provisional` (the group's own status is unaffected) and Open items lists it.
 3. Copy the template to `proposal/power.R` and fill only its PARAMETERS block from the brief and the batch, one `models` entry per dependent variable with the primary measure first, and `n_sims = 200`. A `clmm` model's power run uses `(1 | participant)` whatever item 11.6 says, and the entry notes that simplification. Show the filled block and ask the user's OK to run it; a declined run goes to step 6.
-4. Run `Rscript proposal/power.R` and read its output: a power-curve table, the line `Participant count: <n> (...)` for the primary measure, and one `At n = <n>, <dv>: power <p>` line per other model. If the run stops with an error, record the error text in the entry and put the choice to the user: simplify that model for the power run only (noted in the entry), amend the analysis item the model came from (section 9 if the brief is frozen, a new round otherwise), or waive (step 6).
-5. The count is the smallest grid value whose power for the primary measure meets the target in the 200-simulation search. Set `n_sims = 1000`, run again, and let that run govern: if the count falls short of the target at 1000, take the next grid value and run again at 1000. Record the governing run: the count, the other models' power at that count beside it, the curve table with the assumed values, and the date. The group is `settled`: item 8.5's entry holds the count with `Source: proposal/power.R, run <date>`; item 8.6's holds the effect size and its source by the ranking; item 8.7's holds the range. When no grid value reaches the target, record that and put the choice to the user: extend the grid, change an effect size with a reason, or waive; the group stays open until one is done.
+4. Run `Rscript proposal/power.R` in the background (the Bash tool's background mode; a search over the full grid takes about ten minutes at 200 simulations, measured 2026-10-14) and wait for it to finish, then read its output: a power-curve table, the line `Participant count: <n> (...)` for the primary measure, and one `At n = <n>, <dv>: power <p>` line per other model. If the run stops with an error, record the error text in the entry and put the choice to the user: simplify that model for the power run only (noted in the entry), amend the analysis item the model came from (section 9 if the brief is frozen, a new round otherwise), or waive (step 6).
+5. The count is the smallest grid value whose power for the primary measure meets the target in the 200-simulation search. Set `n_sims = 1000` and `n_grid` to the chosen count and the next grid value, run again in the background, and let that run govern: if the count falls short of the target at 1000, take the next grid value and run again at 1000. Record the governing run (the 200-simulation curve over the full grid stays in the entry as the search): the count, the other models' power at that count beside it, the curve table with the assumed values, and the date. The group is `settled`: item 8.5's entry holds the count with `Source: proposal/power.R, run <date>`; item 8.6's holds the effect size and its source by the ranking; item 8.7's holds the range. When no grid value reaches the target, record that and put the choice to the user: extend the grid, change an effect size with a reason, or waive; the group stays open until one is done.
 6. The waiver. Ask whether the user records one: a stated reason the count is justified without a power analysis, such as similar experiments and their counts, a resource limit named as such, or a heuristic the field uses. Record the reason verbatim as one Open items entry covering items 8.5, 8.6 and 8.7; all three are `waived`. Without a waiver the group stays open and the brief cannot freeze.
 
 ## 7. The brief
@@ -3202,4 +3212,5 @@ Amended 2026-10-14, during execution (ruling on the executor's pre-flight questi
 - **Fixtures and keys, third pass** (the Task 9 re-review): D12 is scored by the Brief-against-draft section alone; the material no longer counts its variables, so the 7.3 gap stays open, and its 8.3 clause no longer rescues 7.7; H2's bound is on the glmer's scale; the draft's question matches the brief; the check C list drops 11.9; the scenario 5 bar names the over-failure limit; the first pass is committed before the fixes are picked; a BLOCKED group row satisfies the material key; 2.3 no longer triggers pilot settles.
 - **Fixtures, fourth pass** (the round-2 re-review): the material's no-interaction sentence carries a reason again, one that neither counts the variables nor names the design; 8.3's reason covers all four criteria; the scenario 5 bar in the evals README defers to the key's scoring.
 - **Review, after the scenario 5 and 6 runs** (3/3 passes, four behaviour-versus-text flags): the attested rows may read `pending` when the file is written before the batch is answered; the hand-off text itself ends the final message, never only a pointer to the file; with research-grill absent the install commands come first and the defend command follows for later use. Synced in a final skill round after the remaining scenarios, with scenario 6 re-run to confirm the printed hand-off; scenario 5 is not re-run.
+- **The dry run** (Task 11 Step 2, R 4.3.3, lme4 2.0.6, simr 1.0.11): the template runs end to end; it now takes `nobars` and `findbars` from reformulas when that package is installed, since lme4 2.x warns on every call; `design` runs `Rscript` in the background, because a 200-simulation search takes about ten minutes and the Bash tool caps a foreground command at ten, and the 1000-simulation confirmation runs on the chosen count and the next grid value only.
 - **Interim test reds, as designed:** after Task 2 the `lit-search` folder exists without its `SKILL.md`, so its rows of the parametrized skill tests fail until Task 7, and `test_the_four_skills_ship` turns green at Task 6; the design skill's amendment pointer reads section 9.
