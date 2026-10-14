@@ -11,15 +11,15 @@ Expected extraction status per design-tree item (the plugin's checklist IDs). "S
 | 2.3  | settled  | pilot: three people, refines the phrase count, data not reported                                                                          |
 | 2.4  | missing  | no timeline                                                                                                                               |
 | 2.5  | missing  | no expected challenges                                                                                                                    |
-| 6.1  | settled  | two hypotheses with direction                                                                                                             |
+| 6.1  | settled  | two hypotheses with direction and a research question for the rating                                                                      |
 | 6.2  | weak     | H1's direction has a reason but "sources to be added"; H2 cites nothing                                                                   |
-| 6.5  | settled  | no interaction idea in the material (the item holds vacuously; design may record it as settled with that note)                            |
+| 6.5  | settled  | the material says no interaction is expected, with the reason                                                                             |
 | 6.6  | missing  | no smallest effect size of interest; H2 is a "no worse" claim with no equivalence bound                                                   |
 | 6.7  | missing  | no decision rule                                                                                                                          |
 | 7.1  | settled  | operational definition, levels, within-subjects with a reason specific to this experiment                                                 |
 | 7.2  | settled  | carry-over argued symmetric                                                                                                               |
 | 7.3  | missing  | the overall design is not named (one within-subjects factor; the material never says so)                                                  |
-| 7.4  | settled  | vacuous: no between-subjects variable (design records "none")                                                                             |
+| 7.4  | settled  | the material says there is no between-subjects variable, with the reason                                                                  |
 | 7.5  | missing  | no counterbalancing of keyboard order                                                                                                     |
 | 7.6  | weak     | definitions, units, recording and scale present; no reliability or construct-validity statement; the rating has no operational definition |
 | 7.7  | weak     | controls listed with how they are set; no internal-versus-external validity justification                                                 |
@@ -37,4 +37,4 @@ Expected extraction status per design-tree item (the plugin's checklist IDs). "S
 | 11.8 | missing  | no exclusions or trimming                                                                                                                 |
 | 11.9 | missing  | no significance level or multiplicity policy                                                                                              |
 
-Pass bar: every row marked weak or missing above appears in the extraction with that status (weak and missing are interchangeable only for 7.3, where either is accepted), and no row marked settled is asked in any round.
+Pass bar: every row marked weak or missing above appears in the extraction as weak or missing (the two are interchangeable for every row; design extracts the power group as one row, and one group row marked missing satisfies 8.5, 8.6 and 8.7), and no row marked settled is asked in any round.

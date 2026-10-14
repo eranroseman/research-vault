@@ -4,10 +4,10 @@ Run records for the plugin at `plugins/experiment-proposal/`, kept out of the sh
 
 ## Harness
 
-- Every run happens in a fresh scratch project outside this repository: `tmp=$(mktemp -d) && cd "$tmp" && git init -q && git commit --allow-empty -qm init && mkdir proposal`. Fixtures are copied in; nothing is run inside the repository.
+- Every run happens in a fresh scratch project outside this repository: `tmp=$(mktemp -d) && cd "$tmp" && git init -q && git commit --allow-empty -qm init && mkdir proposal`. Fixtures are copied in and committed (`git add -A && git commit -qm fixtures`) before the first turn; nothing is run inside the repository.
 - The plugin is loaded from the branch's checkout with `--plugin-dir <checkout>/plugins/experiment-proposal` (Claude Code) or from the installed plugin (Task 10's install test).
 - Headless runs: `claude -p --plugin-dir <plugin> --permission-mode acceptEdits --allowedTools "Read,Edit,Write,Agent,Bash(Rscript:*),Bash(git:*),Bash(python3:*)" "<prompt>"`, with `--continue` for the next turn of the same scenario. `design` from scratch is interactive and is driven by the author in a normal session with the plugin loaded, following `fixtures/from-scratch-answers.md`; the executor records.
-- No R: a shim directory first on `PATH` whose `Rscript` exits 127 (`printf '#!/bin/sh\necho "Rscript: not installed (eval shim)" >&2\nexit 127\n' > "$tmp/no-r/Rscript"; chmod +x "$tmp/no-r/Rscript"; PATH="$tmp/no-r:$PATH"`). On a machine without R the shim is unnecessary but harmless.
+- No R: a shim directory first on `PATH` whose `Rscript` exits 127 (`mkdir -p "$tmp/no-r" && printf '#!/bin/sh\necho "Rscript: not installed (eval shim)" >&2\nexit 127\n' > "$tmp/no-r/Rscript"; chmod +x "$tmp/no-r/Rscript"; PATH="$tmp/no-r:$PATH"`). On a machine without R the shim is unnecessary but harmless.
 - Records: one file per run under `runs/`, named `<scenario>-<n>.md`, holding the date, the plugin commit, the exact command, the transcript's decisive lines, each pass-bar criterion with pass or fail, and the verdict. Relative paths only; never a home-directory path.
 
 ## Scenarios and pass bars
