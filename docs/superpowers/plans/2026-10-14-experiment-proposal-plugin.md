@@ -1327,7 +1327,6 @@ power_simr <- function(m) {
 # clmm: simr cannot simulate it, so simulate the latent variable, cut it at
 # the thresholds, fit ordinal::clmm and count the significant fits.
 simulate_ordinal <- function(m, frame) {
-  check_model(m, frame, drop_intercept = TRUE)
   X <- model.matrix(fixed_formula(m$formula), frame)[, names(m$fixef), drop = FALSE]
   n <- nlevels(frame$participant)
   intercepts <- rnorm(n, 0, m$sd_participant[1])[as.integer(frame$participant)]
@@ -1339,6 +1338,7 @@ simulate_ordinal <- function(m, frame) {
 }
 
 power_clmm <- function(m) {
+  check_model(m, make_design(min(params$n_grid)), drop_intercept = TRUE)
   rows <- lapply(params$n_grid, function(n) {
     hits <- 0L
     fits <- 0L
@@ -3128,7 +3128,7 @@ claude plugin install experiment-proposal@research-vault
 claude plugin details experiment-proposal@research-vault
 ```
 
-Expected: the four skills and the agent listed. Append the result to `runs/installs-claude-1.md` as a dated post-landing note, commit on `main` with pathspec (a docs-only follow-up commit; it still needs the check green before any further push of `main`, so push it as a branch and fast-forward as usual).
+Expected: the four skills and the agent listed. Append the result to `runs/installs-claude-1.md` as a dated post-landing note and land it the usual way: commit it with pathspec on a short-lived branch, push, wait for the check, then fast-forward `main` and push.
 
 ______________________________________________________________________
 
