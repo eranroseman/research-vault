@@ -210,7 +210,7 @@ Rating power is low, as expected with one rating per participant per keyboard: 0
 | Criterion                                                    | Result | Evidence                                                                                                                          |
 | ------------------------------------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | Every design-tree item settled, provisional or pilot settles | PASS   | 31 entries, all `settled` except 2.2 `pilot settles` and 2.4 `provisional`; 8.5, 8.6, 8.7 `settled`; `Status: frozen 2026-10-14`. |
-| 2.4 provisional, 2.2 pilot settles                           | PASS   | \`2.4 Timeline                                                                                                                    |
+| 2.4 provisional, 2.2 pilot settles                           | PASS   | `2.4 Timeline \| provisional` and `2.2 Conditions, trials and session \| pilot settles`, as the STATUSES block records them.      |
 | Mixed-model plan complete (11.2, 11.4 to 11.9)               | PASS   | All `settled`.                                                                                                                    |
 | Power computed, `proposal/power.R` run, count recorded       | PASS   | Count 40 from the 1000-simulation run; 8.5 `Source: proposal/power.R, run 2026-10-14`.                                            |
 | Rating's power through the clmm loop, a `rating` row         | PASS   | `ease_rating` rows in both tables (named `ease_rating`; the sheet calls the measure the rating), with the excluded-fit lines.     |
