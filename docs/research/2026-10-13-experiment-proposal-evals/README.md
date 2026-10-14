@@ -26,8 +26,10 @@ Run records for the plugin at `plugins/experiment-proposal/`, kept out of the sh
 
 ## Runs
 
-| Run | Scenario | Plugin commit | Outcome |
-| --- | -------- | ------------- | ------- |
+| Run                         | Scenario                | Plugin commit | Outcome                                                                                                                                                                                                                               |
+| --------------------------- | ----------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runs/installs-claude-1.md` | 7 Installs, Claude Code | `2222256`     | Names and checklist path pass, subagent available; name-only fails the strict bar (counts 0, 1, 0: the one `Skill` call named the agent, which Claude also delegated to unprompted in 3 of 3 runs); from-git form deferred to Task 12 |
+| `runs/installs-codex-1.md`  | 7 Installs, Codex       | `2222256`     | Five gaps recorded; skills hidden from implicit use, checklist opened by its cache path (`${CLAUDE_PLUGIN_ROOT}` stays unexpanded), bundled subagent not exposed; fallback not applied; from-git form deferred to Task 12             |
 
 (filled by Tasks 10 and 11, one row per run, in order)
 
