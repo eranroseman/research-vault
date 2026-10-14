@@ -244,6 +244,7 @@ tmp_path_retention_policy = "failed"
 #   .github                   test_config_validity's OKF-pin test reads
 #                             .github/okf-pin.json and .github/workflows/quality.yml
 #   ATTRIBUTION.md            the same test reads it for the one-writer assertion
+#   plugins                   test_experiment_proposal_plugin reads the plugin tree
 # pytest_add_cli_args: no .pytest_cache under mutants/ (the tree is hashed and
 # swept by the gate; a cache dir is noise there). -n is never added: mutation
 # runs would nest a pool per mutant (see the pytest-xdist note above).
@@ -262,5 +263,6 @@ also_copy = [
   ".gitignore",
   ".github",
   "ATTRIBUTION.md",
+  "plugins",
 ]
 pytest_add_cli_args = [ "-p", "no:cacheprovider" ]

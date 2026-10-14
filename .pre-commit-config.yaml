@@ -16,6 +16,7 @@ repos:
       # vendored fork (K-Dense's paper-lookup skill) — re-vendor from upstream
       # to pick up fixes; running our formatter/linter over it would create
       # vendor drift instead of tracking upstream's own form.
+      # plugins/experiment-proposal/skills/lit-search/scripts/*.py likewise (hutzelmann's proposal-lit-search).
       - id: ruff-format
         name: "form: python (ruff format)"
         language: system
@@ -65,7 +66,7 @@ repos:
       - id: yamlfix
         name: "form: yaml (yamlfix)"
         language: system
-        entry: bash -c 'yamlfix .github/workflows research_vault/templates/ci'
+        entry: bash -c 'yamlfix .github/workflows research_vault/templates/ci plugins/experiment-proposal/skills'
         pass_filenames: false
         always_run: true
       # All three flags are load-bearing: --keep-full-version (bare tool loosens

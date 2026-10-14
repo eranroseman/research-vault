@@ -695,3 +695,27 @@ def test_lit_search_checks_python_runs_both_entry_points_and_writes_nothing():
         "OpenCitations",
     ):
         assert index in text
+
+
+def test_readme_covers_install_commands_prerequisites_and_citation_requests():
+    text = (PLUGIN / "README.md").read_text(encoding="utf-8")
+    assert "claude plugin marketplace add eranroseman/research-vault" in text
+    assert "claude plugin install experiment-proposal@research-vault" in text
+    for command in ("design", "review", "lit-search", "the-ethics-board"):
+        assert f"/experiment-proposal:{command}" in text, (
+            f"README lacks the {command} command"
+        )
+    for prerequisite in (
+        "Rscript",
+        "lme4",
+        "lmerTest",
+        "ordinal",
+        "simr",
+        "3.11",
+        "research-grill",
+    ):
+        assert prerequisite in text, f"README lacks the prerequisite {prerequisite}"
+    assert "CITATION.cff" in text
+    assert "scientific-agents" in text
+    assert "pm-claude-skills" in text
+    assert "THIRD-PARTY-NOTICES.md" in text
