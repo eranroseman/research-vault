@@ -275,13 +275,36 @@ def test_vendored_script_compiles(name):
     assert result.returncode == 0, result.stderr
 
 
+# Run in a child process, where the suite's in-process socket block does not
+# reach: replace the two ways out to the network with functions that raise,
+# then run the script as __main__. With -c, sys.path[0] is the cwd (the scripts
+# directory), so the scripts' bare-name sibling imports resolve.
+_NO_NETWORK_RUNNER = """
+import runpy, socket, sys
+
+
+def _blocked(*args, **kwargs):
+    raise OSError("network blocked in test")
+
+
+socket.socket.connect = _blocked
+socket.getaddrinfo = _blocked
+script = sys.argv[1]
+sys.argv = [script, *sys.argv[2:]]
+runpy.run_path(script, run_name="__main__")
+"""
+
+
 @pytest.mark.parametrize("name", ["search.py", "snowball.py"])
 def test_vendored_entry_point_prints_help_without_network(name):
     """The entry points import their siblings by bare name, so they run from
-    their own directory (never with -I). --help touches no network: the
-    suite's socket block would surface a connect attempt as a failure."""
+    their own directory (never with -I). The child process has socket.connect
+    and socket.getaddrinfo replaced by functions that raise, so a --help that
+    reached for the network would fail here (the suite's own socket block
+    patches only the pytest process, not a subprocess). -B keeps the child
+    from writing __pycache__ into the vendored directory."""
     result = subprocess.run(
-        [sys.executable, str(SCRIPTS / name), "--help"],
+        [sys.executable, "-B", "-c", _NO_NETWORK_RUNNER, name, "--help"],
         capture_output=True,
         text=True,
         check=False,
