@@ -186,14 +186,24 @@ power_clmm <- function(m) {
     fits <- 0L
     for (i in seq_len(params$n_sims)) {
       frame <- simulate_ordinal(m, make_design(n, trials_of(m)))
-      fit <- tryCatch(
-        suppressWarnings(ordinal::clmm(m$formula, data = frame, link = "logit")),
-        error = function(e) NULL
+      # A fit that errors, or whose covariance matrix is undefined (a NaN p,
+      # common with one observation per participant per condition), is a
+      # failed fit: excluded from the denominator, never counted as a miss.
+      p <- tryCatch(
+        suppressWarnings({
+          fit <- ordinal::clmm(m$formula, data = frame, link = "logit")
+          coef(summary(fit))[m$test, "Pr(>|z|)"]
+        }),
+        error = function(e) NA_real_
       )
-      if (is.null(fit)) next
-      p <- coef(summary(fit))[m$test, "Pr(>|z|)"]
+      if (!is.finite(p)) next
       fits <- fits + 1L
-      if (is.finite(p) && p < params$alpha) hits <- hits + 1L
+      if (p < params$alpha) hits <- hits + 1L
+    }
+    failed <- params$n_sims - fits
+    if (failed > 0L) {
+      cat(sprintf("%s: %d of %d clmm fits failed at n = %d and were excluded\n",
+                  m$dv, failed, params$n_sims, n))
     }
     if (fits == 0L) stop(m$dv, ": every clmm fit failed at n = ", n)
     interval <- binom.test(hits, fits)$conf.int
