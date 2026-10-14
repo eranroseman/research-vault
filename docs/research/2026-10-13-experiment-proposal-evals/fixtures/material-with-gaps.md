@@ -29,11 +29,11 @@ History might matter if some sessions run during exam week.
 H1: words per minute will be higher with the swipe keyboard than with the tap keyboard, because swipe input needs one gesture per word rather than one tap per character (MacKenzie and Soukoreff style reasoning; sources to be added).
 H2: the uncorrected error rate will be no worse with swipe than with tap.
 RQ1: does keyboard change the ease rating? (direction unclear)
-No interaction is expected.
+No interaction is expected: our field study gave no hint that the keyboard's effect depends on who types or what they type.
 
 ## Participants
 
-Students recruited by flyer, screened by a short form for handedness, age, phone ownership and no prior watch swipe use, because handedness and prior swipe use change typing speed; the pilot (three people from the lab, data not reported, because lab members are not the target population) will refine the phrase count.
+Students recruited by flyer, screened by a short form for handedness, age, phone ownership and no prior watch swipe use, because handedness and prior swipe use change typing speed, phone ownership keeps everyone familiar with a touch keyboard, and the age bounds match the field study's users; the pilot (three people from the lab, data not reported, because lab members are not the target population) will refine the phrase count.
 
 ## Analysis
 
