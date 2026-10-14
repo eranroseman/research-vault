@@ -12,6 +12,7 @@ paths they name, the vendored scripts and the R template.
 import ast
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -497,3 +498,52 @@ def test_checklist_names_its_provenance_deviations_and_credits():
     assert not missing, (
         f"the checklist cites items that do not exist: {sorted(missing)}"
     )
+
+
+# --------------------------------------------------------------------------
+# The R power template
+# --------------------------------------------------------------------------
+
+TEMPLATE = PLUGIN / "templates" / "power-simr.R"
+
+
+def test_the_power_template_has_the_block_design_fills_and_names_its_prerequisites():
+    text = TEMPLATE.read_text(encoding="utf-8")
+    start = text.index("## ---- PARAMETERS (filled by design from the brief) ----")
+    end = text.index("## ---- END OF PARAMETERS ----")
+    assert start < end
+    block = text[start:end]
+    for field in (
+        "n_sims",
+        "alpha",
+        "target_power",
+        "n_grid",
+        "trials_per_condition",
+        "within",
+        "between",
+        "models",
+    ):
+        assert f"{field} =" in block, f"the PARAMETERS block lacks {field}"
+    for package in ("lme4", "lmerTest", "ordinal", "simr"):
+        assert f"library({package})" in text
+    for family in ('"lmer"', '"glmer"', '"clmm"'):
+        assert family in text
+    assert "powerCurve" in text
+    assert "clmm(" in text
+
+
+def test_the_power_template_parses_where_rscript_exists():
+    """Where Rscript is absent the test SKIPS and says so; it never passes
+    on a machine that could not parse the file."""
+    rscript = shutil.which("Rscript")
+    if rscript is None:
+        pytest.skip(
+            "Rscript is not on PATH: the R template was NOT parsed (skipped, not passed)"
+        )
+    result = subprocess.run(
+        [rscript, "-e", f"invisible(parse(file = '{TEMPLATE.as_posix()}'))"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
