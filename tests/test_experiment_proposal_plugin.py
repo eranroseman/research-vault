@@ -370,3 +370,130 @@ def test_the_scripts_read_exactly_the_documented_environment_names():
         "OPENCITATIONS_TOKEN",
         "THESIS_PROPOSAL_KEYS",
     }
+
+
+# --------------------------------------------------------------------------
+# The checklist: grammar, graph, and the sets the skills rely on
+# --------------------------------------------------------------------------
+
+CHECKLIST = PLUGIN / "references" / "checklist.md"
+ITEM = re.compile(
+    r"^- \*\*(\d{1,2}\.\d{1,2})\*\* "
+    r"\((draft-checked|attested|defend-stage); (design-tree|review-only); "
+    r"depends on ([^)]+)\) (.+)$"
+)
+CITATION = re.compile(r"\bitems? (\d{1,2}\.\d{1,2}(?:(?:, | and )\d{1,2}\.\d{1,2})*)")
+# The spec's design tree, by step: 1 question, ethics route, data plan; 2 session
+# estimate, pilot, timeline, challenges; 6 direction, SESOI with equivalence,
+# decision rule; 7 variables, within/between, carry-over, assignment,
+# counterbalancing, controls, confounds; 8 eligibility, justified count;
+# 11 the mixed-model plan.
+DESIGN_TREE = {
+    "1.1", "1.2", "1.3",
+    "2.2", "2.3", "2.4", "2.5",
+    "6.1", "6.2", "6.5", "6.6", "6.7",
+    "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "7.9",
+    "8.3", "8.5", "8.6", "8.7",
+    "11.2", "11.4", "11.5", "11.6", "11.7", "11.8", "11.9",
+}  # fmt: skip
+ATTESTED = {"3.1", "5.2", "11.10", "13.1", "13.4"}
+DEFEND_STAGE = {"13.2", "13.3"}
+
+
+def _checklist_items() -> dict[str, dict]:
+    """Every item line under a `## Step` heading, parsed by the pinned grammar;
+    a bullet under a step heading that does not fit the grammar is a defect."""
+    items: dict[str, dict] = {}
+    in_steps = False
+    for number, line in enumerate(
+        CHECKLIST.read_text(encoding="utf-8").splitlines(), 1
+    ):
+        if line.startswith("## "):
+            in_steps = line.startswith("## Step ")
+            continue
+        if not in_steps or not line.startswith("- "):
+            continue
+        match = ITEM.match(line)
+        assert match, f"checklist.md:{number}: not an item line: {line[:90]}"
+        item_id, kind, scope, depends, text = match.groups()
+        assert item_id not in items, f"checklist.md:{number}: duplicate item {item_id}"
+        deps = [] if depends == "none" else [d.strip() for d in depends.split(",")]
+        items[item_id] = {
+            "kind": kind,
+            "scope": scope,
+            "depends": deps,
+            "text": text,
+            "line": number,
+        }
+    return items
+
+
+def _cited_ids(text: str) -> set[str]:
+    ids: set[str] = set()
+    for match in CITATION.finditer(text):
+        ids.update(re.findall(r"\d{1,2}\.\d{1,2}", match.group(1)))
+    return ids
+
+
+def test_checklist_has_the_items_of_all_thirteen_steps():
+    items = _checklist_items()
+    assert len(items) == 81, len(items)
+    assert {int(i.split(".")[0]) for i in items} == set(range(1, 14))
+    for item_id, item in items.items():
+        assert item["text"].rstrip().endswith("."), (
+            f"{item_id} does not end in a full stop"
+        )
+
+
+def test_every_dependency_resolves_and_the_graph_is_acyclic():
+    """`design` orders its rounds by `depends on`; a cycle would leave the
+    frontier empty with items still missing."""
+    items = _checklist_items()
+    for item_id, item in items.items():
+        for dep in item["depends"]:
+            assert dep in items, f"{item_id} depends on {dep}, which does not exist"
+            assert dep != item_id, f"{item_id} depends on itself"
+    state: dict[str, int] = {}
+
+    def visit(node: str, path: list[str]) -> None:
+        if state.get(node) == 2:
+            return
+        assert state.get(node) != 1, f"dependency cycle: {' -> '.join([*path, node])}"
+        state[node] = 1
+        for dep in items[node]["depends"]:
+            visit(dep, [*path, node])
+        state[node] = 2
+
+    for item_id in items:
+        visit(item_id, [])
+
+
+def test_the_design_tree_attested_and_defend_stage_sets_are_the_specs():
+    items = _checklist_items()
+    assert {i for i, it in items.items() if it["scope"] == "design-tree"} == DESIGN_TREE
+    assert {i for i, it in items.items() if it["kind"] == "attested"} == ATTESTED
+    assert {
+        i for i, it in items.items() if it["kind"] == "defend-stage"
+    } == DEFEND_STAGE
+    assert all(items[i]["scope"] == "review-only" for i in DEFEND_STAGE)
+    assert items["8.5"]["kind"] == "draft-checked"
+    assert "BLOCKED" in items["8.5"]["text"]
+    assert "waiver" in items["8.5"]["text"]
+
+
+def test_checklist_names_its_provenance_deviations_and_credits():
+    text = CHECKLIST.read_text(encoding="utf-8")
+    assert "98b978fb74b7480c9967ceb2a1100e4560081af5" in text
+    assert "## Deviations" in text
+    for credit in (
+        "statistical-power",
+        "proposal-supervise",
+        "research-grill",
+        "lit-search",
+    ):
+        assert credit in text, f"the deviations do not credit {credit}"
+    assert "sphericity" in text  # the dropped check is named, so a reader knows why
+    missing = _cited_ids(text) - set(_checklist_items())
+    assert not missing, (
+        f"the checklist cites items that do not exist: {sorted(missing)}"
+    )
