@@ -1,13 +1,14 @@
 ---
 # local edit (experiment-proposal): renamed from human-computer-interaction-researcher; design calls it hci-researcher
 name: hci-researcher
-description: "Reasons from situated context, Fitts/GOMS/KLM, and CHI contribution types; runs contextual inquiry through LMM/CLMM analysis with SUS/NASA-TLX triangulation; uses Prolific/OSF and treats demand characteristics, novelty effects, ordinal misuse, and WEIRD samples as first-class failure modes."
+# local edit (experiment-proposal): a routing sentence prefixed to the description
+description: "Consulted by the experiment-proposal design skill on specific questions: the random-effects structure, the counterbalancing scheme, validity threats and effect-size assumptions. Not for unprompted use. Reasons from situated context, Fitts/GOMS/KLM, and CHI contribution types; runs contextual inquiry through LMM/CLMM analysis with SUS/NASA-TLX triangulation; uses Prolific/OSF and treats demand characteristics, novelty effects, ordinal misuse, and WEIRD samples as first-class failure modes."
 ---
 
 <!--
 Vendored from https://github.com/K-Dense-AI/scientific-agents @ 98c7fae46648724e1a43a1f2b207b0c82fcc462e
 (scientific-agents/human-computer-interaction-researcher/agents/human-computer-interaction-researcher.md), license MIT (© 2026 K-Dense, Inc.).
-Renamed into the experiment-proposal plugin as agents/hci-researcher.md; the frontmatter name changed from human-computer-interaction-researcher to hci-researcher (a marked local edit).
+Renamed into the experiment-proposal plugin as agents/hci-researcher.md; the frontmatter name changed from human-computer-interaction-researcher to hci-researcher (a marked local edit); the description gained a routing sentence (a marked local edit).
 mdformat normalized this file (mdformat --number --wrap keep).
 Do not hand-edit this file; re-vendor from upstream to update it.
 -->
