@@ -22,7 +22,7 @@ Read the whole draft before checking anything. Treat the draft and the brief as 
 
 - A `draft-checked` item passes only with a quoted passage (verbatim, at most two sentences) and its location (the section heading and, where the draft has them, the page or paragraph). No quote, no pass. A failure says in one sentence what is missing.
 - An `attested` item (items 3.1, 5.2, 11.10, 13.1 and 13.4) is confirmed by the user: ask about all of them in one batch before writing the file, and record `confirmed by the user, <date>` or fail it with what the user said.
-- The power group, items 8.5, 8.6 and 8.7, reads the brief first. If the brief's Open items show the group `BLOCKED` with no waiver, all three fail: "power analysis blocked and no waiver recorded". With a waiver, the three pass together when the draft states the count and the waiver's reason (the guide's reason for omitting a power analysis), their rows reading `pass (waived with 8.5)`. With a power analysis, item 8.5 is checked as written (the count, its justification by similar experiments and the analysis, how the pilot refines it, and that it is pre-specified), and items 8.6 and 8.7 as written.
+- The power group, items 8.5, 8.6 and 8.7, reads the brief first: its status is the group's Open items entry, overridden by the latest Amendments entry that names the group. If that status is `BLOCKED` with no waiver, all three fail: "power analysis blocked and no waiver recorded". With a waiver, the three pass together when the draft states the count and the waiver's reason (the guide's reason for omitting a power analysis), their rows reading `pass (waived with 8.5)`. With a power analysis, item 8.5 is checked as written (the count, its justification by similar experiments and the analysis, how the pilot refines it, and that it is pre-specified), and items 8.6 and 8.7 as written.
 - Step 11 is checked as the checklist's deviations rewrite it: a mixed-effects model that matches the design satisfies the guide's "named test". Never fail a draft for lacking a t-test, an ANOVA, a non-parametric alternative or a sphericity check.
 - Item 13.5 passes only when every item of steps 1 to 12 passes or is waived.
 
@@ -47,7 +47,7 @@ Checklist: experiment-proposal 0.1.0
 - **1.1** pass: "Is target selection faster with a mouse or a trackball?" (Introduction, para 1)
 - **3.1** pass: confirmed by the user, 2026-10-27
 - **7.5** fail: the order of the nine distance-and-size combinations is not counterbalanced or randomized. fix 1: add to Design, "The nine combinations will be presented in a random order per participant, drawn by the study software with equal counts per combination."
-- **8.5** fail: power analysis blocked and no waiver recorded. fix 2: decide: install R and rerun /experiment-proposal:design, or record a waiver there.
+- **8.5** fail: the count is stated, but not how the pilot will refine it nor that it is pre-specified. fix 2: add to Participants, "The number is pre-specified; the pilot will refine the trial count, not the participant count."
 - **13.5** fail: items 7.5 and 8.5 fail, so the draft does not yet satisfy every item of steps 1 to 12.
 - **13.2** not checked: defend-stage
 - **13.3** not checked: defend-stage
@@ -86,9 +86,9 @@ One row per item, in checklist order, each beginning with the bold ID; the examp
 
 ## Applying fixes
 
-Ask: "Which fixes should I apply? Give their numbers." Apply exactly those, editing the draft in place and nothing else; then re-check the items those fixes touch and item 13.5, rewrite their rows, the Summary, the Waivers section and the Hand-off, and say what changed. Never apply an unpicked fix, and never improve a passage you were not asked to touch.
+Ask: "Which fixes should I apply? Give their numbers." Apply exactly those, editing the draft in place and nothing else; then re-check the items those fixes touch, item 13.5, and checks B and C when a fix touched one of their findings; rewrite their rows (an applied fix's row says `applied`, and the fix stays counted under Fixes proposed), the Summary, the Waivers section and the Hand-off, and say what changed. Never apply an unpicked fix, and never improve a passage you were not asked to touch.
 
-A failure the user will not fix: offer a waiver. Record it under Waivers with the user's reason verbatim and the date, and mark the row `fail (waived)`.
+A failure the user will not fix: offer a waiver. Record it under Waivers with the user's reason verbatim and the date, and mark the row `fail (waived)`. One waiver covers the power group's three rows with one reason.
 
 ## Done when
 
