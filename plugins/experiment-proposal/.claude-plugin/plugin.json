@@ -1,0 +1,18 @@
+{
+  "name": "experiment-proposal",
+  "description": "Design a controlled HCI experiment in rounds, freeze the decisions in a brief, and check the written proposal against the brief and a checklist: design, review, lit-search and the-ethics-board, with an HCI researcher subagent.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Eran Roseman"
+  },
+  "homepage": "https://github.com/eranroseman/research-vault",
+  "repository": "https://github.com/eranroseman/research-vault",
+  "license": "MIT",
+  "keywords": [
+    "hci",
+    "experiment",
+    "proposal",
+    "mixed-models",
+    "power-analysis"
+  ]
+}
