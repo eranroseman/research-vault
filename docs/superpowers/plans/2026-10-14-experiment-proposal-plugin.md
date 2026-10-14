@@ -2965,14 +2965,18 @@ In a fresh scratch project (harness in the evals README), without `--plugin-dir`
 claude -p --output-format text "Name exactly, one per line, every skill and every agent you have whose name starts with experiment-proposal. Do not run any of them."
 ```
 
-Expected: `experiment-proposal:design`, `experiment-proposal:review`, `experiment-proposal:lit-search`, `experiment-proposal:the-ethics-board`, and the agent `experiment-proposal:hci-researcher`. Record the exact output.
+Expected: `experiment-proposal:design`, `experiment-proposal:review`, `experiment-proposal:lit-search`, `experiment-proposal:the-ethics-board`, and the agent `experiment-proposal:hci-researcher`. Name-only skills are hidden from the model's own skill list, so the reply may name only the agent; the four skills are then confirmed through `claude plugin details` or the session's init registry. Record the exact output.
 
 ```bash
 claude -p --output-format stream-json --verbose "I want to plan a controlled HCI experiment comparing two pointing devices. What should I do first?" > name-only.jsonl
 grep -c '"name":"Skill"' name-only.jsonl   # expected: 0 -- no skill was invoked without being named
 ```
 
-Record the count; name-only invocation holds when it is 0 in all three repetitions of this check.
+Record the count and, for any Skill call, the name it used. Name-only invocation holds when no plugin skill ran in any of the three repetitions; a Skill call that names the agent and fails with "Unknown skill" is not a skill run. Record separately whether the model delegated to `hci-researcher` unprompted: that is the spec's open risk, and Step 2b acts on it.
+
+- [ ] **Step 2b: Unprompted delegation to the subagent**
+
+If the model delegated to `hci-researcher` unprompted in any repetition, narrow the agent's routing signal with a second marked local edit to `agents/hci-researcher.md`: prefix the frontmatter description, inside its quotes, with `Consulted by the experiment-proposal design skill on specific questions: the random-effects structure, the counterbalancing scheme, validity threats and effect-size assumptions. Not for unprompted use. ` and add the comment line `# local edit (experiment-proposal): a routing sentence prefixed to the description` directly above `description:`; extend the provenance header's rename note with `; the description gained a routing sentence (a marked local edit)`. Run the Task 2 header tests, mdformat the file, commit with pathspec, then repeat the delegation check three times and record whether the delegation stopped. If it persists, keep the edit and record it as an accepted risk in the README's subagent sentence ("Its description is loaded into every session where the plugin is enabled, and Claude may delegate to it unprompted").
 
 ```bash
 claude -p --output-format text "/experiment-proposal:review"
@@ -3001,7 +3005,9 @@ codex exec "Use the experiment-proposal plugin's review skill on proposal/draft.
 
 Record in `runs/installs-codex-1.md`: whether the legacy-compatible mode found a plugin whose source is a subdirectory; whether the skills appear and under what names; whether `agents/openai.yaml` kept them from implicit invocation (repeat the "what should I do first" prompt and check nothing ran); whether the bundled subagent is visible at all; and whether the review run opened the checklist (its rows quote the draft and cite item IDs) or complained about `${CLAUDE_PLUGIN_ROOT}`. The spec's five known gaps are the headings; record each as confirmed, not observed, or not testable.
 
-- [ ] **Step 4: The fallback, only if Codex could not open the checklist**
+- [ ] **Step 4: The fallback, only if Codex could not open the checklist by either path**
+
+Observed 2026-10-14: Codex leaves `${CLAUDE_PLUGIN_ROOT}` a literal but follows the relative-path sentence in the skill text and opens the checklist, and `review` writes rows with item IDs and quotes. The spec's literal trigger ("does not resolve in Codex skill text") is met, but the move below changes nothing about resolution, because the moved files would be read by the same kind of relative path; so the fallback is applied only if a Codex session cannot open the checklist by either path.
 
 ```bash
 git mv plugins/experiment-proposal/references/checklist.md plugins/experiment-proposal/skills/review/references/checklist.md
@@ -3192,4 +3198,5 @@ Amended 2026-10-14, during execution (ruling on the executor's pre-flight questi
 - **README, second pass** (the Task 8 review): git is a prerequisite; the write-scope paragraph says what each skill writes, commits and edits; the lit-search keys and the key files are listed, with the note that search terms go to public APIs; the workflow order and the default draft path are stated; a new session is needed after installing; the index lists match the skill; the guide note says the Backchat copy is to be deleted after the merge. The local mypy red from numpy's stubs under python_version 3.11 predates this branch and is a GitHub issue, not a branch fix.
 - **Fourth pass on the skills** (the sync-3 re-review): whenever section 6 re-runs during an amendment, a group amendment entry records the result, its `Reason:` line carrying a waiver verbatim; the brief is never committed while the group's current status is BLOCKED; a re-checked review row may read pass narrowly; lit-search asks for one known paper when it has no seeds and finds a DOI before seeding.
 - **Fixtures and keys, second pass** (the Task 9 review): the consent form no longer satisfies item 8.2 (D6 holds); the draft's controls hold (the question opens the Introduction, bulleted contributions, room 204 in the Procedure, a Holm line); the key says how a defect with two homes is scored, which consequential failures and brief departures are expected, and how an over-failed control counts; the material states reasons and the vacuous decisions so its settled rows are settled; weak and missing are interchangeable and the power group is one row; the harness creates the shim directory and commits the fixtures; the from-scratch sheet makes 2.2 the pilot-settles item and adds the binary error indicator H2 and 11.4 use.
+- **Install tests** (Task 10's results): the name-only clause is judged by whether a plugin skill ran, not by a raw count of Skill calls (a call naming the agent fails as an unknown skill); the model's own list hides name-only skills, so the four names are confirmed through `claude plugin details`; the unprompted delegation to the subagent, the spec's open risk, was observed in every run, and Step 2b narrows the description with a marked routing sentence and re-measures; Codex opens the checklist by the relative path the skill text states, so the layout fallback is not applied. `claude -p` takes the prompt before `--allowedTools`; both hosts ask the attested batch before writing review.md, so a review run is two turns.
 - **Interim test reds, as designed:** after Task 2 the `lit-search` folder exists without its `SKILL.md`, so its rows of the parametrized skill tests fail until Task 7, and `test_the_four_skills_ship` turns green at Task 6; the design skill's amendment pointer reads section 9.
