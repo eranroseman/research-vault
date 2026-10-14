@@ -180,6 +180,10 @@ simulate_ordinal <- function(m, frame) {
 }
 
 power_clmm <- function(m) {
+  if (length(m$sd_participant) != 1L) {
+    stop(m$dv, ": the clmm loop simulates a random intercept only; use (1 | participant)",
+         " with one sd_participant value")
+  }
   check_model(m, make_design(min(params$n_grid), trials_of(m)), drop_intercept = TRUE)
   rows <- lapply(params$n_grid, function(n) {
     hits <- 0L

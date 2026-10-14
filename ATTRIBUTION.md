@@ -65,7 +65,8 @@ local changes limited to frontmatter descriptions and marked as such.
 — MIT, © 2026 K-Dense, Inc., vendored at pin `98c7fae4` into
 `plugins/experiment-proposal/agents/hci-researcher.md`: the upstream
 human-computer-interaction-researcher subagent, its frontmatter name changed to
-`hci-researcher` as a marked local edit. The upstream README and `CITATION.cff`
+`hci-researcher` and a routing sentence prefixed to its description, both marked
+local edits. The upstream README and `CITATION.cff`
 ask to be cited; the plugin README repeats the request.
 
 **[hutzelmann/thesis-proposal-skills](https://github.com/hutzelmann/thesis-proposal-skills)**

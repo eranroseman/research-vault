@@ -58,7 +58,7 @@ Checklist: experiment-proposal 0.1.0
 
 ## Brief against draft
 
-- 7.1 departure: brief, device between subjects; draft, "Device is a within-subjects factor" (Design). fix 4: decide: amend the brief, or make device between subjects in the draft.
+- 7.1 departure: brief, device between subjects; draft, "Device is a within-subjects factor" (Design). fix 4: decide: amend the brief through /experiment-proposal:design, or make device between subjects in the draft.
 
 ## Substance tests
 
