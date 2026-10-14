@@ -665,3 +665,33 @@ def test_review_hands_off_to_research_grill_or_prints_its_install_commands():
     assert "could someone run a session from the Method alone?" in text
     assert "declares no dependency" in text
     assert "~/.claude/plugins/installed_plugins.json" in text
+
+
+def test_lit_search_names_every_environment_name_and_key_file_the_scripts_read():
+    """A file read from the user's home directory is a fact the user should
+    know from the skill text, not discover from a script."""
+    text = _skill_text("lit-search")
+    for name in sorted(_names_the_scripts_read_from_the_environment()):
+        assert name in text, f"lit-search does not name {name}, which a script reads"
+    assert "api-keys.env" in text
+    assert "~/.config/thesis-proposal/api-keys.env" in text
+
+
+def test_lit_search_checks_python_runs_both_entry_points_and_writes_nothing():
+    text = _skill_text("lit-search")
+    assert "3.11" in text
+    assert "${CLAUDE_PLUGIN_ROOT}/skills/lit-search/scripts/search.py" in text
+    assert "${CLAUDE_PLUGIN_ROOT}/skills/lit-search/scripts/snowball.py" in text
+    assert "writes nothing" in text or "Write no files" in text
+    assert "adds no kept source" in text  # the stop rule
+    assert "the claim it" in text  # keep a source only with a named claim
+    assert "item 5.2" in text
+    for index in (
+        "Crossref",
+        "OpenAlex",
+        "DBLP",
+        "arXiv",
+        "Semantic Scholar",
+        "OpenCitations",
+    ):
+        assert index in text

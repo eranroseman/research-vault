@@ -1,0 +1,10 @@
+---
+interface:
+  display_name: Literature search
+  short_description: Search six scholarly indexes and snowball for an experiment proposal's
+    sources
+  default_prompt: 'Run the lit-search skill: check the Python version, run the keyword
+    and snowball scripts for the need the user names, and report each kept source
+    with the claim it supports.'
+policy:
+  allow_implicit_invocation: false
