@@ -1368,14 +1368,24 @@ power_clmm <- function(m) {
     fits <- 0L
     for (i in seq_len(params$n_sims)) {
       frame <- simulate_ordinal(m, make_design(n, trials_of(m)))
-      fit <- tryCatch(
-        suppressWarnings(ordinal::clmm(m$formula, data = frame, link = "logit")),
-        error = function(e) NULL
+      # A fit that errors, or whose covariance matrix is undefined (a NaN p,
+      # common with one observation per participant per condition), is a
+      # failed fit: excluded from the denominator, never counted as a miss.
+      p <- tryCatch(
+        suppressWarnings({
+          fit <- ordinal::clmm(m$formula, data = frame, link = "logit")
+          coef(summary(fit))[m$test, "Pr(>|z|)"]
+        }),
+        error = function(e) NA_real_
       )
-      if (is.null(fit)) next
-      p <- coef(summary(fit))[m$test, "Pr(>|z|)"]
+      if (!is.finite(p)) next
       fits <- fits + 1L
-      if (is.finite(p) && p < params$alpha) hits <- hits + 1L
+      if (p < params$alpha) hits <- hits + 1L
+    }
+    failed <- params$n_sims - fits
+    if (failed > 0L) {
+      cat(sprintf("%s: %d of %d clmm fits failed at n = %d and were excluded\n",
+                  m$dv, failed, params$n_sims, n))
     }
     if (fits == 0L) stop(m$dv, ": every clmm fit failed at n = ", n)
     interval <- binom.test(hits, fits)$conf.int
@@ -3220,4 +3230,5 @@ Amended 2026-10-14, during execution (ruling on the executor's pre-flight questi
 - **The dry run** (Task 11 Step 2, R 4.3.3, lme4 2.0.6, simr 1.0.11): the template runs end to end; it now takes `nobars` and `findbars` from reformulas when that package is installed, since lme4 2.x warns on every call; `design` runs `Rscript` in the background, because a 200-simulation search takes about ten minutes and the Bash tool caps a foreground command at ten, and the 1000-simulation confirmation runs on the chosen count and the next grid value only.
 - **After scenario 4** (3/3 passes): the answer sheet's 7.5 and 11.5 rows now cover the assignment, the phrase-set pairing, the contrast values and the order term, which the no-R runs asked and the sheet left to "I don't know"; a freeze requested in the waiver turn counts as the user's approval.
 - **After the first scenario 3 runs** (1/3 at 6bb6ed7): the template takes an optional per-model `trials` (default `trials_per_condition`; 1 for a once-per-condition rating), since one trial count for every model mis-simulated the rating and two sessions dropped the model; `design` never drops a measure from the power run, asks the per-model count in the batch, writes `proposal/power.R` from the template with Write rather than `cp`, and waits for the background run within the same turn with a 10-to-20-minute estimate; the sheet keeps all three models with the rating at one observation per condition; the driver has no turn cap.
+- **The clmm loop with one observation per condition** (sync-6's dry run): a fit whose covariance matrix is undefined gave a NaN p outside the `tryCatch` and counted as a miss, understating the rating's power by about a tenth and leaving a warning on stderr; the p-value extraction now sits inside the `tryCatch` and `suppressWarnings`, a non-finite p is a failed fit excluded from the denominator, and the excluded count per grid value is printed on stdout; the stop when every fit fails stays.
 - **Interim test reds, as designed:** after Task 2 the `lit-search` folder exists without its `SKILL.md`, so its rows of the parametrized skill tests fail until Task 7, and `test_the_four_skills_ship` turns green at Task 6; the design skill's amendment pointer reads section 9.
