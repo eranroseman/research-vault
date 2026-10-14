@@ -1,7 +1,7 @@
 # Scenario 7, Claude Code install test, run 1
 
 - Date: 2026-10-14.
-- Plugin commit: `2222256` (branch `experiment-proposal-plugin` at install time). A later commit on the branch (`4bf2597`) changed only a plan document; nothing under `plugins/` changed.
+- Plugin commit: `2222256` (branch `experiment-proposal-plugin` at install time) for the session checks; later commits on the branch changed only plan documents until `aa461c0`, which is the plugin commit of the delegation check below.
 - Host: Claude Code 2.1.273. Installed from the branch's checkout (`<checkout>`) by local path, not from git, and without `--plugin-dir`.
 - Scratch projects: two fresh `mktemp -d` directories outside the repository (`<scratch>`; the first held the three name-only runs, the second the review and subagent runs), each `git init` with an empty commit and `proposal/`. The scenario 5 fixtures were committed in the second scratch project before the review run.
 
@@ -25,7 +25,7 @@ $ claude plugin details experiment-proposal@research-vault
   Hooks (0)
 ```
 
-The session's init event lists the install at `plugins[].path` = the checkout's `plugins/experiment-proposal` folder, so for a local-path marketplace `${CLAUDE_PLUGIN_ROOT}` is the checkout itself. The from-git form (`claude plugin marketplace add https://github.com/eranroseman/research-vault.git#experiment-proposal-plugin`) was not tried: the branch is not pushed. Deferred to after Task 12's first push.
+The session's init event lists the install with `plugins[].path` set to the checkout's `plugins/experiment-proposal` folder. Claude Code also made a cache copy at install (`~/.claude/plugins/cache/research-vault/`, orphan-marked after uninstall), so which of the two folders `${CLAUDE_PLUGIN_ROOT}` named is not established by this evidence. The from-git form (`claude plugin marketplace add https://github.com/eranroseman/research-vault.git#experiment-proposal-plugin`) was not tried: the branch is not pushed. Deferred to after Task 12's first push.
 
 ## Session checks
 
@@ -110,14 +110,30 @@ Agent answer: "For a two-level within-subjects pointing study, use a random-effe
 
 A stream-json repeat shows the call `{"name":"Agent","input":{"subagent_type":"experiment-proposal:hci-researcher",...}}` and the answer relayed as "Agent says: ...".
 
+## Delegation check after the routing sentence (Step 2b)
+
+Run 2 of the name-only check, and the other two, showed the model delegating to `hci-researcher` unprompted, so `agents/hci-researcher.md` gained a second marked local edit (commit `aa461c0`): a routing sentence prefixed to its description ("Consulted by the experiment-proposal design skill on specific questions: ... Not for unprompted use."), the comment line above `description:`, and the provenance note extended. The Task 2 tests pass (67 passed, 2 skipped).
+
+The plugin was reinstalled from the branch checkout at `aa461c0` (`claude plugin marketplace add <checkout>`, `claude plugin install experiment-proposal@research-vault`; no `research-vault` marketplace existed beforehand), and the "what should I do first" prompt ran three times, each in a fresh scratch project outside the repository, with `--output-format stream-json --verbose`:
+
+| Run | `"name":"Skill"` count | `Agent` calls | Any tool call |
+| --- | ---------------------- | ------------- | ------------- |
+| 1   | 0                      | 0             | none          |
+| 2   | 0                      | 0             | none          |
+| 3   | 0                      | 0             | none          |
+
+The init event still lists `experiment-proposal:hci-researcher`, so the agent was loaded. The delegation stopped in 3 of 3 runs (before the edit: 3 of 3 delegated). An explicit request still reaches the agent: the subagent prompt of the session checks, repeated once at `aa461c0`, returned "Agent answer, quoted: ... `(1 + condition | participant)` ...". Because the delegation did not persist, the README's subagent sentence is unchanged. Three runs are a small sample; they show the effect, not its rate.
+
+The test install was removed again afterwards (`claude plugin uninstall experiment-proposal@research-vault`, `claude plugin marketplace remove research-vault`); `claude plugin marketplace list` and `claude plugin list` show neither.
+
 ## Verdicts, pass-bar clauses
 
-| Clause                        | Verdict                                                                                                                                                                                                                                   |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Namespaced names              | Pass on the registry (all four skills and the agent under `experiment-proposal:`); the literal prompt returns only the agent, because name-only skills are hidden from the model's list. Expected output as written in the brief not met. |
-| Name-only invocation (3 runs) | Fail on the strict bar: counts 0, 1, 0. No plugin skill was invoked in any run; the one `Skill` call named the agent and failed. The agent was delegated to unprompted in 3 of 3 runs.                                                    |
-| Subagent available            | Pass. `experiment-proposal:hci-researcher` is in the session registry and answered through the `Agent` tool.                                                                                                                              |
-| Checklist path resolving      | Pass (local-path install): `review` read the checklist and its rows quote the draft (row 1.1) and cite checklist IDs.                                                                                                                     |
+| Clause                        | Verdict                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Namespaced names              | Pass on the registry (all four skills and the agent under `experiment-proposal:`); the literal prompt returns only the agent, because name-only skills are hidden from the model's list. Expected output as written in the brief not met.                                                 |
+| Name-only invocation (3 runs) | Pass: no skill invoked implicitly in 3/3. The bar is whether a plugin skill ran. Counts were 0, 1, 0; the one `Skill` call named the agent and failed as unknown, so it is not a skill run. The agent itself was delegated to unprompted in 3 of 3 runs (see the delegation check below). |
+| Subagent available            | Pass. `experiment-proposal:hci-researcher` is in the session registry and answered through the `Agent` tool.                                                                                                                                                                              |
+| Checklist path resolving      | Pass (local-path install): `review` read the checklist and its rows quote the draft (row 1.1) and cite checklist IDs.                                                                                                                                                                     |
 
 ## Cleanup
 
