@@ -96,7 +96,7 @@ Every item you check passes, or fails with a user-accepted waiver recorded with 
 
 ## Hand-off
 
-End by printing the hand-off: your final message ends with the hand-off text itself (the command, or the install commands, and the seed list), never only a pointer to the file; the same text goes into the file's Hand-off section. research-grill is installed when the skill `oss:research-grill` is among the skills available to you; if unsure, look for a key beginning `oss@` in `~/.claude/plugins/installed_plugins.json`.
+End by printing the hand-off: your final message ends with the hand-off text itself (the command, or the install commands, and the seed list), never only a pointer to the file; the same text goes into the file's Hand-off section. research-grill is installed when `~/.claude/plugins/installed_plugins.json`, read with the Read tool, has a key beginning `oss@`; your own skill list does not show name-only skills, so it cannot tell. If the file cannot be read, ask the user whether research-grill is installed and print the matching hand-off; never assume it is absent.
 
 - Installed: print the exact command `/oss:research-grill defend <draft path>` and a seed list of objections: each waiver; "could someone run a session from the Method alone?"; and each substance test that passed narrowly, with its doubt.
 - Not installed: say "research-grill is not installed", then the install commands, then the defend command to run once it is installed, then the same seed list:
