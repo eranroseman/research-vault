@@ -2341,10 +2341,10 @@ Run records for the plugin at `plugins/experiment-proposal/`, kept out of the sh
 
 ## Harness
 
-- Every run happens in a fresh scratch project outside this repository: `tmp=$(mktemp -d) && cd "$tmp" && git init -q && git commit --allow-empty -qm init && mkdir proposal`. Fixtures are copied in; nothing is run inside the repository.
+- Every run happens in a fresh scratch project outside this repository: `tmp=$(mktemp -d) && cd "$tmp" && git init -q && git commit --allow-empty -qm init && mkdir proposal`. Fixtures are copied in and committed (`git add -A && git commit -qm fixtures`) before the first turn; nothing is run inside the repository.
 - The plugin is loaded from the branch's checkout with `--plugin-dir <checkout>/plugins/experiment-proposal` (Claude Code) or from the installed plugin (Task 10's install test).
 - Headless runs: `claude -p --plugin-dir <plugin> --permission-mode acceptEdits --allowedTools "Read,Edit,Write,Agent,Bash(Rscript:*),Bash(git:*),Bash(python3:*)" "<prompt>"`, with `--continue` for the next turn of the same scenario. `design` from scratch is interactive and is driven by the author in a normal session with the plugin loaded, following `fixtures/from-scratch-answers.md`; the executor records.
-- No R: a shim directory first on `PATH` whose `Rscript` exits 127 (`printf '#!/bin/sh\necho "Rscript: not installed (eval shim)" >&2\nexit 127\n' > "$tmp/no-r/Rscript"; chmod +x "$tmp/no-r/Rscript"; PATH="$tmp/no-r:$PATH"`). On a machine without R the shim is unnecessary but harmless.
+- No R: a shim directory first on `PATH` whose `Rscript` exits 127 (`mkdir -p "$tmp/no-r" && printf '#!/bin/sh\necho "Rscript: not installed (eval shim)" >&2\nexit 127\n' > "$tmp/no-r/Rscript"; chmod +x "$tmp/no-r/Rscript"; PATH="$tmp/no-r:$PATH"`). On a machine without R the shim is unnecessary but harmless.
 - Records: one file per run under `runs/`, named `<scenario>-<n>.md`, holding the date, the plugin commit, the exact command, the transcript's decisive lines, each pass-bar criterion with pass or fail, and the verdict. Relative paths only; never a home-directory path.
 
 ## Scenarios and pass bars
@@ -2406,7 +2406,7 @@ Create `fixtures/material-with-gaps.md`:
 
 ## Question
 
-Does entering text on a 40 mm smartwatch with a swipe keyboard change words per minute compared with a tap keyboard? Keyboard has two levels, tap and swipe.
+Does entering text on a 40 mm smartwatch with a swipe keyboard change words per minute compared with a tap keyboard? Keyboard has two levels, tap and swipe, because those are the two keyboards the watch ships with and watch text entry was the bottleneck our field study found.
 
 ## Ethics
 
@@ -2421,7 +2421,8 @@ We record each phrase's transcribed text, its time, and the keystrokes. Keystrok
 - Independent: keyboard, tap or swipe, within subjects, because individual typing skill varies enormously and a within-subjects comparison removes it from the comparison; carry-over between the keyboards is symmetric, each is a few minutes of practice away from the other.
 - Dependent: words per minute (phrase length in characters divided by five, divided by the time from first to last keystroke, in minutes), logged by the study app; and uncorrected error rate (the minimum string distance between the transcribed and presented phrase, divided by the larger length), also logged. Both are ratio data. Speed and accuracy will be reported together. Also a 7-point ease-of-use rating after each keyboard (ordinal).
 - Control: right-handed participants aged 18 to 35 who own a smartphone and have never used a swipe keyboard on a watch; the same watch, app, phrase set and room; scripted instructions.
-- Random: typing skill, mood, time of day.
+- Random: typing skill, mood, time of day, which vary by chance within the sample and are left to chance rather than controlled.
+- There is no between-subjects variable, since every participant uses both keyboards.
 
 ## Confounds
 
@@ -2431,10 +2432,12 @@ History might matter if some sessions run during exam week.
 
 H1: words per minute will be higher with the swipe keyboard than with the tap keyboard, because swipe input needs one gesture per word rather than one tap per character (MacKenzie and Soukoreff style reasoning; sources to be added).
 H2: the uncorrected error rate will be no worse with swipe than with tap.
+RQ1: does keyboard change the ease rating? (direction unclear)
+No interaction is expected: there is one independent variable.
 
 ## Participants
 
-Students recruited by flyer, screened by a short form for handedness, age, phone ownership and no prior watch swipe use; the pilot (three people from the lab, data not reported) will refine the phrase count.
+Students recruited by flyer, screened by a short form for handedness, age, phone ownership and no prior watch swipe use, because handedness and prior swipe use change typing speed and the age range bounds the population we describe; the pilot (three people from the lab, data not reported, because lab members are not the target population) will refine the phrase count.
 
 ## Analysis
 
@@ -2457,15 +2460,15 @@ Expected extraction status per design-tree item (the plugin's checklist IDs). "S
 | 2.3  | settled  | pilot: three people, refines the phrase count, data not reported                                  |
 | 2.4  | missing  | no timeline                                                                                       |
 | 2.5  | missing  | no expected challenges                                                                            |
-| 6.1  | settled  | two hypotheses with direction                                                                     |
+| 6.1  | settled  | two hypotheses with direction and a research question for the rating                              |
 | 6.2  | weak     | H1's direction has a reason but "sources to be added"; H2 cites nothing                           |
-| 6.5  | settled  | no interaction idea in the material (the item holds vacuously; design may record it as settled with that note) |
+| 6.5  | settled  | the material says no interaction is expected, with the reason                                     |
 | 6.6  | missing  | no smallest effect size of interest; H2 is a "no worse" claim with no equivalence bound           |
 | 6.7  | missing  | no decision rule                                                                                  |
 | 7.1  | settled  | operational definition, levels, within-subjects with a reason specific to this experiment         |
 | 7.2  | settled  | carry-over argued symmetric                                                                       |
 | 7.3  | missing  | the overall design is not named (one within-subjects factor; the material never says so)          |
-| 7.4  | settled  | vacuous: no between-subjects variable (design records "none")                                     |
+| 7.4  | settled  | the material says there is no between-subjects variable, with the reason                          |
 | 7.5  | missing  | no counterbalancing of keyboard order                                                             |
 | 7.6  | weak     | definitions, units, recording and scale present; no reliability or construct-validity statement; the rating has no operational definition |
 | 7.7  | weak     | controls listed with how they are set; no internal-versus-external validity justification         |
@@ -2483,7 +2486,7 @@ Expected extraction status per design-tree item (the plugin's checklist IDs). "S
 | 11.8 | missing  | no exclusions or trimming                                                                         |
 | 11.9 | missing  | no significance level or multiplicity policy                                                      |
 
-Pass bar: every row marked weak or missing above appears in the extraction with that status (weak and missing are interchangeable only for 7.3, where either is accepted), and no row marked settled is asked in any round.
+Pass bar: every row marked weak or missing above appears in the extraction as weak or missing (the two are interchangeable for every row; design extracts the power group as one row, and one group row marked missing satisfies 8.5, 8.6 and 8.7), and no row marked settled is asked in any round.
 ```
 
 - [ ] **Step 4: The from-scratch answer sheet**
@@ -2493,7 +2496,7 @@ Create `fixtures/from-scratch-answers.md`:
 ```markdown
 # Scenario 3: from-scratch idea and answer sheet
 
-The author opens a session in a fresh scratch project with the plugin loaded and runs `/experiment-proposal:design` with only the idea below, no material. Whatever order the rounds take, answer each item from the sheet; accept the recommendation ("yes") wherever the sheet says so; answer "I don't know" for 2.4 so one provisional item exists; answer "the pilot will decide" for 2.3's phrase count so one pilot-settles item exists. Approve the brief and the freeze when asked.
+The author opens a session in a fresh scratch project with the plugin loaded and runs `/experiment-proposal:design` with only the idea below, no material. Whatever order the rounds take, answer each item from the sheet; accept the recommendation ("yes") wherever the sheet says so; answer "I don't know" for 2.4 so one provisional item exists; answer "the pilot will decide" for 2.2's phrases per keyboard so one pilot-settles item exists. Approve the brief and the freeze when asked.
 
 ## The idea
 
@@ -2506,7 +2509,7 @@ Novice smartphone users entering text: does a swipe keyboard beat tap typing? Wi
 | 1.1  | "Does entering phrases with a swipe keyboard, compared with a tap keyboard, change words per minute for novice smartphone users?" Levels: tap, swipe.                                                        |
 | 1.2  | The university IRB; minimal-risk expedited review, about three weeks; a consent form and the phrase set are required.                                                                                         |
 | 1.3  | Keystroke logs and phrase times only, no names linked, no recordings; the two experimenters have access; raw data kept five years, then deleted.                                                             |
-| 2.2  | Yes to the recommendation (two conditions, 20 phrases per keyboard, about 40 minutes).                                                                                                                                                |
+| 2.2  | The pilot will decide the phrases per keyboard; 20 is the working value; two conditions, about 40 minutes (record 2.2 as pilot settles).                                                                                                                                                |
 | 2.3  | Four people from the lab; the pilot will decide the phrase count; its data will not be reported.                                                                                                             |
 | 2.4  | "I don't know yet" (record as provisional).                                                                                                                                                                  |
 | 2.5  | Too few sign-ups: extend recruiting to a second course; a keyboard app failing in the pilot: freeze a fallback build.                                                                                         |
@@ -2520,7 +2523,7 @@ Novice smartphone users entering text: does a swipe keyboard beat tap typing? Wi
 | 7.3  | Yes: a one-factor, two-level within-subjects design.                                                                                                                                                         |
 | 7.4  | No between-subjects variable.                                                                                                                                                                                |
 | 7.5  | Counterbalance keyboard order, AB and BA, half each.                                                                                                                                                         |
-| 7.6  | Words per minute (characters over five over minutes, app-logged, ratio); uncorrected error rate (MSD over length, app-logged, ratio); ease rating 1 to 7 after each keyboard (ordinal, questionnaire). Yes to the recommended reliability and construct-validity statements. |
+| 7.6  | Words per minute (characters over five over minutes, app-logged, ratio); uncorrected error rate (MSD over length, app-logged, ratio) and a per-phrase indicator of any uncorrected error (binary), which H2 and 11.4 use; ease rating 1 to 7 after each keyboard (ordinal, questionnaire). Yes to the recommended reliability and construct-validity statements. |
 | 7.7  | Right-handed, 18 to 35, owns a smartphone, never used swipe; same phone, app, phrases, room, script; yes to the recommended validity trade-off wording.                                                        |
 | 7.8  | Typing skill, mood, time of day, phrase order.                                                                                                                                                                |
 | 7.9  | History: run all sessions within three weeks; maturation: one 40-minute session; instrumentation: freeze the app before the first participant.                                                               |
@@ -2538,7 +2541,7 @@ Novice smartphone users entering text: does a swipe keyboard beat tap typing? Wi
 
 ## What to record
 
-The brief's statuses per item; the subagent calls (at least one); the `proposal/power.R` run and the count; that the rating's power came through the clmm loop (the output table has a `rating` row); the freeze commit (`git log --oneline` in the scratch project).
+The brief's statuses per item (2.4 provisional, 2.2 pilot settles); the subagent calls (at least one); the `proposal/power.R` run and the count; that the rating's power came through the clmm loop (the output table has a `rating` row); the freeze commit (`git log --oneline` in the scratch project).
 ```
 
 - [ ] **Step 5: The proposal with twelve planted defects, its brief, and its key**
@@ -2550,7 +2553,13 @@ Create `fixtures/proposal-with-defects.md` (the draft; `review` reads it as `pro
 
 ## Introduction
 
-We will compare movement time and error rate with a mouse and a trackball when right-handed young adults select targets at three distances and three sizes on a desktop display. Pointing devices remain the main way people select on-screen targets, and the choice between a mouse and a trackball still comes up wherever desk space is tight (MacKenzie, 1992; Card, English and Burr, 1978). Earlier comparisons report mixed results across target sizes, and none we found used the same target geometry across both devices with young adults. Only a controlled experiment can show that the device, rather than the person or the task, causes a difference in movement time; a survey of device preference or an observation of daily use could not. The contributions will be: (a) movement-time and error-rate estimates for both devices across nine distance-and-size combinations; (b) a test of whether the mouse's advantage grows for small targets; (c) a reusable target-selection task program and its logs. The rest of this proposal reviews the literature, states the hypotheses, and describes the design, participants, materials, procedure and planned analysis, with the consent form, script and questionnaire in the appendix.
+Does selecting targets with a mouse rather than a trackball change movement time and error rate? We will compare movement time and error rate with a mouse and a trackball when right-handed young adults select targets at three distances and three sizes on a desktop display. Pointing devices remain the main way people select on-screen targets, and the choice between a mouse and a trackball still comes up wherever desk space is tight (MacKenzie, 1992; Card, English and Burr, 1978). Earlier comparisons report mixed results across target sizes, and none we found used the same target geometry across both devices with young adults. Only a controlled experiment can show that the device, rather than the person or the task, causes a difference in movement time; a survey of device preference or an observation of daily use could not. The contributions will be:
+
+- movement-time and error-rate estimates for both devices across nine distance-and-size combinations;
+- a test of whether the mouse's advantage grows for small targets;
+- a reusable target-selection task program and its logs.
+
+The rest of this proposal reviews the literature, states the hypotheses, and describes the design, participants, materials, procedure and planned analysis, with the consent form, script and questionnaire in the appendix.
 
 ## Literature review
 
@@ -2586,11 +2595,11 @@ A mouse and a trackball, each named by make and model; a desktop computer with a
 
 ## Procedure
 
-Each participant is tested alone in the same room. Welcome (2 minutes); consent form (5 minutes); scripted instructions, read from the script in a neutral tone (3 minutes); 10 practice trials on the first device, then 5 trials of each of the nine distance-and-size combinations (10 minutes); the same on the second device (10 minutes); the demographic questionnaire (2 minutes); debriefing (3 minutes). The session estimate is 35 minutes. Every participant hears the same instructions because the experimenter reads the verbatim script, and the device order is the only cue that differs between conditions, which counterbalancing holds constant across the sample.
+Each participant is tested alone in room 204, the same room for every session. Welcome (2 minutes); consent form (5 minutes); scripted instructions, read from the script in a neutral tone (3 minutes); 10 practice trials on the first device, then 5 trials of each of the nine distance-and-size combinations (10 minutes); the same on the second device (10 minutes); the demographic questionnaire (2 minutes); debriefing (3 minutes). The session estimate is 35 minutes. Every participant hears the same instructions because the experimenter reads the verbatim script, and the device order is the only cue that differs between conditions, which counterbalancing holds constant across the sample.
 
 ## Planned analysis
 
-The primary measure is movement time. Before testing we will check for impossible values, missing trials and failed sessions, plot each dependent variable's distribution, and compute means and medians per participant and condition, since time measures are skewed. Movement time will be reduced to one mean per participant per device and compared with a paired t-test, or Wilcoxon's matched-pairs test if the differences are clearly not normal; error rate, one proportion per participant per device, the same way. H3 will be tested with a repeated-measures ANOVA on device, distance and size, with a sphericity check for distance and size. Participants whose mean trackball movement time exceeds 2000 milliseconds will be excluded as not having engaged with the task; failed sessions will be excluded and reported. The significance level is .05; every p value will be reported with its effect size, whether or not it supports the hypotheses. All of the above is pre-specified. The power analysis (`proposal/power.R`) assumed a 120 ms device difference from MacKenzie, Sellen and Buxton (1991) and gave 24 participants for 80% power; across 90 to 150 ms the count ranges from 36 to 16.
+The primary measure is movement time. Before testing we will check for impossible values, missing trials and failed sessions, plot each dependent variable's distribution, and compute means and medians per participant and condition, since time measures are skewed. Movement time will be reduced to one mean per participant per device and compared with a paired t-test, or Wilcoxon's matched-pairs test if the differences are clearly not normal; error rate, one proportion per participant per device, the same way. H3 will be tested with a repeated-measures ANOVA on device, distance and size, with a sphericity check for distance and size. Participants whose mean trackball movement time exceeds 2000 milliseconds will be excluded as not having engaged with the task; failed sessions will be excluded and reported. The significance level is .05; every p value will be reported with its effect size, whether or not it supports the hypotheses; the three hypotheses form one family, Holm-adjusted. All of the above is pre-specified. The power analysis (`proposal/power.R`) assumed a 120 ms device difference from MacKenzie, Sellen and Buxton (1991) and gave 24 participants for 80% power; across 90 to 150 ms the count ranges from 36 to 16.
 
 ## Timeline
 
@@ -2611,7 +2620,7 @@ Right-handed students aged 18 to 22 are invited to a 35-minute study of pointing
 
 ## Appendix B: consent form
 
-You are invited to take part in a study run by the author, a graduate student in the Department of Computer Science, supervised by the course instructor, as a course project. The study compares two pointing devices. You will select targets on a screen with a mouse and a trackball and answer two questions about yourself; it takes about 20 minutes. You may decline to take part or stop at any time without any effect on your grade. The risks are no greater than those of ordinary computer use; there is no payment. Your data are stored under a code, not your name; the two experimenters see the data. Questions about the research go to the author at the address below; questions about your rights as a participant go to the university's research office. Consent is recorded by your signature below.
+You are invited to take part in a study run by the author, a graduate student in the Department of Computer Science, supervised by the course instructor, as a course project. The study compares two pointing devices. You will select targets on a screen with a mouse and a trackball and answer two questions about yourself; it takes about 20 minutes. You may stop at any time. The risks are no greater than those of ordinary computer use; there is no payment. Your data are stored under a code, not your name; the two experimenters see the data. Questions about the research go to the author at the address below; questions about your rights as a participant go to the university's research office. Consent is recorded by your signature below.
 
 ## Appendix C: session script
 
@@ -2890,14 +2899,14 @@ Create `fixtures/proposal-with-defects.key.md`:
 | D8     | A paired t-test, Wilcoxon and a repeated-measures ANOVA with a sphericity check; no mixed-effects model  | item 11.4 (and 11.5 to 11.7 may fail with it)         |
 | D9     | Exclusion of participants whose trackball time exceeds 2000 ms depends on how they responded in a condition | item 11.8                                         |
 | D10    | The script has no point where participants can ask questions                                            | item 12.5                                             |
-| D11    | The consent form says "about 20 minutes"; the session estimate is 35 minutes                            | item 12.3, and the Cross-section consistency section  |
+| D11    | The consent form says "about 20 minutes"; the session estimate is 35 minutes (item 12.3 also fails for the missing right to decline, D6's other face) | item 12.3, and the Cross-section consistency section  |
 | D12    | Device is within subjects in the draft; the frozen brief says between subjects (items 7.1, 7.2, 7.3, 7.4) | the Brief against draft section, entry 7.1            |
 
-Also expected to pass, as controls that the review does not over-fail: items 1.1, 4.1 to 4.5, 5.1, 5.3, 6.3, 6.5, 7.7, 7.8, 7.9, 8.4, 8.8, 8.9, 9.1 to 9.4, 10.1 to 10.4, 11.1, 11.3, 11.9, 12.4, 12.6. Items 13.2 and 13.3 must be marked not checked.
+Scoring: a defect that names an item and a section (D3, D11, D12) is caught when either reports it, and passed only when the item is marked pass. The brief is between-subjects and mixed-model while the draft is within-subjects and t-tests, so Check C will correctly report departures well beyond D3 and D12 (1.3, 6.2, 6.7, 7.2 to 7.5, 7.9, 8.5's "12 per device", 11.2, 11.4 to 11.9), and steps 1 to 12 will correctly fail 6.7, 8.6, 11.2, 11.5 to 11.7 and 13.5 as consequences of D3 and D8; none of those counts as over-failing. Also expected to pass, as controls that the review does not over-fail: items 1.1, 4.1 to 4.5, 5.1, 5.3, 6.3, 6.5, 7.7, 7.8, 7.9, 8.4, 8.8, 8.9, 9.1 to 9.4, 10.1 to 10.4, 11.1, 11.3, 11.9, 12.4, 12.6; a control that fails is recorded as an over-failure with the row's reason, and a run with more than two over-failures misses the bar. A 12.6 quote of Appendix D may show the blanks as underscores or as mdformat's escaped underscores; both count. Items 13.2 and 13.3 must be marked not checked.
 
 ## The fix-picking check
 
-After the first pass, answer "Apply fixes <the two numbers that correspond to D4 and D7>". Expected: only those two passages change in the draft (`git diff` in the scratch project shows two hunks), the rows for 7.5 and 10.5 are re-checked, and no other row or passage changes.
+Commit the copied fixtures in the scratch project before the first turn (`git add -A && git commit -qm fixtures`). After the first pass, answer "Apply fixes <the two numbers that correspond to D4 and D7>". Expected: the draft shows exactly two hunks in `git diff`; in review.md only the 7.5 and 10.5 rows (now ending `(fix N applied)`), the 13.5 row, any Cross-section or Brief-against-draft finding the two fixes touched (the 7.5 departure), and the Summary, Waivers and Hand-off sections may change; every other row is byte-identical.
 
 ## The missing-input check
 
@@ -3063,7 +3072,7 @@ Expected: the table with `movement_time`, `error` and `rating` rows, `Primary me
 
 - [ ] **Step 3: From scratch (scenario 3), interactive, three sessions**
 
-The author opens `claude --plugin-dir "$P"` in a fresh scratch project, runs `/experiment-proposal:design` with the idea from `fixtures/from-scratch-answers.md`, and answers from the sheet. The executor records after each session: the brief's statuses (every design-tree item settled, provisional or pilot settles; 2.4 provisional; 2.3 pilot settles), the subagent calls (at least one), the `proposal/power.R` run, the `rating` row in its table (the clmm loop), the count, and the freeze commit.
+The author opens `claude --plugin-dir "$P"` in a fresh scratch project, runs `/experiment-proposal:design` with the idea from `fixtures/from-scratch-answers.md`, and answers from the sheet. The executor records after each session: the brief's statuses (every design-tree item settled, provisional or pilot settles; 2.4 provisional; 2.2 pilot settles), the subagent calls (at least one), the `proposal/power.R` run, the `rating` row in its table (the clmm loop), the count, and the freeze commit.
 
 - [ ] **Step 4: USER-GATED, install research-grill, then hand-off with it present**
 
@@ -3182,4 +3191,5 @@ Amended 2026-10-14, during execution (ruling on the executor's pre-flight questi
 - **Third pass on the two skills** (the round-2 re-review): a resumed brief keeps every entry's status and exempts a settled or waived group from the BLOCKED mark; an amendment of the power group has a pinned heading (`items 8.5, 8.6 and 8.7`) and a `Status:` line that `review` reads, and is not committed while it leaves the group BLOCKED; a re-checked row reads pass or fail with `(fix N applied)` and the quote rule; Waivers counts entries, a group waiver being one.
 - **README, second pass** (the Task 8 review): git is a prerequisite; the write-scope paragraph says what each skill writes, commits and edits; the lit-search keys and the key files are listed, with the note that search terms go to public APIs; the workflow order and the default draft path are stated; a new session is needed after installing; the index lists match the skill; the guide note says the Backchat copy is to be deleted after the merge. The local mypy red from numpy's stubs under python_version 3.11 predates this branch and is a GitHub issue, not a branch fix.
 - **Fourth pass on the skills** (the sync-3 re-review): whenever section 6 re-runs during an amendment, a group amendment entry records the result, its `Reason:` line carrying a waiver verbatim; the brief is never committed while the group's current status is BLOCKED; a re-checked review row may read pass narrowly; lit-search asks for one known paper when it has no seeds and finds a DOI before seeding.
+- **Fixtures and keys, second pass** (the Task 9 review): the consent form no longer satisfies item 8.2 (D6 holds); the draft's controls hold (the question opens the Introduction, bulleted contributions, room 204 in the Procedure, a Holm line); the key says how a defect with two homes is scored, which consequential failures and brief departures are expected, and how an over-failed control counts; the material states reasons and the vacuous decisions so its settled rows are settled; weak and missing are interchangeable and the power group is one row; the harness creates the shim directory and commits the fixtures; the from-scratch sheet makes 2.2 the pilot-settles item and adds the binary error indicator H2 and 11.4 use.
 - **Interim test reds, as designed:** after Task 2 the `lit-search` folder exists without its `SKILL.md`, so its rows of the parametrized skill tests fail until Task 7, and `test_the_four_skills_ship` turns green at Task 6; the design skill's amendment pointer reads section 9.
