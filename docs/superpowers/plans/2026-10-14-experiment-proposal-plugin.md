@@ -16,7 +16,7 @@ Every task's requirements implicitly include these, copied from the spec and fro
 
 - **Branch and worktree.** All work is on branch `experiment-proposal-plugin`, which already exists on origin at main's sha. The worktree `.worktrees/experiment-proposal-plugin` has it checked out (created 2026-10-14 with `git branch --track experiment-proposal-plugin origin/experiment-proposal-plugin && git worktree add .worktrees/experiment-proposal-plugin experiment-proposal-plugin`). Never create another branch. Every command below runs from the worktree root unless it says otherwise.
 - **Python.** Use the main checkout's venv: `../../.venv/bin/python`, `../../.venv/bin/mdformat`, `../../.venv/bin/ruff`, `../../.venv/bin/yamlfix`. Nothing on this branch changes `research_vault`, so the editable install resolving to the main checkout is harmless; `docs/agents/testing.md`'s import-path canary is not needed. Run the suite as `../../.venv/bin/python -m pytest tests -q -n auto` from the worktree root.
-- **Commit shape.** Explicit pathspec, every time: `git add <files> && git commit -m "<message>" -- <files>` (the `git add` is needed for new files; the pathspec on commit is `AGENTS.md`'s rule for a shared checkout). End every commit message with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Never revert or restore another session's uncommitted files.
+- **Commit shape.** Explicit pathspec, every time: `git add <files> && git commit -m "<message>" -- <files>` (the `git add` is needed for new files; the pathspec on commit is `AGENTS.md`'s rule for a shared checkout). End every commit message with the attribution line of the session making the commit, `Co-Authored-By: <that session's model> <noreply@anthropic.com>` (the plan's own commits say Claude Fable 5.1; an executor running another model names its own). Never revert or restore another session's uncommitted files.
 - **Form owners, run directly.** Never run `pre-commit run` here (it stashes across every worktree of this repo). Before each commit, run the owner of each touched file type on the touched files only: `../../.venv/bin/mdformat --number --wrap keep <md files>`; `../../.venv/bin/ruff format <py files> && ../../.venv/bin/ruff check <py files>` for files under `tests/` only; `../../.venv/bin/yamlfix <yaml files>` for `agents/openai.yaml` files; JSON manifests are canonical `json.dumps(obj, indent=2, ensure_ascii=False) + "\n"` (fix with `python -m json.tool --indent 2 --no-ensure-ascii <path> <path>`).
 - **Vendored code is frozen.** Nothing under `plugins/experiment-proposal/skills/lit-search/scripts/` is ever formatted, linted or hand-edited; ruff's and mypy's path lists in `.pre-commit-config.yaml` and `pyproject.toml` stay as they are (they do not include `plugins/`). Vendored Markdown is mdformat-normalized by the repository hook, and its header says so. A vendored file may differ from upstream only by its provenance header, by mdformat normalization (Markdown only) and by edits marked as local.
 - **Name-only invocation.** Every `SKILL.md` carries `disable-model-invocation: true` as an unquoted YAML boolean on its own frontmatter line; every skill has `agents/openai.yaml` with `allow_implicit_invocation: false` under `policy`.
@@ -297,7 +297,7 @@ Expected: both valid. Warnings about components that do not exist yet (no skills
 git add plugins/experiment-proposal/.claude-plugin/plugin.json plugins/experiment-proposal/LICENSE .claude-plugin/marketplace.json tests/test_experiment_proposal_plugin.py
 git commit -m "feat(experiment-proposal): plugin skeleton and marketplace entry
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- plugins/experiment-proposal/.claude-plugin/plugin.json plugins/experiment-proposal/LICENSE .claude-plugin/marketplace.json tests/test_experiment_proposal_plugin.py
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- plugins/experiment-proposal/.claude-plugin/plugin.json plugins/experiment-proposal/LICENSE .claude-plugin/marketplace.json tests/test_experiment_proposal_plugin.py
 ```
 
 ______________________________________________________________________
@@ -789,7 +789,7 @@ def test_the_scripts_read_exactly_the_documented_environment_names():
 - [ ] **Step 9: Run the tests**
 
 Run: `../../.venv/bin/python -m pytest tests/test_experiment_proposal_plugin.py -q`
-Expected: every test passes except `test_the_four_skills_ship` (three skills still to come; it fails until Task 7). If `test_the_scripts_read_exactly_the_documented_environment_names` fails, read its diff: the set it found is the truth for Task 7's SKILL.md, and the expected set here is updated to match what the scripts read, never the other way round.
+Expected: every test passes except `test_the_four_skills_ship` (it turns green once the four skill folders exist, at Task 6) and the `lit-search` rows of the two parametrized skill tests (its folder exists from this task; its `SKILL.md` and `agents/openai.yaml` arrive in Task 7). If `test_the_scripts_read_exactly_the_documented_environment_names` fails, read its diff: the set it found is the truth for Task 7's SKILL.md, and the expected set here is updated to match what the scripts read, never the other way round.
 
 - [ ] **Step 10: Commit**
 
@@ -804,7 +804,7 @@ hutzelmann/thesis-proposal-skills @ a38b7b11; provenance headers, one marked
 frontmatter edit each for the subagent rename and name-only invocation, and
 THIRD-PARTY-NOTICES.md with the four MIT copyright lines.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- $F plugins/experiment-proposal/skills/lit-search/scripts
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- $F plugins/experiment-proposal/skills/lit-search/scripts
 ```
 
 ______________________________________________________________________
@@ -1035,8 +1035,8 @@ Each item is one line: `- **ID** (kind; scope; depends on IDs) holds-when text`.
 - **8.3** (draft-checked; design-tree; depends on 7.7) Each eligibility criterion is listed with how it will be screened, and none selects people for an extreme score on a measure of the behaviour studied.
 - **8.4** (draft-checked; review-only; depends on 8.3) The section says whether the sample is randomly selected or a convenience sample, and names the population the results will cautiously describe.
 - **8.5** (draft-checked; design-tree; depends on 6.6, 7.3, 7.6, 11.4, 11.6) The participant count is justified by similar experiments and by a power analysis, or by a stated reason for omitting one; the section says how the pilot will refine it; and the number is pre-specified. The plugin's power analysis is `proposal/power.R`, run by `design`; while an R prerequisite is missing this item is BLOCKED, and only a recorded waiver, a reason the count is justified without a power analysis, lifts the block.
-- **8.6** (draft-checked; design-tree; depends on 8.5) The effect size the power analysis assumes is sourced in this order of preference, and the choice is named: the smallest effect size of interest (item 6.6) first; then a pilot or prior study of the same measure and design, with its imprecision and any selection inflation stated; a field convention such as Cohen's benchmarks last, and only with that said.
-- **8.7** (draft-checked; design-tree; depends on 8.6) The participant count is reported across a range of plausible effect sizes, as a power curve or a table, never as one number alone; the count the proposal commits to is read off that range at the effect size it assumes.
+- **8.6** (draft-checked; design-tree; depends on 8.5) The effect size the power analysis assumes is sourced in this order of preference, and the choice is named: the smallest effect size of interest (item 6.6) first; then a pilot or prior study of the same measure and design, with its imprecision and any selection inflation stated; a field convention such as Cohen's benchmarks last, and only with that said. Waived together with item 8.5 when the count is justified without a power analysis.
+- **8.7** (draft-checked; design-tree; depends on 8.6) The participant count is reported across a range of plausible effect sizes, as a power curve or a table, never as one number alone; the count the proposal commits to is read off that range at the effect size it assumes. Waived together with item 8.5 when the count is justified without a power analysis.
 - **8.8** (draft-checked; review-only; depends on 7.5, 8.5) The between-subjects groups, if any, are equal in size, and each group (the whole sample, in a within-subjects design) is a multiple of the number of counterbalanced orders, if any, so every group and order is used equally often.
 - **8.9** (draft-checked; review-only; depends on 8.5) The number of extras for people who do not show up or do not fit the profile is stated.
 
@@ -1109,7 +1109,7 @@ Expected: 4 passed.
 git add plugins/experiment-proposal/references/checklist.md tests/test_experiment_proposal_plugin.py
 git commit -m "feat(experiment-proposal): the checklist, 81 items with kinds, scopes and dependencies
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- plugins/experiment-proposal/references/checklist.md tests/test_experiment_proposal_plugin.py
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- plugins/experiment-proposal/references/checklist.md tests/test_experiment_proposal_plugin.py
 ```
 
 ______________________________________________________________________
@@ -1404,7 +1404,7 @@ Expected: 1 passed, 1 skipped (`Rscript is not on PATH`) on this machine. Where 
 git add plugins/experiment-proposal/templates/power-simr.R tests/test_experiment_proposal_plugin.py
 git commit -m "feat(experiment-proposal): the power template, simr for lmer and glmer, a loop for clmm
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- plugins/experiment-proposal/templates/power-simr.R tests/test_experiment_proposal_plugin.py
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- plugins/experiment-proposal/templates/power-simr.R tests/test_experiment_proposal_plugin.py
 ```
 
 ______________________________________________________________________
@@ -1538,7 +1538,7 @@ Also check `git rev-parse --show-toplevel` in the project. The freeze is a commi
 
 ## 2. Start
 
-With paths to existing material (an idea file, notes, a draft, a brief from another project): read all of it, then extract (section 3). With only an idea in the conversation: every design-tree item starts `missing`. If `proposal/design-brief.md` exists and its Status line says frozen, this run is an amendment (section 8): read the brief, treat every entry as settled, and ask only about what the user wants to change.
+With paths to existing material (an idea file, notes, a draft, a brief from another project): read all of it, then extract (section 3). With only an idea in the conversation: every design-tree item starts `missing`. If `proposal/design-brief.md` exists and its Status line says frozen, this run is an amendment (section 9): read the brief, treat every entry as settled, and ask only about what the user wants to change.
 
 ## 3. Extraction
 
@@ -1552,7 +1552,7 @@ Show the user the extraction as a table (item, status, quoted passage or the gap
 
 ## 4. Rounds
 
-Work the design tree in rounds; the frontier-rounds mechanic is adapted, in our own words, from Matt Pocock's grilling skill (mattpocock/skills, MIT). The frontier is every `weak` or `missing` item whose `depends on` items, counting only design-tree items, are each `settled`, `pilot settles` or `provisional`. Ask the whole frontier in one round, numbered Q1, Q2, ..., in checklist order, then wait for the user's answers. A question whose answer depends on another question in the same round belongs to the next round. Each round the answers reshape the tree: settled items push the frontier outward. The rounds end when the frontier is empty.
+Work the design tree in rounds; the frontier-rounds mechanic is adapted, in our own words, from Matt Pocock's grilling skill (mattpocock/skills, MIT). The frontier is every `weak` or `missing` item whose `depends on` items, counting only design-tree items, are each `settled`, `pilot settles` or `provisional`. Ask the whole frontier in one round, numbered Q1, Q2, ..., in checklist order, then wait for the user's answers. A question whose answer depends on another question in the same round belongs to the next round. Each round the answers reshape the tree: settled items push the frontier outward. Items 8.6 and 8.7 are never asked in a round: the power run settles them (section 6), or the waiver of item 8.5 covers them. The rounds end when the frontier is empty.
 
 Each question carries, in this order:
 
@@ -1587,7 +1587,7 @@ When items 6.6, 7.3, 7.6, 11.4 and 11.6 are settled, pilot-settled or provisiona
 4. Record in the item 8.5 entry: the count (the smallest grid value whose power for the primary measure meets the target), the other models' power at that count beside it, the curve table with the assumed effect sizes, and the run's date. When no grid value reaches the target, record that and put the choice to the user: extend the grid, change an effect size with a reason, or waive.
 5. Items 8.6 and 8.7 are settled by the recorded source of the effect size and the curve.
 
-If R did not pass the check, item 8.5 stays `BLOCKED`. Ask whether the user records a waiver: a stated reason the count is justified without a power analysis, such as similar experiments and their counts, a resource limit named as such, or a heuristic the field uses. Record the reason verbatim under Open items; the status becomes `waived`. No waiver, no freeze.
+If R did not pass the check, item 8.5 stays `BLOCKED`; if R passed but the user declines to run the analysis, item 8.5 stays `missing`. Either way items 8.6 and 8.7 go with it: they describe the power analysis that is not running. Ask whether the user records a waiver: a stated reason the count is justified without a power analysis, such as similar experiments and their counts, a resource limit named as such, or a heuristic the field uses. Record the reason verbatim under Open items as one entry covering items 8.5, 8.6 and 8.7; all three become `waived`. No waiver, no freeze.
 
 ## 7. The brief
 
@@ -1622,17 +1622,17 @@ Checklist: experiment-proposal 0.1.0
 
 ## Open items
 
-1. Item 8.5, participant count: BLOCKED, missing: Rscript | waived: "<the user's reason, verbatim>"
+1. Items 8.5, 8.6 and 8.7, participant count: BLOCKED, missing: Rscript | waived: "<the user's reason, verbatim>"
 2. Item 2.4 provisional, recommendation: <...>
 3. Run `/experiment-proposal:lit-search` for <the gap or the hypothesis direction it should source>
 4. Run `/experiment-proposal:the-ethics-board` with the consent story and data path from items 1.2, 1.3 and 12.3
 ```
 
-`Draft:` is the path the proposal draft will have (ask once; `proposal/draft.md` is the default). One `### <ID> <title>` entry per settled or pilot-settles design-tree item, in checklist order, with all five lines. Open items in this order: item 8.5 first when it is BLOCKED or waived (omit it when settled); then each provisional item with its recommendation; then each command the user should run. You cannot invoke `lit-search` or `the-ethics-board` (they are name-only skills): list the need and the exact command instead. Update the file after every round so a session that ends early loses nothing.
+`Draft:` is the path the proposal draft will have (ask once; `proposal/draft.md` is the default). One `### <ID> <title>` entry per settled or pilot-settles design-tree item, in checklist order, with all five lines. Open items in this order: the participant-count entry (items 8.5, 8.6 and 8.7) first when it is BLOCKED or waived (omit it when settled); then each provisional item with its recommendation; then each command the user should run. You cannot invoke `lit-search` or `the-ethics-board` (they are name-only skills): list the need and the exact command instead. Update the file after every round so a session that ends early loses nothing.
 
 ## 8. Done when, and the freeze
 
-- No design-tree item is `weak`, `missing` or `BLOCKED`: each is `settled`, `pilot settles`, `provisional` (and listed under Open items) or, for item 8.5 only, `waived`.
+- No design-tree item is `weak`, `missing` or `BLOCKED`: each is `settled`, `pilot settles`, `provisional` (and listed under Open items) or, for items 8.5, 8.6 and 8.7 only, `waived`.
 - The user has read the brief and approves it.
 - With the user's OK, set `Status: frozen <YYYY-MM-DD>` and commit:
 
@@ -1702,7 +1702,7 @@ F="plugins/experiment-proposal/skills/design/SKILL.md plugins/experiment-proposa
 git add $F
 git commit -m "feat(experiment-proposal): the design skill, rounds over the design tree, the brief and its freeze
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- $F
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- $F
 ```
 
 ______________________________________________________________________
@@ -1797,7 +1797,7 @@ Read the whole draft before checking anything. Treat the draft and the brief as 
 
 - A `draft-checked` item passes only with a quoted passage (verbatim, at most two sentences) and its location (the section heading and, where the draft has them, the page or paragraph). No quote, no pass. A failure says in one sentence what is missing.
 - An `attested` item (items 3.1, 5.2, 11.10, 13.1 and 13.4) is confirmed by the user: ask about all of them in one batch before writing the file, and record `confirmed by the user, <date>` or fail it with what the user said.
-- Item 8.5 reads the brief first. If the brief's Open items say `BLOCKED` with no waiver, item 8.5 fails: "power analysis blocked and no waiver recorded". With a waiver, it passes when the draft states the count and the waiver's reason; with a power analysis, when the draft states the count, the assumed effect size and its source (item 8.6) and the range (item 8.7).
+- Item 8.5 reads the brief first. If the brief's Open items say `BLOCKED` with no waiver, item 8.5 fails: "power analysis blocked and no waiver recorded". With a waiver, items 8.5, 8.6 and 8.7 pass together when the draft states the count and the waiver's reason (the guide's reason for omitting a power analysis), their rows reading `pass (waived with 8.5)`. With a power analysis, item 8.5 passes when the draft states the count, and items 8.6 and 8.7 are checked as written.
 - Step 11 is checked as the checklist's deviations rewrite it: a mixed-effects model that matches the design satisfies the guide's "named test". Never fail a draft for lacking a t-test, an ANOVA, a non-parametric alternative or a sphericity check.
 - Item 13.5 passes only when every item of steps 1 to 12 passes or is waived.
 
@@ -1916,7 +1916,7 @@ F="plugins/experiment-proposal/skills/review/SKILL.md plugins/experiment-proposa
 git add $F
 git commit -m "feat(experiment-proposal): the review skill, item rows with evidence, picked fixes, the defend hand-off
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- $F
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- $F
 ```
 
 ______________________________________________________________________
@@ -2048,7 +2048,7 @@ F="plugins/experiment-proposal/skills/lit-search/SKILL.md plugins/experiment-pro
 git add $F
 git commit -m "feat(experiment-proposal): the lit-search skill over the vendored scripts
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- $F
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- $F
 ```
 
 ______________________________________________________________________
@@ -2285,7 +2285,7 @@ F="plugins/experiment-proposal/README.md docs/guides/experiment-proposal-guide.m
 git add $F
 git commit -m "docs(experiment-proposal): README, attribution index, the guide's master copy, config
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- $F
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- $F
 ```
 
 ______________________________________________________________________
@@ -2333,7 +2333,7 @@ Run records for the plugin at `plugins/experiment-proposal/`, kept out of the sh
 | 1 Baseline: no plugin, the mouse-versus-trackball idea                            | `fixtures/baseline-prompt.md`                         | None; the runs record the failures (the RED step), scored against the design tree with the key in the fixture.                                                                                                                                                                                                                                                 |
 | 2 `design` from material with planted gaps                                        | `fixtures/material-with-gaps.md`, its `.key.md`       | Every planted gap is marked weak or missing; no settled decision is asked again.                                                                                                                                                                                                                                                                                 |
 | 3 `design` from scratch on a within-subjects text-entry idea with an ordinal rating | `fixtures/from-scratch-answers.md`                    | Every design-tree item is settled, provisional or "pilot settles"; the mixed-model plan is complete; power is computed, the rating's through the `clmm` loop; `design` consults the subagent at least once; the freeze commit exists.                                                                                                                            |
-| 4 `design` with no R                                                              | the from-scratch idea, the no-R shim                  | The participant-count item is BLOCKED with install commands; the brief does not freeze until the user records a waiver.                                                                                                                                                                                                                                          |
+| 4 `design` with no R                                                              | the from-scratch idea, the no-R shim                  | The participant-count item is BLOCKED with install commands; the brief does not freeze until the user records a waiver; the waiver covers items 8.5, 8.6 and 8.7 as one Open items entry.                                                                                                                                                                                                                                          |
 | 5 `review` on a proposal with 12 planted defects                                  | `fixtures/proposal-with-defects.md`, `.brief.md`, `.key.md` | At least 11 caught and none passed: a defect is caught when the item the key names fails, and passed when that item is marked pass. Every draft-checked pass quotes evidence. When the user picks two fixes by number, `review` applies only those and re-checks the affected items. With the brief or the draft removed, `review` stops and names which. |
 | 6 Hand-off                                                                        | the review scenario's project                          | With research-grill missing, a clear install message; otherwise the exact command and the seed list.                                                                                                                                                                                                                                                             |
 | 7 Installs                                                                        | the branch checkout                                    | Claude Code: namespaced names, name-only invocation, the subagent available, the checklist path resolving. Codex: the gaps recorded; if a Codex session cannot open the checklist through `${CLAUDE_PLUGIN_ROOT}`, the fallback is applied and the install test run again.                                                                                      |
@@ -2892,7 +2892,7 @@ E=docs/research/2026-10-13-experiment-proposal-evals
 git add $E
 git commit -m "docs(experiment-proposal): evaluation scenarios, fixtures and answer keys, before any run
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- $E
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- $E
 ```
 
 Expected: the two test modules pass (every fixture is mdformat-owned and scanned for home literals and truncated code spans).
@@ -2983,7 +2983,7 @@ Then in `skills/review/SKILL.md` replace `${CLAUDE_PLUGIN_ROOT}/references/check
 ```bash
 git commit -m "fix(experiment-proposal): move the checklist and template beside the skills that read them (Codex fallback)
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- plugins/experiment-proposal tests/test_experiment_proposal_plugin.py docs/research/2026-10-13-experiment-proposal-evals
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- plugins/experiment-proposal tests/test_experiment_proposal_plugin.py docs/research/2026-10-13-experiment-proposal-evals
 ```
 
 - [ ] **Step 5: Record and commit**
@@ -2996,7 +2996,7 @@ E=docs/research/2026-10-13-experiment-proposal-evals
 git add $E
 git commit -m "docs(experiment-proposal): install test records, Claude Code and Codex
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- $E
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- $E
 ```
 
 Clean up the test installs afterwards if the user does not want them kept (`claude plugin uninstall experiment-proposal@research-vault`, `codex plugin remove experiment-proposal@research-vault`); record what was left installed.
@@ -3023,7 +3023,7 @@ Six scenarios, three runs each: eighteen runs, five of them interactive sessions
 Run these three times each, in a fresh scratch project per run, with `P="$WT/plugins/experiment-proposal"`:
 
 1. **Baseline (scenario 1):** `claude -p "<fixtures/baseline-prompt.md's prompt>"` with no plugin loaded. Score against the key; record the RED findings.
-2. **No R (scenario 4):** with the no-R shim first on `PATH`: `claude -p --plugin-dir "$P" --permission-mode acceptEdits --allowedTools "Read,Write,Edit,Agent,Bash(Rscript:*),Bash(git:*)" "/experiment-proposal:design <the from-scratch idea, verbatim from fixtures/from-scratch-answers.md>"`. Expected in the first reply: the missing `Rscript`, both install commands, item 8.5 BLOCKED and first under Open items. Then `claude -p --continue --plugin-dir "$P" ... "Freeze the brief now."`; expected: a refusal naming the BLOCKED item and asking for a waiver. Then `--continue "Waiver: the count of 24 follows MacKenzie, Sellen and Buxton (1991) and our lab's last three device studies; freeze."`; expected: the brief's Open items show `waived: "..."`, Status frozen, and a commit in the scratch repository (answer the remaining rounds from the sheet with `--continue` turns as needed; the record lists every turn).
+2. **No R (scenario 4):** with the no-R shim first on `PATH`: `claude -p --plugin-dir "$P" --permission-mode acceptEdits --allowedTools "Read,Write,Edit,Agent,Bash(Rscript:*),Bash(git:*)" "/experiment-proposal:design <the from-scratch idea, verbatim from fixtures/from-scratch-answers.md>"`. Expected in the first reply: the missing `Rscript`, both install commands, item 8.5 BLOCKED and first under Open items. Then `claude -p --continue --plugin-dir "$P" ... "Freeze the brief now."`; expected: a refusal naming the BLOCKED item and asking for a waiver. Then `--continue "Waiver: the count of 24 follows MacKenzie, Sellen and Buxton (1991) and our lab's last three device studies; freeze."`; expected: the brief's Open items show one entry for items 8.5, 8.6 and 8.7 with `waived: "..."`, Status frozen, and a commit in the scratch repository (answer the remaining rounds from the sheet with `--continue` turns as needed; the record lists every turn).
 3. **Material with gaps (scenario 2):** `claude -p --plugin-dir "$P" ... "/experiment-proposal:design material.md"` with the fixture copied in as `material.md`. Score the extraction table and the first round against `material-with-gaps.key.md`.
 4. **Review (scenario 5):** fixtures in place as `proposal/design-brief.md` and `proposal/draft.md`; `claude -p --plugin-dir "$P" --permission-mode acceptEdits --allowedTools "Read,Write,Edit" "/experiment-proposal:review"`; answer the attested-items batch with `--continue "Confirm 3.1, 5.2 and 13.4; 11.10 and 13.1 not done."` if it asks; score `proposal/review.md` against the key (caught, passed, quotes on every pass); then `--continue "Apply fixes <D4's number> and <D7's number>."` and check `git diff` in the scratch project; then the two missing-input runs in copies of the project.
 5. **Hand-off (scenario 6), research-grill absent:** the end of each review run above prints the install message with both commands and the seed list; record it. If research-grill is already installed on the machine, record that this half is not testable here and why.
@@ -3063,7 +3063,7 @@ E=docs/research/2026-10-13-experiment-proposal-evals
 git add $E
 git commit -m "docs(experiment-proposal): behavioural evaluation records, six scenarios, three runs each
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- $E
+Co-Authored-By: <the committing session's model> <noreply@anthropic.com>" -- $E
 ```
 
 ______________________________________________________________________
@@ -3145,3 +3145,9 @@ Checked against the spec on 2026-10-14, before saving:
 - **Spec coverage.** Packaging and marketplace (Task 1); four name-only skills with Codex metadata (Tasks 2, 5, 6, 7); the vendored subagent, scripts and ethics board with headers, marked edits and notices (Task 2); the checklist with IDs, kinds, dependencies and the five deviation groups (Task 3); the power template with simr and the clmm loop, the primary measure setting the count (Tasks 4, 5); `design`'s prerequisites, extraction, rounds, question parts, subagent calls, brief shape, Open items order, freeze commit, amendments (Task 5); `review`'s inputs and stops, the four check groups, review.md rows with quotes, numbered fixes applied only when picked, waivers, the hand-off with and without research-grill (Task 6); `lit-search`'s version check, six indexes, snowballing, named-claim rule, stop rule, keys, no files (Task 7); README, ATTRIBUTION's five entries, the guide copy, versioning (Tasks 8, 12); the seven test bullets (Tasks 1 to 7: manifests, frontmatter and openai.yaml, headers, notices, citations, compile, R parse with SKIPPED); evals with keys before runs, three runs each (Tasks 9, 11); the Codex install test and its fallback (Task 10); git discipline and landing (Task 12).
 - **Placeholder scan.** No TBD or "similar to Task N"; every file to create has its content in its task; the only conditional content is Task 10's fallback, whose edits are spelled out.
 - **Type and name consistency.** Item grammar and `ITEM` regex identical in Global Constraints, Task 3's test and the checklist's header; the citation shape (`item 7.4`, `items 7.1, 7.2 and 7.5`) identical in the constraints, the `CITATION` regex, both skills and the checklist; the status words `settled`, `pilot settles`, `provisional`, `BLOCKED`, `waived`, `weak`, `missing` identical across the checklist, `design`, `review` and the fixtures; the brief's section names (`## Decisions`, `## Looked up`, `## Open items`, `## Amendments`) and the `Draft:` line identical in `design`, `review`, the brief fixture and the tests; the template markers and output lines identical in Task 4, `design` and the tests; the test helpers (`_canonical`, `_frontmatter`, `_raw_frontmatter_lines`, `_checklist_items`, `_cited_ids`, `_skill_text`, `_names_the_scripts_read_from_the_environment`) defined before they are used; the four copyright lines identical in the pins table, the headers, the notices and the tests.
+
+Amended 2026-10-14, during execution (ruling on the executor's pre-flight questions):
+
+- **The waiver covers items 8.5, 8.6 and 8.7.** As first written, 8.6 depended on 8.5 and 8.7 on 8.6, and `design`'s frontier admitted an item only when its dependencies were settled, pilot-settled or provisional, so a waived 8.5 left 8.6 and 8.7 `missing` forever and the brief could never freeze without R; `review` had the matching gap. The dependency graph is unchanged. The checklist's 8.6 and 8.7 now say they are waived together with 8.5; `design` never asks them in a round (the power run settles them or the waiver covers them), records the waiver as one Open items entry for the three, and its Done-when allows `waived` for all three; `review` passes the three together on a waiver. The scenario 4 pass bar and the Task 11 expectation say so.
+- **The commit trailer names the model doing the work:** the executor's session, not the plan author's.
+- **Interim test reds, as designed:** after Task 2 the `lit-search` folder exists without its `SKILL.md`, so its rows of the parametrized skill tests fail until Task 7, and `test_the_four_skills_ship` turns green at Task 6; the design skill's amendment pointer reads section 9.
