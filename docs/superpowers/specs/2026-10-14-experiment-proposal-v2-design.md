@@ -42,6 +42,7 @@ Removed: every step 11 item (11.1 to 11.11); items 6.6 and 6.7 (the smallest eff
 Changed:
 
 - 2.1 loses its analysis clause: every Method value is decided or marked as one the pilot will settle: each independent variable with its levels and its within- or between-subjects label, each dependent variable with its unit, the number of participants, the materials, and the session phases.
+- 3.2 reads: the draft has a heading for every section the template lists, in the template's order, with Design separate from Procedure (the guide's "Planned Analysis may instead close the Method" clause goes).
 - 4.2 reads: the section states the motivation (why this project), the problem, and its significance with citations.
 - 4.3 reads: the section lists the contributions as bullets, each saying what a reader will get from the final report.
 - 5.1 gains the count: the review cites work that motivates the problem, work that justifies the approach, and similar studies, and the reference list holds the number of references the template asks for.
@@ -49,6 +50,7 @@ Changed:
 - 8.5 reads: the number is justified by similar experiments and a stated reason for the count, says how the pilot will refine it, and is pre-specified. It depends on 7.3 and 7.6 and stays in the design tree.
 - 12.3 adds: the consent form states that the study is under the supervision of the named instructor.
 - 13.5 reads: the draft to be submitted satisfies every item of steps 1 to 12, uses the required template with its section list in order, describes the full experiment rather than the pilot, follows the step 3 conventions (item 3.3) throughout, and is within the word bounds excluding references and appendices.
+- 13.11's executability test asks that the proposal states how each dependent variable is measured, in place of "states a concrete analysis".
 - The deviations section records: step 11 is not checked, because the lens's section list has no Planned Analysis section and the guide's rule that the template overrides its typical sections applies; the power analysis is not run by the plugin.
 
 A dependency on a removed item is re-pointed to the nearest surviving item the removed one stood on (2.1 and 13.10 lose 11.4 and stand on 7.6; 8.5 stands on 7.3 and 7.6; the new 6.6 on 6.2). The count is 67 items. The design tree is 21 items: 1.1 to 1.3, 2.2 to 2.5, 6.1, 6.2, 6.5, 7.1 to 7.9, 8.3 and 8.5. The attested items are 3.1, 5.2, 13.1 and 13.4; the defend-stage items are 13.2 and 13.3. The dependency graph stays acyclic; a test proves it.

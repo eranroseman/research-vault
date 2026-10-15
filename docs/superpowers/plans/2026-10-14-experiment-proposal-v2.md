@@ -233,7 +233,19 @@ In `plugins/experiment-proposal/references/checklist.md`:
     - **13.5** (draft-checked; review-only; depends on 3.3) The draft to be submitted satisfies every item of steps 1 to 12, uses the required template with its section list in order, describes the full experiment rather than the pilot, follows the step 3 conventions (item 3.3) throughout, and is within the word bounds excluding references and appendices.
     ```
 
-13. Replace the line beginning `- **13.7**` so that it depends on 6.2 and 6.6 (the text unchanged), and the line beginning `- **13.10**` so that it depends on 7.6 and reads:
+13. Replace the line beginning `- **3.2**` with:
+
+    ```markdown
+    - **3.2** (draft-checked; review-only; depends on 3.1) The draft has a heading for every section the template lists, in the template's order, with Design separate from Procedure.
+    ```
+
+14. Replace the line beginning `- **13.11**` with:
+
+    ```markdown
+    - **13.11** (draft-checked; review-only; depends on 2.4) Executability: the proposal names the population, the task and the apparatus, states how each dependent variable is measured, fits the time available with its timeline (item 2.4), and makes clear what the author would do first; a choice the pilot can settle without changing a hypothesis does not fail it.
+    ```
+
+15. Replace the line beginning `- **13.7**` so that it depends on 6.2 and 6.6 (the text unchanged), and the line beginning `- **13.10**` so that it depends on 7.6 and reads:
 
     ```markdown
     - **13.7** (draft-checked; review-only; depends on 6.2, 6.6) Falsifiability: every hypothesis and research question can come out negative; a question whose every conceivable outcome counts as success fails.
