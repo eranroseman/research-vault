@@ -808,7 +808,8 @@ def parse_range(text: str) -> tuple[int, int]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    if sys.version_info < (3, 11):
+    # The script runs standalone on whatever python3 the user has, below the repo floor.
+    if sys.version_info < (3, 11):  # noqa: UP036
         print("check_proposal.py needs Python 3.11 or later", file=sys.stderr)
         return 2
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -2772,7 +2773,8 @@ Expected: 1 passed.
 In `plugins/experiment-proposal/scripts/check_proposal.py`, insert at the top of `main`, before the parser is built:
 
 ```python
-    if sys.version_info < (3, 11):
+    # The script runs standalone on whatever python3 the user has, below the repo floor.
+    if sys.version_info < (3, 11):  # noqa: UP036
         print("check_proposal.py needs Python 3.11 or later", file=sys.stderr)
         return 2
 ```
