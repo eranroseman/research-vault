@@ -1961,6 +1961,17 @@ def test_review_is_steps_that_run_the_checker_and_keep_the_evidence_rule():
     assert "no quote, no pass" in text.lower()
     assert "confirmed by the user" in text
     assert "(fix N applied)" in text and "Which fixes" in text
+    assert "check_proposal.py draft <draft>" in text
+    assert "review proposal/review.md" in text
+    assert '--supervisor "<name>"' in text
+    for note in (
+        "sections to item 3.2",
+        "words to item 13.5",
+        "references to item 5.1",
+        "the bullet list to item 4.3",
+        "the supervision sentence to item 12.3",
+    ):
+        assert note in text, f"review does not map {note}"
     assert "/oss:research-grill defend" in text
     assert "~/.claude/plugins/installed_plugins.json" in text
     assert "claude plugin marketplace add scdenney/open-science-skills" in text
@@ -1977,7 +1988,12 @@ def test_review_names_the_attested_items_and_the_defaults():
     ordered = sorted(ATTESTED, key=lambda i: tuple(int(p) for p in i.split(".")))
     assert f"items {', '.join(ordered[:-1])} and {ordered[-1]}" in text
     assert "items 13.2 and 13.3" in text
-    for default in ("2,000 to 4,000", "15 to 20", "Research questions or Hypotheses"):
+    for default in (
+        "2,000 to 4,000",
+        "15 to 20",
+        "ACM reference format",
+        "Research questions or Hypotheses",
+    ):
         assert default in text, f"review does not state the default {default}"
 
 
@@ -1997,7 +2013,7 @@ Expected: the three new tests fail against the shipped review skill; the result-
 
 - [ ] **Step 2: Write the skill**
 
-Replace `plugins/experiment-proposal/skills/review/SKILL.md` with (about 900 words; budget 1,100):
+Replace `plugins/experiment-proposal/skills/review/SKILL.md` with (about 930 words; budget 1,100):
 
 ```markdown
 ---
@@ -2020,11 +2036,11 @@ You check the user's proposal draft, item by item, against the checklist and the
 
 ## Steps
 
-1. **Inputs.** If the brief is missing, stop and say: "No design brief at proposal/design-brief.md; run /experiment-proposal:design first." If its `Status:` line is not `frozen`, stop and say the brief is not frozen yet; `/experiment-proposal:design` finishes it. If the draft is missing, stop and name the path you tried. Read the whole draft. Done when the brief, the draft and the checklist are in hand.
-2. **The template's mechanics, item 3.1.** Ask the user to confirm the template's values in one question, offering the course's defaults: the section list in order (Introduction, Literature review, Research questions or Hypotheses, Participants, Materials, Procedure, Design, Appendix), the body word bounds (2,000 to 4,000, excluding references and appendices), the reference bounds (15 to 20) and the supervising instructor's name. Run `check_proposal.py draft <draft> --words A-B --references A-B --supervisor "<name>"`, with `--sections "..."` when the list differs. Done when each line it reports is noted for the item that owns it: sections to item 3.2, words to item 13.5, references to item 5.1, the bullet list to item 4.3, the supervision sentence to item 12.3.
-3. **The items.** Check every checklist item except the two defend-stage ones (items 13.2 and 13.3), which read `not checked`. A draft-checked item passes only with a quoted passage, verbatim and at most two sentences, and its location; no quote, no pass. A failure says in one sentence what is missing and carries a fix. Ask about the attested items (items 3.1, 5.2, 13.1 and 13.4) in one batch and record `confirmed by the user, <date>` or fail with what they said. Item 13.5 passes only when every item of steps 1 to 12 passes or is waived and the mechanics hold. Done when every item has a result and each step 2 note is a failing row.
-4. **The other checks.** Cross-section consistency: every participant count, every duration (the session estimate, the phase durations, the consent form's) and every variable name identical wherever it appears; list each mismatch with both values and both locations. Brief against draft: for every brief entry, the latest amendment naming an item overriding its entry, find where the draft states the decision and flag each departure, where the draft differs or is silent, with the ID and both texts. The six substance tests, items 13.6 to 13.11: `pass`, `pass narrowly` (a doubt the draft could not settle, in one sentence) or `fail`, with a quote on a pass. Done when the three sections have their lines.
-5. **Write.** Write `proposal/review.md` in the shape `references/review.md` gives, the fixes numbered once across the file in order of appearance, the Summary counts computed from the rows. Run `check_proposal.py review proposal/review.md` and fix every line it reports. Done when the checker exits 0.
+1. **Inputs.** If the brief is missing, stop and say: "No design brief at proposal/design-brief.md; run /experiment-proposal:design first." If its `Status:` line does not read `frozen YYYY-MM-DD`, stop and say the brief is not frozen yet; `/experiment-proposal:design` finishes it. If the draft is missing, stop and name the path you tried. Read the whole draft. Done when the brief, the draft and the checklist are in hand.
+2. **The template's mechanics, item 3.1.** Ask the user to confirm the template's values in one question, offering the course's defaults: the section list in order (Introduction, Literature review, Research questions or Hypotheses, Participants, Materials, Procedure, Design, Appendix), the body word bounds (2,000 to 4,000, excluding references and appendices), the reference bounds (15 to 20), the citation style (the template's; ACM reference format for CHI) and the supervising instructor's name. Run `check_proposal.py draft <draft> --words A-B --references A-B --supervisor "<name>"`, with `--sections "..."` when the list differs. Done when each line it reports is noted for the item that owns it: sections to item 3.2, words to item 13.5, references to item 5.1, the bullet list to item 4.3, the supervision sentence to item 12.3.
+3. **The items.** Check every checklist item except the six substance tests, which step 4 takes, and the two defend-stage ones (items 13.2 and 13.3), which read `not checked`. A draft-checked item passes only with a quoted passage, verbatim and at most two sentences, and its location; no quote, no pass. A failure says in one sentence what is missing and carries a fix. Ask about the attested items (items 3.1, 5.2, 13.1 and 13.4) in one batch and record `confirmed by the user, <date>` or fail with what they said. Item 13.5 passes only when every item of steps 1 to 12 passes or is waived and the mechanics hold. Done when every item has a result and each step 2 note is a failing row.
+4. **The other checks.** Cross-section consistency: every participant count, every duration (the session estimate, the phase durations, the consent form's) and every variable name identical wherever it appears; list each mismatch with both values and both locations. Brief against draft: for every brief entry (the latest amendment naming its item wins over the entry), find where the draft states the decision and flag each departure, where the draft differs or is silent, with the ID and both texts. The six substance tests, items 13.6 to 13.11: `pass`, `pass narrowly` (a doubt the draft could not settle, in one sentence) or `fail`, with a quote on a pass or a narrow pass. Done when the three sections have their lines.
+5. **Write.** Write `proposal/review.md` in the shape `references/review.md` gives, the fixes numbered once across the file in order of appearance, the Summary counts computed from the rows, the Hand-off as step 7 gives it. Run `check_proposal.py review proposal/review.md` and fix every line it reports. Done when the checker exits 0.
 6. **Fixes.** Ask: "Which fixes should I apply? Give their numbers." Apply exactly those, editing the draft in place and nothing else. Re-check the items they touch, item 13.5, and the Cross-section and Brief sections when a fix touched one of their findings; a re-checked row reads its new result with `(fix N applied)` and quotes the new passage on a pass; the fix stays counted. Rewrite the Summary, Waivers and Hand-off, run the checker again, and say what changed. A failure the user will not fix becomes a waiver: record it under Waivers with their reason verbatim and the date, and mark the row `fail (waived)`. A fix that needs the brief changed is a `decide:` fix naming `/experiment-proposal:design`; the brief is never edited here. Done when every checked item passes or is waived.
 7. **Hand-off.** End every message that ends a pass with the hand-off text itself, in full, as `references/review.md` gives it. research-grill is installed when `~/.claude/plugins/installed_plugins.json`, read with the Read tool, has a key beginning `oss@`; ask the user when the file cannot be read, never assume absence. Installed: the exact command `/oss:research-grill defend <draft path>` and the seed list (each waiver; "could someone run a session from the Method alone?"; each substance test passed narrowly, with its doubt). Absent: "research-grill is not installed", the two install commands (`claude plugin marketplace add scdenney/open-science-skills`, then `claude plugin install oss@open-science-skills`), then the defend command to run once installed, then the same seed list. This plugin declares no dependency on research-grill (CC BY-NC 4.0); the user installs it. Done when the hand-off is printed and in the file.
 

@@ -100,7 +100,7 @@ Writing-for-agents, applied as rules the tests can hold:
 - The leading words are `frozen`, `provisional`, `pilot settles`, `the frontier`, `the material`, `the draft`; each is used as a token and defined once, in the reference file that owns it.
 - No cached environment facts: no version strings, no install lists beyond the one command a step runs; the README carries prerequisites.
 - Word budgets, held by tests and moved only by a spec edit: `design/SKILL.md` at most 1,400 words; `review/SKILL.md` at most 1,100; `lit-search/SKILL.md` at most 650; `references/brief.md` at most 700; `references/review.md` at most 800.
-- Frontmatter unchanged: user-invoked, one human-facing description line each.
+- Frontmatter form unchanged: user-invoked, one human-facing description line each; the description lines are reworded.
 
 `design`'s steps: check git; read the material the user names and the folder it points at, nothing else in the project; extract and show the table; run rounds over the frontier (the 21-item tree, the question format of 0.1.0 unchanged); consult the subagent on counterbalancing, validity threats and confounds; settle item 8.5 from the user's similar experiments and reason; write the brief in the shape `references/brief.md` gives; run the checker; freeze by commit with the user's approval; amend by appending. A bare "yes" records the recommendation's basis as the rationale.
 
