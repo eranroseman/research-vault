@@ -22,7 +22,7 @@ The first line is the version check; when it fails, stop and tell the user to in
 
 ## If a source asks for browser verification
 
-The stderr note that names this section means that source gave nothing this round; say so, carry on without it, and never try to pass the verification yourself: no cookies, no user-agent change, no challenge solvers.
+The stderr note that names this section means that source gave nothing this round; say so and carry on without it. The user may open that source in their own browser and add what they find; never try to pass the verification yourself: no cookies, no user-agent change, no challenge solvers.
 
 ## Keys, all optional
 
