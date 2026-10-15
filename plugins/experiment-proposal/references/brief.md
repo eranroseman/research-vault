@@ -1,6 +1,6 @@
 # The brief
 
-`proposal/design-brief.md` is the record of the design decisions `design` settles with the user. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py" brief proposal/design-brief.md` (on a host that leaves the variable unexpanded, `../scripts/check_proposal.py` relative to this file) checks everything below and prints one line per defect; a brief that passes it has the shape, and nothing else is required of the shape.
+`proposal/design-brief.md` is the record of the design decisions `design` settles with the user. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py" brief proposal/design-brief.md` (on a host that leaves the variable unexpanded, `../scripts/check_proposal.py` relative to this file) checks the shape below, except the wording of each value, and prints one line per defect; a brief that passes it has the shape, and the wording rules are yours to keep.
 
 ## Header
 

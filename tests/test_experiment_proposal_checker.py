@@ -183,6 +183,11 @@ def test_an_open_brief_may_lack_entries(tmp_path):
             "section `## Notes` is not one of",
         ),
         ("### 1.1 A title", "### 11.1 A title", "entry 11.1 is not a design-tree item"),
+        (
+            '- Rationale: "the user\'s words"\n',
+            "- Rationale:\n",
+            "entry 1.1: Rationale is empty",
+        ),
     ],
 )
 def test_brief_defects_are_named(tmp_path, old, new, message):
@@ -191,6 +196,17 @@ def test_brief_defects_are_named(tmp_path, old, new, message):
     result = run("brief", str(path))
     assert result.returncode == 1
     assert message in result.stdout, result.stdout
+
+
+def test_entries_are_in_checklist_order(tmp_path):
+    text = valid_brief()
+    first = text.index("### 1.1 A title")
+    second = text.index("### 1.2 A title")
+    third = text.index("### 1.3 A title")
+    swapped = text[:first] + text[second:third] + text[first:second] + text[third:]
+    path = tmp_path / "brief.md"
+    path.write_text(swapped, encoding="utf-8")
+    assert "entries are not in checklist order" in run("brief", str(path)).stdout
 
 
 def test_a_frozen_brief_names_every_design_tree_item(tmp_path):

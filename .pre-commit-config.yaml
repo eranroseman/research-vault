@@ -33,8 +33,9 @@ repos:
       - id: mypy
         name: "types: python (mypy rung-1)"
         language: system
-        # Bare: pyproject's [tool.mypy] files is the one surface list (research_vault,
-        # scripts, hooks); an explicit path here would silently override it.
+        # Bare: pyproject's [tool.mypy] files is the one surface list (hooks,
+        # plugins/experiment-proposal/scripts, research_vault, scripts); an explicit
+        # path here would silently override it.
         entry: bash -c 'mypy'
         pass_filenames: false
         always_run: true

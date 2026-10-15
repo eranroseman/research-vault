@@ -202,6 +202,9 @@ def decisions_of(
         if item_id in entries:
             add(number, f"entry {item_id} appears twice")
         values = labelled_lines(add, body, ENTRY_LINES, f"entry {item_id}")
+        for label in ENTRY_LINES:
+            if label in values and not values[label][1]:
+                add(values[label][0], f"entry {item_id}: {label} is empty")
         status_line, status_value = values.get("Status", (number, ""))
         if status_value not in STATUSES:
             add(
@@ -217,6 +220,8 @@ def decisions_of(
                     f"entry {item_id}: Decision line is {length} characters; at most {DECISION_MAX}",
                 )
         entries[item_id] = status_value
+    if list(entries) != sorted(entries, key=item_key):
+        add(start, "entries are not in checklist order")
     return entries
 
 
@@ -384,11 +389,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.command == "review":
         defects = check_review(path, items)
     else:
+        try:
+            words, references = parse_range(args.words), parse_range(args.references)
+        except ValueError:
+            parser.error(
+                "--words and --references take two integers as LOW-HIGH, for example 2000-4000"
+            )
         defects = check_draft(
             path,
             tuple(s.strip() for s in args.sections.split(",")),
-            parse_range(args.words),
-            parse_range(args.references),
+            words,
+            references,
             args.supervisor,
         )
     if args.json:
