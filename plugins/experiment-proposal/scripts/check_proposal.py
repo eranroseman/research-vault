@@ -84,11 +84,24 @@ INSTALL = (
 )
 HEADING = re.compile(r"^(#{1,6}) (.+)$")
 LIST_ITEM = re.compile(r"^(?:[-*] |\d+\. )")
-SUPERVISION = re.compile(r"under the supervision of\s+([^\n]{1,60})", re.IGNORECASE)
+SUPERVISION = re.compile(
+    r"under\s+the\s+supervision\s+of\s+([^\n]{1,60})", re.IGNORECASE
+)
+NUMBERING = re.compile(r"^\d+(?:\.\d+)*\.?\s*")
 
 
 def _norm(text: str) -> str:
-    return re.sub(r"[^a-z0-9 ]+", " ", text.lower()).strip()
+    """A heading as a key: numbering stripped, lower case, letters and digits."""
+    return re.sub(r"[^a-z0-9 ]+", " ", NUMBERING.sub("", text.strip()).lower()).strip()
+
+
+def _matches(heading: str, name: str) -> bool:
+    """`## 2. Literature Review` matches `Literature review`; `## Appendices` and
+    `## Appendix B: consent form` both match `Appendix`."""
+    target = _norm(name)
+    if target.startswith("appendix"):
+        target = "append"
+    return _norm(heading).startswith(target)
 
 
 @dataclass(frozen=True)
@@ -588,21 +601,26 @@ def check_draft(
     def add(line: int, message: str) -> None:
         defects.append(Defect(str(path), line, message))
 
-    heads: list[tuple[str, int]] = []
+    heads: list[tuple[str, int, int]] = []  # (text, line number, level)
     for number, raw in enumerate(lines, 1):
         match = HEADING.match(clean(raw))
         if match is not None:
-            heads.append((clean(match.group(2)), number))
+            heads.append((clean(match.group(2)), number, len(match.group(1))))
 
     def block(index: int) -> tuple[int, int]:
-        start = heads[index][1]
-        end = heads[index + 1][1] - 1 if index + 1 < len(heads) else len(lines)
+        """A section runs to the next heading at its own level or higher, so a
+        `###` subheading stays inside its `##` section."""
+        start, level = heads[index][1], heads[index][2]
+        end = len(lines)
+        for _text, number, other_level in heads[index + 1 :]:
+            if other_level <= level:
+                end = number - 1
+                break
         return start, end
 
     def find(prefix: str, from_index: int = 0) -> int | None:
-        target = _norm(prefix)
         for index in range(from_index, len(heads)):
-            if _norm(heads[index][0]).startswith(target):
+            if _matches(heads[index][0], prefix):
                 return index
         return None
 
@@ -620,9 +638,7 @@ def check_draft(
             previous = name
     references_index = find("references")
     appendix_ranges = [
-        block(i)
-        for i, (text, _) in enumerate(heads)
-        if _norm(text).startswith("appendix")
+        block(i) for i, (text, _, _) in enumerate(heads) if _matches(text, "Appendix")
     ]
     body_end = (
         heads[references_index][1] - 1 if references_index is not None else len(lines)

@@ -5,6 +5,7 @@ mutate it into each defect the checker must name."""
 
 import importlib.util
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -474,6 +475,11 @@ def test_a_group_of_waivers_counts_its_entries(tmp_path):
     out = run("review", str(path)).stdout
     assert "row 9.3 is waived but has no Waivers entry" in out
     assert "Waivers names 9.4, whose row is not `fail (waived)`" in out
+    misspelt = mutate(text, "- 9.3 waived, reason:", "- 9.3 waivedx, reason:")
+    path.write_text(misspelt, encoding="utf-8")
+    assert (
+        "row 9.3 is waived but has no Waivers entry" in run("review", str(path)).stdout
+    )
 
 
 # --------------------------------------------------------------------------
@@ -515,18 +521,96 @@ def test_a_valid_draft_is_clean(tmp_path):
     assert result.returncode == 0, result.stdout
 
 
+def _body_count(text: str) -> int:
+    """The pinned rule applied by hand: every token on the lines before the
+    References heading, minus any appendix section, a section running to the
+    next heading at its own level or higher."""
+    lines = text.splitlines()
+    heads = [
+        (number, len(m.group(1)), m.group(2))
+        for number, line in enumerate(lines, 1)
+        if (m := re.match(r"^(#{1,6}) (.+)$", line))
+    ]
+    reference_line = next(n for n, _, h in heads if h.lower().startswith("references"))
+    skipped: set[int] = set()
+    for index, (number, level, heading) in enumerate(heads):
+        if heading.lower().startswith("append"):
+            end = len(lines)
+            for later_number, later_level, _ in heads[index + 1 :]:
+                if later_level <= level:
+                    end = later_number - 1
+                    break
+            skipped.update(range(number, end + 1))
+    body = " ".join(
+        line
+        for n, line in enumerate(lines, 1)
+        if n < reference_line and n not in skipped
+    )
+    return len(body.split())
+
+
 def test_the_body_word_count_excludes_references_and_appendices(tmp_path):
-    """Seven sections of 300-sentence prose is about 2,400 words; the references
-    and the appendices would add more than a thousand if counted."""
+    """The count is checked exactly, so removing either exclusion fails."""
+    text = valid_draft()
+    expected = _body_count(text)
+    assert 2000 <= expected <= 4000
     path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    assert run("draft", str(path), "--words", f"{expected}-{expected}").returncode == 0
+    assert (
+        f"words: the body has {expected} words"
+        in run("draft", str(path), "--words", f"{expected + 1}-4000").stdout
+    )
+    moved = text.replace("## Appendix C: session script\n\nWelcome.\n", "")
+    moved = moved.replace(
+        "## References\n",
+        "## Appendix C: session script\n\n### Script\n\nWelcome.\n\n## References\n",
+    )
+    assert _body_count(moved) == expected
+    path.write_text(moved, encoding="utf-8")
+    assert run("draft", str(path), "--words", f"{expected}-{expected}").returncode == 0
     path.write_text(valid_draft(body_sentences=100), encoding="utf-8")
-    result = run("draft", str(path))
-    assert "words: the body has" in result.stdout
-    assert "the template asks for 2000 to 4000" in result.stdout
-    path.write_text(valid_draft(body_sentences=600), encoding="utf-8")
-    assert "words: the body has" in run("draft", str(path)).stdout
-    path.write_text(valid_draft(), encoding="utf-8")
-    assert run("draft", str(path), "--words", "100-200").returncode == 1
+    assert "the template asks for 2000 to 4000" in run("draft", str(path)).stdout
+
+
+def test_reference_lists_in_three_forms_count_the_same(tmp_path):
+    text = valid_draft()
+    path = tmp_path / "draft.md"
+    numbered = re.sub(r"^- (Author)", r"1. \1", text, flags=re.MULTILINE)
+    paragraphs = re.sub(r"^- (Author.*)$", r"\1\n", text, flags=re.MULTILINE)
+    for variant in (text, numbered, paragraphs):
+        path.write_text(variant, encoding="utf-8")
+        result = run("draft", str(path), "--supervisor", "Dr. Example")
+        assert result.returncode == 0, result.stdout
+    path.write_text(text.replace("## References\n", "## Sources\n"), encoding="utf-8")
+    assert "references: no `References` heading" in run("draft", str(path)).stdout
+
+
+def test_numbered_headings_appendices_and_a_wrapped_supervision_sentence(tmp_path):
+    text = valid_draft()
+    for name in (
+        "Introduction",
+        "Literature review",
+        "Research questions or Hypotheses",
+        "Participants",
+        "Materials",
+        "Procedure",
+        "Design",
+    ):
+        text = text.replace(f"## {name}\n", f"## 1. {name}\n", 1)
+    text = text.replace(
+        "## Appendix A: recruiting announcement\n",
+        "## Appendices\n\n### A: recruiting announcement\n",
+    )
+    text = text.replace("## Appendix B: consent form\n", "### B: consent form\n")
+    text = text.replace("## Appendix C: session script\n", "### C: session script\n")
+    text = text.replace(
+        "under the supervision of Dr. Example", "under the\nsupervision of Dr. Example"
+    )
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 0, result.stdout
 
 
 @pytest.mark.parametrize(
@@ -568,6 +652,28 @@ def test_the_reference_count_and_the_supervisor_name(tmp_path):
     out = run("draft", str(path), "--supervisor", "Dr. Someone Else").stdout
     assert "appendix: the supervision sentence names 'Dr. Example" in out
     assert "not 'Dr. Someone Else'" in out
+
+
+def test_subheadings_stay_inside_their_sections(tmp_path):
+    """A `###` under Introduction, References or an appendix must not end the
+    section early: the bullets, the entries and the supervision sentence are
+    still found."""
+    text = valid_draft()
+    text = mutate(
+        text,
+        "The contributions will be:\n",
+        "### Contributions\n\nThe contributions will be:\n",
+    )
+    text = mutate(text, "## References\n\n", "## References\n\n### Primary\n\n")
+    text = mutate(
+        text,
+        "## Appendix B: consent form\n\n",
+        "## Appendix B: consent form\n\n### Consent form\n\n",
+    )
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 0, result.stdout
 
 
 def test_a_malformed_range_is_a_usage_error(tmp_path):
