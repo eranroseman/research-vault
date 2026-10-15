@@ -685,9 +685,19 @@ def test_review_is_steps_that_run_the_checker_and_keep_the_evidence_rule():
     assert "not frozen" in text
     assert "no quote, no pass" in text.lower()
     assert "confirmed by the user" in text
-    assert "pending" in text
     assert "(fix N applied)" in text
     assert "Which fixes" in text
+    assert "check_proposal.py draft <draft>" in text
+    assert "review proposal/review.md" in text
+    assert '--supervisor "<name>"' in text
+    for note in (
+        "sections to item 3.2",
+        "words to item 13.5",
+        "references to item 5.1",
+        "the bullet list to item 4.3",
+        "the supervision sentence to item 12.3",
+    ):
+        assert note in text, f"review does not map {note}"
     assert "/oss:research-grill defend" in text
     assert "~/.claude/plugins/installed_plugins.json" in text
     assert "claude plugin marketplace add scdenney/open-science-skills" in text
@@ -705,7 +715,12 @@ def test_review_names_the_attested_items_and_the_defaults():
     ordered = sorted(ATTESTED, key=lambda i: tuple(int(p) for p in i.split(".")))
     assert f"items {', '.join(ordered[:-1])} and {ordered[-1]}" in text
     assert "items 13.2 and 13.3" in text
-    for default in ("2,000 to 4,000", "15 to 20", "Research questions or Hypotheses"):
+    for default in (
+        "2,000 to 4,000",
+        "15 to 20",
+        "ACM reference format",
+        "Research questions or Hypotheses",
+    ):
         assert default in text, f"review does not state the default {default}"
 
 
