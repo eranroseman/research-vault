@@ -35,7 +35,7 @@ The subagent `hci-researcher` ships with the plugin, restricted to reading; `des
 ## Prerequisites
 
 - **git** in your project: `design` freezes the brief by commit.
-- **Python 3.11 or later**, as `python3`, for the checker and for `lit-search`'s scripts; the skills stop with an install pointer when it is older. `lit-search`'s keys are optional: `OPENALEX_API_KEY` (OpenAlex is skipped without it) and `CONTACT_EMAIL` are read from the environment or from a key file (`api-keys.env` in the working directory, or `~/.config/thesis-proposal/api-keys.env`), `OPENCITATIONS_TOKEN` from the environment only; a Semantic Scholar key is not used. Your search terms and seed DOIs go to those public APIs.
+- **Python 3.11 or later**, as `python3`, for the checker and for `lit-search`'s scripts; each stops with an install pointer when it is older. `lit-search`'s keys are optional: `OPENALEX_API_KEY` (OpenAlex is skipped without it) and `CONTACT_EMAIL` are read from the environment or from a key file (the file named by `THESIS_PROPOSAL_KEYS`, `api-keys.env` in the working directory, or `~/.config/thesis-proposal/api-keys.env`), `OPENCITATIONS_TOKEN` from the environment only; a Semantic Scholar key is not used. Your search terms and seed DOIs go to those public APIs.
 - **research-grill** for the defend stage, a separate install this plugin does not declare as a dependency because it is licensed CC BY-NC 4.0: `claude plugin marketplace add scdenney/open-science-skills` then `claude plugin install oss@open-science-skills`. `review` prints these commands ahead of the defend command when it is absent.
 
 ## Headless use

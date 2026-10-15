@@ -596,8 +596,11 @@ def test_readme_states_the_lens_the_mechanics_the_prerequisites_and_the_vendored
         assert mechanic in text, f"README lacks the mechanic {mechanic}"
     for prerequisite in ("git", "3.11", "research-grill"):
         assert prerequisite in text, f"README lacks the prerequisite {prerequisite}"
+    # Observed 2026-10-14: the-ethics-board wrote proposal/ethics-review.md in the author's
+    # own project during the 0.1.0 real-material session (method: the file's listing and date).
     assert "proposal/ethics-review.md" in text
     assert "Semantic Scholar key" in text
+    assert "THESIS_PROPOSAL_KEYS" in text
     assert "Read,Write,Edit,Agent,Bash(git:*),Bash(python3:*)" in text
     assert "CITATION.cff" in text
     assert "scientific-agents" in text
@@ -610,6 +613,16 @@ def test_readme_states_the_lens_the_mechanics_the_prerequisites_and_the_vendored
     assert "rscript" not in lowered
     assert "simr" not in lowered
     assert "power" not in lowered
+
+
+def test_the_reference_examples_carry_the_manifest_version():
+    manifest = PLUGIN / ".claude-plugin" / "plugin.json"
+    version = json.loads(manifest.read_text(encoding="utf-8"))["version"]
+    for name in ("brief.md", "review.md"):
+        text = (PLUGIN / "references" / name).read_text(encoding="utf-8")
+        assert f"Checklist: experiment-proposal {version}" in text, (
+            f"{name} carries a stale version"
+        )
 
 
 # --------------------------------------------------------------------------
