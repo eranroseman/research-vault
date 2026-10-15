@@ -784,9 +784,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     path = Path(args.path)
     try:
         path.read_text(encoding="utf-8")
-        items = read_checklist() if args.command != "draft" else {}
-    except (OSError, UnicodeDecodeError, ValueError) as error:
+    except (OSError, UnicodeDecodeError) as error:
         print(f"{path}: cannot read: {error}", file=sys.stderr)
+        return 2
+    try:
+        items = read_checklist() if args.command != "draft" else {}
+    except (OSError, ValueError) as error:
+        print(f"{CHECKLIST}: the plugin's checklist is unreadable: {error}", file=sys.stderr)
         return 2
     if args.command == "brief":
         defects = check_brief(path, items)
@@ -1657,8 +1661,9 @@ def test_the_subagent_runs_nothing():
     raw = "\n".join(_raw_frontmatter_lines(PLUGIN / "agents" / "hci-researcher.md"))
     assert "tools: Read, Grep, Glob" in raw
     assert "# local edit (experiment-proposal): tools restricted" in raw
-    assert "random-effects" not in raw and "effect-size" not in raw
-    assert "counterbalancing" in raw and "confounds" in raw
+    routing = raw.split("Not for unprompted use.", 1)[0]  # ours; the upstream text follows
+    assert "random-effects" not in routing and "effect-size" not in routing
+    assert "counterbalancing" in routing and "confounds" in routing
     header = (PLUGIN / "agents" / "hci-researcher.md").read_text(encoding="utf-8")
     assert "a tools line" in header
 ```
@@ -2630,8 +2635,8 @@ Approved budget: three runs per scenario for scenarios 2, 3, 5 and 6, pass only 
 With `P="$(git rev-parse --show-toplevel)/plugins/experiment-proposal"` and the harness as the evals README states it (`claude -p --model opus --plugin-dir "$P" --permission-mode acceptEdits --allowedTools "Read,Write,Edit,Agent,Bash(git:*),Bash(python3:*)"`, `--continue` for later turns, the scratch project committed before the first turn):
 
 1. **Scenario 2:** copy `material-with-gaps.md` in as `material.md`; `"/experiment-proposal:design material.md"`; score the extraction table and round 1 against the key.
-2. **Scenario 3:** `"/experiment-proposal:design"` followed by the idea from `from-scratch-answers.md`; drive the rounds with `--continue`, answering strictly from the sheet and "I don't know" otherwise, with no turn cap; approve the brief and the freeze when asked. Score: every design-tree item settled, provisional or pilot settles (2.4 provisional, 2.2 pilot settles); item 8.5 from the sheet; at least one subagent call; `python3 "$P/scripts/check_proposal.py" brief proposal/design-brief.md` exits 0; the freeze commit exists.
-3. **Scenario 5:** copy the brief and the draft fixtures to `proposal/design-brief.md` and `proposal/draft.md`, commit; `"/experiment-proposal:review"`; answer the mechanics question with the defaults and the supervisor "the course instructor", and the attested batch with `--continue "Confirm 3.1, 5.2 and 13.4; 13.1 not done."`; score against the key; commit the first pass; `--continue "Apply fixes <D4's number> and <D7's number>."` and check `git diff` and the rows; then the three missing-input and not-frozen stops in copies of the project; run the checker on the final review.md.
+2. **Scenario 3:** `"/experiment-proposal:design"` followed by the idea from `from-scratch-answers.md`; drive the rounds with `--continue`, answering strictly from the sheet and "I don't know" otherwise, with no turn cap; approve the brief and the freeze when asked. Score: every design-tree item settled, provisional or pilot settles (2.4 provisional, 2.2 pilot settles); item 8.5 from the sheet, which names studies lit-search has yet to find, so a provisional 8.5 meets the bar; at least one subagent call; `python3 "$P/scripts/check_proposal.py" brief proposal/design-brief.md` exits 0; the freeze commit exists.
+3. **Scenario 5:** copy the brief and the draft fixtures to `proposal/design-brief.md` and `proposal/draft.md`, commit; `"/experiment-proposal:review"`; answer the mechanics question with the defaults and the supervisor "the course instructor", and the attested batch with `--continue "Confirm 3.1, 5.2, 13.1 and 13.4."`; score against the key; commit the first pass; `--continue "Apply fixes <D4's number> and <D7's number>."` and check `git diff` and the rows; then the three missing-input and not-frozen stops in copies of the project; run the checker on the final review.md.
 4. **Scenario 6:** the end of each review run records the hand-off; with research-grill installed on this machine since 2026-10-14, the present case is what these runs show; then uninstall it (`claude plugin uninstall oss@open-science-skills`), run `--continue "Print the hand-off again."` three times in the three scenario 5 projects for the absent case, and reinstall it (`claude plugin marketplace add scdenney/open-science-skills` is already configured; `claude plugin install oss@open-science-skills`), leaving it installed.
 
 One record per run under `runs/`, named `material-v2-1.md` and so on, with the plugin commit, the exact commands, the decisive transcript lines, each bar criterion with pass or fail, and the verdict; relative paths only.
@@ -2642,7 +2647,7 @@ Three repetitions of `claude -p --plugin-dir "$P" --output-format stream-json --
 
 - [ ] **Step 3: The real-material session**
 
-In the author's project `~/bloom-length-pilot` (a frozen 0.1.0 brief with power entries): run `"/experiment-proposal:design"` with `--plugin-dir "$P"`; the skill should treat the brief as frozen and ask what to amend; answer "Retire the power entries: items 8.5, 8.6 and 8.7 are superseded by the 0.2.0 checklist; item 8.5 now reads: four participants in the pilot, set by the course term; a full study would follow MacKenzie-style device comparisons at 12 to 24." Record what the skill does with entries for items that no longer exist (8.6, 8.7, the 11.x entries) and whether the checker accepts the amended brief; this is a record with no bar, in `runs/real-material-v2-1.md`. Do not re-run the power step (there is none) and do not run review (there is no draft).
+In the author's project `~/bloom-length-pilot` (a frozen 0.1.0 brief with power entries): run `"/experiment-proposal:design"` with `--plugin-dir "$P"`; the skill should treat the brief as frozen and ask what to amend; answer "Retire the power entries: items 8.5, 8.6 and 8.7 are superseded by the 0.2.0 checklist; item 8.5 now reads: four participants in the pilot, set by the course term; a full study would follow MacKenzie-style device comparisons at 12 to 24." Record what the skill does with entries for items that no longer exist (8.6, 8.7, the 11.x entries) and what the checker says about the amended brief; its lines `entry 11.4 is not a design-tree item` and the like are the expected output for a 0.1.0 brief, not a defect to file; this is a record with no bar, in `runs/real-material-v2-1.md`. Do not re-run the power step (there is none) and do not run review (there is no draft).
 
 - [ ] **Step 4: Verdicts and fixes**
 
