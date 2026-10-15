@@ -1,6 +1,6 @@
 # Evals for plugins/experiment-proposal
 
-Run records for the plugin at `plugins/experiment-proposal/`, kept out of the shipped plugin. Spec: `docs/superpowers/specs/2026-10-13-experiment-proposal-plugin-design.md`, section Evals. Every answer key under `fixtures/` was written and committed before any run. Each scenario runs three times, and its pass bar holds only if all three runs meet it.
+Run records for the plugin at `plugins/experiment-proposal/`, kept out of the shipped plugin. Spec: `docs/superpowers/specs/2026-10-14-experiment-proposal-v2-design.md` (the 0.1.0 spec, `2026-10-13-experiment-proposal-plugin-design.md`, is superseded). Every answer key under `fixtures/` was written and committed before any run. Each scenario runs three times, and its pass bar holds only if all three runs meet it.
 
 ## Harness
 
@@ -95,4 +95,4 @@ Dry runs of `templates/power-simr.R`, both with the template's own grid and mode
 - Before the reformulas shim, with `n_sims = 20`: exit 0 in 61 s, a power-curve table with movement_time, error and rating rows, "Participant count: 12", and two lme4 deprecation warnings (`nobars` and `findbars` have moved to the reformulas package). The shim removes both. Method: the run's `time` and stderr, 2026-10-14.
 - After the shim, with `n_sims = 5` (`sed 's/n_sims = 200/n_sims = 5/'`, run in a scratch directory): exit 0 in 15.9 s wall time (`time Rscript power-dry.R`), nothing on stderr, no "moved to the reformulas package" warning, the same table shape (18 rows: movement_time, error, rating at n = 12, 16, 20, 24, 32, 40), "Primary measure: movement_time", "Participant count: 12", and two "At n =" lines (error 0.40, rating 1.00). Five simulations make the power values noisy; the run checks the plumbing only. Method: the same, 2026-10-14.
 
-Scenario 3, `design` from scratch, ran at 6bb6ed7 with R present (1 of 3 runs passed; see the Runs table) and re-runs after this sync.
+Scenario 3, `design` from scratch, ran at 6bb6ed7 with R present (1 of 3 runs passed; see the Runs table) and runs again at 0.2.0 (see Runs at 0.2.0).
