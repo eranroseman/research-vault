@@ -10,6 +10,7 @@ paths they name, the vendored scripts and the R template.
 """
 
 import ast
+import importlib.util
 import json
 import re
 import shutil
@@ -378,11 +379,6 @@ def test_the_scripts_read_exactly_the_documented_environment_names():
 # --------------------------------------------------------------------------
 
 CHECKLIST = PLUGIN / "references" / "checklist.md"
-ITEM = re.compile(
-    r"^- \*\*(\d{1,2}\.\d{1,2})\*\* "
-    r"\((draft-checked|attested|defend-stage); (design-tree|review-only); "
-    r"depends on ([^)]+)\) (.+)$"
-)
 CITATION = re.compile(r"\bitems? (\d{1,2}\.\d{1,2}(?:(?:, | and )\d{1,2}\.\d{1,2})*)")
 # The spec's design tree, by step: 1 question, ethics route, data plan; 2 session
 # estimate, pilot, timeline, challenges; 6 hypotheses, directions, interactions;
@@ -399,32 +395,29 @@ ATTESTED = {"3.1", "5.2", "13.1", "13.4"}
 DEFEND_STAGE = {"13.2", "13.3"}
 
 
+_CHECKER_SPEC = importlib.util.spec_from_file_location(
+    "check_proposal", PLUGIN / "scripts" / "check_proposal.py"
+)
+assert _CHECKER_SPEC is not None
+assert _CHECKER_SPEC.loader is not None
+_checker = importlib.util.module_from_spec(_CHECKER_SPEC)
+# a dataclass resolves its module through sys.modules while the class is built
+sys.modules[_CHECKER_SPEC.name] = _checker
+_CHECKER_SPEC.loader.exec_module(_checker)
+
+
 def _checklist_items() -> dict[str, dict]:
-    """Every item line under a `## Step` heading, parsed by the pinned grammar;
-    a bullet under a step heading that does not fit the grammar is a defect."""
-    items: dict[str, dict] = {}
-    in_steps = False
-    for number, line in enumerate(
-        CHECKLIST.read_text(encoding="utf-8").splitlines(), 1
-    ):
-        if line.startswith("## "):
-            in_steps = line.startswith("## Step ")
-            continue
-        if not in_steps or not line.startswith("- "):
-            continue
-        match = ITEM.match(line)
-        assert match, f"checklist.md:{number}: not an item line: {line[:90]}"
-        item_id, kind, scope, depends, text = match.groups()
-        assert item_id not in items, f"checklist.md:{number}: duplicate item {item_id}"
-        deps = [] if depends == "none" else [d.strip() for d in depends.split(",")]
-        items[item_id] = {
-            "kind": kind,
-            "scope": scope,
-            "depends": deps,
-            "text": text,
-            "line": number,
+    """The checklist through the checker's own parser: one grammar, one writer."""
+    return {
+        item_id: {
+            "kind": item.kind,
+            "scope": item.scope,
+            "depends": list(item.depends),
+            "text": item.text,
+            "line": item.line,
         }
-    return items
+        for item_id, item in _checker.read_checklist(CHECKLIST).items()
+    }
 
 
 def _cited_ids(text: str) -> set[str]:
