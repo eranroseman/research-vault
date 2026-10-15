@@ -136,3 +136,23 @@ experiment-proposal@research-vault   installed, enabled  0.1.0    ~/.codex/.tmp/
 `codex plugin list` printed every marketplace; only the `research-vault` block is quoted. The installed cache folder `~/.codex/plugins/cache/research-vault/experiment-proposal/0.1.0` holds `LICENSE`, `README.md`, `THIRD-PARTY-NOTICES.md`, `agents/hci-researcher.md`, `references/`, `skills/{design,lit-search,review,the-ethics-board}` and `templates/`.
 
 Verdict: pass. The marketplace was read from `.claude-plugin/marketplace.json`, and `experiment-proposal@research-vault` installed from the GitHub clone as 0.1.0, installed and enabled, with the four skills and the agent present in the cache. The README's Codex install line is now tested from git. No session check was run, so the earlier findings on Codex's own skill and agent listing stand unchanged. The plugin and the `research-vault` marketplace are left installed.
+
+## Post-landing update to 0.2.0 (2026-10-15)
+
+- Host: codex-cli 0.147.0.
+- Source: the GitHub repository, as installed in the section above (marketplace `research-vault`). The landing commit is `c9c09d9` on `main`, tag `experiment-proposal--v0.2.0`.
+- Before: `experiment-proposal@research-vault` installed at 0.1.0; the `research-vault` marketplace was already configured, so no `marketplace add` was run.
+
+```text
+$ codex plugin marketplace upgrade research-vault
+Upgraded marketplace `research-vault` to the latest configured revision.
+$ codex plugin add experiment-proposal@research-vault
+Added plugin `experiment-proposal` from marketplace `research-vault`.
+Installed plugin root: ~/.codex/plugins/cache/research-vault/experiment-proposal/0.2.0
+$ codex plugin list
+experiment-proposal@research-vault  installed, enabled  0.2.0
+```
+
+`codex plugin list` printed every marketplace; only the `experiment-proposal` line is quoted. The installed root holds `skills/` with `design`, `lit-search`, `review` and `the-ethics-board`, and `agents/hci-researcher.md`.
+
+Verdict: pass. The marketplace upgraded to the latest configured revision, and `codex plugin add` installed 0.2.0 (installed plugin root `.../experiment-proposal/0.2.0`); the list shows it installed and enabled at 0.2.0 where it showed 0.1.0 before the upgrade. The skills and the agent are the same as at 0.1.0. Only the commands above are recorded here; no session check was run for this section, so the earlier findings on Codex's own skill and agent listing stand as recorded for 0.1.0.

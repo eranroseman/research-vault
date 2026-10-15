@@ -177,3 +177,28 @@ $ claude plugin list
 ```
 
 Verdict: pass. The four skills (`design`, `lit-search`, `review`, `the-ethics-board`) and the agent (`hci-researcher`) are listed, with no hooks, MCP servers or LSP servers, at version 0.1.0 and user scope. The command output does not show the `experiment-proposal:` prefix; the earlier local-path section recorded that prefix from the session registry, and no session check was repeated here. The plugin and the `research-vault` marketplace are left installed.
+
+## Post-landing update to 0.2.0 (2026-10-15)
+
+- Host: Claude Code 2.1.273.
+- Source: the GitHub repository, as installed in the section above (marketplace `research-vault`, user scope). The landing commit is `c9c09d9` on `main`, tag `experiment-proposal--v0.2.0`.
+- Before: `experiment-proposal@research-vault` at 0.1.0 (the update output below names it).
+- Form: the update commands, not the add form, since the marketplace and the plugin were already installed.
+
+```text
+$ claude plugin marketplace update research-vault
+✔ Successfully updated marketplace: research-vault
+$ claude plugin update experiment-proposal@research-vault
+✔ Plugin "experiment-proposal" updated from 0.1.0 to 0.2.0 for scope user. Restart to apply changes.
+$ claude plugin details experiment-proposal@research-vault
+experiment-proposal 0.2.0
+  Skills (4)  design, lit-search, review, the-ethics-board
+  Agents (1)  hci-researcher
+  Hooks (0)
+  MCP servers (0)
+  Always-on: ~618 tok
+```
+
+`claude plugin details` printed more lines; only the decisive ones are quoted. Its Description line shows the marketplace entry's description, "Design a controlled HCI experiment in rounds, freeze the brief, and check the written proposal against it.", which comes from `.claude-plugin/marketplace.json`, not from `plugin.json`.
+
+Verdict: pass. The installed plugin moved from 0.1.0 to 0.2.0 at user scope, and the component inventory is the same as at 0.1.0: four skills (`design`, `lit-search`, `review`, `the-ethics-board`), one agent (`hci-researcher`), no hooks and no MCP servers. The update output asks for a restart to apply the change. Only the commands above are recorded here; no session check was run for this section, so the earlier session findings stand as recorded for 0.1.0.
