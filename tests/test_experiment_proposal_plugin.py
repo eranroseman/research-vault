@@ -6,7 +6,7 @@ and shares no code with ``research_vault``; the repository's skill tests glob
 only the root ``skills/``, so this module carries the plugin's own contract:
 manifests, skill frontmatter and Codex metadata, provenance headers, licence
 notices, the checklist's grammar and graph, the citations the skills make, the
-paths they name, the vendored scripts and the R template.
+paths they name and the vendored scripts.
 """
 
 import ast
@@ -682,8 +682,11 @@ def test_design_is_steps_that_point_at_the_shape_the_checker_and_the_subagent():
         "../../references/checklist.md",
         "../../references/brief.md",
         "../../scripts/check_proposal.py",
+        "../../.claude-plugin/plugin.json",
     ):
         assert pointer in text, f"design does not point at {pointer}"
+    assert "Write only `proposal/design-brief.md`" in text
+    assert "Steps 4 and 5 run inside these rounds" in text
     assert "experiment-proposal:hci-researcher" in text
     assert "Why this matters:" in text
     assert "Recommended:" in text
@@ -702,7 +705,9 @@ def test_the_subagent_runs_nothing():
     """The third marked edit: a tools line without Bash, and a routing
     sentence that names only the questions design still asks."""
     raw = "\n".join(_raw_frontmatter_lines(PLUGIN / "agents" / "hci-researcher.md"))
-    assert "tools: Read, Grep, Glob" in raw
+    assert _frontmatter(PLUGIN / "agents" / "hci-researcher.md")["tools"] == (
+        "Read, Grep, Glob"
+    )
     assert "# local edit (experiment-proposal): tools restricted" in raw
     # the text before "Not for unprompted use." is ours; the upstream text follows
     routing = raw.split("Not for unprompted use.", 1)[0]
