@@ -420,10 +420,15 @@ def _review_rows(
         add(start, f"{name}: rows are not in checklist order")
 
 
+QUOTED = re.compile(r'"[^"]*"')
+
+
 def _fix_numbers(add: Adder, lines: Sequence[str]) -> int:
+    """Fix numbers in order of first appearance; a draft's own words inside a
+    quoted passage are not fixes."""
     seen_max = 0
     for number, raw in enumerate(lines, 1):
-        for match in FIX.finditer(clean(raw)):
+        for match in FIX.finditer(QUOTED.sub("", clean(raw))):
             value = int(match.group(1))
             if value == seen_max + 1:
                 seen_max = value

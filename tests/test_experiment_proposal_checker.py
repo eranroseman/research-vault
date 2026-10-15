@@ -421,6 +421,13 @@ def test_fix_numbers_are_contiguous_and_the_summary_recomputes(tmp_path):
     path = tmp_path / "review.md"
     path.write_text(failing, encoding="utf-8")
     assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
+    quoted = mutate(
+        failing,
+        '- **1.1** pass: "a quoted passage" (Design, para 2)',
+        '- **1.1** pass: "we will fix 2 bugs before the pilot" (Design, para 2)',
+    )
+    path.write_text(quoted, encoding="utf-8")
+    assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
     gap = mutate(failing, "fix 3: change", "fix 5: change")
     path.write_text(gap, encoding="utf-8")
     assert "fix 5 appears before fix 3" in run("review", str(path)).stdout
