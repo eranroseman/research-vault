@@ -34,7 +34,3 @@ No interaction is expected: our field study gave no hint that the keyboard's eff
 ## Participants
 
 Students recruited by flyer, screened by a short form for handedness, age, phone ownership and no prior watch swipe use, because handedness and prior swipe use change typing speed, phone ownership keeps everyone familiar with a touch keyboard, and the age bounds match the field study's users; the pilot (three people from the lab, data not reported, because lab members are not the target population) will refine the phrase count.
-
-## Analysis
-
-A mixed ANOVA on words per minute and on error rate.

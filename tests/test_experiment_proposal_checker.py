@@ -691,3 +691,35 @@ def test_sections_can_be_overridden_and_headings_match_case_insensitively(tmp_pa
     assert run("draft", str(path)).returncode == 0
     custom = run("draft", str(path), "--sections", "Introduction, Design, Appendix")
     assert custom.returncode == 0, custom.stdout
+
+
+# --------------------------------------------------------------------------
+# The evaluation fixtures agree with the checker
+# --------------------------------------------------------------------------
+
+FIXTURES = (
+    ROOT / "docs" / "research" / "2026-10-13-experiment-proposal-evals" / "fixtures"
+)
+
+
+def test_the_brief_fixture_is_a_frozen_brief_the_checker_accepts():
+    result = run("brief", str(FIXTURES / "proposal-with-defects.brief.md"))
+    assert result.returncode == 0, result.stdout
+
+
+def test_the_draft_fixture_fails_exactly_the_three_planted_mechanics():
+    """D3 (no bullet list), D8 (14 references) and D9 (no supervision
+    sentence) are the lens defects; sections and the word count hold."""
+    result = run(
+        "draft",
+        str(FIXTURES / "proposal-with-defects.md"),
+        "--supervisor",
+        "the course instructor",
+    )
+    assert result.returncode == 1
+    messages = [line.split(": ", 1)[1] for line in result.stdout.splitlines()]
+    assert messages == [
+        "references: 14 entries; the template asks for 15 to 20",
+        "introduction: no bullet list of contributions",
+        "appendix: no consent sentence saying the study is under the supervision of the instructor",
+    ]
