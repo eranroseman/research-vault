@@ -1,6 +1,6 @@
 # The review
 
-`proposal/review.md` is `review`'s record of one pass over the draft. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py" review proposal/review.md` (on a host that leaves the variable unexpanded, `../scripts/check_proposal.py` relative to this file) checks everything below and prints one line per defect.
+`proposal/review.md` is `review`'s record of one pass over the draft. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py" review proposal/review.md` (on a host that leaves the variable unexpanded, `../scripts/check_proposal.py` relative to this file) checks the shape below, except the wording of each value, and prints one line per defect; the wording rules are yours to keep.
 
 ## Header
 

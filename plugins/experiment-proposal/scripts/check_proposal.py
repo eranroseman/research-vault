@@ -490,15 +490,35 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
         for line in _lines_in(lines, by_name[name])
         if line.startswith("- fail")
     )
-    waivers = (
-        sum(
-            1
+    waiver_lines = (
+        [
+            line
             for line in _lines_in(lines, by_name["Waivers"])
             if line.startswith("- ") and line.strip() != "- none"
-        )
+        ]
         if "Waivers" in by_name
-        else 0
+        else []
     )
+    waivers = len(waiver_lines)
+    waived_rows = {
+        item_id for item_id, result in results.items() if result == "fail (waived)"
+    }
+    waived_entries = {
+        m.group(1)
+        for line in waiver_lines
+        if (m := re.match(r"^- (\d{1,2}\.\d{1,2}) waived", line))
+    }
+    if "Waivers" in by_name:
+        for item_id in sorted(waived_rows - waived_entries, key=item_key):
+            add(
+                by_name["Waivers"][0],
+                f"row {item_id} is waived but has no Waivers entry",
+            )
+        for item_id in sorted(waived_entries - waived_rows, key=item_key):
+            add(
+                by_name["Waivers"][0],
+                f"Waivers names {item_id}, whose row is not `fail (waived)`",
+            )
     if "Summary" in by_name:
         start, end = by_name["Summary"]
         summary = next(

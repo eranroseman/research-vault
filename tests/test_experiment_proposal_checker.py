@@ -458,3 +458,12 @@ def test_a_group_of_waivers_counts_its_entries(tmp_path):
     path = tmp_path / "review.md"
     path.write_text(text, encoding="utf-8")
     assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
+    orphan_row = mutate(
+        text,
+        '- 9.3 waived, reason: "the program is bought, not written" (2026-10-27)\n',
+        '- 9.4 waived, reason: "x" (2026-10-27)\n',
+    )
+    path.write_text(orphan_row, encoding="utf-8")
+    out = run("review", str(path)).stdout
+    assert "row 9.3 is waived but has no Waivers entry" in out
+    assert "Waivers names 9.4, whose row is not `fail (waived)`" in out
