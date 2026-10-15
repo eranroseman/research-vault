@@ -1,5 +1,7 @@
 # Design: experiment-proposal, a plugin for designing and reviewing an experiment proposal
 
+Disposition: superseded-by: 2026-10-14-experiment-proposal-v2-design.md (2026-10-14; the vendoring, layout and git decisions stand and are listed there)
+
 Date: 2026-10-13. Status: approved in brainstorming, awaiting spec review. Branch: `experiment-proposal-plugin`.
 
 **Outside the assembly decomposition.** The plugin lies outside the decomposition in `docs/superpowers/specs/2026-09-05-assembly-design.md`, and this spec does not occupy the single active-spec slot that document's decision 22 allows.
