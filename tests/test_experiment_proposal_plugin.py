@@ -542,15 +542,18 @@ def test_lit_search_names_every_environment_name_and_key_file_the_scripts_read()
     assert "~/.config/thesis-proposal/api-keys.env" in text
 
 
-def test_lit_search_checks_python_runs_both_entry_points_and_writes_nothing():
+def test_lit_search_checks_python_names_the_indexes_the_target_and_writes_nothing():
     text = _skill_text("lit-search")
     assert "3.11" in text
     assert "${CLAUDE_PLUGIN_ROOT}/skills/lit-search/scripts/search.py" in text
     assert "${CLAUDE_PLUGIN_ROOT}/skills/lit-search/scripts/snowball.py" in text
-    assert "writes nothing" in text or "Write no files" in text
+    assert "writes nothing" in text
     assert "adds no kept source" in text  # the stop rule
     assert "the claim it" in text  # keep a source only with a named claim
     assert "item 5.2" in text
+    assert "15 to 20" in text
+    assert "which indexes will answer" in text
+    assert "no Semantic Scholar key" in text
     for index in (
         "Crossref",
         "OpenAlex",
@@ -560,6 +563,7 @@ def test_lit_search_checks_python_runs_both_entry_points_and_writes_nothing():
         "OpenCitations",
     ):
         assert index in text
+    assert text.count("Done when") >= 4
 
 
 def test_readme_covers_install_commands_prerequisites_and_citation_requests():
