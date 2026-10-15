@@ -1951,7 +1951,9 @@ def test_review_is_steps_that_run_the_checker_and_keep_the_evidence_rule():
         "${CLAUDE_PLUGIN_ROOT}/references/checklist.md",
         "${CLAUDE_PLUGIN_ROOT}/references/review.md",
         "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py",
+        "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json",
         "../../references/review.md",
+        "../../.claude-plugin/plugin.json",
     ):
         assert pointer in text, f"review does not point at {pointer}"
     assert "run /experiment-proposal:design first" in text
@@ -1995,7 +1997,7 @@ Expected: the three new tests fail against the shipped review skill; the result-
 
 - [ ] **Step 2: Write the skill**
 
-Replace `plugins/experiment-proposal/skills/review/SKILL.md` with (about 880 words; budget 1,100):
+Replace `plugins/experiment-proposal/skills/review/SKILL.md` with (about 900 words; budget 1,100):
 
 ```markdown
 ---
@@ -2013,6 +2015,7 @@ You check the user's proposal draft, item by item, against the checklist and the
 - The checklist: `${CLAUDE_PLUGIN_ROOT}/references/checklist.md`; on a host that leaves the variable unexpanded, `../../references/checklist.md` relative to this file. Read it whole.
 - The review's shape: `${CLAUDE_PLUGIN_ROOT}/references/review.md` (`../../references/review.md`). Follow it when you write the review.
 - The checker, `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py"` (`../../scripts/check_proposal.py`): `draft <path> [--sections "..."] [--words A-B] [--references A-B] [--supervisor "<name>"]` for the template's mechanics; `review proposal/review.md` for your own file.
+- The version for the review's `Checklist:` line: the `version` in `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` (`../../.claude-plugin/plugin.json`).
 - The brief, `proposal/design-brief.md`, and the draft at the brief's `Draft:` path, or the path the user names, which wins; note it in the review.
 
 ## Steps
