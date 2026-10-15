@@ -1120,6 +1120,11 @@ def test_a_group_of_waivers_counts_its_entries(tmp_path):
     path = tmp_path / "review.md"
     path.write_text(text, encoding="utf-8")
     assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
+    orphan_row = mutate(text, '- 9.3 waived, reason: "the program is bought, not written" (2026-10-27)\n', '- 9.4 waived, reason: "x" (2026-10-27)\n')
+    path.write_text(orphan_row, encoding="utf-8")
+    out = run("review", str(path)).stdout
+    assert "row 9.3 is waived but has no Waivers entry" in out
+    assert "Waivers names 9.4, whose row is not `fail (waived)`" in out
 ```
 
 Run: `../../.venv/bin/python -m pytest tests/test_experiment_proposal_checker.py -q -k review`
@@ -1264,11 +1269,19 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
         for line in _lines_in(lines, by_name[name])
         if line.startswith("- fail")
     )
-    waivers = (
-        sum(1 for line in _lines_in(lines, by_name["Waivers"]) if line.startswith("- ") and line.strip() != "- none")
+    waiver_lines = (
+        [line for line in _lines_in(lines, by_name["Waivers"]) if line.startswith("- ") and line.strip() != "- none"]
         if "Waivers" in by_name
-        else 0
+        else []
     )
+    waivers = len(waiver_lines)
+    waived_rows = {item_id for item_id, result in results.items() if result == "fail (waived)"}
+    waived_entries = {m.group(1) for line in waiver_lines if (m := re.match(r"^- (\d{1,2}\.\d{1,2}) waived", line))}
+    if "Waivers" in by_name:
+        for item_id in sorted(waived_rows - waived_entries, key=item_key):
+            add(by_name["Waivers"][0], f"row {item_id} is waived but has no Waivers entry")
+        for item_id in sorted(waived_entries - waived_rows, key=item_key):
+            add(by_name["Waivers"][0], f"Waivers names {item_id}, whose row is not `fail (waived)`")
     if "Summary" in by_name:
         start, end = by_name["Summary"]
         summary = next(
@@ -1313,7 +1326,7 @@ Create `plugins/experiment-proposal/references/review.md` (at most 800 words; th
 ````markdown
 # The review
 
-`proposal/review.md` is `review`'s record of one pass over the draft. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py" review proposal/review.md` (on a host that leaves the variable unexpanded, `../scripts/check_proposal.py` relative to this file) checks everything below and prints one line per defect.
+`proposal/review.md` is `review`'s record of one pass over the draft. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py" review proposal/review.md` (on a host that leaves the variable unexpanded, `../scripts/check_proposal.py` relative to this file) checks the shape below, except the wording of each value, and prints one line per defect; the wording rules are yours to keep.
 
 ## Header
 
