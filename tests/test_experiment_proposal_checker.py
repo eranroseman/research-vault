@@ -5,6 +5,7 @@ mutate it into each defect the checker must name."""
 
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -96,6 +97,33 @@ def test_json_output_lists_defects(tmp_path):
     assert result.returncode == 1
     defects = json.loads(result.stdout)
     assert defects[0]["message"] == "header: no `Draft: <path>` line"
+
+
+def test_a_duplicated_checklist_item_exits_2(tmp_path):
+    """The checker reads the checklist beside itself; a repeated item ID is a
+    defect of that file, reported as unreadable (exit 2) with the file named."""
+    scripts = tmp_path / "scripts"
+    references = tmp_path / "references"
+    scripts.mkdir()
+    references.mkdir()
+    script = scripts / "check_proposal.py"
+    shutil.copy(CHECKER, script)
+    lines = (PLUGIN / "references" / "checklist.md").read_text(encoding="utf-8")
+    lines = lines.splitlines(keepends=True)
+    first = next(i for i, line in enumerate(lines) if line.startswith("- **1.1** ("))
+    lines.insert(first + 1, lines[first])
+    (references / "checklist.md").write_text("".join(lines), encoding="utf-8")
+    brief = tmp_path / "brief.md"
+    brief.write_text(valid_brief(), encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(script), "brief", str(brief)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2, result.stdout
+    assert "duplicate item" in result.stderr
+    assert "checklist.md" in result.stderr
 
 
 # --------------------------------------------------------------------------

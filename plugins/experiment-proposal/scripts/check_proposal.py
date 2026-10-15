@@ -98,6 +98,8 @@ def read_checklist(path: Path = CHECKLIST) -> dict[str, Item]:
         if match is None:
             raise ValueError(f"{path}:{number}: not an item line: {line[:80]}")
         item_id, kind, scope, depends, text = match.groups()
+        if item_id in items:
+            raise ValueError(f"{path}:{number}: duplicate item {item_id}")
         deps = () if depends == "none" else tuple(d.strip() for d in depends.split(","))
         items[item_id] = Item(kind, scope, deps, text, number)
     return items
