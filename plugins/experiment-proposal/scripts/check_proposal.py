@@ -8,7 +8,8 @@ Usage:
         [--words 2000-4000] [--references 15-20] [--supervisor "<name>"]
 
 Exit 0: clean. Exit 1: defects, one per line as `<file>:<line>: <message>`
-(a JSON list with --json). Exit 2: a file could not be read.
+(a JSON list with --json). Exit 2: a file could not be read, the arguments
+were malformed, or the interpreter is older than 3.11.
 
 This script is the single source of truth for the three shapes. The files
 references/brief.md and references/review.md describe the same shapes in
@@ -33,6 +34,8 @@ ITEM = re.compile(
     r"\((draft-checked|attested|defend-stage); (design-tree|review-only); "
     r"depends on ([^)]+)\) (.+)$"
 )
+# the first plugin version whose brief shape this checker checks; bump when the shape changes
+SHAPE_VERSION = (0, 2)
 STATUSES = ("settled", "pilot settles", "provisional")
 ENTRY_LINES = ("Decision", "Rationale", "Would change if", "Status", "Source")
 AMENDMENT_LINES = ("New decision", "Reason", "Replaces")
@@ -57,11 +60,14 @@ REVIEW_SECTIONS = (
     "Hand-off",
 )
 SUBSTANCE = ("13.6", "13.7", "13.8", "13.9", "13.10", "13.11")
+RESULTS = ("pass narrowly", "pass", "fail (waived)", "fail", "not checked")
 ROW = re.compile(
-    r"^- \*\*(\d{1,2}\.\d{1,2})\*\* (pass narrowly|pass|fail \(waived\)|fail|not checked)"
-    r"(?: \(fix (\d+) applied\))?(?::\s*(.*))?$"
+    r"^- \*\*(\d{1,2}\.\d{1,2})\*\* ("
+    + "|".join(re.escape(r) for r in RESULTS)
+    + r")(?: \(fix (\d+) applied\))?(?::\s*(.*))?$"
 )
-FIX = re.compile(r"\bfix (\d+)\b")
+FIX = re.compile(r"\bfix (\d+)\b", re.IGNORECASE)
+APPLIED = re.compile(r"\(fix \d+ applied\)", re.IGNORECASE)
 QUOTE = re.compile(r'"[^"]+"\s*\([^)]+\)')
 CONFIRMED = re.compile(r"confirmed by the user, \d{4}-\d{2}-\d{2}")
 SUMMARY = re.compile(
@@ -97,11 +103,17 @@ def _norm(text: str) -> str:
 
 def _matches(heading: str, name: str) -> bool:
     """`## 2. Literature Review` matches `Literature review`; `## Appendices` and
-    `## Appendix B: consent form` both match `Appendix`."""
-    target = _norm(name)
-    if target.startswith("appendix"):
-        target = "append"
-    return _norm(heading).startswith(target)
+    `## Appendix B: consent form` both match `Appendix`, but only `## Appendix B...`
+    matches `Appendix B`. A name with ` or ` matches a heading that starts with
+    either side."""
+    key = _norm(heading)
+    for side in name.split(" or "):
+        target = _norm(side)
+        if target == "appendix":
+            target = "append"
+        if key.startswith(target):
+            return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -238,6 +250,18 @@ def header_defects(add: Adder, header: Sequence[str]) -> re.Match[str] | None:
     return status
 
 
+def _checklist_version(header: Sequence[str]) -> str | None:
+    """The `<major>.<minor>.<patch>` of the `Checklist:` line, or None."""
+    return next(
+        (line.rsplit(" ", 1)[1] for line in header if HEADER_VERSION.match(line)), None
+    )
+
+
+def _older_than_shape(version: str) -> bool:
+    major, minor, _patch = version.split(".")
+    return (int(major), int(minor)) < SHAPE_VERSION
+
+
 def decisions_of(
     add: Adder,
     lines: Sequence[str],
@@ -343,7 +367,19 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
     sections = sections_of(lines)
     names = [name for name, _, _ in sections]
     first = sections[0][1] if sections else 1
-    status = header_defects(add, header_of(lines, sections))
+    by_name = {name: (start, end) for name, start, end in sections}
+    header = header_of(lines, sections)
+    status = header_defects(add, header)
+    version = _checklist_version(header)
+    if version is not None and _older_than_shape(version):
+        print(
+            f"{path}: brief frozen under checklist {version}; "
+            "only the header and Amendments are checked",
+            file=sys.stderr,
+        )
+        if "Amendments" in by_name:
+            amendment_defects(add, lines, by_name["Amendments"])
+        return defects
     for name, start, _ in sections:
         if name not in BRIEF_SECTIONS and name != "Amendments":
             add(
@@ -360,7 +396,6 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
             sections[names.index("Amendments")][1],
             "Amendments must be the last section",
         )
-    by_name = {name: (start, end) for name, start, end in sections}
     design_tree = {i for i, it in items.items() if it.scope == "design-tree"}
     entries: dict[str, str] = {}
     if "Decisions" in by_name:
@@ -445,10 +480,10 @@ QUOTED = re.compile(r'"[^"]*"')
 
 def _fix_numbers(add: Adder, lines: Sequence[str]) -> int:
     """Fix numbers in order of first appearance; a draft's own words inside a
-    quoted passage are not fixes."""
+    quoted passage and an `(fix N applied)` marker are not fixes."""
     seen_max = 0
     for number, raw in enumerate(lines, 1):
-        for match in FIX.finditer(QUOTED.sub("", clean(raw))):
+        for match in FIX.finditer(APPLIED.sub("", QUOTED.sub("", clean(raw)))):
             value = int(match.group(1))
             if value == seen_max + 1:
                 seen_max = value
@@ -513,7 +548,7 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
         for name in ("Cross-section consistency", "Brief against draft")
         if name in by_name
         for line in _lines_in(lines, by_name[name])
-        if line.startswith("- fail")
+        if line.lower().startswith("- fail")
     )
     waiver_lines = (
         [
@@ -681,10 +716,14 @@ def check_draft(
             for n in range(start + 1, end + 1)
         ):
             add(start, "introduction: no bullet list of contributions")
-    appendix_text = "\n".join(
-        clean(lines[n - 1])
-        for start, end in appendix_ranges
-        for n in range(start, end + 1)
+    appendix_text = re.sub(
+        r"\s+",
+        " ",
+        "\n".join(
+            clean(lines[n - 1])
+            for start, end in appendix_ranges
+            for n in range(start, end + 1)
+        ),
     )
     match = SUPERVISION.search(appendix_text)
     if match is None:

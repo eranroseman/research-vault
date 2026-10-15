@@ -1,12 +1,14 @@
 """Plugin-scoped checks for ``plugins/experiment-proposal``.
 
-Spec: ``docs/superpowers/specs/2026-10-13-experiment-proposal-plugin-design.md``,
-section Tests. The plugin is a second plugin in this repository's marketplace
-and shares no code with ``research_vault``; the repository's skill tests glob
-only the root ``skills/``, so this module carries the plugin's own contract:
-manifests, skill frontmatter and Codex metadata, provenance headers, licence
-notices, the checklist's grammar and graph, the citations the skills make, the
-paths they name and the vendored scripts.
+Spec: ``docs/superpowers/specs/2026-10-14-experiment-proposal-v2-design.md``,
+section Tests, and the 0.1.0 spec it supersedes,
+``docs/superpowers/specs/2026-10-13-experiment-proposal-plugin-design.md``. The
+plugin is a second plugin in this repository's marketplace and shares no code
+with ``research_vault``; the repository's skill tests glob only the root
+``skills/``, so this module carries the plugin's own contract: manifests, skill
+frontmatter and Codex metadata, provenance headers, licence notices, the
+checklist's grammar and graph, the citations the skills make, the paths they
+name and the vendored scripts.
 """
 
 import ast
@@ -765,7 +767,7 @@ def test_review_names_the_attested_items_and_the_defaults():
 
 def test_the_result_words_and_counts_agree_between_the_review_shape_and_the_checker():
     reference = (PLUGIN / "references" / "review.md").read_text(encoding="utf-8")
-    for result in ("pass", "pass narrowly", "fail", "fail (waived)", "not checked"):
+    for result in _checker.RESULTS:
         assert f"`{result}`" in reference, f"review.md does not define `{result}`"
     for label in _checker.SUMMARY_LABELS:
         assert label in reference

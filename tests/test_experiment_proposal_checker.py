@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -87,6 +88,14 @@ def test_an_unreadable_file_exits_2(tmp_path):
     result = run("brief", str(tmp_path / "missing.md"))
     assert result.returncode == 2
     assert "cannot read" in result.stderr
+
+
+def test_the_usage_text_names_every_exit_2_cause():
+    out = " ".join(run("--help").stdout.split())
+    assert (
+        "Exit 2: a file could not be read, the arguments were malformed, "
+        "or the interpreter is older than 3.11." in out
+    )
 
 
 def test_json_output_lists_defects(tmp_path):
@@ -287,6 +296,82 @@ def test_mdformat_escapes_do_not_break_the_brief(tmp_path):
     assert run("brief", str(path)).returncode == 0
 
 
+def _brief_under(version: str) -> str:
+    """A brief frozen 2026-10-10 under `version` that breaks every entry rule:
+    a 500-character Decision, an entry for the retired item 6.7, no entry for
+    7.9."""
+    assert "6.7" not in ITEMS
+    assert "7.9" in DESIGN_TREE
+    text = mutate(
+        valid_brief(status="frozen 2026-10-10"),
+        "Checklist: experiment-proposal 0.2.0",
+        f"Checklist: experiment-proposal {version}",
+    )
+    text = mutate(text, "- Decision: a decision.", "- Decision: " + "x" * 488)
+    return mutate(text, "### 7.9 A title", "### 6.7 A title")
+
+
+def test_a_brief_frozen_under_an_older_checklist_is_checked_on_header_and_amendments(
+    tmp_path,
+):
+    path = tmp_path / "brief.md"
+    path.write_text(_brief_under("0.1.0"), encoding="utf-8")
+    old = run("brief", str(path))
+    assert old.returncode == 0, old.stdout
+    assert old.stdout == ""
+    assert old.stderr == (
+        f"{path}: brief frozen under checklist 0.1.0; "
+        "only the header and Amendments are checked\n"
+    )
+    path.write_text(_brief_under("0.2.0"), encoding="utf-8")
+    current = run("brief", str(path))
+    assert current.returncode == 1
+    assert current.stderr == ""
+    for message in (
+        "Decision line is 500 characters; at most 400",
+        "entry 6.7 is not a design-tree item",
+        "frozen brief has no entry for design-tree item 7.9",
+    ):
+        assert message in current.stdout, current.stdout
+
+
+def test_an_older_brief_still_answers_for_its_header_and_amendments(tmp_path):
+    amended = _brief_under("0.1.0") + (
+        "\n## Amendments\n\n### Amendment one\n- New decision: between subjects.\n"
+    )
+    amended = mutate(amended, "Draft: proposal/draft.md\n", "")
+    path = tmp_path / "brief.md"
+    path.write_text(amended, encoding="utf-8")
+    result = run("brief", str(path))
+    assert result.returncode == 1
+    assert "header: no `Draft: <path>` line" in result.stdout
+    assert "amendment heading must be `### YYYY-MM-DD, item <ID>, <title>`" in (
+        result.stdout
+    )
+    assert "brief frozen under checklist 0.1.0" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("version", "skipped"),
+    [
+        ("0.0.9", True),
+        ("0.1.9", True),
+        ("0.2.0", False),
+        ("0.2.7", False),
+        ("0.10.0", False),
+        ("1.0.0", False),
+    ],
+)
+def test_the_shape_version_compares_major_and_minor_as_numbers(
+    tmp_path, version, skipped
+):
+    path = tmp_path / "brief.md"
+    path.write_text(_brief_under(version), encoding="utf-8")
+    result = run("brief", str(path))
+    assert (result.returncode == 0) is skipped, result.stdout
+    assert ("brief frozen under checklist" in result.stderr) is skipped
+
+
 # --------------------------------------------------------------------------
 # review
 # --------------------------------------------------------------------------
@@ -480,6 +565,58 @@ def test_a_group_of_waivers_counts_its_entries(tmp_path):
     assert (
         "row 9.3 is waived but has no Waivers entry" in run("review", str(path)).stdout
     )
+
+
+def test_a_capitalised_fix_and_fail_are_counted(tmp_path):
+    text = mutate(
+        valid_review(),
+        "- pass: counts, durations and variable names agree",
+        "- Fail: participant count 24 (Participants) vs 20 (Appendix B). Fix 1: change the consent form to 24.",
+    )
+    text = mutate(
+        text,
+        "Consistency and brief findings: 0. Fixes proposed: 0.",
+        "Consistency and brief findings: 1. Fixes proposed: 1.",
+    )
+    path = tmp_path / "review.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("review", str(path))
+    assert result.returncode == 0, result.stdout
+
+
+def test_an_applied_marker_is_not_a_fix_in_the_order_scan(tmp_path):
+    """Row 1.1 re-checked reads `(fix 11 applied)`; the fixes themselves sit
+    further down, so the marker precedes fix 9's first appearance."""
+    findings = "\n".join(
+        f"- fail: a mismatch, number {n}. fix {n}: change it." for n in range(1, 13)
+    )
+    text = mutate(
+        valid_review(), "- pass: counts, durations and variable names agree", findings
+    )
+    text = mutate(
+        text,
+        '- **1.1** pass: "a quoted passage" (Design, para 2)',
+        '- **1.1** pass (fix 11 applied): "The new sentence" (Introduction, para 1)',
+    )
+    text = mutate(
+        text,
+        "Consistency and brief findings: 0. Fixes proposed: 0.",
+        "Consistency and brief findings: 12. Fixes proposed: 12.",
+    )
+    path = tmp_path / "review.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("review", str(path))
+    assert result.returncode == 0, result.stdout
+    gap = mutate(text, "fix 4: change it.", "fix 14: change it.")
+    path.write_text(gap, encoding="utf-8")
+    assert "fix 14 appears before fix 4" in run("review", str(path)).stdout
+
+
+def test_the_row_pattern_accepts_every_result_word():
+    for result in checker.RESULTS:
+        match = checker.ROW.match(f"- **1.1** {result}: x")
+        assert match is not None, result
+        assert match.group(2) == result
 
 
 # --------------------------------------------------------------------------
@@ -691,6 +828,54 @@ def test_sections_can_be_overridden_and_headings_match_case_insensitively(tmp_pa
     assert run("draft", str(path)).returncode == 0
     custom = run("draft", str(path), "--sections", "Introduction, Design, Appendix")
     assert custom.returncode == 0, custom.stdout
+
+
+@pytest.mark.parametrize("heading", ["Hypotheses", "Research Questions and Hypotheses"])
+def test_a_section_named_with_or_matches_either_side(tmp_path, heading):
+    text = mutate(
+        valid_draft(), "## Research questions or Hypotheses\n", f"## {heading}\n"
+    )
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 0, result.stdout
+
+
+def test_the_appendix_stem_belongs_to_a_bare_appendix_only(tmp_path):
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(), encoding="utf-8")
+    named = run("draft", str(path), "--sections", "Introduction, Appendix B")
+    assert named.returncode == 0, named.stdout
+    text = mutate(
+        valid_draft(),
+        "## Appendix A: recruiting announcement\n",
+        "## Appendices\n\n### A: recruiting announcement\n",
+    )
+    text = mutate(text, "## Appendix B: consent form\n", "### B: consent form\n")
+    text = mutate(text, "## Appendix C: session script\n", "### C: session script\n")
+    path.write_text(text, encoding="utf-8")
+    assert run("draft", str(path)).returncode == 0
+    result = run("draft", str(path), "--sections", "Introduction, Appendix B")
+    assert result.returncode == 1
+    assert "sections: `Appendix B` not found after `Introduction`" in result.stdout
+
+
+def test_a_consent_form_wrapped_between_the_title_and_the_name_passes(tmp_path):
+    sentence = textwrap.fill(
+        "This study is a project run by the author under the supervision of Dr. "
+        "Jane Smith. You may stop at any time.",
+        width=72,
+    )
+    assert "supervision of Dr.\nJane Smith." in sentence
+    text = mutate(
+        valid_draft(),
+        "This study is run by the author under the supervision of Dr. Example as a course project. You may stop at any time.",
+        sentence,
+    )
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Jane Smith")
+    assert result.returncode == 0, result.stdout
 
 
 # --------------------------------------------------------------------------
