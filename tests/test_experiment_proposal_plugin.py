@@ -222,6 +222,10 @@ def test_every_vendored_file_carries_a_full_provenance_header(relative):
             f"{relative}: header must follow frontmatter"
         )
         assert "mdformat normalized this file" in text
+        if relative == "agents/hci-researcher.md":
+            assert "a tools line" in text, (
+                f"{relative}: header lacks the tools-line edit"
+            )
 
 
 def test_the_subagent_is_renamed_with_a_marked_local_edit():
@@ -253,6 +257,8 @@ def test_third_party_notices_carry_the_mit_text_and_every_copyright_holder():
         "Matt Pocock",
     ):
         assert f"Copyright (c) 2026 {holder}" in text, f"notices lack {holder}"
+    assert "statistical-power" not in text
+    assert "three marked local edits" in text
 
 
 # --------------------------------------------------------------------------
@@ -573,7 +579,7 @@ def test_lit_search_checks_python_names_the_indexes_the_target_and_writes_nothin
     assert text.count("Done when") >= 4
 
 
-def test_readme_covers_install_commands_prerequisites_and_citation_requests():
+def test_readme_states_the_lens_the_mechanics_the_prerequisites_and_the_vendored_facts():
     text = (PLUGIN / "README.md").read_text(encoding="utf-8")
     assert "claude plugin marketplace add eranroseman/research-vault" in text
     assert "claude plugin install experiment-proposal@research-vault" in text
@@ -581,20 +587,29 @@ def test_readme_covers_install_commands_prerequisites_and_citation_requests():
         assert f"/experiment-proposal:{command}" in text, (
             f"README lacks the {command} command"
         )
-    for prerequisite in (
-        "Rscript",
-        "lme4",
-        "lmerTest",
-        "ordinal",
-        "simr",
-        "3.11",
-        "research-grill",
+    for mechanic in (
+        "2,000 to 4,000",
+        "15 to 20",
+        "under the supervision of",
+        "Research questions or Hypotheses",
     ):
+        assert mechanic in text, f"README lacks the mechanic {mechanic}"
+    for prerequisite in ("git", "3.11", "research-grill"):
         assert prerequisite in text, f"README lacks the prerequisite {prerequisite}"
+    assert "proposal/ethics-review.md" in text
+    assert "Semantic Scholar key" in text
+    assert "Read,Write,Edit,Agent,Bash(git:*),Bash(python3:*)" in text
     assert "CITATION.cff" in text
     assert "scientific-agents" in text
     assert "pm-claude-skills" in text
     assert "THIRD-PARTY-NOTICES.md" in text
+    assert "plugin.json" in text
+    assert "0.1.0" not in text
+    assert "0.2.0" not in text
+    lowered = text.lower()
+    assert "rscript" not in lowered
+    assert "simr" not in lowered
+    assert "power" not in lowered
 
 
 # --------------------------------------------------------------------------

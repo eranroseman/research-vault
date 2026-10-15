@@ -35,13 +35,12 @@ rules, how they are discharged and the conformance deviation register are
 
 ## Adopted components
 
-| Component                                                          | Author                          | License      | Adopted as                                                                                                                                                                                                                                                                                                             |
-| ------------------------------------------------------------------ | ------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian) | AgriciDaniel / AI Marketing Hub | MIT          | The compile step, installed whole and unmodified at pin `32ac5a0` and driven by a wrapper. No fork, no vendored prose — see [.out-of-scope/vendoring-compile-tool-prose.md](.out-of-scope/vendoring-compile-tool-prose.md).                                                                                            |
-| [defuddle](https://github.com/kepano/defuddle)                     | kepano                          | MIT          | Candidate for URL-source acquisition; screened, not adopted.                                                                                                                                                                                                                                                           |
-| Better BibTeX                                                      | Emiliano Heyns (retorquere)     | MIT          | Citation keys and CSL rendering. A Zotero plugin, installed by the person, never by this repository.                                                                                                                                                                                                                   |
-| simr                                                               | Peter Green, Catriona MacLeod   | GPL          | Power simulation for the experiment-proposal plugin's `lmer` and `glmer` models; installed by the person from CRAN, never by this repository. The exit: stop invoking it; the participant count and power curve in the brief stay ordinary Markdown, and `proposal/power.R` stays readable R that needs simr to rerun. |
-| [research-grill](https://github.com/scdenney/open-science-skills)  | scdenney                        | CC BY-NC 4.0 | The experiment-proposal plugin's defend stage; a separate install, never a declared dependency, read at `cd70e9b4` and not copied. The exit: stop invoking it; what it wrote stays ordinary Markdown.                                                                                                                  |
+| Component                                                          | Author                          | License      | Adopted as                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------ | ------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian) | AgriciDaniel / AI Marketing Hub | MIT          | The compile step, installed whole and unmodified at pin `32ac5a0` and driven by a wrapper. No fork, no vendored prose — see [.out-of-scope/vendoring-compile-tool-prose.md](.out-of-scope/vendoring-compile-tool-prose.md). |
+| [defuddle](https://github.com/kepano/defuddle)                     | kepano                          | MIT          | Candidate for URL-source acquisition; screened, not adopted.                                                                                                                                                                |
+| Better BibTeX                                                      | Emiliano Heyns (retorquere)     | MIT          | Citation keys and CSL rendering. A Zotero plugin, installed by the person, never by this repository.                                                                                                                        |
+| [research-grill](https://github.com/scdenney/open-science-skills)  | scdenney                        | CC BY-NC 4.0 | The experiment-proposal plugin's defend stage; a separate install, never a declared dependency, read at `cd70e9b4` and not copied. The exit: stop invoking it; what it wrote stays ordinary Markdown.                       |
 
 **The exit, for the one adoption that writes into the vault:** stop invoking
 `claude-obsidian` and everything under `wiki/` remains ordinary markdown with
@@ -65,9 +64,10 @@ local changes limited to frontmatter descriptions and marked as such.
 — MIT, © 2026 K-Dense, Inc., vendored at pin `98c7fae4` into
 `plugins/experiment-proposal/agents/hci-researcher.md`: the upstream
 human-computer-interaction-researcher subagent, its frontmatter name changed to
-`hci-researcher` and a routing sentence prefixed to its description, both marked
-local edits. The upstream README and `CITATION.cff`
-ask to be cited; the plugin README repeats the request.
+`hci-researcher`, a routing sentence prefixed to its description and narrowed to the
+questions design asks, and a tools line added, three marked local edits. The
+upstream README and `CITATION.cff` ask to be cited; the plugin README repeats the
+request.
 
 **[hutzelmann/thesis-proposal-skills](https://github.com/hutzelmann/thesis-proposal-skills)**
 — MIT, © 2026 Thomas Hutzelmann, vendored at pin `a38b7b11`: the nine upstream
@@ -110,10 +110,8 @@ the plugin's `THIRD-PARTY-NOTICES.md`.
 | [mattpocock/skills](https://github.com/mattpocock/skills) | Copyright (c) 2026 Matt Pocock |
 
 Ideas only, no text reproduced: hutzelmann's proposal-supervise (MIT; the six
-substance tests), K-Dense's statistical-power (MIT; the effect-size sourcing
-ranking and the sensitivity range, both restated as checklist items) and
-scdenney's research-grill (CC BY-NC 4.0; the "why this matters" line,
-provisional answers and a written record) were consulted.
+substance tests) and scdenney's research-grill (CC BY-NC 4.0; the "why this
+matters" line, provisional answers and a written record) were consulted.
 
 The guide the plugin's checklist derives from, `docs/guides/experiment-proposal-guide.md`,
 is the author's own, adapted from the Research Methods in HCI course materials
