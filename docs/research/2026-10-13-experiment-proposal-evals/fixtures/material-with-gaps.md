@@ -14,7 +14,7 @@ We record each phrase's transcribed text, its time, and the keystrokes. Keystrok
 
 ## Variables
 
-- Independent: keyboard, tap or swipe, within subjects, because individual typing skill varies enormously and a within-subjects comparison removes it from the comparison; carry-over between the keyboards is symmetric, each is a few minutes of practice away from the other.
+- Independent: keyboard, tap or swipe, within subjects, because individual typing skill varies enormously and a within-subjects comparison removes it from the comparison; carry-over between the keyboards is symmetric, because both use the same letter layout, so what one keyboard teaches (where the letters are) helps the other equally, and each keyboard gets a short practice block before its measured phrases.
 - Dependent: words per minute (phrase length in characters divided by five, divided by the time from first to last keystroke, in minutes), logged by the study app; and uncorrected error rate (the minimum string distance between the transcribed and presented phrase, divided by the larger length), also logged. Both are ratio data. Speed and accuracy will be reported together. Also a 7-point ease-of-use rating after each keyboard (ordinal).
 - Control: right-handed participants aged 18 to 35 who own a smartphone and have never used a swipe keyboard on a watch; the same watch, app, phrase set and room; scripted instructions.
 - Random: typing skill, mood, time of day, which vary by chance within the sample and are left to chance rather than controlled.
