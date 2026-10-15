@@ -24,7 +24,7 @@ Checklist: experiment-proposal 0.2.0
 
 ### 1.3 The data plan
 
-- Decision: no names linked to logs, no recordings; age and handedness collected only to screen; the two experimenters have access; raw logs kept five years.
+- Decision: no names linked to logs, no recordings; age and handedness collected only to screen; the author has access; raw logs kept five years.
 - Rationale: "Nothing identifiable is needed for timing data."
 - Would change if: the committee set a different period.
 - Status: settled
