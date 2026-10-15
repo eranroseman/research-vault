@@ -532,55 +532,6 @@ def test_every_plugin_root_path_a_skill_names_exists(skill_dir):
     assert not missing, f"{skill_dir.name} names paths that do not exist: {missing}"
 
 
-def test_review_reads_the_brief_the_draft_and_the_checklist_and_stops_on_a_missing_one():
-    text = _skill_text("review")
-    assert "${CLAUDE_PLUGIN_ROOT}/references/checklist.md" in text
-    assert "../../references/checklist.md" in text
-    assert "proposal/design-brief.md" in text
-    assert "Draft:" in text
-    assert "proposal/review.md" in text
-    assert "stop and say which" in text
-    assert "run /experiment-proposal:design first" in text
-
-
-def test_review_passes_only_with_evidence_checks_the_four_dimensions_and_applies_picked_fixes():
-    text = _skill_text("review")
-    assert "No quote, no pass" in text
-    assert "confirmed by the user" in text
-    assert "defend-stage" in text
-    assert "items 13.2 and 13.3" in text
-    assert "BLOCKED" in text
-    assert "waiver" in text
-    assert "Cross-section consistency" in text
-    assert "Brief against draft" in text
-    assert "## Amendments" in text
-    for test in (
-        "Delta",
-        "Falsifiability",
-        "Swap",
-        "Necessity",
-        "Method fit",
-        "Executability",
-    ):
-        assert test in text, f"review never names the {test} test"
-    assert "pass narrowly" in text
-    assert "fix 1" in text
-    assert "Which fixes" in text
-    assert "## Summary" in text
-    assert "## Waivers" in text
-
-
-def test_review_hands_off_to_research_grill_or_prints_its_install_commands():
-    text = _skill_text("review")
-    assert "/oss:research-grill defend" in text
-    assert "claude plugin marketplace add scdenney/open-science-skills" in text
-    assert "claude plugin install oss@open-science-skills" in text
-    assert "seed list" in text
-    assert "could someone run a session from the Method alone?" in text
-    assert "declares no dependency" in text
-    assert "~/.claude/plugins/installed_plugins.json" in text
-
-
 def test_lit_search_names_every_environment_name_and_key_file_the_scripts_read():
     """A file read from the user's home directory is a fact the user should
     know from the skill text, not discover from a script."""
@@ -717,3 +668,53 @@ def test_the_subagent_runs_nothing():
     assert "confounds" in routing
     header = (PLUGIN / "agents" / "hci-researcher.md").read_text(encoding="utf-8")
     assert "a tools line" in header
+
+
+def test_review_is_steps_that_run_the_checker_and_keep_the_evidence_rule():
+    text = _skill_text("review")
+    for pointer in (
+        "${CLAUDE_PLUGIN_ROOT}/references/checklist.md",
+        "${CLAUDE_PLUGIN_ROOT}/references/review.md",
+        "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py",
+        "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json",
+        "../../references/review.md",
+        "../../.claude-plugin/plugin.json",
+    ):
+        assert pointer in text, f"review does not point at {pointer}"
+    assert "run /experiment-proposal:design first" in text
+    assert "not frozen" in text
+    assert "no quote, no pass" in text.lower()
+    assert "confirmed by the user" in text
+    assert "pending" in text
+    assert "(fix N applied)" in text
+    assert "Which fixes" in text
+    assert "/oss:research-grill defend" in text
+    assert "~/.claude/plugins/installed_plugins.json" in text
+    assert "claude plugin marketplace add scdenney/open-science-skills" in text
+    assert "claude plugin install oss@open-science-skills" in text
+    assert "could someone run a session from the Method alone?" in text
+    assert "declares no dependency" in text
+    assert text.count("Done when") >= 7
+    lowered = text.lower()
+    assert "power" not in lowered
+    assert "blocked" not in lowered
+
+
+def test_review_names_the_attested_items_and_the_defaults():
+    text = _skill_text("review")
+    ordered = sorted(ATTESTED, key=lambda i: tuple(int(p) for p in i.split(".")))
+    assert f"items {', '.join(ordered[:-1])} and {ordered[-1]}" in text
+    assert "items 13.2 and 13.3" in text
+    for default in ("2,000 to 4,000", "15 to 20", "Research questions or Hypotheses"):
+        assert default in text, f"review does not state the default {default}"
+
+
+def test_the_result_words_and_counts_agree_between_the_review_shape_and_the_checker():
+    reference = (PLUGIN / "references" / "review.md").read_text(encoding="utf-8")
+    for result in ("pass", "pass narrowly", "fail", "fail (waived)", "not checked"):
+        assert f"`{result}`" in reference, f"review.md does not define `{result}`"
+    for label in _checker.SUMMARY_LABELS:
+        assert label in reference
+    assert _checker.DEFEND in reference
+    for command in _checker.INSTALL:
+        assert command in reference

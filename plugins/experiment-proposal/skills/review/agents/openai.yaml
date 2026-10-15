@@ -1,11 +1,12 @@
 ---
 interface:
   display_name: Proposal review
-  short_description: Check an experiment proposal draft against its design brief and
-    the checklist
-  default_prompt: 'Run the review skill: read proposal/design-brief.md, the draft
-    it names and the checklist, write proposal/review.md with a quoted passage per
-    pass and a numbered fix per failure, apply only the fixes the user picks, and
-    print the defend-stage hand-off.'
+  short_description: Check an experiment proposal draft against its design brief,
+    the checklist and the template's mechanics
+  default_prompt: "Run the review skill: read proposal/design-brief.md, the draft\
+    \ it names and the checklist, confirm the template's mechanics and run the draft\
+    \ checker, write proposal/review.md in the review's shape with evidence per pass\
+    \ and a numbered fix per failure, apply only the fixes the user picks, and print\
+    \ the defend-stage hand-off in full."
 policy:
   allow_implicit_invocation: false
