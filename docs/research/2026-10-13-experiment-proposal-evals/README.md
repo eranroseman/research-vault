@@ -68,10 +68,41 @@ Runs at superseded plugin commits stay as evidence; each scenario's passing set 
 
 ## Runs at 0.2.0
 
-| Run | Scenario | Plugin commit | Outcome |
-| --- | -------- | ------------- | ------- |
+| Run                          | Scenario                        | Plugin commit                         | Outcome                                                                                                                                 |
+| ---------------------------- | ------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `runs/material-v2-1.md`      | 2 `design` from material        | `5e13529`                             | Pass: 21 of 21 key rows; round 1 asks no settled row                                                                                    |
+| `runs/material-v2-2.md`      | 2 `design` from material        | `5e13529`                             | FAIL: 7.2 printed weak via "a conflict with another item" and asked as Q4                                                               |
+| `runs/material-v2-3.md`      | 2 `design` from material        | `5e13529`                             | Pass: 21 of 21 key rows                                                                                                                 |
+| `runs/material-v2-4.md`      | 2 `design` from material        | `76e9c28` (design fix `ed96208`)      | FAIL: 7.2 printed weak, the Participants screen read as contradicting it; asked as Q4                                                   |
+| `runs/material-v2-5.md`      | 2 `design` from material        | `76e9c28` (design fix `ed96208`)      | FAIL: 7.2, as v2-4                                                                                                                      |
+| `runs/material-v2-6.md`      | 2 `design` from material        | `76e9c28` (design fix `ed96208`)      | Pass: 21 of 21; frontier listed above Q1                                                                                                |
+| `runs/material-v2-7.md`      | 2 `design` from material        | `76e9c28`, fixture `d692e49`          | Pass: 21 of 21; 7.2 settled                                                                                                             |
+| `runs/material-v2-8.md`      | 2 `design` from material        | `76e9c28`, fixture `d692e49`          | Pass: 21 of 21; 7.2 settled                                                                                                             |
+| `runs/material-v2-9.md`      | 2 `design` from material        | `76e9c28`, fixture `d692e49`          | Pass: 21 of 21; 7.2 settled                                                                                                             |
+| `runs/from-scratch-v2-1.md`  | 3 `design` from scratch         | `5e13529`                             | Pass: 21 of 21, 2.4 provisional, 2.2 pilot settles, 5 subagent calls, checker exit 0, freeze `88002d3`; 429 at turn 4, resent as turn 5 |
+| `runs/from-scratch-v2-2.md`  | 3 `design` from scratch         | `5e13529`                             | Pass: 21 of 21, 4 subagent calls, checker exit 0, freeze `c064037`; driver stopped by the 429 after turn 4, resumed at turn 5           |
+| `runs/from-scratch-v2-3.md`  | 3 `design` from scratch         | `5e13529`                             | Pass: 21 of 21, 8.5 provisional, 6 subagent calls, checker exit 0, freeze `6decbb3`; 429 at turn 4, resent as turn 5                    |
+| `runs/from-scratch-v2-4.md`  | 3 `design` from scratch         | `76e9c28` (design fix `ed96208`)      | Pass: 21 of 21, 8 subagent calls, checker exit 0, freeze `cad4cfc`; no settled entry changed                                            |
+| `runs/from-scratch-v2-5.md`  | 3 `design` from scratch         | `76e9c28` (design fix `ed96208`)      | Pass: 21 of 21, 6 subagent calls, checker exit 0, freeze `9c93370`                                                                      |
+| `runs/from-scratch-v2-6.md`  | 3 `design` from scratch         | `76e9c28` (design fix `ed96208`)      | Pass: 21 of 21, 3 subagent calls, checker exit 0, freeze `b33ea75`                                                                      |
+| `runs/review-v2-1.md`        | 5 `review`, 12 planted defects  | `5e13529`                             | Pass: 12 of 12 caught, 0 passed, 1 over-failure (8.3); checker exit 0 twice; picked fixes alone; stops; turn 4 hit the 429, not scored  |
+| `runs/review-v2-2.md`        | 5 `review`, 12 planted defects  | `5e13529`                             | Pass: 12 of 12, 0 passed, 0 over-failures; turn 4 hit the 429, not scored                                                               |
+| `runs/review-v2-3.md`        | 5 `review`, 12 planted defects  | `5e13529`                             | Pass: 12 of 12, 0 passed, 0 over-failures; turn 4 hit the 429, not scored                                                               |
+| `runs/review-v2-4.md`        | 5 `review`, 12 planted defects  | `76e9c28` (fixture and key `ea99fd2`) | Pass: 12 of 12, 0 passed, 0 over-failures; turn 1 waited; the 3.3 re-check is allowed by the corrected key                              |
+| `runs/review-v2-5.md`        | 5 `review`, 12 planted defects  | `76e9c28`                             | Pass: 12 of 12, 0 passed, 0 over-failures; turn 1 waited                                                                                |
+| `runs/review-v2-6.md`        | 5 `review`, 12 planted defects  | `76e9c28`                             | Pass: 12 of 12, 0 passed, 0 over-failures; turn 1 waited                                                                                |
+| `runs/handoff-v2-1.md`       | 6 Hand-off                      | `5e13529`                             | Present: pass. Absent: FAIL, the session did not re-read the plugins file and reprinted the installed form                              |
+| `runs/handoff-v2-2.md`       | 6 Hand-off                      | `5e13529`                             | Present: pass. Absent: FAIL, as v2-1                                                                                                    |
+| `runs/handoff-v2-3.md`       | 6 Hand-off                      | `5e13529`                             | Present: pass. Absent: FAIL, as v2-1, and said research-grill is installed                                                              |
+| `runs/handoff-v2-4.md`       | 6 Hand-off                      | `76e9c28`                             | Present: pass. Absent: pass, re-read the file, the install commands, the defend command, the seed list                                  |
+| `runs/handoff-v2-5.md`       | 6 Hand-off                      | `76e9c28`                             | Present: pass. Absent: pass                                                                                                             |
+| `runs/handoff-v2-6.md`       | 6 Hand-off                      | `76e9c28`                             | Present: pass. Absent: pass                                                                                                             |
+| `runs/delegation-v2-1.md`    | 7 Installs, delegation check    | `5e13529`                             | Pass: 0, 0 and 0 Agent calls in three runs; the installed-copy collision probe is recorded                                              |
+| `runs/real-material-v2-1.md` | Real-material amendment session | `5e13529`                             | Recorded, no bar: amendment committed in the author's project (`f77af3d`); the checker's older-brief note, exit 0                       |
 
-(filled by the 0.2.0 evaluation, one row per run)
+Across the nine scenario 2 runs, item 7.2 printed weak in v2-2, v2-4 and v2-5 and settled in the other six; wave 3's 3 of 3 on fixture d692e49 is consistent with the fixture fix but does not separate it from run-to-run variation.
+
+The rows at 5e13529 are the baseline the fixes were measured against; the bars are met by the rows at 76e9c28, with ed96208 the design fix, d692e49 the material fixture commit and ea99fd2 the key correction.
 
 ## R on the author's machine
 
