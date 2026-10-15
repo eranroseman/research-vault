@@ -2558,7 +2558,7 @@ Scoring: a defect with two homes (D3, D8, D9, D11) is caught when either reports
 
 ## The fix-picking check
 
-Commit the copied fixtures in the scratch project before the first turn (`git add -A && git commit -qm fixtures`), and commit again after the first pass (`git add -A && git commit -qm first-pass`) so the diff isolates the fixes. After the first pass, answer "Apply fixes <the two numbers that correspond to D4 and D7>". Expected: the draft shows two insertions (`git diff -U0` shows two hunks); in review.md only the 7.5 and 10.5 rows (now reading `<result> (fix N applied)`), the 13.5 row, any Cross-section or Brief-against-draft finding the two fixes touched, and the Summary, Waivers and Hand-off sections may change; every other row is byte-identical; the checker exits 0 on the rewritten file.
+Commit the copied fixtures in the scratch project before the first turn (`git add -A && git commit -qm fixtures`), and commit again after the first pass (`git add -A && git commit -qm first-pass`) so the diff isolates the fixes. After the first pass, answer "Apply fixes <the two numbers that correspond to D4 and D7>". Expected: the draft shows two insertions (`git diff -U0` shows two hunks); in review.md only the 7.5 and 10.5 rows (now reading `<result> (fix N applied)`), the 13.5 row, any other row whose doubt the two fixes resolved, re-checked under step 6 with `(fix N applied)` and a new quote (3.3's replicability doubt is one: the combination order fix 6 adds is what it lacked), any Cross-section or Brief-against-draft finding the two fixes touched, and the Summary, Waivers and Hand-off sections may change; every other row is byte-identical; the checker exits 0 on the rewritten file.
 
 ## The missing-input check
 
