@@ -23,7 +23,7 @@ Every task's requirements implicitly include these, copied from the spec and fro
 - **The lens.** Anything that does not directly produce the proposal is dropped. No R, no power, no Planned Analysis; the plugin never writes proposal prose; the skills write only `proposal/design-brief.md`, `proposal/review.md` and (review, picked fixes only) the draft.
 - **The assignment's defaults** (overridable at item 3.1): sections in order `Introduction`, `Literature review`, `Research questions or Hypotheses`, `Participants`, `Materials`, `Procedure`, `Design`, `Appendix`; body 2,000 to 4,000 words; 15 to 20 references; the consent form says "under the supervision of <instructor>".
 - **No home-directory literals** in tracked files (`~/...`); no `|` inside a code span inside a table.
-- **Plan paths.** When a shipped file is given in full in a task, the implementer makes the file byte-identical to the block (after mdformat for Markdown); a deviation is reported, not silently made.
+- **Plan paths.** When a shipped Markdown or YAML file is given in full in a task, the implementer makes the file byte-identical to the block after its form owner runs. For Python, the block is the behaviour contract: every message string, regular expression, constant, function name the tests import and CLI shape is kept verbatim, and the shipped file is the block after ruff's formatting and after any helper extraction the repository's complexity cap (C901, 28) forces; the tests prove the behaviour, and such extractions are reported, not re-copied into the plan. Any other deviation is reported, not silently made.
 
 ### Pinned grammars (copied verbatim into the checker, the reference files and the tests)
 
@@ -326,6 +326,7 @@ def _load():
     spec = importlib.util.spec_from_file_location("check_proposal", CHECKER)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    sys.modules["check_proposal"] = module  # dataclasses look the module up by name
     spec.loader.exec_module(module)
     return module
 
@@ -607,6 +608,8 @@ def read_checklist(path: Path = CHECKLIST) -> dict[str, Item]:
         if match is None:
             raise ValueError(f"{path}:{number}: not an item line: {line[:80]}")
         item_id, kind, scope, depends, text = match.groups()
+        if item_id in items:
+            raise ValueError(f"{path}:{number}: duplicate item {item_id}")
         deps = () if depends == "none" else tuple(d.strip() for d in depends.split(","))
         items[item_id] = Item(kind, scope, deps, text, number)
     return items
@@ -845,6 +848,7 @@ _CHECKER_SPEC = importlib.util.spec_from_file_location(
 )
 assert _CHECKER_SPEC is not None and _CHECKER_SPEC.loader is not None
 _checker = importlib.util.module_from_spec(_CHECKER_SPEC)
+sys.modules["check_proposal"] = _checker  # dataclasses look the module up by name
 _CHECKER_SPEC.loader.exec_module(_checker)
 
 
