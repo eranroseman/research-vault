@@ -40,7 +40,7 @@ The subagent `hci-researcher` ships with the plugin, restricted to reading; `des
 
 ## Headless use
 
-The skills run under `claude -p` with `--permission-mode acceptEdits --allowedTools "Read,Write,Edit,Agent,Bash(git:*),Bash(python3:*)"`; compound shell commands are refused by the permission layer and the skills retry in an allowed form. A `design` run is several turns; use `--continue` for each answer.
+The skills run under `claude -p` with `--permission-mode acceptEdits --allowedTools "Read,Write,Edit,Agent,Bash(git:*),Bash(python3:*)"`; pipes and commands outside the allowed prefixes are refused by the permission layer and the skills retry in an allowed form. A `design` run is several turns; use `--continue` for each answer.
 
 ## Artifacts and vendored behaviour
 

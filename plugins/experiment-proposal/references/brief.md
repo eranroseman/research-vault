@@ -47,7 +47,7 @@ One line per fact the skill found rather than asked: `- <fact>: <value> (<source
 
 ## Open items
 
-A numbered list: first every provisional item, `1. Item 2.4 provisional, recommendation: <the recommendation>`; then each command the user should run, `2. Run `/experiment-proposal:lit-search` for <what it should find>`. Every provisional entry appears here and every item named here is a provisional entry. Commands come after the items.
+A numbered list: first every provisional item, `1. Item 2.4 provisional, recommendation: <the recommendation>`; then each command the user should run, `` 2. Run `/experiment-proposal:lit-search` for <what it should find> ``. Every provisional entry appears here and every item named here is a provisional entry. Commands come after the items.
 
 ## Frozen
 
