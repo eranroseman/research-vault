@@ -474,3 +474,114 @@ def test_a_group_of_waivers_counts_its_entries(tmp_path):
     out = run("review", str(path)).stdout
     assert "row 9.3 is waived but has no Waivers entry" in out
     assert "Waivers names 9.4, whose row is not `fail (waived)`" in out
+
+
+# --------------------------------------------------------------------------
+# draft
+# --------------------------------------------------------------------------
+
+SENTENCE = "Participants will select targets on the screen with each device in turn. "
+
+
+def valid_draft(body_sentences: int = 240, reference_count: int = 16) -> str:
+    """A draft with the course's sections in order, about 2,900 body words,
+    sixteen references, a bulleted contributions list and the supervision
+    sentence."""
+    prose = SENTENCE * (body_sentences // 7)
+    references = "\n".join(
+        f"- Author {n} ({2000 + n}). A paper about pointing, number {n}. A Journal."
+        for n in range(reference_count)
+    )
+    return (
+        "# A controlled experiment\n\n"
+        f"## Introduction\n\nWe ask a question. {prose}\n\nThe contributions will be:\n\n- an estimate;\n- a test;\n- a program.\n\n"
+        f"## Literature review\n\n{prose}\n\n"
+        f"## Research questions or Hypotheses\n\n- H1: faster with the mouse.\n\n{prose}\n\n"
+        f"## Participants\n\n{prose}\n\n"
+        f"## Materials\n\n{prose}\n\n"
+        f"## Procedure\n\n{prose}\n\n"
+        f"## Design\n\n{prose}\n\n"
+        f"## References\n\n{references}\n\n"
+        "## Appendix A: recruiting announcement\n\nCome and take part.\n\n"
+        "## Appendix B: consent form\n\nThis study is run by the author under the supervision of Dr. Example as a course project. You may stop at any time.\n\n"
+        "## Appendix C: session script\n\nWelcome.\n"
+    )
+
+
+def test_a_valid_draft_is_clean(tmp_path):
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(), encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 0, result.stdout
+
+
+def test_the_body_word_count_excludes_references_and_appendices(tmp_path):
+    """Seven sections of 300-sentence prose is about 2,400 words; the references
+    and the appendices would add more than a thousand if counted."""
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(body_sentences=100), encoding="utf-8")
+    result = run("draft", str(path))
+    assert "words: the body has" in result.stdout
+    assert "the template asks for 2000 to 4000" in result.stdout
+    path.write_text(valid_draft(body_sentences=600), encoding="utf-8")
+    assert "words: the body has" in run("draft", str(path)).stdout
+    path.write_text(valid_draft(), encoding="utf-8")
+    assert run("draft", str(path), "--words", "100-200").returncode == 1
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        (
+            "## Materials\n",
+            "## Apparatus\n",
+            "sections: `Materials` not found after `Participants`",
+        ),
+        (
+            "- an estimate;\n- a test;\n- a program.\n",
+            "an estimate, a test and a program.\n",
+            "introduction: no bullet list of contributions",
+        ),
+        (
+            "under the supervision of Dr. Example",
+            "supervised by Dr. Example",
+            "appendix: no consent sentence saying the study is under the supervision of the instructor",
+        ),
+    ],
+)
+def test_draft_defects_are_named(tmp_path, old, new, message):
+    path = tmp_path / "draft.md"
+    path.write_text(mutate(valid_draft(), old, new), encoding="utf-8")
+    result = run("draft", str(path))
+    assert result.returncode == 1
+    assert message in result.stdout, result.stdout
+
+
+def test_the_reference_count_and_the_supervisor_name(tmp_path):
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(reference_count=14), encoding="utf-8")
+    assert (
+        "references: 14 entries; the template asks for 15 to 20"
+        in run("draft", str(path)).stdout
+    )
+    path.write_text(valid_draft(), encoding="utf-8")
+    out = run("draft", str(path), "--supervisor", "Dr. Someone Else").stdout
+    assert "appendix: the supervision sentence names 'Dr. Example" in out
+    assert "not 'Dr. Someone Else'" in out
+
+
+def test_a_malformed_range_is_a_usage_error(tmp_path):
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(), encoding="utf-8")
+    result = run("draft", str(path), "--words", "lots")
+    assert result.returncode == 2
+    assert "LOW-HIGH" in result.stderr
+
+
+def test_sections_can_be_overridden_and_headings_match_case_insensitively(tmp_path):
+    text = mutate(valid_draft(), "## Literature review\n", "## LITERATURE REVIEW\n")
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    assert run("draft", str(path)).returncode == 0
+    custom = run("draft", str(path), "--sections", "Introduction, Design, Appendix")
+    assert custom.returncode == 0, custom.stdout

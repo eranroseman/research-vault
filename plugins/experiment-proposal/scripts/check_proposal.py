@@ -82,6 +82,13 @@ INSTALL = (
     "claude plugin marketplace add scdenney/open-science-skills",
     "claude plugin install oss@open-science-skills",
 )
+HEADING = re.compile(r"^(#{1,6}) (.+)$")
+LIST_ITEM = re.compile(r"^(?:[-*] |\d+\. )")
+SUPERVISION = re.compile(r"under the supervision of\s+([^\n]{1,60})", re.IGNORECASE)
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9 ]+", " ", text.lower()).strip()
 
 
 @dataclass(frozen=True)
@@ -511,7 +518,7 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
     waived_entries = {
         m.group(1)
         for line in waiver_lines
-        if (m := re.match(r"^- (\d{1,2}\.\d{1,2}) waived", line))
+        if (m := re.match(r"^- (\d{1,2}\.\d{1,2}) waived\b", line))
     }
     if "Waivers" in by_name:
         for item_id in sorted(waived_rows - waived_entries, key=item_key):
@@ -570,12 +577,111 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
 
 def check_draft(
     path: Path,
-    sections: Sequence[str],  # noqa: ARG001 -- stub; Task 4 replaces it
-    words: tuple[int, int],  # noqa: ARG001
-    references: tuple[int, int],  # noqa: ARG001
-    supervisor: str | None,  # noqa: ARG001
+    sections: Sequence[str],
+    words: tuple[int, int],
+    references: tuple[int, int],
+    supervisor: str | None,
 ) -> list[Defect]:
-    return [Defect(str(path), 0, "draft: not implemented yet")]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    defects: list[Defect] = []
+
+    def add(line: int, message: str) -> None:
+        defects.append(Defect(str(path), line, message))
+
+    heads: list[tuple[str, int]] = []
+    for number, raw in enumerate(lines, 1):
+        match = HEADING.match(clean(raw))
+        if match is not None:
+            heads.append((clean(match.group(2)), number))
+
+    def block(index: int) -> tuple[int, int]:
+        start = heads[index][1]
+        end = heads[index + 1][1] - 1 if index + 1 < len(heads) else len(lines)
+        return start, end
+
+    def find(prefix: str, from_index: int = 0) -> int | None:
+        target = _norm(prefix)
+        for index in range(from_index, len(heads)):
+            if _norm(heads[index][0]).startswith(target):
+                return index
+        return None
+
+    position = 0
+    previous = "the start"
+    for name in sections:
+        index = find(name, position)
+        if index is None:
+            add(
+                heads[position - 1][1] if position else 1,
+                f"sections: `{name}` not found after `{previous}`",
+            )
+        else:
+            position = index + 1
+            previous = name
+    references_index = find("references")
+    appendix_ranges = [
+        block(i)
+        for i, (text, _) in enumerate(heads)
+        if _norm(text).startswith("appendix")
+    ]
+    body_end = (
+        heads[references_index][1] - 1 if references_index is not None else len(lines)
+    )
+
+    def in_appendix(number: int) -> bool:
+        return any(start <= number <= end for start, end in appendix_ranges)
+
+    body = " ".join(
+        clean(lines[n - 1]) for n in range(1, body_end + 1) if not in_appendix(n)
+    )
+    count = len(body.split())
+    if not words[0] <= count <= words[1]:
+        add(
+            1,
+            f"words: the body has {count} words; the template asks for {words[0]} to {words[1]}",
+        )
+    if references_index is None:
+        add(1, "references: no `References` heading")
+    else:
+        start, end = block(references_index)
+        entry_lines = [clean(lines[n - 1]) for n in range(start + 1, end + 1)]
+        listed = [line for line in entry_lines if LIST_ITEM.match(line)]
+        if listed:
+            found_refs = len(listed)
+        else:
+            found_refs = sum(
+                1 for para in "\n".join(entry_lines).split("\n\n") if para.strip()
+            )
+        if not references[0] <= found_refs <= references[1]:
+            add(
+                heads[references_index][1],
+                f"references: {found_refs} entries; the template asks for {references[0]} to {references[1]}",
+            )
+    intro = find("introduction")
+    if intro is not None:
+        start, end = block(intro)
+        if not any(
+            clean(lines[n - 1]).startswith(("- ", "* "))
+            for n in range(start + 1, end + 1)
+        ):
+            add(start, "introduction: no bullet list of contributions")
+    appendix_text = "\n".join(
+        clean(lines[n - 1])
+        for start, end in appendix_ranges
+        for n in range(start, end + 1)
+    )
+    match = SUPERVISION.search(appendix_text)
+    if match is None:
+        add(
+            1,
+            "appendix: no consent sentence saying the study is under the supervision of the instructor",
+        )
+    elif supervisor and supervisor.lower() not in match.group(1).lower():
+        add(
+            1,
+            f"appendix: the supervision sentence names {match.group(1).strip()!r}, not {supervisor!r}",
+        )
+    return defects
 
 
 DEFAULT_SECTIONS = (
