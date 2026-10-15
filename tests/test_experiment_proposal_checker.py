@@ -284,3 +284,177 @@ def test_mdformat_escapes_do_not_break_the_brief(tmp_path):
     path = tmp_path / "brief.md"
     path.write_text(text, encoding="utf-8")
     assert run("brief", str(path)).returncode == 0
+
+
+# --------------------------------------------------------------------------
+# review
+# --------------------------------------------------------------------------
+
+SUBSTANCE = ("13.6", "13.7", "13.8", "13.9", "13.10", "13.11")
+
+
+def _row(item_id: str) -> str:
+    item = ITEMS[item_id]
+    if item.kind == "defend-stage":
+        return f"- **{item_id}** not checked: defend-stage"
+    if item.kind == "attested":
+        return f"- **{item_id}** pass: confirmed by the user, 2026-10-27"
+    return f'- **{item_id}** pass: "a quoted passage" (Design, para 2)'
+
+
+def valid_review() -> str:
+    ordered = sorted(ITEMS, key=checker.item_key)
+    items_rows = "\n".join(_row(i) for i in ordered if i not in SUBSTANCE)
+    substance_rows = "\n".join(_row(i) for i in SUBSTANCE)
+    return (
+        "# Review: proposal/draft.md\n\n"
+        "Brief: proposal/design-brief.md (frozen 2026-10-20)\n"
+        "Draft: proposal/draft.md (from the brief)\n"
+        "Date: 2026-10-27\n"
+        "Checklist: experiment-proposal 0.2.0\n\n"
+        f"## Items\n\n{items_rows}\n\n"
+        "## Cross-section consistency\n\n- pass: counts, durations and variable names agree\n\n"
+        "## Brief against draft\n\n- pass: no departures\n\n"
+        f"## Substance tests\n\n{substance_rows}\n\n"
+        "## Summary\n\nItems checked: 65. Pass: 65. Fail: 0. Not checked (defend-stage): 2. "
+        "Consistency and brief findings: 0. Fixes proposed: 0. Waivers: 0.\n\n"
+        "## Waivers\n\n- none\n\n"
+        "## Hand-off\n\n/oss:research-grill defend proposal/draft.md\n\nSeed list: could someone run a session from the Method alone?\n"
+    )
+
+
+def test_a_valid_review_is_clean(tmp_path):
+    path = tmp_path / "review.md"
+    path.write_text(valid_review(), encoding="utf-8")
+    result = run("review", str(path))
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        ("Date: 2026-10-27\n", "", "header: no `Date:` line"),
+        (
+            "## Waivers\n\n- none\n\n",
+            "",
+            "sections must be Items, Cross-section consistency, Brief against draft, Substance tests, Summary, Waivers, Hand-off",
+        ),
+        (
+            '- **1.1** pass: "a quoted passage" (Design, para 2)',
+            "- **1.1** pass: it is there",
+            "row 1.1 passes without a quoted passage and its location",
+        ),
+        (
+            "- **3.1** pass: confirmed by the user, 2026-10-27",
+            "- **3.1** pass: the user said so",
+            "row 3.1 passes without `confirmed by the user, <date>`",
+        ),
+        (
+            "- **13.2** not checked: defend-stage",
+            '- **13.2** pass: "x" (y)',
+            "row 13.2 is a defend-stage item and must read `not checked`",
+        ),
+        (
+            '- **1.1** pass: "a quoted passage" (Design, para 2)',
+            "- **1.1** not checked: skipped",
+            "row 1.1 reads `not checked`; only items 13.2 and 13.3 may",
+        ),
+        (
+            '- **1.1** pass: "a quoted passage" (Design, para 2)',
+            '- **1.1** passed: "a" (b)',
+            "row does not fit",
+        ),
+        (
+            "/oss:research-grill defend proposal/draft.md",
+            "run the defend step later",
+            "Hand-off: neither the defend command nor both install commands are present",
+        ),
+    ],
+)
+def test_review_defects_are_named(tmp_path, old, new, message):
+    path = tmp_path / "review.md"
+    path.write_text(mutate(valid_review(), old, new), encoding="utf-8")
+    result = run("review", str(path))
+    assert result.returncode == 1
+    assert message in result.stdout, result.stdout
+
+
+def test_review_rows_cover_every_item_in_order(tmp_path):
+    text = valid_review()
+    path = tmp_path / "review.md"
+    path.write_text(
+        mutate(text, '- **1.2** pass: "a quoted passage" (Design, para 2)\n', ""),
+        encoding="utf-8",
+    )
+    assert "Items: missing rows for 1.2" in run("review", str(path)).stdout
+    swapped = mutate(
+        text,
+        '- **1.1** pass: "a quoted passage" (Design, para 2)\n- **1.2** pass: "a quoted passage" (Design, para 2)\n',
+        '- **1.2** pass: "a quoted passage" (Design, para 2)\n- **1.1** pass: "a quoted passage" (Design, para 2)\n',
+    )
+    path.write_text(swapped, encoding="utf-8")
+    assert "Items: rows are not in checklist order" in run("review", str(path)).stdout
+
+
+def test_fix_numbers_are_contiguous_and_the_summary_recomputes(tmp_path):
+    text = valid_review()
+    failing = mutate(
+        text,
+        '- **7.5** pass: "a quoted passage" (Design, para 2)',
+        "- **7.5** fail: the order of the nine combinations is not stated. fix 1: add a sentence to Design.",
+    )
+    failing = mutate(
+        failing,
+        '- **10.5** pass: "a quoted passage" (Design, para 2)',
+        "- **10.5** fail: nothing on illness or breakdown. fix 2: add a sentence to Procedure.",
+    )
+    failing = mutate(
+        failing,
+        "- pass: counts, durations and variable names agree",
+        "- fail: participant count 24 (Participants) vs 20 (Appendix B). fix 3: change the consent form to 24.",
+    )
+    failing = mutate(
+        failing,
+        "Items checked: 65. Pass: 65. Fail: 0. Not checked (defend-stage): 2. Consistency and brief findings: 0. Fixes proposed: 0. Waivers: 0.",
+        "Items checked: 65. Pass: 63. Fail: 2. Not checked (defend-stage): 2. Consistency and brief findings: 1. Fixes proposed: 3. Waivers: 0.",
+    )
+    path = tmp_path / "review.md"
+    path.write_text(failing, encoding="utf-8")
+    assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
+    gap = mutate(failing, "fix 3: change", "fix 5: change")
+    path.write_text(gap, encoding="utf-8")
+    assert "fix 5 appears before fix 3" in run("review", str(path)).stdout
+    wrong = mutate(failing, "Pass: 63. Fail: 2.", "Pass: 64. Fail: 1.")
+    path.write_text(wrong, encoding="utf-8")
+    out = run("review", str(path)).stdout
+    assert "Summary: Pass says 64, the rows give 63" in out
+    assert "Summary: Fail says 1, the rows give 2" in out
+    applied = mutate(
+        failing,
+        "- **7.5** fail: the order",
+        '- **7.5** pass (fix 1 applied): "The nine combinations will be presented in a random order" (Design, para 3). Was: the order',
+    )
+    applied = mutate(applied, "Pass: 63. Fail: 2.", "Pass: 64. Fail: 1.")
+    path.write_text(applied, encoding="utf-8")
+    assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
+
+
+def test_a_group_of_waivers_counts_its_entries(tmp_path):
+    text = mutate(
+        valid_review(),
+        '- **9.3** pass: "a quoted passage" (Design, para 2)',
+        "- **9.3** fail (waived): no logging statement. fix 1: add one.",
+    )
+    text = mutate(
+        text,
+        "## Waivers\n\n- none\n",
+        '## Waivers\n\n- 9.3 waived, reason: "the program is bought, not written" (2026-10-27)\n',
+    )
+    text = mutate(
+        text,
+        "Items checked: 65. Pass: 65. Fail: 0. Not checked (defend-stage): 2. Consistency and brief findings: 0. Fixes proposed: 0. Waivers: 0.",
+        "Items checked: 65. Pass: 64. Fail: 1. Not checked (defend-stage): 2. Consistency and brief findings: 0. Fixes proposed: 1. Waivers: 1.",
+    )
+    path = tmp_path / "review.md"
+    path.write_text(text, encoding="utf-8")
+    assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout

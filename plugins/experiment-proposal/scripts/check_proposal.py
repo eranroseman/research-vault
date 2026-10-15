@@ -46,6 +46,42 @@ AMENDMENT = re.compile(r"^### \d{4}-\d{2}-\d{2}, item (\d{1,2}\.\d{1,2}), .+$")
 OPEN_LINE = re.compile(r"^\d+\. (.+)$")
 OPEN_REF = re.compile(r"\bItems? (\d{1,2}\.\d{1,2})\b")
 COMMAND = "/experiment-proposal:"
+REVIEW_HEADER = ("Brief:", "Draft:", "Date:", "Checklist:")
+REVIEW_SECTIONS = (
+    "Items",
+    "Cross-section consistency",
+    "Brief against draft",
+    "Substance tests",
+    "Summary",
+    "Waivers",
+    "Hand-off",
+)
+SUBSTANCE = ("13.6", "13.7", "13.8", "13.9", "13.10", "13.11")
+ROW = re.compile(
+    r"^- \*\*(\d{1,2}\.\d{1,2})\*\* (pass narrowly|pass|fail \(waived\)|fail|not checked)"
+    r"(?: \(fix (\d+) applied\))?(?::\s*(.*))?$"
+)
+FIX = re.compile(r"\bfix (\d+)\b")
+QUOTE = re.compile(r'"[^"]+"\s*\([^)]+\)')
+CONFIRMED = re.compile(r"confirmed by the user, \d{4}-\d{2}-\d{2}")
+SUMMARY = re.compile(
+    r"^Items checked: (\d+)\. Pass: (\d+)\. Fail: (\d+)\. Not checked \(defend-stage\): (\d+)\. "
+    r"Consistency and brief findings: (\d+)\. Fixes proposed: (\d+)\. Waivers: (\d+)\.$"
+)
+SUMMARY_LABELS = (
+    "Items checked",
+    "Pass",
+    "Fail",
+    "Not checked (defend-stage)",
+    "Consistency and brief findings",
+    "Fixes proposed",
+    "Waivers",
+)
+DEFEND = "/oss:research-grill defend"
+INSTALL = (
+    "claude plugin marketplace add scdenney/open-science-skills",
+    "claude plugin install oss@open-science-skills",
+)
 
 
 @dataclass(frozen=True)
@@ -319,11 +355,192 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
     return defects
 
 
-def check_review(
-    path: Path,
-    items: dict[str, Item],  # noqa: ARG001 -- stub; Task 3 replaces it
-) -> list[Defect]:
-    return [Defect(str(path), 0, "review: not implemented yet")]
+def _review_rows(
+    add: Adder,
+    lines: Sequence[str],
+    items: dict[str, Item],
+    section: tuple[int, int],
+    name: str,
+    expected: Sequence[str],
+    results: dict[str, str],
+) -> None:
+    start, end = section
+    found: list[str] = []
+    for number in range(start + 1, end + 1):
+        line = clean(lines[number - 1])
+        if not line.startswith("- **"):
+            continue
+        match = ROW.match(line)
+        if match is None:
+            add(
+                number,
+                f"row does not fit `- **<ID>** <result>[ (fix N applied)][: ...]`: {line[:60]}",
+            )
+            continue
+        item_id, result, _fix, rest = (
+            match.group(1),
+            match.group(2),
+            match.group(3),
+            match.group(4) or "",
+        )
+        found.append(item_id)
+        item = items.get(item_id)
+        if item is None:
+            add(number, f"row {item_id} is not a checklist item")
+            continue
+        results[item_id] = result
+        if item.kind == "defend-stage" and result != "not checked":
+            add(
+                number,
+                f"row {item_id} is a defend-stage item and must read `not checked`",
+            )
+        if item.kind != "defend-stage" and result == "not checked":
+            add(
+                number,
+                f"row {item_id} reads `not checked`; only items 13.2 and 13.3 may",
+            )
+        if result in ("pass", "pass narrowly"):
+            if item.kind == "draft-checked" and QUOTE.search(rest) is None:
+                add(
+                    number,
+                    f"row {item_id} passes without a quoted passage and its location",
+                )
+            if item.kind == "attested" and CONFIRMED.search(rest) is None:
+                add(
+                    number,
+                    f"row {item_id} passes without `confirmed by the user, <date>`",
+                )
+    missing = [i for i in expected if i not in found]
+    extra = [i for i in found if i not in expected]
+    if missing:
+        add(start, f"{name}: missing rows for {', '.join(missing)}")
+    if extra:
+        add(start, f"{name}: unexpected rows {', '.join(extra)}")
+    if not missing and not extra and found != list(expected):
+        add(start, f"{name}: rows are not in checklist order")
+
+
+def _fix_numbers(add: Adder, lines: Sequence[str]) -> int:
+    seen_max = 0
+    for number, raw in enumerate(lines, 1):
+        for match in FIX.finditer(clean(raw)):
+            value = int(match.group(1))
+            if value == seen_max + 1:
+                seen_max = value
+            elif value > seen_max + 1:
+                add(
+                    number,
+                    f"fix {value} appears before fix {seen_max + 1}; fixes are numbered in order of appearance",
+                )
+    return seen_max
+
+
+def _lines_in(lines: Sequence[str], section: tuple[int, int]) -> list[str]:
+    start, end = section
+    return [clean(lines[number - 1]) for number in range(start + 1, end + 1)]
+
+
+def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    defects: list[Defect] = []
+
+    def add(line: int, message: str) -> None:
+        defects.append(Defect(str(path), line, message))
+
+    sections = sections_of(lines)
+    names = [name for name, _, _ in sections]
+    first = sections[0][1] if sections else 1
+    header = header_of(lines, sections)
+    for prefix in REVIEW_HEADER:
+        if not any(line.startswith(prefix) for line in header):
+            add(1, f"header: no `{prefix}` line")
+    if names != list(REVIEW_SECTIONS):
+        add(
+            first,
+            "sections must be Items, Cross-section consistency, Brief against draft, Substance tests, Summary, Waivers, Hand-off, in that order",
+        )
+    by_name = {name: (start, end) for name, start, end in sections}
+    results: dict[str, str] = {}
+    ordered = sorted(items, key=item_key)
+    if "Items" in by_name:
+        _review_rows(
+            add,
+            lines,
+            items,
+            by_name["Items"],
+            "Items",
+            [i for i in ordered if i not in SUBSTANCE],
+            results,
+        )
+    if "Substance tests" in by_name:
+        _review_rows(
+            add,
+            lines,
+            items,
+            by_name["Substance tests"],
+            "Substance tests",
+            [i for i in SUBSTANCE if i in items],
+            results,
+        )
+    fixes = _fix_numbers(add, lines)
+    findings = sum(
+        1
+        for name in ("Cross-section consistency", "Brief against draft")
+        if name in by_name
+        for line in _lines_in(lines, by_name[name])
+        if line.startswith("- fail")
+    )
+    waivers = (
+        sum(
+            1
+            for line in _lines_in(lines, by_name["Waivers"])
+            if line.startswith("- ") and line.strip() != "- none"
+        )
+        if "Waivers" in by_name
+        else 0
+    )
+    if "Summary" in by_name:
+        start, end = by_name["Summary"]
+        summary = next(
+            (
+                (number, m)
+                for number in range(start + 1, end + 1)
+                if (m := SUMMARY.match(clean(lines[number - 1])))
+            ),
+            None,
+        )
+        if summary is None:
+            add(
+                start,
+                "Summary: no line of the shape `Items checked: N. Pass: N. Fail: N. Not checked (defend-stage): N. Consistency and brief findings: N. Fixes proposed: N. Waivers: N.`",
+            )
+        else:
+            number, match = summary
+            computed = (
+                sum(1 for r in results.values() if r != "not checked"),
+                sum(1 for r in results.values() if r in ("pass", "pass narrowly")),
+                sum(1 for r in results.values() if r in ("fail", "fail (waived)")),
+                sum(1 for r in results.values() if r == "not checked"),
+                findings,
+                fixes,
+                waivers,
+            )
+            for label, expected_value, stated in zip(
+                SUMMARY_LABELS, computed, match.groups(), strict=True
+            ):
+                if int(stated) != expected_value:
+                    add(
+                        number,
+                        f"Summary: {label} says {stated}, the rows give {expected_value}",
+                    )
+    if "Hand-off" in by_name:
+        text = "\n".join(_lines_in(lines, by_name["Hand-off"]))
+        if DEFEND not in text and not all(command in text for command in INSTALL):
+            add(
+                by_name["Hand-off"][0],
+                "Hand-off: neither the defend command nor both install commands are present",
+            )
+    return defects
 
 
 def check_draft(
