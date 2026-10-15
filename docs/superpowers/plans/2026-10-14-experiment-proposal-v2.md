@@ -297,7 +297,7 @@ ______________________________________________________________________
 
 - [ ] **Step 1: Lint coverage for our own script**
 
-In `.pre-commit-config.yaml`, change the two ruff entries to `entry: bash -c 'ruff format research_vault tests scripts hooks plugins/experiment-proposal/scripts'` and `entry: bash -c 'ruff check research_vault tests scripts hooks plugins/experiment-proposal/scripts'`, and extend the comment above `ruff-format` with the line `# plugins/experiment-proposal/scripts is our own checker and IS linted; its vendored neighbour skills/lit-search/scripts stays out.` In `pyproject.toml`, set `[tool.mypy] files = [ "hooks", "plugins/experiment-proposal/scripts", "research_vault", "scripts" ]` and add the per-file ignore `"plugins/experiment-proposal/scripts/*" = [ "T20" ]` (the checker prints its report) beside `"scripts/*" = [ "T20" ]`. Run `../../.venv/bin/pyproject-fmt --keep-full-version --no-generate-python-version-classifiers --table-format long pyproject.toml` and confirm `git diff --stat pyproject.toml` shows only those lines.
+In `.pre-commit-config.yaml`, change the two ruff entries to `entry: bash -c 'ruff format research_vault tests scripts hooks plugins/experiment-proposal/scripts'` and `entry: bash -c 'ruff check research_vault tests scripts hooks plugins/experiment-proposal/scripts'`, and extend the comment above `ruff-format` with the line `# plugins/experiment-proposal/scripts is our own checker and IS linted; its vendored neighbour skills/lit-search/scripts stays out.` In `pyproject.toml`, set `[tool.mypy] files = [ "hooks", "plugins/experiment-proposal/scripts", "research_vault", "scripts" ]` and update the mypy hook's comment in `.pre-commit-config.yaml` to name the four surfaces and add the per-file ignore `"plugins/experiment-proposal/scripts/*" = [ "T20" ]` (the checker prints its report) beside `"scripts/*" = [ "T20" ]`. Run `../../.venv/bin/pyproject-fmt --keep-full-version --no-generate-python-version-classifiers --table-format long pyproject.toml` and confirm `git diff --stat pyproject.toml` shows only those lines.
 
 - [ ] **Step 2: Write the failing checker tests**
 
@@ -434,6 +434,7 @@ def test_an_open_brief_may_lack_entries(tmp_path):
         ("- Decision: a decision.\n", "- Decision: " + "x" * 400 + "\n", "Decision line is 412 characters; at most 400"),
         ("## Looked up", "## Notes\n\n## Looked up", "section `## Notes` is not one of"),
         ("### 1.1 A title", "### 11.1 A title", "entry 11.1 is not a design-tree item"),
+        ('- Rationale: "the user\'s words"\n', "- Rationale:\n", "entry 1.1: Rationale is empty"),
     ],
 )
 def test_brief_defects_are_named(tmp_path, old, new, message):
@@ -442,6 +443,17 @@ def test_brief_defects_are_named(tmp_path, old, new, message):
     result = run("brief", str(path))
     assert result.returncode == 1
     assert message in result.stdout, result.stdout
+
+
+def test_entries_are_in_checklist_order(tmp_path):
+    text = valid_brief()
+    first = text.index("### 1.1 A title")
+    second = text.index("### 1.2 A title")
+    third = text.index("### 1.3 A title")
+    swapped = text[:first] + text[second:third] + text[first:second] + text[third:]
+    path = tmp_path / "brief.md"
+    path.write_text(swapped, encoding="utf-8")
+    assert "entries are not in checklist order" in run("brief", str(path)).stdout
 
 
 def test_a_frozen_brief_names_every_design_tree_item(tmp_path):
@@ -713,6 +725,9 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
             if item_id in entries:
                 add(number, f"entry {item_id} appears twice")
             values = labelled_lines(add, body, ENTRY_LINES, f"entry {item_id}")
+            for label in ENTRY_LINES:
+                if label in values and not values[label][1]:
+                    add(values[label][0], f"entry {item_id}: {label} is empty")
             status_line, status_value = values.get("Status", (number, ""))
             if status_value not in STATUSES:
                 add(status_line, f"entry {item_id}: Status must be settled, pilot settles or provisional; found {status_value!r}")
@@ -722,6 +737,8 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
                 if length > DECISION_MAX:
                     add(decision_line, f"entry {item_id}: Decision line is {length} characters; at most {DECISION_MAX}")
             entries[item_id] = status_value
+        if list(entries) != sorted(entries, key=item_key):
+            add(start, "entries are not in checklist order")
     if "Open items" in by_name:
         start, end = by_name["Open items"]
         seen_command = False
@@ -819,11 +836,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.command == "review":
         defects = check_review(path, items)
     else:
+        try:
+            words, references = parse_range(args.words), parse_range(args.references)
+        except ValueError:
+            parser.error("--words and --references take two integers as LOW-HIGH, for example 2000-4000")
         defects = check_draft(
             path,
             tuple(s.strip() for s in args.sections.split(",")),
-            parse_range(args.words),
-            parse_range(args.references),
+            words,
+            references,
             args.supervisor,
         )
     if args.json:
@@ -883,7 +904,7 @@ Create `plugins/experiment-proposal/references/brief.md` (at most 700 words; thi
 ````markdown
 # The brief
 
-`proposal/design-brief.md` is the record of the design decisions `design` settles with the user. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py" brief proposal/design-brief.md` (on a host that leaves the variable unexpanded, `../scripts/check_proposal.py` relative to this file) checks everything below and prints one line per defect; a brief that passes it has the shape, and nothing else is required of the shape.
+`proposal/design-brief.md` is the record of the design decisions `design` settles with the user. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py" brief proposal/design-brief.md` (on a host that leaves the variable unexpanded, `../scripts/check_proposal.py` relative to this file) checks the shape below, except the wording of each value, and prints one line per defect; a brief that passes it has the shape, and the wording rules are yours to keep.
 
 ## Header
 
