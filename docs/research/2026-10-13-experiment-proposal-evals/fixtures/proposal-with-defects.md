@@ -44,9 +44,9 @@ The program will be written for the study and will log every trial automatically
 
 ## Procedure
 
-Each participant will be tested alone in room 204, the same room for every session. The phases, in order, with their estimated durations: welcome (2 minutes); the consent form (Appendix B), read and signed (5 minutes); scripted instructions, read from the script (Appendix C) in a neutral tone (3 minutes); 10 practice trials on the first device, then 5 trials of each of the nine distance-and-size combinations (10 minutes); the same practice and trials on the second device (10 minutes); the demographic questionnaire (Appendix D) (2 minutes); debriefing (3 minutes). The durations sum to the session estimate of 35 minutes.
+Each participant will be tested alone in room 204, the same room for every session. The phases, in order, with their estimated durations: welcome (2 minutes); the consent form (Appendix B), read and signed (5 minutes); the demographic questionnaire (Appendix D), which screens for the profile and excuses anyone outside it (2 minutes); scripted instructions, read from the script (Appendix C) in a neutral tone (3 minutes); 10 practice trials on the first device, then 5 trials of each of the nine distance-and-size combinations (10 minutes); the same practice and trials on the second device (10 minutes); debriefing (3 minutes). The durations sum to the session estimate of 35 minutes.
 
-Every participant will hear the same instructions because the experimenter will read the verbatim script in the appendix; the device order will be the only cue that differs between conditions, and counterbalancing will hold it constant across the sample. The mouse and the trackball will be used at the point in the session where the script introduces them; the questionnaire will be handed over after the second device; the debriefing will close the session.
+Every participant will hear the same instructions because the experimenter will read the verbatim script in the appendix; the device order will be the only cue that differs between conditions, and counterbalancing will hold it constant across the sample. The mouse and the trackball will be used at the point in the session where the script introduces them; the questionnaire will follow the consent form; the debriefing will close the session.
 
 ## Design
 
@@ -91,7 +91,7 @@ You are invited to take part in a study run by the author, a graduate student in
 
 ## Appendix C: session script
 
-"Welcome, and thank you for coming. Please read the consent form and sign it if you agree to take part. In this study you will select targets on the screen with two devices. Click on each target as quickly and accurately as you can. There are ten practice trials first. Begin when ready." After the first device: "Now the second device; the task is the same." After the questionnaire: "That ends the session. The study compares the two devices on speed and accuracy. Thank you."
+"Welcome, and thank you for coming. Please read the consent form and sign it if you agree to take part. In this study you will select targets on the screen with two devices. Click on each target as quickly and accurately as you can. There are ten practice trials first. Begin when ready." After the first device: "Now the second device; the task is the same." After the second device: "That ends the session. The study compares the two devices on speed and accuracy. Thank you."
 
 ## Appendix D: demographic questionnaire
 

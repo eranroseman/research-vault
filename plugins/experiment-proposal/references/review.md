@@ -38,7 +38,7 @@ A fix is `fix N:` followed by replacement text quoted and ready to paste in the 
 
 ## Cross-section consistency and Brief against draft
 
-One line per finding, `- fail: <what differs, both values, both locations>. fix N: ...`, or `- pass: ...` when there is none. The brief's current decision for an item is its entry, overridden by the latest amendment naming it.
+One line per finding, `- fail: <what differs, both values, both locations>. fix N: ...`, or `- pass: ...` when there is none; a finding a fix resolved reads `- pass (fix N applied): ...`. The brief's current decision for an item is its entry, overridden by the latest amendment naming it.
 
 ## Summary
 

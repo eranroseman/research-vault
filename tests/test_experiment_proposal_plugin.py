@@ -732,6 +732,9 @@ def test_review_is_steps_that_run_the_checker_and_keep_the_evidence_rule():
     assert "confirmed by the user" in text
     assert "(fix N applied)" in text
     assert "Which fixes" in text
+    assert "only with the user's values" in text
+    assert "wait for the answers before writing review.md" in text
+    assert "each time you print the hand-off" in text
     assert "check_proposal.py draft <draft>" in text
     assert "review proposal/review.md" in text
     assert '--supervisor "<name>"' in text
