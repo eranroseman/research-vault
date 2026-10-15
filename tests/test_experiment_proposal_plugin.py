@@ -679,6 +679,10 @@ def test_design_is_steps_that_point_at_the_shape_the_checker_and_the_subagent():
         assert pointer in text, f"design does not point at {pointer}"
     assert "Write only `proposal/design-brief.md`" in text
     assert "Steps 4 and 5 run inside these rounds" in text
+    assert "A settled item stays settled" in text
+    assert "List the frontier's item IDs above Q1" in text
+    assert "the material contradicts elsewhere" in text
+    assert "Rewrite the brief after every round and run the checker" in text
     assert "experiment-proposal:hci-researcher" in text
     assert "Why this matters:" in text
     assert "Recommended:" in text
