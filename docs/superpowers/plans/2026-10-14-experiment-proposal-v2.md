@@ -144,7 +144,8 @@ Replace `test_checklist_names_its_provenance_deviations_and_credits` with:
 def test_checklist_names_its_provenance_the_lens_and_its_deviations():
     text = CHECKLIST.read_text(encoding="utf-8")
     assert "98b978fb74b7480c9967ceb2a1100e4560081af5" in text
-    assert "the lens" in text and "2026-10-14-experiment-proposal-v2-design.md" in text
+    assert "the lens" in text
+    assert "2026-10-14-experiment-proposal-v2-design.md" in text
     assert "## Deviations" in text
     assert "Planned Analysis" in text  # the dropped step is named, so a reader knows why
     for credit in ("proposal-supervise", "research-grill", "lit-search"):
@@ -233,7 +234,13 @@ In `plugins/experiment-proposal/references/checklist.md`:
     - **13.5** (draft-checked; review-only; depends on 3.3) The draft to be submitted satisfies every item of steps 1 to 12, uses the required template with its section list in order, describes the full experiment rather than the pilot, follows the step 3 conventions (item 3.3) throughout, and is within the word bounds excluding references and appendices.
     ```
 
-13. Replace the line beginning `- **3.2**` with:
+13. Replace the line beginning `- **3.1**` with:
+
+    ```markdown
+    - **3.1** (attested; review-only; depends on none) The template's requirements are identified and recorded: its section list and order, its word bounds and whether references and appendices count toward them, its reference bounds, its citation style, and the supervising instructor's name; the course's values are the defaults when the template leaves one unsaid.
+    ```
+
+    and the line beginning `- **3.2**` with:
 
     ```markdown
     - **3.2** (draft-checked; review-only; depends on 3.1) The draft has a heading for every section the template lists, in the template's order, with Design separate from Procedure.

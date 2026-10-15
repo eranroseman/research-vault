@@ -42,6 +42,7 @@ Removed: every step 11 item (11.1 to 11.11); items 6.6 and 6.7 (the smallest eff
 Changed:
 
 - 2.1 loses its analysis clause: every Method value is decided or marked as one the pilot will settle: each independent variable with its levels and its within- or between-subjects label, each dependent variable with its unit, the number of participants, the materials, and the session phases.
+- 3.1 reads: the template's requirements are identified and recorded (its section list and order, its word bounds and whether references and appendices count, its reference bounds, its citation style, and the supervising instructor's name), the course's values being the defaults when the template leaves one unsaid; it stays attested.
 - 3.2 reads: the draft has a heading for every section the template lists, in the template's order, with Design separate from Procedure (the guide's "Planned Analysis may instead close the Method" clause goes).
 - 4.2 reads: the section states the motivation (why this project), the problem, and its significance with citations.
 - 4.3 reads: the section lists the contributions as bullets, each saying what a reader will get from the final report.
