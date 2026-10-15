@@ -22,7 +22,7 @@ Every task's requirements implicitly include these, copied from the spec and fro
 - **Name-only invocation** unchanged: `disable-model-invocation: true` as a raw YAML boolean; `agents/openai.yaml` with `allow_implicit_invocation: false`.
 - **The lens.** Anything that does not directly produce the proposal is dropped. No R, no power, no Planned Analysis; the plugin never writes proposal prose; the skills write only `proposal/design-brief.md`, `proposal/review.md` and (review, picked fixes only) the draft.
 - **The assignment's defaults** (overridable at item 3.1): sections in order `Introduction`, `Literature review`, `Research questions or Hypotheses`, `Participants`, `Materials`, `Procedure`, `Design`, `Appendix`; body 2,000 to 4,000 words; 15 to 20 references; the consent form says "under the supervision of <instructor>".
-- **No home-directory literals** in tracked files (`~/...`); no `|` inside a code span inside a table.
+- **No absolute home-directory paths** in tracked files; spell them `~/...`. No `|` inside a code span inside a table.
 - **Plan paths.** When a shipped Markdown or YAML file is given in full in a task, the implementer makes the file byte-identical to the block after its form owner runs. For Python, the block is the behaviour contract: every message string, regular expression, constant, function name the tests import and CLI shape is kept verbatim, and the shipped file is the block after ruff's formatting and after any helper extraction the repository's complexity cap (C901, 28) forces; the tests prove the behaviour, and such extractions are reported, not re-copied into the plan. Any other deviation is reported, not silently made.
 
 ### Pinned grammars (copied verbatim into the checker, the reference files and the tests)
@@ -1098,6 +1098,9 @@ def test_fix_numbers_are_contiguous_and_the_summary_recomputes(tmp_path):
     path = tmp_path / "review.md"
     path.write_text(failing, encoding="utf-8")
     assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
+    quoted = mutate(failing, '- **1.1** pass: "a quoted passage" (Design, para 2)', '- **1.1** pass: "we will fix 2 bugs before the pilot" (Design, para 2)')
+    path.write_text(quoted, encoding="utf-8")
+    assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
     gap = mutate(failing, "fix 3: change", "fix 5: change")
     path.write_text(gap, encoding="utf-8")
     assert "fix 5 appears before fix 3" in run("review", str(path)).stdout
@@ -1221,10 +1224,15 @@ def _review_rows(
         add(start, f"{name}: rows are not in checklist order")
 
 
+QUOTED = re.compile(r'"[^"]*"')
+
+
 def _fix_numbers(add: Adder, lines: Sequence[str]) -> int:
+    """Fix numbers in order of first appearance; a draft's own words inside a
+    quoted passage are not fixes."""
     seen_max = 0
     for number, raw in enumerate(lines, 1):
-        for match in FIX.finditer(clean(raw)):
+        for match in FIX.finditer(QUOTED.sub("", clean(raw))):
             value = int(match.group(1))
             if value == seen_max + 1:
                 seen_max = value
