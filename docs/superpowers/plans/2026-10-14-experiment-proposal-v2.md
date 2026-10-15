@@ -1495,6 +1495,14 @@ def test_the_reference_count_and_the_supervisor_name(tmp_path):
     assert "not 'Dr. Someone Else'" in out
 
 
+def test_a_malformed_range_is_a_usage_error(tmp_path):
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(), encoding="utf-8")
+    result = run("draft", str(path), "--words", "lots")
+    assert result.returncode == 2
+    assert "LOW-HIGH" in result.stderr
+
+
 def test_sections_can_be_overridden_and_headings_match_case_insensitively(tmp_path):
     text = mutate(valid_draft(), "## Literature review\n", "## LITERATURE REVIEW\n")
     path = tmp_path / "draft.md"
