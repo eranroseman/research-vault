@@ -2107,6 +2107,8 @@ def test_lit_search_checks_python_names_the_indexes_the_target_and_writes_nothin
     assert "item 5.2" in text and "15 to 20" in text
     assert "which indexes will answer" in text
     assert "no Semantic Scholar key" in text
+    # search.py's stderr hint points at this heading by name.
+    assert "## If a source asks for browser verification" in text
     for index in ("Crossref", "OpenAlex", "DBLP", "arXiv", "Semantic Scholar", "OpenCitations"):
         assert index in text
     assert text.count("Done when") >= 4
@@ -2140,7 +2142,11 @@ python3 -B "${CLAUDE_PLUGIN_ROOT}/skills/lit-search/scripts/search.py" "text ent
 python3 -B "${CLAUDE_PLUGIN_ROOT}/skills/lit-search/scripts/snowball.py" 10.1145/3025453.3025986 --direction both --limit-per-seed 20
 ```
 
-The first line is the version check; when it fails, stop and tell the user to install Python 3.11 or later. The second searches by keyword (Crossref, OpenAlex, DBLP, arXiv, Semantic Scholar); the third snowballs from seed DOIs (the DOI shown is a placeholder), backward through references and forward through citing papers (Semantic Scholar, OpenAlex, Crossref, OpenCitations). Both print CSL-YAML candidates on stdout and degradation notes on stderr; relay the notes in one line. Exit code 1 means no source returned anything or no seed expanded: the "round added nothing" signal, not a failure. A stderr note that a source asked for browser verification means that source gave nothing this round; say so and carry on without it. The scripts identify themselves to the APIs as the upstream project; keep it so.
+The first line is the version check; when it fails, stop and tell the user to install Python 3.11 or later. The second searches by keyword (Crossref, OpenAlex, DBLP, arXiv, Semantic Scholar); the third snowballs from seed DOIs (the DOI shown is a placeholder), backward through references and forward through citing papers (Semantic Scholar, OpenAlex, Crossref, OpenCitations). Both print CSL-YAML candidates on stdout and degradation notes on stderr; relay the notes in one line. Exit code 1 means no source returned anything or no seed expanded: the "round added nothing" signal, not a failure. The scripts identify themselves to the APIs as the upstream project; keep it so.
+
+## If a source asks for browser verification
+
+The stderr note that names this section means that source gave nothing this round; say so and carry on without it.
 
 ## Keys, all optional
 
