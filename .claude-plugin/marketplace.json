@@ -12,7 +12,7 @@
     {
       "name": "experiment-proposal",
       "source": "./plugins/experiment-proposal",
-      "description": "Design a controlled HCI experiment in rounds, freeze the brief, and check the written proposal against it."
+      "description": "Settle a controlled HCI experiment's design decisions in rounds, freeze them in a brief, and check the written proposal against the brief, a checklist and the assignment's mechanics: design, review, lit-search and the-ethics-board, with an HCI researcher subagent."
     }
   ]
 }
