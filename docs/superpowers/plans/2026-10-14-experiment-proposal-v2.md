@@ -1516,6 +1516,20 @@ def test_the_reference_count_and_the_supervisor_name(tmp_path):
     assert "not 'Dr. Someone Else'" in out
 
 
+def test_subheadings_stay_inside_their_sections(tmp_path):
+    """A `###` under Introduction, References or an appendix must not end the
+    section early: the bullets, the entries and the supervision sentence are
+    still found."""
+    text = valid_draft()
+    text = mutate(text, "The contributions will be:\n", "### Contributions\n\nThe contributions will be:\n")
+    text = mutate(text, "## References\n\n", "## References\n\n### Primary\n\n")
+    text = mutate(text, "## Appendix B: consent form\n\n", "## Appendix B: consent form\n\n### Consent form\n\n")
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 0, result.stdout
+
+
 def test_a_malformed_range_is_a_usage_error(tmp_path):
     path = tmp_path / "draft.md"
     path.write_text(valid_draft(), encoding="utf-8")
@@ -1566,15 +1580,21 @@ def check_draft(
     def add(line: int, message: str) -> None:
         defects.append(Defect(str(path), line, message))
 
-    heads: list[tuple[str, int]] = []
+    heads: list[tuple[str, int, int]] = []  # (text, line number, level)
     for number, raw in enumerate(lines, 1):
         match = HEADING.match(clean(raw))
         if match is not None:
-            heads.append((clean(match.group(2)), number))
+            heads.append((clean(match.group(2)), number, len(match.group(1))))
 
     def block(index: int) -> tuple[int, int]:
-        start = heads[index][1]
-        end = heads[index + 1][1] - 1 if index + 1 < len(heads) else len(lines)
+        """A section runs to the next heading at its own level or higher, so a
+        `###` subheading stays inside its `##` section."""
+        start, level = heads[index][1], heads[index][2]
+        end = len(lines)
+        for text, number, other_level in heads[index + 1 :]:
+            if other_level <= level:
+                end = number - 1
+                break
         return start, end
 
     def find(prefix: str, from_index: int = 0) -> int | None:
@@ -1594,7 +1614,7 @@ def check_draft(
             position = index + 1
             previous = name
     references_index = find("references")
-    appendix_ranges = [block(i) for i, (text, _) in enumerate(heads) if _norm(text).startswith("appendix")]
+    appendix_ranges = [block(i) for i, (text, _, _) in enumerate(heads) if _norm(text).startswith("appendix")]
     body_end = heads[references_index][1] - 1 if references_index is not None else len(lines)
 
     def in_appendix(number: int) -> bool:
