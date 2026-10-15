@@ -296,14 +296,14 @@ def test_mdformat_escapes_do_not_break_the_brief(tmp_path):
     assert run("brief", str(path)).returncode == 0
 
 
-def _brief_under(version: str) -> str:
-    """A brief frozen 2026-10-10 under `version` that breaks every entry rule:
-    a 500-character Decision, an entry for the retired item 6.7, no entry for
-    7.9."""
+def _brief_under(version: str, status: str = "frozen 2026-10-10") -> str:
+    """A brief under `version` that breaks every entry rule: a 500-character
+    Decision, an entry for the retired item 6.7, no entry for 7.9 (a defect only
+    once the brief is frozen)."""
     assert "6.7" not in ITEMS
     assert "7.9" in DESIGN_TREE
     text = mutate(
-        valid_brief(status="frozen 2026-10-10"),
+        valid_brief(status=status),
         "Checklist: experiment-proposal 0.2.0",
         f"Checklist: experiment-proposal {version}",
     )
@@ -333,6 +333,19 @@ def test_a_brief_frozen_under_an_older_checklist_is_checked_on_header_and_amendm
         "frozen brief has no entry for design-tree item 7.9",
     ):
         assert message in current.stdout, current.stdout
+
+
+def test_an_open_brief_is_checked_in_full_whatever_its_version(tmp_path):
+    path = tmp_path / "brief.md"
+    path.write_text(_brief_under("0.1.0", status="open"), encoding="utf-8")
+    result = run("brief", str(path))
+    assert result.returncode == 1
+    assert result.stderr == ""
+    for message in (
+        "Decision line is 500 characters; at most 400",
+        "entry 6.7 is not a design-tree item",
+    ):
+        assert message in result.stdout, result.stdout
 
 
 def test_an_older_brief_still_answers_for_its_header_and_amendments(tmp_path):
@@ -612,6 +625,67 @@ def test_an_applied_marker_is_not_a_fix_in_the_order_scan(tmp_path):
     assert "fix 14 appears before fix 4" in run("review", str(path)).stdout
 
 
+def _review_with_fixes_1_and_3(*, marker: bool) -> str:
+    """Fix 1 on row 7.1, fix 3 on row 10.5; row 7.5 sits between them and,
+    when `marker` is set, reads `(fix 2 applied)` with no other `fix 2` text."""
+    text = mutate(
+        valid_review(),
+        '- **7.1** pass: "a quoted passage" (Design, para 2)',
+        "- **7.1** fail: nothing on the carry-over. fix 1: add a sentence to Design.",
+    )
+    text = mutate(
+        text,
+        '- **10.5** pass: "a quoted passage" (Design, para 2)',
+        "- **10.5** fail: nothing on illness. fix 3: add a sentence to Procedure.",
+    )
+    if marker:
+        text = mutate(
+            text,
+            '- **7.5** pass: "a quoted passage" (Design, para 2)',
+            '- **7.5** pass (fix 2 applied): "The nine combinations will be presented in a random order" (Design, para 3)',
+        )
+    return mutate(
+        text,
+        "Items checked: 65. Pass: 65. Fail: 0. Not checked (defend-stage): 2. Consistency and brief findings: 0. Fixes proposed: 0.",
+        "Items checked: 65. Pass: 63. Fail: 2. Not checked (defend-stage): 2. Consistency and brief findings: 0. Fixes proposed: 3.",
+    )
+
+
+def test_an_applied_marker_counts_its_number_without_a_definition(tmp_path):
+    """(i) A correct step-6 rewrite: fix 2 was applied and its row now carries
+    only the marker, while fixes 1 and 3 are still defined."""
+    path = tmp_path / "review.md"
+    path.write_text(_review_with_fixes_1_and_3(marker=True), encoding="utf-8")
+    result = run("review", str(path))
+    assert result.returncode == 0, result.stdout
+    wrong = mutate(
+        _review_with_fixes_1_and_3(marker=True),
+        "Fixes proposed: 3.",
+        "Fixes proposed: 2.",
+    )
+    path.write_text(wrong, encoding="utf-8")
+    assert "Summary: Fixes proposed says 2, the rows give 3" in (
+        run("review", str(path)).stdout
+    )
+
+
+def test_a_gap_with_no_marker_is_still_an_order_defect(tmp_path):
+    """(iii) Fixes 1 and 3 defined, and no `fix 2` anywhere, not even a marker."""
+    path = tmp_path / "review.md"
+    path.write_text(_review_with_fixes_1_and_3(marker=False), encoding="utf-8")
+    result = run("review", str(path))
+    assert result.returncode == 1
+    assert "fix 3 appears before fix 2" in result.stdout
+
+
+def test_a_marker_covers_only_its_own_number(tmp_path):
+    """Fixes 1 and 4 defined with a marker for 2: fix 3 is the gap named."""
+    text = mutate(_review_with_fixes_1_and_3(marker=True), "fix 3: add", "fix 4: add")
+    path = tmp_path / "review.md"
+    path.write_text(text, encoding="utf-8")
+    assert "fix 4 appears before fix 3" in run("review", str(path)).stdout
+
+
 def test_the_row_pattern_accepts_every_result_word():
     for result in checker.RESULTS:
         match = checker.ROW.match(f"- **1.1** {result}: x")
@@ -830,7 +904,17 @@ def test_sections_can_be_overridden_and_headings_match_case_insensitively(tmp_pa
     assert custom.returncode == 0, custom.stdout
 
 
-@pytest.mark.parametrize("heading", ["Hypotheses", "Research Questions and Hypotheses"])
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "Hypotheses",
+        "Research Questions and Hypotheses",
+        "Research Questions",
+        "Research Question",
+        "Hypothesis",
+        "Research Question and Hypotheses",
+    ],
+)
 def test_a_section_named_with_or_matches_either_side(tmp_path, heading):
     text = mutate(
         valid_draft(), "## Research questions or Hypotheses\n", f"## {heading}\n"
@@ -839,6 +923,48 @@ def test_a_section_named_with_or_matches_either_side(tmp_path, heading):
     path.write_text(text, encoding="utf-8")
     result = run("draft", str(path), "--supervisor", "Dr. Example")
     assert result.returncode == 0, result.stdout
+
+
+def test_or_in_a_section_name_is_read_in_any_case(tmp_path):
+    text = mutate(
+        valid_draft(), "## Research questions or Hypotheses\n", "## Hypotheses\n"
+    )
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    sections = "Introduction, Research questions OR hypotheses, Design"
+    result = run("draft", str(path), "--sections", sections)
+    assert result.returncode == 0, result.stdout
+    assert checker._matches("Hypotheses", "Research questions Or hypotheses")
+
+
+def test_singular_and_plural_words_match_and_appendix_stays_exact():
+    assert checker._singular("research questions and hypotheses") == (
+        "research question and hypothes"
+    )
+    assert checker._singular("hypothesis") == "hypothesi"
+    assert checker._singular("appendices") == "appendic"
+    assert checker._singular("s") == "s"
+    assert checker._matches("Materials and Methods", "Material")
+    assert checker._matches("Participant Information", "Participants")
+    assert checker._matches("Appendices", "Appendix")
+    assert checker._matches("Appendix B: consent form", "Appendix")
+    assert checker._matches("Appendix B: consent form", "Appendix B")
+    assert not checker._matches("Appendices", "Appendix B")
+    assert not checker._matches("Appendix A: recruiting", "Appendix B")
+    assert not checker._matches("Appendix A: recruiting", "Appendix S")
+
+
+def test_a_name_with_an_empty_side_matches_no_heading_by_it(tmp_path):
+    assert not checker._matches("Introduction", "Nonexistent or ")
+    assert not checker._matches("Introduction", " or ")
+    assert not checker._matches("Introduction", "")
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(), encoding="utf-8")
+    result = run("draft", str(path), "--sections", "Introduction, Participants or")
+    assert result.returncode == 1
+    assert "sections: `Participants or` not found after `Introduction`" in (
+        result.stdout
+    )
 
 
 def test_the_appendix_stem_belongs_to_a_bare_appendix_only(tmp_path):

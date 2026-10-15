@@ -67,7 +67,7 @@ ROW = re.compile(
     + r")(?: \(fix (\d+) applied\))?(?::\s*(.*))?$"
 )
 FIX = re.compile(r"\bfix (\d+)\b", re.IGNORECASE)
-APPLIED = re.compile(r"\(fix \d+ applied\)", re.IGNORECASE)
+APPLIED = re.compile(r"\(fix (\d+) applied\)", re.IGNORECASE)
 QUOTE = re.compile(r'"[^"]+"\s*\([^)]+\)')
 CONFIRMED = re.compile(r"confirmed by the user, \d{4}-\d{2}-\d{2}")
 SUMMARY = re.compile(
@@ -101,17 +101,23 @@ def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9 ]+", " ", NUMBERING.sub("", text.strip()).lower()).strip()
 
 
+def _singular(text: str) -> str:
+    """Each word of a normalised heading without a trailing `es`, else a
+    trailing `s`, so `questions` and `question` meet at `question`."""
+    return " ".join(re.sub(r"(?<=.)(?:es|s)$", "", word) for word in text.split())
+
+
 def _matches(heading: str, name: str) -> bool:
     """`## 2. Literature Review` matches `Literature review`; `## Appendices` and
     `## Appendix B: consent form` both match `Appendix`, but only `## Appendix B...`
-    matches `Appendix B`. A name with ` or ` matches a heading that starts with
-    either side."""
-    key = _norm(heading)
-    for side in name.split(" or "):
+    matches `Appendix B`. A name with ` or ` (in any case) matches a heading that
+    starts with either side; singular and plural words meet."""
+    key = _singular(_norm(heading))
+    for side in re.split(r"\s+or\s+", name, flags=re.IGNORECASE):
         target = _norm(side)
-        if target == "appendix":
-            target = "append"
-        if key.startswith(target):
+        if not target:
+            continue
+        if key.startswith("append" if target == "appendix" else _singular(target)):
             return True
     return False
 
@@ -371,7 +377,8 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
     header = header_of(lines, sections)
     status = header_defects(add, header)
     version = _checklist_version(header)
-    if version is not None and _older_than_shape(version):
+    frozen = status is not None and status.group(1).startswith("frozen")
+    if frozen and version is not None and _older_than_shape(version):
         print(
             f"{path}: brief frozen under checklist {version}; "
             "only the header and Amendments are checked",
@@ -402,7 +409,7 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
         entries = decisions_of(add, lines, by_name["Decisions"], design_tree)
     if "Open items" in by_name:
         open_items_defects(add, lines, by_name["Open items"], entries)
-    if status is not None and status.group(1).startswith("frozen"):
+    if frozen:
         for item_id in sorted(design_tree - set(entries), key=item_key):
             add(1, f"frozen brief has no entry for design-tree item {item_id}")
     if "Amendments" in by_name:
@@ -480,19 +487,26 @@ QUOTED = re.compile(r'"[^"]*"')
 
 def _fix_numbers(add: Adder, lines: Sequence[str]) -> int:
     """Fix numbers in order of first appearance; a draft's own words inside a
-    quoted passage and an `(fix N applied)` marker are not fixes."""
+    quoted passage are not fixes. An `(fix N applied)` marker counts N as
+    proposed but never triggers the order rule: a definition may skip the
+    numbers that a marker covers. Returns the number of fixes proposed."""
+    unquoted = [QUOTED.sub("", clean(raw)) for raw in lines]
+    markers = {int(m.group(1)) for text in unquoted for m in APPLIED.finditer(text)}
     seen_max = 0
-    for number, raw in enumerate(lines, 1):
-        for match in FIX.finditer(APPLIED.sub("", QUOTED.sub("", clean(raw)))):
+    for number, text in enumerate(unquoted, 1):
+        for match in FIX.finditer(APPLIED.sub("", text)):
             value = int(match.group(1))
-            if value == seen_max + 1:
-                seen_max = value
-            elif value > seen_max + 1:
+            missing = next(
+                (n for n in range(seen_max + 1, value) if n not in markers), None
+            )
+            if missing is not None:
                 add(
                     number,
-                    f"fix {value} appears before fix {seen_max + 1}; fixes are numbered in order of appearance",
+                    f"fix {value} appears before fix {missing}; fixes are numbered in order of appearance",
                 )
-    return seen_max
+            else:
+                seen_max = max(seen_max, value)
+    return max(seen_max, max(markers, default=0))
 
 
 def _lines_in(lines: Sequence[str], section: tuple[int, int]) -> list[str]:
