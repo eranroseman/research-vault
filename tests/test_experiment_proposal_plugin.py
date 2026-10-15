@@ -385,19 +385,17 @@ ITEM = re.compile(
 )
 CITATION = re.compile(r"\bitems? (\d{1,2}\.\d{1,2}(?:(?:, | and )\d{1,2}\.\d{1,2})*)")
 # The spec's design tree, by step: 1 question, ethics route, data plan; 2 session
-# estimate, pilot, timeline, challenges; 6 direction, SESOI with equivalence,
-# decision rule; 7 variables, within/between, carry-over, assignment,
-# counterbalancing, controls, confounds; 8 eligibility, justified count;
-# 11 the mixed-model plan.
+# estimate, pilot, timeline, challenges; 6 hypotheses, directions, interactions;
+# 7 variables, within/between, carry-over, assignment, counterbalancing,
+# controls, confounds; 8 eligibility, the justified count.
 DESIGN_TREE = {
     "1.1", "1.2", "1.3",
     "2.2", "2.3", "2.4", "2.5",
-    "6.1", "6.2", "6.5", "6.6", "6.7",
+    "6.1", "6.2", "6.5",
     "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "7.9",
-    "8.3", "8.5", "8.6", "8.7",
-    "11.2", "11.4", "11.5", "11.6", "11.7", "11.8", "11.9",
+    "8.3", "8.5",
 }  # fmt: skip
-ATTESTED = {"3.1", "5.2", "11.10", "13.1", "13.4"}
+ATTESTED = {"3.1", "5.2", "13.1", "13.4"}
 DEFEND_STAGE = {"13.2", "13.3"}
 
 
@@ -436,10 +434,12 @@ def _cited_ids(text: str) -> set[str]:
     return ids
 
 
-def test_checklist_has_the_items_of_all_thirteen_steps():
+def test_checklist_has_the_items_of_the_twelve_checked_steps():
+    """Step 11 is not checked (the lens's section list has no Planned Analysis
+    section); the other twelve steps keep their items."""
     items = _checklist_items()
-    assert len(items) == 81, len(items)
-    assert {int(i.split(".")[0]) for i in items} == set(range(1, 14))
+    assert len(items) == 67, len(items)
+    assert {int(i.split(".")[0]) for i in items} == set(range(1, 14)) - {11}
     for item_id, item in items.items():
         assert item["text"].rstrip().endswith("."), (
             f"{item_id} does not end in a full stop"
@@ -478,22 +478,31 @@ def test_the_design_tree_attested_and_defend_stage_sets_are_the_specs():
     } == DEFEND_STAGE
     assert all(items[i]["scope"] == "review-only" for i in DEFEND_STAGE)
     assert items["8.5"]["kind"] == "draft-checked"
-    assert "BLOCKED" in items["8.5"]["text"]
-    assert "waiver" in items["8.5"]["text"]
+    assert "similar experiments" in items["8.5"]["text"]
+    assert "power" not in items["8.5"]["text"]
+    assert {i for i in items if i.startswith("13.") and int(i.split(".")[1]) >= 6} == {
+        "13.6",
+        "13.7",
+        "13.8",
+        "13.9",
+        "13.10",
+        "13.11",
+    }
 
 
-def test_checklist_names_its_provenance_deviations_and_credits():
+def test_checklist_names_its_provenance_the_lens_and_its_deviations():
     text = CHECKLIST.read_text(encoding="utf-8")
     assert "98b978fb74b7480c9967ceb2a1100e4560081af5" in text
+    assert "the lens" in text
+    assert "2026-10-14-experiment-proposal-v2-design.md" in text
     assert "## Deviations" in text
-    for credit in (
-        "statistical-power",
-        "proposal-supervise",
-        "research-grill",
-        "lit-search",
-    ):
+    assert (
+        "Planned Analysis" in text
+    )  # the dropped step is named, so a reader knows why
+    for credit in ("proposal-supervise", "research-grill", "lit-search"):
         assert credit in text, f"the deviations do not credit {credit}"
-    assert "sphericity" in text  # the dropped check is named, so a reader knows why
+    assert "statistical-power" not in text  # its items left with the power analysis
+    assert "sphericity" not in text
     missing = _cited_ids(text) - set(_checklist_items())
     assert not missing, (
         f"the checklist cites items that do not exist: {sorted(missing)}"
