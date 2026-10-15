@@ -944,6 +944,9 @@ def test_singular_and_plural_words_match_and_appendix_stays_exact():
     assert checker._singular("hypothesis") == "hypothesi"
     assert checker._singular("appendices") == "appendic"
     assert checker._singular("s") == "s"
+    assert checker._singular("procedures") == "procedur"
+    assert checker._singular("procedure") == "procedur"
+    assert checker._singular("e") == "e"
     assert checker._matches("Materials and Methods", "Material")
     assert checker._matches("Participant Information", "Participants")
     assert checker._matches("Appendices", "Appendix")
@@ -952,6 +955,23 @@ def test_singular_and_plural_words_match_and_appendix_stays_exact():
     assert not checker._matches("Appendices", "Appendix B")
     assert not checker._matches("Appendix A: recruiting", "Appendix B")
     assert not checker._matches("Appendix A: recruiting", "Appendix S")
+
+
+def test_a_plural_procedures_heading_passes_the_default_procedure_section(tmp_path):
+    text = mutate(valid_draft(), "## Procedure\n", "## Procedures\n")
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 0, result.stdout
+
+
+def test_a_trailing_comma_in_sections_names_no_section(tmp_path):
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(), encoding="utf-8")
+    result = run("draft", str(path), "--sections", "Introduction, Design,")
+    assert result.returncode == 0, result.stdout
+    result = run("draft", str(path), "--sections", "Introduction,, Design , ")
+    assert result.returncode == 0, result.stdout
 
 
 def test_a_name_with_an_empty_side_matches_no_heading_by_it(tmp_path):

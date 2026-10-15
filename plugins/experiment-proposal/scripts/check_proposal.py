@@ -102,9 +102,10 @@ def _norm(text: str) -> str:
 
 
 def _singular(text: str) -> str:
-    """Each word of a normalised heading without a trailing `es`, else a
-    trailing `s`, so `questions` and `question` meet at `question`."""
-    return " ".join(re.sub(r"(?<=.)(?:es|s)$", "", word) for word in text.split())
+    """Each word of a normalised heading without a trailing `es`, else `s`,
+    else `e` (never below one letter), so `questions` and `question` meet at
+    `question` and `procedures` and `procedure` at `procedur`."""
+    return " ".join(re.sub(r"(?<=.)(?:es|s|e)$", "", word) for word in text.split())
 
 
 def _matches(heading: str, name: str) -> bool:
@@ -818,7 +819,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         defects = check_draft(
             path,
-            tuple(s.strip() for s in args.sections.split(",")),
+            tuple(s.strip() for s in args.sections.split(",") if s.strip()),
             words,
             references,
             args.supervisor,
