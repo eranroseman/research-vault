@@ -1284,7 +1284,7 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
     )
     waivers = len(waiver_lines)
     waived_rows = {item_id for item_id, result in results.items() if result == "fail (waived)"}
-    waived_entries = {m.group(1) for line in waiver_lines if (m := re.match(r"^- (\d{1,2}\.\d{1,2}) waived", line))}
+    waived_entries = {m.group(1) for line in waiver_lines if (m := re.match(r"^- (\d{1,2}\.\d{1,2}) waived\b", line))}
     if "Waivers" in by_name:
         for item_id in sorted(waived_rows - waived_entries, key=item_key):
             add(by_name["Waivers"][0], f"row {item_id} is waived but has no Waivers entry")
@@ -1447,8 +1447,8 @@ Append to `tests/test_experiment_proposal_checker.py`:
 SENTENCE = "Participants will select targets on the screen with each device in turn. "
 
 
-def valid_draft(body_sentences: int = 300, reference_count: int = 16) -> str:
-    """A draft with the course's sections in order, about 2,400 body words,
+def valid_draft(body_sentences: int = 240, reference_count: int = 16) -> str:
+    """A draft with the course's sections in order, about 2,900 body words,
     sixteen references, a bulleted contributions list and the supervision
     sentence."""
     prose = SENTENCE * (body_sentences // 7)
@@ -1633,7 +1633,7 @@ def check_draft(
 - [ ] **Step 3: Run the tests, then lint**
 
 Run: `../../.venv/bin/python -m pytest tests/test_experiment_proposal_checker.py -q`
-Expected: all pass. If `test_the_body_word_count_excludes_references_and_appendices` reports a count outside 2,000 to 4,000 for the default `valid_draft()`, adjust `body_sentences` in the helper, not the checker: seven sections times 42 sentences of 12 words is about 3,500 words, plus the short lines; the helper's default must land between 2,400 and 3,600.
+Expected: all pass. If `test_the_body_word_count_excludes_references_and_appendices` reports a count outside 2,000 to 4,000 for the default `valid_draft()`, adjust `body_sentences` in the helper, not the checker: seven sections times 34 sentences of 12 words is about 2,860 words, plus the short lines; the helper's default must land between 2,400 and 3,600.
 
 Run: `../../.venv/bin/ruff format plugins/experiment-proposal/scripts tests/test_experiment_proposal_checker.py && ../../.venv/bin/ruff check plugins/experiment-proposal/scripts tests/test_experiment_proposal_checker.py && ../../.venv/bin/mypy`
 Expected: clean.
