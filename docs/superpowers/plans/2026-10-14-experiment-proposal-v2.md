@@ -808,6 +808,9 @@ def parse_range(text: str) -> tuple[int, int]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    if sys.version_info < (3, 11):
+        print("check_proposal.py needs Python 3.11 or later", file=sys.stderr)
+        return 2
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--json", action="store_true", help="print the defects as a JSON list")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -2643,6 +2646,8 @@ ______________________________________________________________________
 - Delete: `plugins/experiment-proposal/templates/power-simr.R`
 - Modify: `plugins/experiment-proposal/THIRD-PARTY-NOTICES.md`, `ATTRIBUTION.md`
 - Modify: `tests/test_experiment_proposal_plugin.py` (the README test; the provenance test's header clause)
+- Modify: `plugins/experiment-proposal/scripts/check_proposal.py` (the Python 3.11 guard at the top of `main`, as the Task 2 block now shows)
+- Modify: `tests/test_experiment_proposal_checker.py`
 
 **Interfaces:**
 
@@ -2665,17 +2670,37 @@ def test_readme_states_the_lens_the_mechanics_the_prerequisites_and_the_vendored
         assert mechanic in text, f"README lacks the mechanic {mechanic}"
     for prerequisite in ("git", "3.11", "research-grill"):
         assert prerequisite in text, f"README lacks the prerequisite {prerequisite}"
+    # Observed 2026-10-14: the-ethics-board wrote proposal/ethics-review.md in the author's
+    # own project during the 0.1.0 real-material session (method: the file's listing and date).
     assert "proposal/ethics-review.md" in text and "Semantic Scholar key" in text
+    assert "THESIS_PROPOSAL_KEYS" in text
     assert "Read,Write,Edit,Agent,Bash(git:*),Bash(python3:*)" in text
     assert "CITATION.cff" in text and "scientific-agents" in text and "pm-claude-skills" in text
     assert "THIRD-PARTY-NOTICES.md" in text
     assert "plugin.json" in text and "0.1.0" not in text and "0.2.0" not in text
     lowered = text.lower()
     assert "rscript" not in lowered and "simr" not in lowered and "power" not in lowered
+
+
+def test_the_reference_examples_carry_the_manifest_version():
+    manifest = PLUGIN / ".claude-plugin" / "plugin.json"
+    version = json.loads(manifest.read_text(encoding="utf-8"))["version"]
+    for name in ("brief.md", "review.md"):
+        text = (PLUGIN / "references" / name).read_text(encoding="utf-8")
+        assert f"Checklist: experiment-proposal {version}" in text, f"{name} carries a stale version"
 ```
 
-Run: `../../.venv/bin/python -m pytest tests/test_experiment_proposal_plugin.py -q -k readme`
-Expected: 1 failed.
+Append to `tests/test_experiment_proposal_checker.py`:
+
+```python
+def test_the_checker_stops_with_an_install_pointer_on_an_old_python(monkeypatch, capsys):
+    monkeypatch.setattr(checker.sys, "version_info", (3, 10, 0))
+    assert checker.main(["brief", "proposal/design-brief.md"]) == 2
+    assert "Python 3.11 or later" in capsys.readouterr().err
+```
+
+Run: `../../.venv/bin/python -m pytest tests/test_experiment_proposal_plugin.py tests/test_experiment_proposal_checker.py -q -k "readme or manifest_version or old_python"`
+Expected: 3 failed (the README, the version tie until Step 3 bumps the manifest, and the guard until Step 3 adds it).
 
 - [ ] **Step 2: Write the README**
 
@@ -2719,7 +2744,7 @@ The subagent `hci-researcher` ships with the plugin, restricted to reading; `des
 ## Prerequisites
 
 - **git** in your project: `design` freezes the brief by commit.
-- **Python 3.11 or later**, as `python3`, for the checker and for `lit-search`'s scripts; the skills stop with an install pointer when it is older. `lit-search`'s keys are optional: `OPENALEX_API_KEY` (OpenAlex is skipped without it) and `CONTACT_EMAIL` are read from the environment or from a key file (`api-keys.env` in the working directory, or `~/.config/thesis-proposal/api-keys.env`), `OPENCITATIONS_TOKEN` from the environment only; a Semantic Scholar key is not used. Your search terms and seed DOIs go to those public APIs.
+- **Python 3.11 or later**, as `python3`, for the checker and for `lit-search`'s scripts; each stops with an install pointer when it is older. `lit-search`'s keys are optional: `OPENALEX_API_KEY` (OpenAlex is skipped without it) and `CONTACT_EMAIL` are read from the environment or from a key file (the file named by `THESIS_PROPOSAL_KEYS`, `api-keys.env` in the working directory, or `~/.config/thesis-proposal/api-keys.env`), `OPENCITATIONS_TOKEN` from the environment only; a Semantic Scholar key is not used. Your search terms and seed DOIs go to those public APIs.
 - **research-grill** for the defend stage, a separate install this plugin does not declare as a dependency because it is licensed CC BY-NC 4.0: `claude plugin marketplace add scdenney/open-science-skills` then `claude plugin install oss@open-science-skills`. `review` prints these commands ahead of the defend command when it is absent.
 
 ## Headless use
@@ -2743,6 +2768,14 @@ Run: `../../.venv/bin/mdformat --number --wrap keep plugins/experiment-proposal/
 Expected: 1 passed.
 
 - [ ] **Step 3: The manifest and the template's removal**
+
+In `plugins/experiment-proposal/scripts/check_proposal.py`, insert at the top of `main`, before the parser is built:
+
+```python
+    if sys.version_info < (3, 11):
+        print("check_proposal.py needs Python 3.11 or later", file=sys.stderr)
+        return 2
+```
 
 Replace `plugins/experiment-proposal/.claude-plugin/plugin.json` with:
 
@@ -2799,7 +2832,7 @@ Expected: every command clean; the suite has no R skip left. The local mypy red 
 - [ ] **Step 6: Commit**
 
 ```bash
-F="plugins/experiment-proposal/README.md plugins/experiment-proposal/.claude-plugin/plugin.json plugins/experiment-proposal/THIRD-PARTY-NOTICES.md ATTRIBUTION.md tests/test_experiment_proposal_plugin.py"
+F="plugins/experiment-proposal/README.md plugins/experiment-proposal/.claude-plugin/plugin.json plugins/experiment-proposal/THIRD-PARTY-NOTICES.md ATTRIBUTION.md tests/test_experiment_proposal_plugin.py tests/test_experiment_proposal_checker.py plugins/experiment-proposal/scripts/check_proposal.py"
 ../../.venv/bin/ruff format tests/test_experiment_proposal_plugin.py && ../../.venv/bin/ruff check tests/test_experiment_proposal_plugin.py
 git add $F
 git commit -m "feat(experiment-proposal): 0.2.0: README under the lens, the template removed, notices and attribution
