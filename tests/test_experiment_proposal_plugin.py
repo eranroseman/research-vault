@@ -554,6 +554,13 @@ def test_lit_search_checks_python_names_the_indexes_the_target_and_writes_nothin
     assert "15 to 20" in text
     assert "which indexes will answer" in text
     assert "no Semantic Scholar key" in text
+    # search.py's stderr hint names the section; a re-vendor that renames it fails here.
+    source = (PLUGIN / "skills" / "lit-search" / "scripts" / "search.py").read_text(
+        encoding="utf-8"
+    )
+    heading = re.search(r'see "([^"]+)"', source)
+    assert heading is not None
+    assert f"## {heading.group(1)}" in text
     for index in (
         "Crossref",
         "OpenAlex",
