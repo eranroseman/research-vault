@@ -37,7 +37,7 @@ Each item is one line: `- **ID** (kind; scope; depends on IDs) holds-when text`.
 
 ## Step 3: document
 
-- **3.1** (attested; review-only; depends on none) The template, length limit, citation style and section list are identified, with whether appendices and references count toward the limit; with no template, the typical sections are chosen.
+- **3.1** (attested; review-only; depends on none) The template's requirements are identified and recorded: its section list and order, its word bounds and whether references and appendices count toward them, its reference bounds, its citation style, and the supervising instructor's name; the course's values are the defaults when the template leaves one unsaid.
 - **3.2** (draft-checked; review-only; depends on 3.1) The draft has a heading for every section the template lists, in the template's order, with Design separate from Procedure.
 - **3.3** (draft-checked; review-only; depends on 3.2) The draft follows the conventions throughout: a short, to-the-point title; an abstract, if there is one, under 150 words or the template's limit; the future tense; every borrowed idea cited and every cited work listed under References in the required style; "statistically significant" written in full; and every Method section replicable from its own text.
 
