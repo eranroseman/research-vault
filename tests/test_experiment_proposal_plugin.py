@@ -13,7 +13,6 @@ import ast
 import importlib.util
 import json
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -503,55 +502,6 @@ def test_checklist_names_its_provenance_the_lens_and_its_deviations():
 
 
 # --------------------------------------------------------------------------
-# The R power template
-# --------------------------------------------------------------------------
-
-TEMPLATE = PLUGIN / "templates" / "power-simr.R"
-
-
-def test_the_power_template_has_the_block_design_fills_and_names_its_prerequisites():
-    text = TEMPLATE.read_text(encoding="utf-8")
-    start = text.index("## ---- PARAMETERS (filled by design from the brief) ----")
-    end = text.index("## ---- END OF PARAMETERS ----")
-    assert start < end
-    block = text[start:end]
-    for field in (
-        "n_sims",
-        "alpha",
-        "target_power",
-        "n_grid",
-        "trials_per_condition",
-        "within",
-        "between",
-        "models",
-    ):
-        assert f"{field} =" in block, f"the PARAMETERS block lacks {field}"
-    for package in ("lme4", "lmerTest", "ordinal", "simr"):
-        assert f"library({package})" in text
-    for family in ('"lmer"', '"glmer"', '"clmm"'):
-        assert family in text
-    assert "powerCurve" in text
-    assert "clmm(" in text
-
-
-def test_the_power_template_parses_where_rscript_exists():
-    """Where Rscript is absent the test SKIPS and says so; it never passes
-    on a machine that could not parse the file."""
-    rscript = shutil.which("Rscript")
-    if rscript is None:
-        pytest.skip(
-            "Rscript is not on PATH: the R template was NOT parsed (skipped, not passed)"
-        )
-    result = subprocess.run(
-        [rscript, "-e", f"invisible(parse(file = '{TEMPLATE.as_posix()}'))"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
-
-
-# --------------------------------------------------------------------------
 # The skills we wrote: citations resolve, paths resolve, contracts hold
 # --------------------------------------------------------------------------
 
@@ -580,44 +530,6 @@ def test_every_plugin_root_path_a_skill_names_exists(skill_dir):
     assert named, f"{skill_dir.name} names no plugin path (did the path shape change?)"
     missing = sorted(p for p in named if not (PLUGIN / p).exists())
     assert not missing, f"{skill_dir.name} names paths that do not exist: {missing}"
-
-
-def test_design_reads_the_checklist_and_the_template_and_calls_the_subagent():
-    text = _skill_text("design")
-    assert "${CLAUDE_PLUGIN_ROOT}/references/checklist.md" in text
-    assert "${CLAUDE_PLUGIN_ROOT}/templates/power-simr.R" in text
-    assert "../../references/checklist.md" in text  # the unexpanded-variable fallback
-    assert "hci-researcher" in text
-    assert "experiment-proposal:hci-researcher" in text
-    assert "Never read the guide" in text
-
-
-def test_design_checks_r_prerequisites_and_blocks_the_count_loudly():
-    text = _skill_text("design")
-    assert 'Rscript -e \'for (p in c("lme4","lmerTest","ordinal","simr"))' in text
-    assert 'install.packages(c("lme4","lmerTest","ordinal","simr")' in text
-    assert "BLOCKED" in text
-    assert "waived" in text
-    assert "waiver" in text
-    assert "item 8.5" in text
-    for status in ("settled", "pilot settles", "provisional", "weak", "missing"):
-        assert status in text, f"design never names the status {status}"
-
-
-def test_design_runs_rounds_with_the_three_question_parts_and_freezes_by_commit():
-    text = _skill_text("design")
-    assert "Why this matters:" in text
-    assert "Recommended:" in text
-    assert "frontier" in text
-    assert "Matt Pocock" in text
-    assert "## Decisions" in text
-    assert "## Looked up" in text
-    assert "## Open items" in text
-    assert "## Amendments" in text
-    assert "Draft:" in text
-    assert "git commit" in text
-    assert "/experiment-proposal:lit-search" in text
-    assert "/experiment-proposal:the-ethics-board" in text
 
 
 def test_review_reads_the_brief_the_draft_and_the_checklist_and_stops_on_a_missing_one():
@@ -721,3 +633,82 @@ def test_readme_covers_install_commands_prerequisites_and_citation_requests():
     assert "scientific-agents" in text
     assert "pm-claude-skills" in text
     assert "THIRD-PARTY-NOTICES.md" in text
+
+
+# --------------------------------------------------------------------------
+# Word budgets and the shapes the skills share with the checker
+# --------------------------------------------------------------------------
+
+
+def _words(path: Path) -> int:
+    """The pinned word count: tokens after the closing frontmatter fence."""
+    text = path.read_text(encoding="utf-8")
+    body = text.split("\n---\n", 1)[1] if text.startswith("---\n") else text
+    return len(body.split())
+
+
+WORD_BUDGETS = {
+    "skills/design/SKILL.md": 1400,
+    "skills/review/SKILL.md": 1100,
+    "skills/lit-search/SKILL.md": 650,
+    "references/brief.md": 700,
+    "references/review.md": 800,
+}
+
+
+@pytest.mark.parametrize("relative", sorted(WORD_BUDGETS))
+def test_the_file_is_within_its_word_budget(relative):
+    """Sprawl shows up red; the numbers are the spec's and move by a spec edit."""
+    assert _words(PLUGIN / relative) <= WORD_BUDGETS[relative]
+
+
+def test_the_status_words_agree_between_the_brief_shape_and_the_checker():
+    reference = (PLUGIN / "references" / "brief.md").read_text(encoding="utf-8")
+    for status in _checker.STATUSES:
+        assert f"`{status}`" in reference, f"brief.md does not define `{status}`"
+    assert "`weak`" in reference
+    assert "`missing`" in reference
+    for label in _checker.ENTRY_LINES:
+        assert f"- {label}:" in reference
+
+
+def test_design_is_steps_that_point_at_the_shape_the_checker_and_the_subagent():
+    text = _skill_text("design")
+    for pointer in (
+        "${CLAUDE_PLUGIN_ROOT}/references/checklist.md",
+        "${CLAUDE_PLUGIN_ROOT}/references/brief.md",
+        "${CLAUDE_PLUGIN_ROOT}/scripts/check_proposal.py",
+        "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json",
+        "../../references/checklist.md",
+        "../../references/brief.md",
+        "../../scripts/check_proposal.py",
+    ):
+        assert pointer in text, f"design does not point at {pointer}"
+    assert "experiment-proposal:hci-researcher" in text
+    assert "Why this matters:" in text
+    assert "Recommended:" in text
+    assert "frontier" in text
+    assert "Freeze the design brief" in text
+    assert text.count("Done when") >= 8
+    lowered = text.lower()
+    assert "power" not in lowered
+    assert "rscript" not in lowered
+    assert "blocked" not in lowered
+    for status in ("settled", "pilot settles", "provisional", "weak", "missing"):
+        assert status in text
+
+
+def test_the_subagent_runs_nothing():
+    """The third marked edit: a tools line without Bash, and a routing
+    sentence that names only the questions design still asks."""
+    raw = "\n".join(_raw_frontmatter_lines(PLUGIN / "agents" / "hci-researcher.md"))
+    assert "tools: Read, Grep, Glob" in raw
+    assert "# local edit (experiment-proposal): tools restricted" in raw
+    # the text before "Not for unprompted use." is ours; the upstream text follows
+    routing = raw.split("Not for unprompted use.", 1)[0]
+    assert "random-effects" not in routing
+    assert "effect-size" not in routing
+    assert "counterbalancing" in routing
+    assert "confounds" in routing
+    header = (PLUGIN / "agents" / "hci-researcher.md").read_text(encoding="utf-8")
+    assert "a tools line" in header
