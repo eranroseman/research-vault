@@ -1,0 +1,973 @@
+{
+ "integ": {
+  "report_path": "/home/eranr/research-vault/docs/research/2026-10-23-thesis-proposal-skills-comparison.md",
+  "adopt": [
+   "1. Carry an earlier review round forward: read an existing proposal/review.md first, keep confirmed rows, waivers and the 3.1 values (stored as checker flags), mark earlier fails resolved or open; medium cost (review-2, scope-8, scope-9)",
+   "2. Re-vendor the nine lit-search scripts at v0.9.0 (1666e69) before writing the wrapper, updating headers, THIRD-PARTY-NOTICES, ATTRIBUTION and the test constant; small (governance-1, governance-2, governance-3, lit-2, scope-5, governance-13)",
+   "3. check_proposal.py draft --placeholders: list TODO, TBD and all-caps bracketed placeholders with section and line, optionally compared with a named list heading, read by review for 13.5; small (scope-7, checks-5)",
+   "4. Cited-versus-listed check for [n] lists: a citation with no entry is a defect for 3.3, an uncited entry is informational; small (checks-1)",
+   "5. Record the research questions and hypotheses a review judged, verbatim, and print an informational line when they change; prefer it to a digest; small (review-4, checks-7)",
+   "6. lit-search SKILL.md rules: one seed per call at 5, seed the exclude file from the draft's references, one judging context, coverage stop clause, sandbox fetch fallback, gitignore the key file, short DBLP query; small (lit-7, lit-9, lit-13, lit-11, lit-10, lit-12, lit-1, agentdocs-2, governance-3)",
+   "7. Checker output contract: rule and item fields on Defect and in JSON, informational lines on stderr; small (checks-3, checks-8)",
+   "8. Swap-test anchors and title scope in checklist item 13.8, in our own words; small (review-6, governance-14)",
+   "9. Absence claims name the sections searched, plus one fresh Read/Grep checker of fail and pass-narrowly rows with its own brief (not hci-researcher); medium (review-3)",
+   "10. Execution-shape and checker-not-run sentences at the top of each SKILL.md; small (agentdocs-3, agentdocs-8)",
+   "11. Review wordings: anchored-choice decide: fixes, a waiver fallback field, phase size drivers in 13.11; small each (review-9, review-7, review-8)",
+   "12. hci-researcher brief through a general subagent where the agent type is not offered (Codex); small (agentdocs-4)",
+   "13. Host-neutral skill names in SKILL.md prose, keeping the /experiment-proposal: token in Open items; small (agentdocs-5)",
+   "14. README additions: troubleshooting paragraph, experiment track only, word-count margin note, idea step line; small (scope-14, scope-10, checks-10, scope-2)",
+   "15. Release records: plugin CHANGELOG with retroactive sections, Changelog line and landed status in specs, [Unreleased] rule; small (governance-7, governance-9, governance-11)",
+   "16. Vendored-body sha256 test and a release-time ls-remote pin check that reports unreachable upstreams; small (governance-6, governance-10)",
+   "17. Commit the eval driver (resume by session id, untested on 429) and a score.py importing the checker's parsers, with an optional pinned judge; medium (EVALS-4, EVALS-6, EVALS-12)",
+   "18. Isolate eval runs in a scratch CLAUDE_CONFIG_DIR, pin --model claude-opus-5, record served model, CLI version, tokens and cost; medium (EVALS-2, EVALS-9, EVALS-15)",
+   "19. Fixtures that score the substance tests (generic-variant and clean fixtures) and one no-plugin baseline of scenario 5; medium (EVALS-7, review-5, EVALS-10)",
+   "20. Front matter per run record and a script that regenerates the eval README's Runs tables with --check; small (EVALS-14)",
+   "21. Later: our own reference existence check on the vendored Crossref module, flagging arXiv DOIs; medium (checks-4, lit-8)",
+   "22. Later, optional: list RQ and H labels by section as data for 13.10; small (checks-6, review-12)",
+   "23. Later: a persona model driving scenario 3's answers; medium (EVALS-8)",
+   "24. Later: upstream's lit_live.py as a maintainer probe after the re-vendor; small (EVALS-11)",
+   "25. Only if item 7 lands: expected.json oracles per draft fixture; small (checks-11)"
+  ],
+  "spec_changes": [
+   "Already upstream, re-vendor instead: the 429 retry (2 retries, 3 s then 6 s) predates our pin, so the PR's 'adds 429 backoff' half duplicates it (lit-5, governance-4, scope-5)",
+   "Already upstream, re-vendor instead: the candidates: size line, snowball default 5 and one seed per call, arXiv HTTPS with feed-root guard and retry, UTF-8 output, type-only exception notes (governance-1, governance-3, lit-2)",
+   "Not upstream's defect: DBLP's empty results come from 6-to-8-term ANDed queries; drop the planned DBLP issue (lit-1)",
+   "Why: reword the DBLP and 429 statements (query shape; Semantic Scholar search endpoint only) and correct 'three' queries to four (lit-1, lit-5)",
+   "Decisions: lit-search row becomes re-vendored at v0.9.0 unchanged apart from headers, Semantic Scholar-only retry or none, and one issue then one YAML-escaping PR (governance-2, governance-4, lit-1, lit-5)",
+   "Decisions: add a draft writer to 'Out of scope, considered and rejected' with the Bloom evidence and the course's silence on AI prose (scope-1)",
+   "§1: define an agent run by the caller's statement, not by claude -p without --continue, which starts every headless conversation (report's proposal from EVALS-1, EVALS-5)",
+   "§1: design writes no recommended research question when 1.1 is missing; interactively ask or print /oss:research-grill idea, in agent runs stop; 6.1 and 6.2 recommendations cite a source (scope-2)",
+   "§1: review's agent run takes 3.1 values from an earlier review.md and keeps its confirmed rows and waivers (review-2, scope-9)",
+   "§1: place the Agent run paragraph before Steps and point each wait to it (agentdocs-6)",
+   "§1: each Agent run names its ending step and prints a closing line naming the human-only exit (scope-4, agentdocs-12)",
+   "§1: add one-context and invoke-the-owning-skill sentences (agentdocs-3, agentdocs-5)",
+   "§1: lit-search's 'writes no files' contradicts the judged file and --out; name them in the description, step 4 and README (scope-6, lit-13)",
+   "§1: word the-ethics-board's name-only description line (agentdocs-9)",
+   "§1: Codex test criterion is a $-mention that loads the skill with no cache search; prompt-input renders cannot decide; flip yaml only if the $-mention fails (agentdocs-1, EVALS-13)",
+   "§2: send the references list total to stderr, out of --json (checks-3)",
+   "§2: --numbers masks [n] brackets, inline code and heading numbers, skips References, gets a JSON shape and an exit rule, and its fixture plants a citation by 'participants' (checks-2, checks-3)",
+   "§2: add the placeholder report, cited-versus-listed check, review record of judged RQs, and rule/item fields (scope-7, checks-1, review-4, checks-8)",
+   "§3: re-vendor at v0.9.0 first and write litsearch.py against its stderr (governance-2, lit-2)",
+   "§3: decide per-source attribution, in-process import (breaks the stubbed test, joined tags) or one subprocess per source; print our own post-filter candidates count (lit-3, governance-3)",
+   "§3: replace whole-command reruns with a Semantic Scholar-only retry or none (lit-5)",
+   "§3: lenient parse must re-join unquoted split scalars; re-emit strings with json.dumps (lit-4)",
+   "§3: exclude file line format is DOI or title, verdict, reason; wrapper reads the first field with clean_doi and normalize_title; seeded from the draft's references (scope-6, lit-6, lit-9)",
+   "§3: --compact from round 1 and one seed per call at 5 (lit-7)",
+   "§3: upstream line becomes issue first, then one PR to develop with an OpenSpec folder escaping line breaks in _yaml_scalar at the sync source, a synthetic fixture and passing poe test (governance-4, governance-5)",
+   "§4: name the overridden v2 non-goal and update NOTICES, ATTRIBUTION, provenance header and the line-248 test for the ethics-board edits (governance-8)",
+   "§4: add a bookkeeping bullet giving v2 a Disposition: superseded-by line (governance-12)",
+   "§5: name the rewritten frontmatter tests at lines 131, 248 and 140, which fail under §1 (agentdocs-9)",
+   "§5: label single re-runs 'one run, not the bar', running two more if one fails (EVALS-1)",
+   "§5: add a bar for agent runs on scenario 2 and on the scenario 5 fixtures (EVALS-5)",
+   "§5: scenario 7 becomes one routing set: by-name positives, description-worded negatives, out-of-domain collisions, 3 epochs, Agent tool counted; no routing.py port (scope-3, EVALS-3, agentdocs-7)",
+   "§5: isolate and pin runs; run scenario 8's review on a copy until the carry-forward lands (EVALS-2, EVALS-9, review-2)"
+  ],
+  "we_do_better": [
+   "Design decisions settled in rounds with hci-researcher and frozen by commit, with amendments (scope-11)",
+   "Experiment-specific and ethics criteria checked item by item, plus an ethics-board rehearsal (review-11, scope-11)",
+   "A review whose shape the checker validates: rows in order, quote per pass, confirmation per attestation, fix numbering, waivers, recomputed Summary (checks-14)",
+   "A verbatim quote required for every draft-checked pass (review-9)",
+   "Picked fixes applied in the same pass with re-check, and user waivers carried into the defend stage (review-10)",
+   "An exact research-grill defend command with install fallback and a seed list (review-13, scope-4)",
+   "A Done-when criterion for every step (agentdocs-12)",
+   "One shared references folder, about half the words loaded per run (agentdocs-11)",
+   "No automatic merge of candidates into the draft; read-in-full rule kept (lit-14)",
+   "Run records tied to a commit with clean-tree proof, exact commands and quoted transcript lines (EVALS-15)",
+   "One version writer and --ff-only landing with annotated tags (governance-11)",
+   "Also kept: name-only invocation, the section-scoped literature-review count, and the conservative word count (agentdocs-10, checks-9, checks-10)"
+  ],
+  "summary": "Theirs is an eleven-skill suite for an anonymous Bachelor's or Master's exposé that ideates, searches, writes, checks, reviews, supervises, customizes, imports, reverses, publishes and troubleshoots, measured by a routing rig and a multi-host eval harness; ours is a four-skill plugin for one course's controlled-experiment proposal that settles and freezes the design, checks the student's own draft item by item against a checklist, and hands off to an external defend stage. Their shipped rules (a five-section exposé, no supervisor names, ethics in two or three sentences, a required Statistical Analysis subsection) conflict with our course, so nothing of theirs should be vendored beyond the lit-search scripts, and their ideas should keep being restated into our checklist. The most valuable things to adopt are cheap: carry an earlier review round forward, re-vendor the scripts at v0.9.0, and add a placeholder report, a cited-versus-listed check and a record of the research questions a review judged. The v3 spec needs correcting before implementation: its scenario 8 would overwrite the four confirmed attestations and the waivers in the author's real proposal/review.md, its planned 429 backoff and output-size signal already exist upstream, its DBLP \"defect\" is our own query shape, and two frontmatter tests fail for certain under its section 1. We do better on settling and freezing design decisions, experiment and ethics criteria, a checker-validated review with a quote per pass, waivers carried into the defence, and run records tied to a commit; their MIT terms are met, though three of our files overstate how freely the six substance tests were restated."
+ },
+ "kept": [
+  {
+   "id": "scope-1",
+   "lens": "scope",
+   "title": "Drafting stage: theirs has an agent writer, ours has none, and our only real use drafted with agents outside the plugin",
+   "kind": "they-have-we-lack",
+   "cost": "large",
+   "claim": "THEIRS proposal-write writes first drafts and turns bullets into prose: it writes every section, may cite only keys in the references block, marks gaps as [TODO: ...] and re-runs its check before reporting. It also revises against a review. OURS has no first-draft writer. That is a v2 non-goal (\"the plugin never writes proposal prose\"), and v3 keeps it through its rule that every v2 decision it does not name stands. Our review skill does edit the draft in place, but only for fixes the user picks by number, so the gap is drafting and bullets-to-prose, not revision. The plugin's second use and first full one, the Bloom proposal, was drafted by agents outside the plugin with project-made tools (part files, assemble.py, check.py, apply_edits.py). v3 does not revisit the non-goal in light of that, and its 'Out of scope, considered and rejected' list does not name a writer. The course text says nothing about AI-written prose, so the non-goal is the author's choice, not a course rule. Recommendation stands with one change: re-record the inherited non-goal in v3 together with the new evidence, rather than adding it as a new decision.",
+   "recommendation": "Keep ours for 0.3.0, but write the decision into v3's 'Out of scope, considered and rejected' list, citing this evidence: real use drafted with agents, and the course does not forbid it. That way the next release revisits it on purpose. If the author later adopts a writer, make it a narrow skill that writes only from the frozen brief into the eight-section skeleton. It should use bracket placeholders for unknowns, cite only sources the user supplied, and have one writer per file, following proposal-write's non-negotiables (restate them; do not vendor). Cost: none now, large if adopted."
+  },
+  {
+   "id": "scope-2",
+   "lens": "scope",
+   "title": "Idea stage is uncovered, and design (in v3 agent mode too) can supply the study's research question itself",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "OURS has no separate idea stage. By design (v1 spec line 140, \"Given only an idea, it starts from scratch\"), `design` turns a raw idea into a research question by treating item 1.1 as an ordinary design-tree item. When the material lacks a question, design offers a model-written `Recommended:` question, and \"I don't know\" makes it the provisional Decision. Under v3's Agent run, every unanswered frontier item goes provisional. Item 6.1's only design-tree dependency is 1.1 (5.1 is review-only), so an agent-run brief can carry a model-written research question and hypotheses (6.1, 6.2). They are flagged, not silent: they are listed first under Open items, and the brief stays open. THEIRS's proposal-ideate makes origination \"the one hard rule\": research questions come from the student and are never supplied. research-grill has an `idea` stage (a topic or hunch to one falsifiable research question), but our README and skills name only its defend stage. The course's first deliverable, a one-paragraph outline, is an idea-stage output that falls before the formal-proposal lens the plugin targets.",
+   "recommendation": "Adopt in OURS plugins/experiment-proposal/skills/design/SKILL.md steps 2-3. When item 1.1 is weak or missing, put no recommendation; ask for the question in the user's words, or stop and print `/oss:research-grill idea`, with the install commands when absent (reuse review's installed_plugins.json detection). Recommendations for items 6.1 and 6.2 must cite a source from the material or from Looked up. In v3 §1 Agent run, a missing 1.1 stops design with that message instead of writing a provisional question. Add one line to the README Commands order naming the idea step."
+  },
+  {
+   "id": "scope-3",
+   "lens": "scope",
+   "title": "Invocation model: upstream measures description-based routing; v3 tests only that nothing fires unprompted",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "THEIRS leaves all eleven skills model-invocable with trigger-rich descriptions and measures selection directly. Its dataset has 60 cases (canonical, oblique, collision, negative). The published report covers 58 of them over 3 epochs, 171 of 174 correct, and one oblique proposal-write case misses in 3 of 3 epochs. v3 deliberately makes our four skills callable by name with name-only descriptions, so upstream's canonical and oblique positives have no counterpart here. The comparable parts are by-name positives and the negative and collision half, where upstream has 4 negatives and 14 collisions at 3 epochs each. v3 checks one in-domain lure on Claude Code, 'plan a controlled HCI experiment... what should I do first?', with no skill invoked unprompted in three runs. It also runs a by-name invocation test on Codex, and scenario 8 runs the skills in agent mode on Claude Code without a bar. It has no by-name positive with a bar per skill on Claude Code. It also has no out-of-domain negative or collision utterances that the generic names `design` and `review` could attract once the flag is gone, such as 'review this pull request' or 'design a survey'.",
+   "recommendation": "Adopt in v3 §5 scenario 7 a small routing set modelled on routing_cases.toml, 3 epochs each, with the author's usual plugin set enabled. Positives: one by-name utterance per skill, expecting that skill. Negatives and collisions, expecting none of ours: 'review this pull request', 'design a survey for my class', 'find papers on transformer pruning', 'help me prepare for my IRB meeting', 'check my essay's word count'. Bar: every positive routes and no negative selects ours."
+  },
+  {
+   "id": "scope-4",
+   "lens": "scope",
+   "title": "Hand-off and chaining: theirs loads the next skill on 'yes'; ours prints commands, which research-grill requires",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "THEIRS ends every skill with Where it stands / Next / Or on a four-rung ladder. The lines never name a skill; when the user approves, the agent loads the skill that owns the step. Sibling skills are also composed in place by reading ../<sibling>/SKILL.md. All upstream skills can be invoked by the model. OURS prints exact commands: review prints the defend command, and design's Open items list /experiment-proposal:lit-search. Load-on-approval cannot properly reach our defend stage: research-grill is in another plugin with no sibling path, and it is set to disable-model-invocation: true. In v3's Agent run, \"nothing else in the steps changes\", so those printed commands survive, and the plugin's own skills become callable by name. What it does not do is name a step for the caller at the three exits only a human can take: approving the freeze of a brief left open, confirming attested items recorded as not confirmed, and running the user-only defend command. lit-search and the-ethics-board just \"return their report\" with no follow-on step.",
+   "recommendation": "Keep ours for the research-grill hand-off: a printed command is the only route to a user-invoked skill. In v3 §1, adopt one fixed closing line per Agent run naming the next call for the orchestrator. design: 'brief open, N provisional; the user freezes it with /experiment-proposal:design'. review: the defend command for the user. lit-search: 'add the kept sources to the draft; review attests item 5.2'."
+  },
+  {
+   "id": "scope-5",
+   "lens": "scope",
+   "title": "Upstream lit-search changed after our pin; the 429 retry already exists and the YAML quoting is unchanged",
+   "kind": "upstream-change-since-pin",
+   "cost": "small",
+   "claim": "Since the pin a38b7b1, three commits touched the vendored scripts (b5d24b5, b311e4f, a721bfd). The lit-search SKILL.md changed in four commits; the snowball and candidates-line changes came with b5d24b5. SKILL.md now says to snowball one seed per call. snowball.py still accepts several DOIs, but its --limit-per-seed default fell from 20 to 5. Our SKILL.md still snowballs the best two or three seeds at --limit-per-seed 20, which no longer matches. The two entry scripts, search.py and snowball.py, now print a stderr line 'candidates: N (L lines, C characters on stdout)' so a truncated host display can be detected. Retry on HTTP 429/5xx already existed at the pin and is unchanged at HEAD: 2 retries with linear backoff, 3 s then 6 s. So v3's planned PR should argue for a longer or Semantic Scholar-specific backoff, not add backoff. a721bfd also replaced arXiv's http_text with a classified fetch, which gives arXiv 429/5xx retry; that is one more reason to re-vendor. _yaml_scalar and the title/abstract normalization are unchanged, so titles with embedded newlines are still emitted unquoted upstream. If the planned wrapper relays all vendored stderr verbatim, it will relay the candidates line as if it were a degradation note, unless it filters stderr by line type, as the existing 'sources:' line already requires. N also counts records before --exclude, so it works only as a truncation signal, not as a result count.",
+   "recommendation": "Adopt before writing litsearch.py: re-vendor the nine scripts at 1666e69 and update the provenance headers and THIRD-PARTY-NOTICES. In the wrapper, parse the candidates line as a count, use it to flag truncation, and keep it out of the relayed notes. Run snowball with one seed per call. Reword the upstream PR to 'quote strings containing newlines; longer 429 backoff for Semantic Scholar'."
+  },
+  {
+   "id": "scope-6",
+   "lens": "scope",
+   "title": "v3 contradicts itself on whether lit-search writes a file; upstream records rejections only in an existing notes file",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "v3 contradicts itself on whether lit-search writes a file. §1 keeps \"writes no files\", SKILL.md step 4 still says \"write no files\", and the README's Writes column says \"nothing\". Yet §3 has the judge (the skill, per step 3) append every judged DOI to proposal/notes/lit-search-judged.txt, and its wrapper has an `--out <file>` option. Upstream records only rejections (DOI or title plus a one-line reason) in the Excluded Literature section of a notes.md that already exists. Kept entries are merged into the proposal and deduped against its references block. Upstream also keeps candidate lists in the chat and never creates files for them. So a dedicated judged-file is our own design, not something adopted from upstream. Because our skill never merges kept sources into the draft, the exclude list needs both kept and rejected DOIs. Recommendation as stated, with two additions. First, §3's exclude parse (\"one DOI per line\") must read only the first field once lines carry a verdict and reason. Second, §1's description, the README's Writes column, SKILL.md's description and step 4 must name the file, and so must `--out`, if kept. Cost: small.",
+   "recommendation": "Adopt: lit-search writes proposal/notes/lit-search-judged.txt as its one artifact, one line per judged DOI with its verdict (kept or rejected) and a one-line reason, so the file is both the exclude list and the record item 5.2 attests to. Update the v3 §1 description, the README Writes column and SKILL.md step 4 ('write no files')."
+  },
+  {
+   "id": "scope-7",
+   "lens": "scope",
+   "title": "No placeholder or TODO-marker check in our checker; theirs flags every open marker and the author wrote one by hand",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "THEIRS treats open markers as first-class, but only in its own syntax. check.py:1760 warns (it does not raise an error) on each `[TODO: ...]` match of structure.json's `\\[TODO:[^\\]]*\\]`. Its writing skills produce these markers. publish renders them as numbered callouts with no quiet option, and the proposal-write and proposal-check hand-offs sort them into decisions the student owes and execution details. OURS check_proposal.py, its skills, its checklist and the v3 spec have no placeholder rule of any kind. So a draft containing `[DATA STORAGE LOCATION]` passes the `draft` mechanics, and the author had to write a check that every bracketed placeholder appears in Appendix H (check.py lines 27 and 68-76). Our plugin does not write the draft, so it has no marker convention of its own, and adopting this means picking a pattern. The author's `[NAME]` / `[NAME: gloss]` regex is a ready model. Recommendation: add a `draft --placeholders` report shaped like the planned (spec-only, not yet implemented) `--numbers`. It lists each match with its section and line, judges nothing and exits 0. `review` reads it for item 13.5 and lists the open placeholders in the hand-off. Small cost: `check_draft` already parses headings.",
+   "recommendation": "Adopt in OURS plugins/experiment-proposal/scripts/check_proposal.py a `draft --placeholders` report. Like v3's --numbers, it lists each bracketed all-caps placeholder with its section and line, judges nothing and exits 0. review reads the report for item 13.5 (a draft to be submitted) and prints the open placeholders in the hand-off seed list. Add it to v3 §2 and its unit tests."
+  },
+  {
+   "id": "scope-8",
+   "lens": "scope",
+   "title": "Review across rounds: theirs carries the earlier round forward; ours rewrites review.md and loses waivers",
+   "kind": "they-have-we-lack",
+   "cost": "medium",
+   "claim": "THEIRS reads an existing review.md before overwriting it and marks each earlier blocker resolved, partly resolved or open. A finding about an unchanged passage keeps its class or drops to a lower one. The only exception is a title name the earlier round did not hold to the swap test; it can come back as a blocker labelled \"missed in the earlier round\". The review closes with a verbatim record of the research questions it judged, so check can warn `review-questions-changed` and treat the review as superseded. OURS describes review.md as a record of one pass. Step 5 writes it fresh, and the reference and the checker allow exactly seven sections, so there is no place for an earlier round. When the student revises and runs review again, the user's verbatim waiver reasons and the `(fix N applied)` history from the earlier run are lost, and nothing flags a review that no longer matches the draft. The author's real project went through several review rounds outside the plugin (two methods reviews, a red team, a verification pass), which shows multi-round reviewing is the expected use.",
+   "recommendation": "Adopt in OURS review step 1: when proposal/review.md exists, read it first. Carry each waiver forward whose quoted passage is unchanged, re-asking only when it changed, and give each earlier fail row a note: 'was fail in <date>: resolved/open'. Allow an optional `## Earlier round` line in references/review.md and the checker. Consider for v3 if scenario 8 includes a second review pass; otherwise 0.4.0."
+  },
+  {
+   "id": "scope-9",
+   "lens": "scope",
+   "title": "Customization is not persisted, and v3's agent mode silently reverts to the course defaults",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "THEIRS stores program and supervisor rules in a workspace guidelines.md that its skills read. OURS asks for the item 3.1 values (section list, word bounds, reference bounds, supervisor's name) on every review run and keeps them nowhere: the 3.1 row only has to say `confirmed by the user, <date>`, and the next run does not read the earlier review.md. In v3's agent run, review uses the course defaults at 3.1 and marks the row `not confirmed`. A user who confirmed different values in an earlier interactive review therefore gets the defaults back. Rows 13.5 and 5.1 are then judged against those defaults, and nothing says the earlier values were dropped. The practical impact is limited, because the single course's defaults usually apply and v3's literature-review-only reference count removes the one deviation seen in real use.",
+   "recommendation": "Adopt the persistence, not the TOML file. The 3.1 row of proposal/review.md records the confirmed values as the exact checker flags (`--sections \"...\" --words A-B --references A-B --supervisor \"...\"`). review, interactive or agent-run, offers or uses those values from an existing review.md before the course defaults. Amend v3 §1 accordingly. Keep rejecting a general override file: one course needs no customization surface."
+  },
+  {
+   "id": "scope-10",
+   "lens": "scope",
+   "title": "Framing conflict: their thesis-exposé rules forbid what our course requires, so adoption means restating, never vendoring",
+   "kind": "both-differ",
+   "cost": "none",
+   "claim": "THEIRS targets an anonymous Bachelor's or Master's exposé in English or German, with five required sections: Introduction, Contribution, Research Questions, Methodology and Timeline. The page limit is about 5 (a warning at 500 words per page). The reference floor is 3, but a density advisory of 4 per 1000 words expects 10-15. Its shipped rules forbid supervisor names (guidelines line 43; the check agent flags supervisor references), forbid \"supervisor\" as a heading, and keep ethics to \"two or three precise sentences ... not a compliance appendix\". Its Controlled Experiment branch requires a Statistical Analysis subsection. THEIRS does not forbid timelines. Timeline is a required section, kept to one sentence by default, and [timeline] detail = \"detailed\" allows a full work plan. The course has no timeline section, and our item 2.4 applies only when the template asks for one. The course and OURS require these things THEIRS forbids or omits: eight differently named sections ending in an Appendix; a consent form stating the study is under the named instructor's supervision (item 12.3); an appendix holding the recruiting materials, script, consent form and questionnaires (item 12.1); 2,000-4,000 words; and 15-20 references. Neither the course nor OURS has an analysis section (step 11 dropped), where THEIRS requires Statistical Analysis. Run with defaults on our draft, their check would report required-section-missing for all five canonical headings plus methodology-missing, and their agent passes would flag the supervision sentence and the author name. Customize can override the section list (including an Appendix heading, which also turns off the Statistical Analysis rule), raise page_limit and min_count, and drop \"supervisor\" from the forbidden headings. It cannot mechanically express the appendix contents, the supervision sentence, a 20-reference ceiling or a word floor; those can only go in free prose. The course also allows an archival or PRISMA track. THEIRS's slr branch is a structural near-match for it (Search Strategy and Selection Criteria, Quality Assessment and Extracted Information, Synthesis) but has no PRISMA guidance. OURS does not cover that track at all.",
+   "recommendation": "Keep ours. Take further upstream ideas the way the six substance tests were taken, restated into the checklist, and never vendor write, check or review. Add one README sentence: the plugin covers the course's experiment track only, not the archival or PRISMA option."
+  },
+  {
+   "id": "scope-11",
+   "lens": "scope",
+   "title": "We have the stages they lack: frozen design decisions with an HCI subagent, an ethics rehearsal, and a defend rehearsal",
+   "kind": "we-have-they-lack",
+   "cost": "none",
+   "claim": "THEIRS has no stage that settles and freezes design decisions. Their ideate skill works out a plausible method through questions, and write picks the methodology when the material leaves it open, marking it [TODO: confirm methodology choice]. write's handoff gives the student up to three owed decisions as anchored choices. Decisions are kept as free text in the Decisions section of notes.md, which write does not re-litigate, but nothing gives them a status, freezes them by commit, or checks them. THEIRS covers controlled-experiment design (variables, confounds, within- or between-subjects design, assignment, validity threats) and human-participant ethics (ethics route, informed consent, data handling, risk) only as unchecked guidance. It explicitly says this \"is not a compliance appendix\". It has no ethics rehearsal and no consent-form artifact, and nothing rehearses the student's defence: review writes a verdict file, and supervise is the professor's tool. OURS settles design-tree items in rounds and consults hci-researcher on counterbalancing, controls and confounds (items 7.5, 7.7, 7.9). It freezes the brief by commit and changes it only through amendments. It rehearses an ethics board and checks the consent form against the course's requirements (items 12.1, 12.3, 12.4). The defend rehearsal is not part of our plugin: review hands off to research-grill, which the user installs separately. Recommendation: keep ours. These stages enforce the course's experiment and ethics requirements, which THEIRS covers only as unchecked guidance. Do not import supervise.",
+   "recommendation": "Keep ours: these stages carry the course's experiment-specific and ethics requirements, which THEIRS does not model. Do not import supervise. Its professor-facing feedback has no user in a one-student course, and its workload verdict is already covered by items 2.2 and 2.4."
+  },
+  {
+   "id": "scope-12",
+   "lens": "scope",
+   "title": "Publishing stage: theirs builds a PDF; ours stops at markdown while the course wants the CHI template",
+   "kind": "they-have-we-lack",
+   "cost": "none",
+   "claim": "THEIRS proposal-publish builds a compact PDF with pandoc, using typst first, then LaTeX, with docx as the last resort. It also exports a stripped handout and hands over to a proposal-build file in the proposal's folder when one exists. OURS has no publish stage, and its outputs stay Markdown. The course asks for the CHI publication template for both the proposal and the later 3,500 to 6,000-word paper. The author's format doc assigns the port to the author. In real use the author's project built its own WeasyPrint PDF (proposal/notes/build_pdf.py), with four recorded departures from the ACM template. Their built-in typst/LaTeX layout is not the CHI template. Their handover hook could run a CHI-style (acmart) build, but only one the user writes, so adopting their pipeline would not by itself produce a compliant document.",
+   "recommendation": "No action for 0.3.0. The course's template port is the author's, and no shipped renderer matches the CHI format. Revisit only if a later course deliverable (the 3,500-6,000-word paper in the same template) brings the plugin into scope."
+  },
+  {
+   "id": "scope-13",
+   "lens": "scope",
+   "title": "Import and reverse-engineering: theirs converts documents; ours extracts decisions and gates review on a brief",
+   "kind": "they-have-we-lack",
+   "cost": "none",
+   "claim": "THEIRS proposal-import converts an existing PDF, Word or LaTeX proposal into its single-markdown format: it strips personal data, validates references with validate_refs.py and seeds notes.md. proposal-reverse derives a proposal from a finished thesis, either to reconstruct a missing proposal or to build a teaching exemplar. OURS has no document import. A draft in Word, PDF or LaTeX would have to be converted to markdown by hand before check_proposal.py or review could read it. The nearest step is design's extraction, which reads the user's material and marks each design-tree item settled, weak or missing with a quoted passage. That extracts decisions; it does not convert a draft. review refuses to run without a frozen brief. In the real use the brief was back-filled after the draft (draft committed 15 October, brief frozen 17 October). The v3 spec says the cause was the skills being user-invoked only, which made an agent re-run each SKILL.md by hand, not the review gate. The v3 spec plans a scenario 8, not yet run and to be recorded without a bar, that has design extract from docs/study-decisions.md. No action and a cost of none are reasonable for this course, because the author writes the proposal in markdown part files.",
+   "recommendation": "No action. design's extraction is the import this workflow needs, and scenario 8 covers it. Reverse serves exemplar-building, which the course does not ask for."
+  },
+  {
+   "id": "scope-14",
+   "lens": "scope",
+   "title": "Troubleshooting: theirs has a diagnosis ladder and a failure offer in every skill; ours has no failure path",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "THEIRS: proposal-troubleshoot works through a ladder of rungs: stale install, model unable, supervisor override, script failed, mandate violated, output merely disliked. It stops at the first rung that explains the problem. It writes a local bug report only for a failed script (rung 3), a violated mandate (rung 4), or a cause it cannot identify, or as optional evidence against a model (rung 1). Rungs 0, 2 and 5 end with an answer and no report. Ten of the eleven skills, all except proposal-troubleshoot, offer the troubleshoot route once when a run fails. They also say that weak-material findings are the skill working, not a defect. OURS: the skills do have stop conditions: a missing or unfrozen brief, a missing draft, or Python older than 3.11 each stops with a message. But neither the skills, the README nor the v3 spec helps the user tell a skill defect from a weak draft or a failing review row, and none of them says where to report a defect.",
+   "recommendation": "Adopt minimally: one README paragraph, 'If a skill misbehaves'. It says: update with `claude plugin update experiment-proposal@research-vault`; re-run the checker command the skill names; a failing review row is the skill working; otherwise open an issue in eranroseman/research-vault with the checker output. No troubleshoot skill."
+  },
+  {
+   "id": "checks-1",
+   "lens": "checks",
+   "title": "Cited-vs-listed cross-check: theirs is code, ours is prose at 3.3, and v3 leaves it out",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Their check.py compares cited @keys with the reference IDs in the document's metadata in both directions. An undefined key is an error and an uncited reference is a warning. Our checker never compares the two in either direction. Item 3.3 ('every cited work listed under References') is checked only by the reviewer reading, and the v3 plan parses [n] brackets only to count the literature review's citations. A citation [29] against a 28-entry list, or an entry nobody cites, passes. Adopt it as a check for numbered lists: compare the [n] numbers cited in the body and appendices (outside References) against the [n] entries in the list. A missing entry is a defect feeding item 3.3. An entry nobody cites is an informational line only, because 3.3 covers just the cited-to-listed direction. The number scan needs the same exclusions the v3 count parse needs (code spans, and non-citation numbers such as scale anchors), because rendered [n] is less clear-cut than their @keys. The author-year fallback has no entry numbers to match, so it is out of scope. Cost: small.",
+   "recommendation": "Adopt. Add two lines to section 2 of the v3 spec and to `check_draft`, reusing the bracket parser v3 already needs. A defect 'citations: [n] cited at line L has no entry n' (n greater than the entry count, or missing from `[n]`-numbered entries), feeding item 3.3. A warning or informational line 'references: entry n is never cited'. Scan the body and appendices outside References. Add both to the v3 unit-test list."
+  },
+  {
+   "id": "checks-2",
+   "lens": "checks",
+   "title": "v3 --numbers would report citation numbers as values; upstream has no equivalent check",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Nothing in the upstream code checks whether numbers agree across sections. proposal-review leaves 'inconsistencies between sections' to the agent reading under Sharpness, so v3 `--numbers` has no upstream equivalent. The spec's rule matches any number within six words of a keyword and masks nothing. On the current proposal.md, the saved simulation skips References and finds 286 number tokens near a keyword (168 distinct tokens). 17 of them are numeric citation brackets, e.g. '[20], and Bloom's participants'. The report would list them as values under participants (5), % (5), items (4), and min, session and minutes. Section headings also produce false hits: '## 4 Participants' puts 4 next to the keyword. Upstream has one reusable technique for this: mask_code blanks code spans and fences while keeping offsets. Its bracket-depth loop sorts [@key] citations into bracketed and author-in-text, so it does not apply to [n] numbers. Recommendation: keep the report. Before matching, blank [n] brackets, inline code and heading numbers without shifting offsets. State outright that References is not scanned. The spec's word-count row already treats references as separate from the body, so a separate rule for four-digit years is only needed if References is scanned. Add a fixture with a citation bracket planted next to 'participants' and assert that it is not listed. Cost: small.",
+   "recommendation": "Keep the v3 report (we-have-they-lack once shipped). Amend the spec: blank `[n]` citation brackets, inline code, and heading numbering (e.g. '7 Design', 'C.2') before matching, as their mask_code does, without shifting offsets. Also exclude four-digit years in the reference list. Add a planted citation bracket next to 'participants' to the v3 fixture and assert that it is not listed."
+  },
+  {
+   "id": "checks-3",
+   "lens": "checks",
+   "title": "v3 informational lines have no output channel; their findings carry a level and only errors fail",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Our checker's contract is defects only. Text mode prints `<file>:<line>: <message>` lines, `--json` prints a list of defects, and exit is 1 whenever that list is non-empty. The v3 spec adds the informational line `references: <N> entries in the list` without naming its stream (stdout or stderr) or its place in `--json`. An implementer who routes it through the Defect list makes every draft fail, and the review skill would file it under item 5.1. For `draft --numbers` the spec does name stdout and says `--json` is honored. It does not give the JSON shape, and it does not say whether \"Exit 0 always\" overrides the exit 1 from draft defects when both run in one call. Their checker avoids this: each finding carries a level (\"error\" or \"warning\"), only errors set exit 1, and the JSON is an object that wraps the findings with an exit_code field.",
+   "recommendation": "Adopt the minimum. The v3 spec should send informational lines to stderr, which matches the existing frozen-brief note our checker already prints there, so stdout and `--json` stay defects only. Give `--numbers` its own JSON object shape. Alternatively add a `level` field to Defect and count only `defect` toward exit 1. Choose one in the spec before implementing."
+  },
+  {
+   "id": "checks-4",
+   "lens": "checks",
+   "title": "DOI and title verification against Crossref (validate_refs.py); ours has none",
+   "kind": "they-have-we-lack",
+   "cost": "medium",
+   "claim": "Their proposal-import and proposal-reverse skills (not write, check or supervise) run validate_refs.py. For each entry with a DOI, it looks the DOI up on Crossref. If the entry has a title, it checks that the returned title matches after normalization. An entry without a DOI goes to a Crossref title search, and only an exact normalized-title match among the top 5 results is accepted. It edits nothing. It prints VERIFIED / ENRICHED / UNVERIFIABLE / OFFLINE for each entry and tells the agent to add `[TODO: verify reference id]`. Our plugin never checks that a listed reference exists: check_proposal.py counts entries, and item 5.1 checks coverage and the count, so a fabricated or wrong-DOI entry passes both. The check cannot go into check_proposal.py, which v3 keeps network-free, so it would be a separate script. The pinned version (a38b7b1) uses only functions our vendored common.py and crossref.py already have. HEAD (b311e4f) also calls common.utf8_output(), which our copy lacks. Its extractor reads a CSL-YAML `references:` block, so we would need a parser for ACM `[n]` lines. Pulling out the DOI takes a regex, but it must allow parentheses (e.g. 10.1016/S0166-4115(08)...). Pulling the title out of ACM prose is the hard part and the reason the cost is medium. 24 of the 28 real entries have a doi.org URL. The other 4 (a questionnaire, a book, an unpublished manual, an arXiv/COLM paper) will likely come back UNVERIFIABLE from the title search, which is expected and not a defect. The nine-scripts test (line 273), which globs every *.py in skills/lit-search/scripts, has to be updated to allow the new script; v3's planned litsearch.py in the same folder already breaks it. The environment-name scan at line 346 also globs that folder but only collects names, so it does not need to change.",
+   "recommendation": "Adopt as our own `skills/lit-search/scripts/verify_refs.py` (not vendored). It imports the vendored common and crossref modules, parses `[n]` lines for the DOI and title, and prints VERIFIED / UNVERIFIABLE / OFFLINE per entry. `review` runs it for item 5.1 when the network is available. Update the nine-scripts test, which globs every *.py in that folder: it must admit verify_refs.py, and v3's planned litsearch.py in the same folder already breaks it."
+  },
+  {
+   "id": "checks-5",
+   "lens": "checks",
+   "title": "Leftover TODO/placeholder markers: they warn and render them visibly; our checker passes them",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "Their check warns (warning level, still exit 0) on every `[TODO: ...]` marker, and their PDF build renders leftover `[TODO: ...]` markers as numbered annotations so a gap cannot pass for finished prose. Their rule matches only that exact syntax, so `[TBD]` or all-caps placeholders such as `[DATA STORAGE LOCATION]` would go unreported in their tool too. Our draft checker has no placeholder rule of any kind and reports nothing, so a draft full of placeholders exits 0 with no output. The author's project had to add its own check that bracketed placeholders in the text equal the Appendix H list. Adopting this means a broader pattern than theirs (TODO, TBD and all-caps brackets), plus an optional comparison against a named list heading.",
+   "recommendation": "Adopt in `check_draft`: list each `[TODO...]`, `[TBD...]` and all-caps bracketed placeholder with its line, at warning or informational level per checks-3, feeding item 13.5 ('the draft to be submitted'). Add an optional `--placeholders \"<heading>\"` flag that compares the set with the list under that heading, as the author's check.py does."
+  },
+  {
+   "id": "checks-6",
+   "lens": "checks",
+   "title": "Every RQ referenced in the method section: an error in theirs, prose in our 13.10",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "Their check numbers research questions by position in an ordered list (\"1.\" or \"1)\") in the research-questions section. It errors when the literal token `(RQn)`, parentheses included, is missing from the single methodology section. Their write skill enforces a matching convention: one `(RQn)` at the end of each sentence that answers the question. Our item 13.10 asks for the same link, but only the `review` reader judges it, and neither check_proposal.py nor the v3 spec has any label check.\n\nTheir exact rule does not carry over. Our proposal lists RQ1-RQ4 as \"- **RQ1:**\" bullets, which their rule rejects with research-questions-not-a-list. Our Design section tags labels inline, as \"(RQ1, the single confirmatory outcome)\" and \"(RQ3 measures the latter)\", so even with an ordered list the literal match would flag RQ1 and RQ3 although they are referenced. Only (RQ2) and (RQ4) match literally. The port should therefore match bare `RQ\\d+` / `H\\d+[a-z]?` labels.\n\nThe scope should be the union of Materials, Procedure and Design, not Design alone, since 13.10 judges those three sections together. Procedure lacking RQ2 and RQ4 is not a 13.10 defect. On the real proposal all four labels appear in Design, so the check would print nothing: it guards future drafts and found nothing in this one. Our checker has no warning level, so \"warning\" means an informational line like v3's `--numbers` output or its reference-list total. The hypothesis half is untested because the proposal declares no hypotheses.",
+   "recommendation": "Adopt as a warning, not a defect: collect `RQ\\d+` and `H\\d+[a-z]?` labels from the section matching the third `--sections` name and report each one absent from the Design section, with the line where it is defined. `review` reads the list for items 13.10 and 7.x. Skip silently when no labels are defined."
+  },
+  {
+   "id": "checks-7",
+   "lens": "checks",
+   "title": "Since the pin, check.py grew ~750 lines; review currency is the only rule that applies to us",
+   "kind": "upstream-change-since-pin",
+   "cost": "small",
+   "claim": "Four upstream commits since a38b7b1 touch check.py, for a net growth of about 680 lines (719 insertions, 37 deletions; 756 lines changed). Two of them, b5d24b5 and e77314f, account for 775 gross insertions (e77314f also deletes 273 lines). They enforce the per-proposal folder and companion-file family and add checks for which guidelines applied and for unused build definitions. None of this fits our fixed proposal/ folder. b311e4f makes script output UTF-8. That fix is marginally relevant to us: check_proposal.py:284 echoes heading text from the brief, which can fail to print on non-UTF-8 consoles such as Windows (Codex hosts are best-effort). a3f654e adds `review-questions-changed`, an advisory warning that never changes the exit code. Upstream's sha256 report digest is older than the pin, not a new addition. Our review.md names the draft by path only, so nothing detects a review left stale by later edits. Recommendation: the digest is still a small change, but it needs three adjustments. (a) It should only inform, never flag a defect, since upstream rejected hashing because every polishing edit would trigger it. (b) Step 6 must rewrite the digest after it applies fixes. (c) To catch an agent run that edited the draft, take the digest when the draft is read in step 1, not when review.md is written.",
+   "recommendation": "Adopt the digest variant, which suits our whole-draft review better than an RQ record. `review` writes `Draft: <path> (sha256 <12 hex>)`. `check_proposal.py review` reports to stderr when the named draft's current digest differs, as information and not a defect. The v3 agent-run rule 'applies no fixes' becomes checkable by comparing the digest before and after. Ignore the folder and family rules."
+  },
+  {
+   "id": "checks-8",
+   "lens": "checks",
+   "title": "Stable rule ids in JSON: they key on ids; we key on English messages",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "Their check.py findings carry a stable `rule` id from a closed RULE_IDS set alongside the message. The fixture oracles assert the exact set of fired rule ids (and also message fragments). Some JSON-reachable verdicts (verdict_no_orphans, the unit-tested disallowed_rules) key on rule ids. Their sandboxed eval scorers (verdict_draft, the import verdict) still match English fragments such as 'references — at least', so they are only partly protected against rewording. Our Defect JSON has only path, line and message. The review skill routes checker lines to items 3.2, 13.5, 5.1, 4.3 and 12.3 by an informal message prefix (sections:, words:, references:, introduction:, appendix:). Our tests mostly assert message substrings. v3 rewords the references message and adds new ones without adding a rule or item field. Adding `rule` and `item` fields to Defect and its JSON would turn the informal prefix into a real contract, at small cost.",
+   "recommendation": "Adopt in v3: add `item` (the owning checklist id) and `rule` (e.g. `draft-words`, `draft-lit-citations`) fields to Defect and to the JSON. The review SKILL then says 'each line goes to its item field'. Tests assert on rule and item, with message text checked in one place."
+  },
+  {
+   "id": "checks-9",
+   "lens": "checks",
+   "title": "Their reference count does not implement the v3 literature-review count",
+   "kind": "both-differ",
+   "cost": "none",
+   "claim": "The direct question has a negative answer. Their reference checks count the entries in the metadata block (a floor of 3) and scale an advisory expectation by the body's word count (4 per 1000 words). Neither counts citations inside a section, and neither handles numeric citations. The v3 section-scoped count of distinct `[n]` in the Literature Review is our own design with no upstream code to borrow. Their density idea does not fit a lens with fixed bounds of 15 to 20.",
+   "recommendation": "Keep ours (the v3 plan as written, plus checks-1). Port nothing from their reference counting."
+  },
+  {
+   "id": "checks-10",
+   "lens": "checks",
+   "title": "Word-count definitions differ by ~80 words on the real draft, which sits 3 words under the limit",
+   "kind": "both-differ",
+   "cost": "none",
+   "claim": "Their single body-word definition drops heading lines. Ours counts every token before References outside the appendices, including headings, the title block and tables. On the real proposal our checker reports 3997 words against a 4000 limit. The same text gives 3920 without headings, 3866 without tables as well, and 3855 without `[n]` citations too. v3 keeps ours as the conservative reading, which is safe (it never under-reports), but the 3-word margin means the README note matters.",
+   "recommendation": "Keep ours. In the v3 README sentence on word count, say that headings and tables add roughly 2 to 4% over a prose-only count, so a draft near the bound can ask the instructor which reading applies."
+  },
+  {
+   "id": "checks-11",
+   "lens": "checks",
+   "title": "Fixture oracles: their expected.json per fixture vs our inline asserts and a prose answer key",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "Each of their fixtures has an expected.json with the exit code, message fragments and the exact rule ids for errors and warnings. Two parametrized tests check every oracle against the script. Our one draft fixture (proposal-with-defects.md) is pinned by a single test in tests/test_experiment_proposal_checker.py that asserts exit 1 and three exact message strings. Most of our draft-checker tests are synthesized valid_draft() mutations, including the parametrized old/new/message table, not fixture files. The evals' answer key is a prose table scored by hand. In the v3 spec, only `--numbers` gets a fixture (one planted mismatch, and it always exits 0). The `[n]`-entry and literature-review-count behaviours are specified as unit tests, which fit the existing valid_draft() pattern. An expected.json oracle (exit code plus rule ids) is only worth adding if checks-8 adds rule ids. Even then it would cover one or two fixture files, so its value is small.",
+   "recommendation": "Adopt only if checks-8 lands. Write `proposal-with-defects.expected.json` (exit code plus rule and item ids) and one parametrized test over all draft fixtures, so the v3 fixtures are added as data rather than as new assert blocks. Without rule ids, keep the current tests."
+  },
+  {
+   "id": "checks-12",
+   "lens": "checks",
+   "title": "Hindsight-leakage heuristic (results stated as already obtained) vs our prose 'future tense' rule",
+   "kind": "they-have-we-lack",
+   "cost": "none",
+   "claim": "Their hindsight-leakage rule (check.py lines 1864-2109) flags a sentence only if it cites nothing and does not continue a cited sentence through a back-reference such as \"they\" or \"their ...\". Such a sentence is flagged when it contains a result verb ('showed', 'demonstrated', ...), or when it contains a change word anywhere alongside a number with %/percent. The change word does not have to be next to the number. Present-tense passives ('is demonstrated') count as plans and are not flagged. The rule stops at the first hit, so a draft gets at most one warning. About 120 lines are specific to this rule: regex constants for English and German (attribution cues, reporting clauses, expletive 'it') and three functions. Another ~95 lines split text into sentences while handling abbreviations and ordinals, and the citation-repeated rule shares them. They added the rule for their proposal-reverse skill, which turns a finished thesis into a proposal; our plugin has no such skill, so the main case it guards against does not arise for us. Our item 3.3 requires the future tense but leaves the check to the reviewer, and nothing in our checker or the v3 spec checks tense. Recommendation: no action for v3. Revisit only if a later eval plants a past-tense result claim and `review` passes it. Scenario 5 plants no such defect and treats 3.3 as a control expected to pass, so it cannot fire this trigger as written. A pilot that reports real results ('we found ... reduced ... 20%') would also trip the rule, and item 8.1 allows reporting pilot data.",
+   "recommendation": "No action for v3. Revisit, as an English-only warning feeding 3.3 (adopting would be medium cost), only if a scenario-5 run passes a planted past-tense result claim. A pilot that reports real results would also trip it."
+  },
+  {
+   "id": "checks-13",
+   "lens": "checks",
+   "title": "PDF build and CI-built documents: theirs builds and tests real PDFs; we build nothing",
+   "kind": "they-have-we-lack",
+   "cost": "none",
+   "claim": "Their publish skill builds the proposal through pandoc and citeproc into typst, LaTeX or docx, using a compact numeric CSL. Their CI builds every fixture in pinned pandoc/typst and pandoc/extra (LaTeX) containers. Their separate Windows job runs only the fast test subset, with no document builds. Our plugin ships no build. Our CI covers it with pytest and pre-commit lint (plus repo-wide crap4py, drywall and a mutation gate on research_vault), and none of these builds a document. The lens requires the CHI 2025 format, which their templates (proposal.typ, compact-numeric.csl) do not produce. The author's project already has its own build_pdf.py (pandoc to HTML, then WeasyPrint).",
+   "recommendation": "No action for v3. A CHI (acmart) build is large work, and their pipeline cannot be reused for it."
+  },
+  {
+   "id": "checks-14",
+   "lens": "checks",
+   "title": "Shape checks of review.md and the brief: ours recomputes them; theirs has nothing comparable",
+   "kind": "we-have-they-lack",
+   "cost": "none",
+   "claim": "Our checker (check_proposal.py review/brief) validates the shape of review.md and design-brief.md every time it runs, and the review and design skills must reach exit 0 before they finish. For review.md it checks that each checklist item has one row, in order. A draft-checked pass needs a quoted passage with its location, and an attested pass needs `confirmed by the user, <date>`. Fixes must be numbered in order of first appearance with no gaps, except numbers covered by `(fix N applied)` markers. Waivers must match the `fail (waived)` rows, and the Summary counts are recomputed from the rows. For the brief it checks the sections, the entry and amendment grammar, and the freeze rules. Their run-time check.py reads review.md only for its research-questions record (the review-questions-changed warning). It classifies notes.md by its headings without validating them, and their proposal-review skill runs no checker on the review it writes. Their dev harness does assert review shape: a tier phrase in the opening lines, the readiness sections, enumerated blockers, earlier-round resolved counts, the verbatim RQ record and named substance tests, plus a workload table and a verification line for supervise. These assertions are made against eval fixtures with known expected outcomes, not on users' reviews, and none of them recomputes summary counts or requires a per-item quote or user confirmation. Recommendation: keep ours. The `not confirmed` result for attested rows is planned in the v3 spec and is not yet implemented.",
+   "recommendation": "Keep ours. These checks are where the v2 reviews found their defects. The v3 `not confirmed` result extends the same row grammar."
+  },
+  {
+   "id": "checks-15",
+   "lens": "checks",
+   "title": "Their rules for their own format and their repo hooks do not carry over",
+   "kind": "they-have-we-lack",
+   "cost": "none",
+   "claim": "Many of their rules enforce their own file format or their institution's rules, not the course's. These include the trailing-YAML metadata block and reference-key shape, the empty References heading, timeline shape (no table or list, at most 3 lines), forbidden headings (work plan, expected results, supervisor), first-person pronouns, email or matriculation numbers, confidentiality markers, and title tells. Some of these work against our lens, not just miss it. The course's section list has no Timeline section, but checklist items 2.4 and 13.11 call for a timeline that names phases and dates when the template asks for one. Their one-sentence, at-most-3-lines timeline would fail that. The CHI author block names the author, and the consent form must name the supervising instructor and give contacts (item 12.3), which collides with their forbidden supervisor heading and forbidden email address. Their pre-commit hook runs sync_shared.py --check over every generated output. That covers five synced copies of check.py, plus the copies of structure.json, guidelines.md, the lit-search scripts, validate_refs.py and model-support.json, the SKILL.md blocks, the install-prompt docs and .gitattributes. We keep one checker and generate no copies. Their pre-push hook refuses pushes from a shell with no terminal, which is a guard for the maintainer's own releases. No action; our --sections order check covers what their required-section and section-order rules do for our lens.",
+   "recommendation": "No action. Our `--sections` order check already covers what their required-section and section-order rules do for our lens."
+  },
+  {
+   "id": "review-2",
+   "lens": "review",
+   "title": "v3 agent mode overwrites earlier attestations and waivers; no earlier-round rule",
+   "kind": "changes-v3-spec",
+   "cost": "medium",
+   "claim": "Our review has no rule for a proposal/review.md that already exists. Step 5 writes the file fresh on every pass, and only step 6 records Waivers, from the current pass's answers. So even an interactive re-run drops the earlier verbatim waiver reasons and the fix history unless the user gives them again. v3's Agent run makes this silent and wider. The agent workflow the spec records is an orchestrating agent re-running each SKILL.md, and scenario 8 runs agent-mode review on the author's project, whose review.md already holds four `confirmed by the user` rows. Such a run (a) turns those rows into `not confirmed`, (b) leaves Waivers as `- none`, with no human to waive again, so item 13.5 and the seed list lose them, and (c) takes the course defaults at item 3.1, which throws away any template values the user confirmed and runs the draft checker with the wrong bounds. Nothing stops it from re-failing unchanged text either. Upstream's proposal-review reads the earlier review.md before it overwrites it, judges each earlier blocker against what it asked for, never moves a finding about unchanged text to a higher class, and labels any other new blocker \"missed in the earlier round\". The recommendation should also carry the confirmed 3.1 values forward into the checker run. Cost is medium mainly because review/SKILL.md (998 of 1,100 words, a cap only a spec edit can move) must absorb both this rule and the Agent run paragraph.",
+   "recommendation": "Adopt in v3 section 1 and skills/review/SKILL.md step 1. When proposal/review.md exists, read it first. Carry its Waivers and its `confirmed by the user` rows forward; agent mode never downgrades them to `not confirmed`. Mark each earlier fail resolved or open against what its fix asked for. A new fail on text the revision left unchanged carries \"missed in the earlier round\". Add to v3 scenario 8: an agent-mode re-run after an interactive run keeps the attestations and waivers."
+  },
+  {
+   "id": "review-3",
+   "lens": "review",
+   "title": "Fail verdicts get no evidence rule and no second check",
+   "kind": "they-have-we-lack",
+   "cost": "medium",
+   "claim": "When our review fails an Items row (step 3), it needs only one sentence on what is missing plus a fix: no location, no proof that it searched, and no second check. Cross-section and Brief-against-draft fails already have to name both values and both locations. In their plugin, proposal-supervise (not proposal-review) requires a search that includes synonyms before anything is called absent, and it always runs one fresh verifier with references/verifier-brief.md over the feedback draft. Their proposal-review keeps helper agents out and only caps an adversarial check of fail verdicts at one when a host adds one. Their supervise run's record counts 13 of about 45 confirmed problems as planned work reported missing or quotes cut short. Our own evals show the same failure once, in review-3 (commit 16f7bb6): item 10.3 failed as \"never named\" when the Procedure does name the program and display. review-v2-1's 8.3 over-failure was a real tension in the fixture, not a false absence. Recommendation: (a) in step 3, a fail that claims absence names the sections it searched, synonyms included. (b) Add one fresh-context checker (Read and Grep only) that re-checks the fail and pass-narrowly rows against the draft. Give it a short brief of our own modelled on check 1 of their verifier brief, and cap it at one checker. Using hci-researcher for this would stretch its role, since its description says \"Not for unprompted use\" and it advises on design rather than verifying quotes. That review never consults hci-researcher is true but a separate gap.",
+   "recommendation": "Adopt in skills/review/SKILL.md, in two parts. (a) Step 3: a fail that asserts absence names the sections it searched, synonyms included. (b) A new step between steps 5 and 6: one fresh-context subagent with Read and Grep only re-checks the fail and pass-narrowly rows against the draft and returns its disputes, and review decides on each. For the step 7 to 10 rows, hci-researcher can be that checker; this needs a marked local edit to its routing description. Otherwise use a short brief file of our own. Keep their cap of one verifier, never one per item."
+  },
+  {
+   "id": "review-4",
+   "lens": "review",
+   "title": "Upstream added a review-currency record after our pin; review.md has no staleness marker",
+   "kind": "upstream-change-since-pin",
+   "cost": "small",
+   "claim": "Upstream had already made the currency of a review an agent judgement before our pin. Every hand-off block already said \"A review whose research questions, scope, method, contribution delta or blocker passages no longer match the text is superseded\". After our pin, a3f654e (2026-10-14) added three things. The review now ends with a visible `## Research questions reviewed` record, the proposal's numbered RQs copied word for word. check.py raises the warning `review-questions-changed` (exit code unchanged) when the record and the normalized current RQs differ, and it reports only which positions changed. The proposal-check status read now counts that warning as making the review superseded. Our plugin has neither the judgement rule nor the mechanical check. The review.md header (Brief path with freeze date, Draft path with provenance, Date, Checklist version) records nothing about what the draft said. Nothing tells us when a draft was edited after its review, and the v3 spec's change to the `review` subcommand (`not confirmed`) adds no such check. The recommendation needs correcting, because upstream rejected digests on purpose: a hash fires on every polishing edit and cannot say what changed. A whole-draft sha256 would also go stale as soon as review step 6 applies fixes the user picked, unless step 6 recomputes it. So it would be closer to upstream to record the draft's RQs or hypotheses word for word in review.md, and have `check_proposal.py review` (or `draft`) print an informational line when they differ. That is still a small cost.",
+   "recommendation": "Adopt in v3 section 2. The review.md header gains a `Draft digest: sha256:<hex>` line. `check_proposal.py review` prints one informational line when the draft named in `Draft:` no longer matches the digest, and the hand-off then says a fresh review is due. It is a warning, not a defect, and the exit code is unchanged."
+  },
+  {
+   "id": "review-5",
+   "lens": "review",
+   "title": "Our review evals never test a hollow or a clean proposal",
+   "kind": "they-have-we-lack",
+   "cost": "medium",
+   "claim": "Their review evals include a mechanically clean but generic proposal that must open with the no-viable-core verdict and name two or more substance tests, and a viable proposal where any blocker counts as overblocking. Our only review fixture is the 12-defect proposal. Its key plants no defect on substance tests 13.6 to 13.11 and lists none of them among the 38 controls. So the substance tests have never been scored against a key, either on a proposal built to fail them or as controls that must pass. Their misfires go unscored: 13.9 failed unplanted in runs review-v2-4 and v2-5 and was counted neither way. Over-failure is measured, but only on the 38 checklist control rows of the defect fixture (at most two allowed), never on a whole proposal meant to pass. v3 scenario 8 states an expected result for review on the author's real proposal (\"expect 65 of 65 with four not confirmed\") but no bar. Recommendation: add a hollow fixture whose key expects fails on 13.6, 13.7 and 13.8, and a clean fixture whose key expects no fails, 13.6 to 13.11 included. A cheaper partial step is to make 13.6 to 13.11 controls on the existing fixture and to turn scenario 8's expected result into a bar.",
+   "recommendation": "Adopt in the evals folder, with two fixtures. (1) A hollow fixture: steps 1 to 12 satisfiable, but generic contributions, an unfalsifiable hypothesis and a decorative system name; its key expects fails on 13.6, 13.7 and 13.8. (2) A clean fixture whose key expects zero fails, setting an over-failure bar. Add both to v3 section 5 or to the next release."
+  },
+  {
+   "id": "review-6",
+   "lens": "review",
+   "title": "Our restated swap test lacks their pass conditions for named systems and leaves the title out of scope",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "For named tools, systems and domains, their swap test spells out what dependence means. A name passes if it is the object of study, imposes constraints that shape the method, supplies data or access no comparable alternative offers, or is the case the proposal argues for. The check is to swap or drop the name and compare claims, not nouns. Prior work, tools that only carry out the method, and domains named only in the motivation are excluded. The title is in scope. Our 13.8 states dependence only as a fail condition ('a named device, system or domain the study does not depend on'). It gives no anchors and no exclusions, and it covers only the overview, the hypotheses and the contributions. The author's run passed 13.8 and cited CARE and MITI, measurement instruments that upstream's rule would exclude, as things the study depends on. It never examined the domain named in the title ('LLM Physical-Activity Coach'). With the anchors, the pass would have had to rest on Bloom's prompts and onboarding states, tied to a specific anchor. Recommendation: in references/checklist.md, add to 13.8 the anchors (in our own words), the exclusion of method instruments and prior work, and the title.",
+   "recommendation": "Adopt in references/checklist.md item 13.8, in our own words: a named system passes when it is what the study is about, constrains the method, or supplies data or access no comparable alternative offers; the title is held to the same test. Keep the restatement credit in the Deviations section."
+  },
+  {
+   "id": "review-7",
+   "lens": "review",
+   "title": "Three readiness classes with a deferral record versus our pass/fail rows and waivers",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "They sort every finding into blocker, clarify-early or optional. The reviewer may defer a finding only when its five-field deferral record can be filled, and the fifth field asks whether a bad outcome would force a return to the proposal, naming a fallback if so. A proposal with no blocker is ready. We give each item pass, pass narrowly, fail or fail (waived); items 13.2 and 13.3 always read not checked. Item 13.5 passes only when every item of steps 1 to 12 passes or is waived. A waiver is the user's choice not to fix a failure. Its entry records the item ID, the user's reason and the date, but never what happens if the waived risk comes true. Adopting the fallback field means changing the Waivers shape in references/review.md and the waiver step (step 6) in skills/review/SKILL.md, so that the fallback is asked of the user. A checker clause is needed only if the field is to be enforced, because the current regex matches just the ID prefix.",
+   "recommendation": "Keep our row results: the course grades every section, so every item is a condition, and 13.5 is our readiness gate. Adopt one field from their deferral record into the Waivers entry shape in references/review.md and the checker's regex: what happens if the waived risk materialises (`; if it bites: <fallback>`). Carry it into the hand-off seed list."
+  },
+  {
+   "id": "review-8",
+   "lens": "review",
+   "title": "No work-package estimate behind the executability judgement",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "Before the tier, upstream's proposal-supervise skill (not its proposal-review skill) builds a workload table: one row per work package with its dependency, its size driver and a coarse estimate in weeks. Unstated sizes become questions or clarify-early items, and the table closes with a `Scope verdict: fits / tight / over-scoped` line. Our time checks (items 2.2, 2.4, 2.5 and the time clause of 13.11) ask only that the session estimate and the phase timeline fit the time available, and they never ask what drives each phase's size. In the author's run, 13.11 passed because the schedule's milestone dates fell before the 3 December deadline. No phase was sized: not the build, not the pilot sessions, not the MITI coding.",
+   "recommendation": "Adopt a light version in skills/review/SKILL.md step 4. The 13.11 row's evidence lists each phase from item 2.4 with its size driver (sessions, coding, build) and names any size the draft leaves unstated; a tight fit reads `pass narrowly`. No new section and no checker change. Take no action if the 1,100-word budget for review/SKILL.md cannot absorb it."
+  },
+  {
+   "id": "review-9",
+   "lens": "review",
+   "title": "Supervisor reading and Socratic stance versus our item-by-item pass with quotes",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "Their proposal-review reads the draft as a supervisor would and gives a three-tier verdict followed by findings, ordered by severity within blocker, clarify-early and optional sections. Each finding carries a concrete actionable suggestion. A separate supervisor-side skill, proposal-supervise, drafts a professor's feedback to a student. It allows at most five blocker points, written in the student's vocabulary rather than review terms, and each gives a direction rather than a prescribed fix. The direction-versus-fix contrast is therefore between their supervise and our review, not between the two reviews. Their Socratic persona appears only in ideation, never in review. Ours checks every item. No item checked against the draft passes without a verbatim quote; attested items pass on `confirmed by the user, <date>`. Every failure carries a ready-to-paste fix or a `decide:` line. The `Next:` line of their review's chat hand-off frames a choice only the student can make as an anchored choice. It quotes the passage, says what the choice changes, offers at most three options from the student's material, and ends with \"or something else\". Our `decide:` fixes, which sit in review.md fix rows, have no such shape.",
+   "recommendation": "Keep our item-by-item pass: the lens is an assignment graded section by section, and scenario 5's 12-of-12 rests on the quote rule. Socratic ideation is replaced by design's frontier rounds with recommended answers. Adopt their anchored-choice shape for `decide:` fixes in references/review.md: quote the passage, say what the choice changes, offer at most three options drawn from the user's material, and end with \"or something else\"."
+  },
+  {
+   "id": "review-10",
+   "lens": "review",
+   "title": "How each handles picked fixes, waivers and re-checks",
+   "kind": "both-differ",
+   "cost": "none",
+   "claim": "Their review never applies a finding. The user chooses what to apply in the handoff (blockers by name, refinements \"by number\" as an Or: line), and proposal-write applies them as a separate writing step. A fresh review then reads the earlier round so the findings do not keep growing. Their verdict is advisory, and they have no waivers. The nearest things are proposal-write's per-item report in chat of why an item was skipped, and the reviewer-assigned clarify-early deferral records kept in notes.md Open Points. Neither keeps the user's own refusal reason or passes it to a later stage. Our review applies the fixes the user picks by number in the same pass. It re-checks the touched items, item 13.5, and the Cross-section and Brief sections when a fix touched one of their findings, and marks those rows `(fix N applied)`. A fix the user refuses becomes a `fail (waived)` row plus a Waivers entry with the user's reason verbatim and the date, and each waiver goes into the defend-stage seed list. This holds only for interactive runs: under the v3 spec, an agent run of review applies no fixes and only returns the file path and the Summary line.",
+   "recommendation": "Keep ours. The plugin has no writing skill (the v2 spec lists \"A `draft` writer\" as a non-goal), so applying picked fixes inside review, with an in-pass re-check, is the only route. Waivers carry the user's reasons into the defend stage, which an advisory verdict cannot do. No action beyond review-2's carry-forward."
+  },
+  {
+   "id": "review-11",
+   "lens": "review",
+   "title": "Experiment-specific criteria we check that their Controlled Experiment contract does not",
+   "kind": "we-have-they-lack",
+   "cost": "none",
+   "claim": "Their Controlled Experiment contract is three compressed subsections. It asks for random assignment or a justified quasi-design, but never for a named random source. Their human-participants guidance is advisory and never mechanically checked, and their review blocks only when an indispensable ethics approval is in doubt. We check, item by item: a named random source for assignment (7.4), counterbalancing (7.5), speed paired with accuracy (7.6), group sizes as multiples of the orders (8.8), identical instructions across conditions (10.4), every consent disclosure (12.3), and a point for questions in the script (12.5). The supervision sentence is also checked mechanically by check_proposal.py. Their required Statistical Analysis subsection stays out under our lens. No action needed.",
+   "recommendation": "Keep ours. Their Statistical Analysis subsection (planned tests, significance level) stays dropped under the v2 Planned Analysis decision, because the lens's section list has none. No action."
+  },
+  {
+   "id": "review-12",
+   "lens": "review",
+   "title": "They check RQ cross-references and tense mechanically; we leave both to the reader",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "Their guidelines require each research question to be cited as (RQn) in the methodology. Their checker raises an error when the literal \"(RQn)\" never appears in the methodology section. It also raises a warning (first hit only) when a result verb or change word, such as showed, demonstrated or reduced, appears in a sentence that neither cites a source nor continues a cited one. That is a heuristic for results stated as already obtained, not a general tense check. We judge method fit (item 13.10) and the future-tense convention (item 3.3) by reading only, and v3's `--numbers` keyword list does not include H<n> or RQ<n> labels. Optional adopt: extend `--numbers` to list each H<n>/RQ<n> label with the sections it appears in, as data for the 13.10 row (and 6.x where useful), not for 9.2, which concerns dependent variables in Materials. It still judges nothing. Skip hindsight-leakage because it is a judging regex heuristic, which goes against v3's rule that the checker reports and only a reader judges. v3's explicit rejection covers regexes on declared number constants, not regexes in general.",
+   "recommendation": "Optional adopt in v3 section 2: extend `--numbers` to list each H<n> or RQ<n> label with the sections it appears in, as data for the 13.10 and 9.2 rows; it still judges nothing. Skip hindsight-leakage: it is a regex heuristic of the kind v3 already rejected."
+  },
+  {
+   "id": "review-13",
+   "lens": "review",
+   "title": "Generic Where-it-stands/Next ladder versus our research-grill defend command",
+   "kind": "both-differ",
+   "cost": "none",
+   "claim": "Their review ends each stopping point with Where it stands, Next and at most two Or lines, and the lines never name a skill. The Next step is routed by verdict (revise the blockers then review again, final check then hand-in, or rework the idea). When the user approves, the skill that owns the step is loaded; if it is not installed, the hand-off says so and describes the step in prose. Ours ends every pass with the exact research-grill command (/oss:research-grill defend <draft>). When research-grill is absent, it prints the two install commands before that command. A seed list follows: each waiver, the fixed question \"could someone run a session from the Method alone?\", and each narrow substance-test pass with its doubt; v3 adds the open ethics revisions. This serves checklist items 13.2 and 13.3, which review deliberately leaves not checked. The difference comes from how the two are packaged: research-grill is an external plugin that is deliberately not declared as a dependency, so ours has to print exact commands rather than load the next skill itself. Keep ours. Scenario 6 holds the hand-off at 0.2.0 after the in-version fix in commit 76e9c28, which re-reads the plugin file before every print. Runs 4 to 6 passed, with one flag on run 5; runs 1 to 3 at 5e13529 failed the absent case. No action, no cost.",
+   "recommendation": "Keep ours. The defend stage is a separate plugin the user installs, so the exact command is what the hand-off is for, and scenario 6 holds it at 0.2.0. No action."
+  },
+  {
+   "id": "review-14",
+   "lens": "review",
+   "title": "Their six substance tests are unchanged since our pin",
+   "kind": "same",
+   "cost": "none",
+   "claim": "Upstream has not changed shared/guidelines/guidelines.md, which defines the six substance tests, or its generated references/ copies since a38b7b1, and that commit is still the file's last change. Five later commits touch the review skill, the supervise skill or shared/, and none of them changes the six tests. They are b5d24b5 (one naming scheme for a proposal's files, which led to the folder layout), b311e4f (UTF-8 script output in check.py), a3f654e (the research-question record), e77314f (the folder layout) and 67dedad (a 0.9.0 version stamp). Our item 13.8 already carries the one-line named-tool clause that a38b7b1 added to the swap test, though not the long dependence paragraph that came with it.",
+   "recommendation": "No action. Our restatement does not need re-syncing, and the credit in THIRD-PARTY-NOTICES.md and checklist.md stands. Refinements to the restatement are in review-6."
+  },
+  {
+   "id": "lit-1",
+   "lens": "lit",
+   "title": "DBLP 'returns nothing' comes from our query shape, not an upstream defect; drop the planned issue",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "DBLP's empty results on 17 October came from our query shape, not an upstream defect. All six keyword runs (four distinct queries of 6 to 8 terms, plus reruns kw2b and kw3b) got HTTP 200 JSON with @total 0 and no degradation note. DBLP ANDs every space-separated term as a case-insensitive prefix over title, author and venue, and holds no abstracts. Probes today show this directly: health coach gives 178 hits and health coach empathy gives 0, while 2-to-3-term forms return hits. Upstream's live probe sends the one-word query \"pentest\", so it never covers this case, and neither SKILL.md gives guidance on query length. Recommended spec change: drop the DBLP issue from the Decisions table and §3. The spec text says \"three\" queries, but there were four. Also reword spec line 10 (\"DBLP returned nothing to any query\") so the Why section no longer lists it as a degradation. The caller has to supply the short DBLP query, either through SKILL.md step 3 or a wrapper flag such as --dblp-query, because the wrapper cannot pick key terms itself; the main call should then leave dblp out of --sources. Relay dblp(0) as \"no record matched every term\".",
+   "recommendation": "Adopt a spec change: remove the DBLP issue from the v3 Decisions table and from §3. In litsearch.py search, run DBLP as a separate `search.py \"<2-3 key terms>\" --sources dblp` call using a short form of the query, or have SKILL.md step 3 ask for a 2-to-3-term DBLP query each round. Relay `dblp(0)` as \"no record matched every term\", not as a failure."
+  },
+  {
+   "id": "lit-2",
+   "lens": "lit",
+   "title": "Re-vendor at HEAD (1666e69) and then wrap: HEAD fixes privacy and robustness gaps in our copy, but none of the wrapper's targets",
+   "kind": "upstream-change-since-pin",
+   "cost": "small",
+   "claim": "Since a38b7b1, upstream has changed four of the nine scripts we ship (arxiv.py, common.py, search.py, snowball.py) in seven ways. (1) arXiv uses HTTPS. (2) arXiv answers go through common.http_xml, which parses only a body whose first markup is the Atom feed element, so no DTD or entity reaches the parser. It also caps nesting at 32, applies the 16 MiB body cap, classifies HTML, other XML and challenge pages, and retries through the shared _request loop. (3) Catch-all notes in search.py and snowball.py carry only the exception type. SourceError notes still carry a classified message, but arXiv's message no longer includes urllib's server reason phrase. (4) Snowball prints each distinct note once. (5) Both entry points print a `candidates: N (L lines, C characters on stdout)` stderr line, after the `sources:` line in search. (6) Snowball's default `--limit-per-seed` drops from 20 to 5, and the spec says to pass one seed per call. Our SKILL.md passes 20 explicitly, so the new default has no effect on our calls. (7) Both entry points force UTF-8 output. Nothing at HEAD changes the YAML emitter (titles with newlines still break), the exclusion, the compaction, or the 429 backoff policy for the JSON sources (RETRY_CODES and BACKOFF_SECONDS are the same). One thing does change for the wrapper: arXiv's 429 note now reads \"arxiv: HTTP 429\", where it used to read \"HTTP Error 429: Too Many Requests\", so the wrapper's `HTTP 429` trigger now matches arXiv. The wrapper is still needed, and re-vendoring and wrapping are complementary. A re-vendor touches nine headers, THIRD-PARTY-NOTICES.md, ATTRIBUTION.md, and the pinned hash in tests/test_experiment_proposal_plugin.py. That is a small cost.",
+   "recommendation": "Adopt: make re-vendoring all nine scripts at 1666e69 the first v3 task. That means new provenance headers and a new commit hash in OURS:plugins/experiment-proposal/THIRD-PARTY-NOTICES.md. Then write litsearch.py against HEAD's stderr contract. The `sources:` line is safe to parse, because upstream's spec requires it to stay byte-identical. The wrapper also has to handle the new `candidates:` line and notes that name only the exception type."
+  },
+  {
+   "id": "lit-3",
+   "lens": "lit",
+   "title": "Wrapper cannot attribute records to sources from captured stdout; consider importing the vendored modules in-process",
+   "kind": "changes-v3-spec",
+   "cost": "medium",
+   "claim": "The vendored scripts drop the source tag on output, so the YAML the wrapper captures cannot tie records to sources. For search, the sources: line on stderr already gives each source's returned count and shows which run each source returned records in. What it cannot give is which records came from which source, so the wrapper cannot count per-source records kept after exclude, or keep one source's records from its best run, without running one subprocess per source (--sources <name>). For snowball there is no --sources flag and no sources: line, so the wrapper gets no per-source information from a subprocess at all. The candidates: line exists only at HEAD; the pinned a38b7b1 scripts print no such line, so relaying it verbatim becomes a risk only after a re-vendor. Importing the modules in-process (federate, expand, enrich_bare_dois have the same signatures at pin and HEAD) does expose the source tag. But the counts then need the joined tags split, and they credit Crossref with records it only enriched. That route also needs the subprocess-stubbed test in spec line 85 rewritten.",
+   "recommendation": "Choose one of two designs in §3. (a) litsearch.py imports the vendored modules and calls `search.federate`, `snowball.expand` and `enrich_bare_dois` directly. That yields `_source` on every record, lets the wrapper retry one source alone, and lets it emit its own quoted YAML with no lenient parse; the vendored files stay untouched. (b) Keep subprocesses, run search once per source with `--sources <name>`, and report snowball as a single total. Either way, print a post-filter `candidates:` line of our own and do not relay upstream's."
+  },
+  {
+   "id": "lit-4",
+   "lens": "lit",
+   "title": "YAML emitter still unfixed at HEAD; the real break is a plain scalar with an interior newline, which the v3 lenient-parse rule misses",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Upstream `_yaml_scalar` has not changed since commit ab58881, and our vendored copy (OURS skills/lit-search/scripts/common.py:498) is identical. It quotes a value only when the value is empty, contains a special character, starts with `-` or `?`, or has whitespace at either end. A title with embedded newlines and none of those triggers is therefore written unquoted across several lines. That is the only strict-parse failure in the six saved rounds, under both PyYAML 6.0.1 and pandoc 3.1.3 citeproc. Quoted abstracts whose continuation lines start at column 0 parse under both. The v3 spec diagnoses the cause correctly (line 10). Its output rule (line 68, quote every string) and the planned PR (line 73) would already fix the emitter, so adding `\\n\\r\\t` to the trigger class is a narrower version of the same fix, not a correction. The real gap is the lenient-parse wording at line 67: it appends only lines \"inside a quoted-string context\", so it would not re-join the broken unquoted title. Upstream's test checks substrings, not a parse, so it cannot catch the bug.",
+   "recommendation": "Keep the upstream PR but narrow it to `_yaml_scalar`. Add `\\n\\r\\t` to the trigger class and escape them in the quoted branch, or collapse whitespace runs in titles. Add a test that loads a title containing a newline with a real YAML parser. In the wrapper, change the lenient rule to: any line that does not start with `- id:` or an indented `key:` continues the previous scalar, quoted or not. Re-emit each string with `json.dumps(value, ensure_ascii=False)`, which is a valid YAML double-quoted scalar."
+  },
+  {
+   "id": "lit-5",
+   "lens": "lit",
+   "title": "Upstream already retries 429; the PR's backoff half duplicates it, and the wrapper should retry only the failing source",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "At both the pin (a38b7b1) and HEAD, common._request retries HTTP 429 twice, waiting 3 s and then 6 s, and never reads Retry-After. Upstream states its intent in common.py:7 (\"orchestrators degrade, never block\") and in SKILL.md:58 (\"the script backs off on 429 and degrades — no key setup is offered\"). lit_live.py's \"busy\" label is a drift-detector classification only. A PR that \"adds 429 backoff\" therefore restates existing behaviour, and the spec's 20/40/80 s layer would add a longer block on top of it, against upstream's degrade-fast design.\n\nIn our run, kw2 finished 13 s after kw1, so its Semantic Scholar search came within 13 s of a successful one; the gap is between completion times, not start times. kw2 got a 429, as did every later keyword round, including kw4 and kw2b after a gap of about 16 minutes. Meanwhile the snowball rounds at 16:42:13 and 16:57:10 used Semantic Scholar's graph endpoints with no 429 at all. So the throttle hits the search endpoint specifically, and a 16-minute wait did not clear it. Nothing in the run shows that a 20/40/80 s retry would.\n\nThe v3 design reruns the whole search.py command. Each rerun sends one extra request each to Crossref, arXiv, OpenAlex and DBLP; arXiv's 3 s interval is tracked per process, so a fresh rerun does not sleep. If the wrapper retries at all, it should retry only Semantic Scholar via `--sources semantic_scholar`. Otherwise it should accept the degraded search and rely on snowball for Semantic Scholar coverage. The upstream PR should keep only the YAML quoting fix, or at most ask for Retry-After support. The cost is small: the change is spec-only, because litsearch.py does not exist yet.",
+   "recommendation": "Drop the 429 half of the PR, or reframe it as a small ask: honour `Retry-After` and make the retry ceiling configurable. In litsearch.py, retry only the source that returned 429 after 20, 40 and 80 s, using `search.py <q> --sources semantic_scholar` or an in-process call (lit-3), and keep Semantic Scholar searches at least 20 s apart across rounds."
+  },
+  {
+   "id": "lit-6",
+   "lens": "lit",
+   "title": "Exclude-by-DOI misses 15% of candidates; upstream matches on DOI, then normalized title",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "84 of the 575 records across our six runs (14.6%) have no DOI, and 67 of the 361 in round 1. Many snowball records have no URL either. A DOI-only exclude file cannot hold these records at all, so any that a later round fetches again are shown again. In the recorded round 2 (kw4+snow2), 3 of the 66 distinct DOI-less round-1 titles came back (18 counting the kw2b/kw3b reruns), against 12 records caught by DOI. Upstream's script dedupe keys on DOI and then on normalized title. Its agent-maintained Excluded Literature list takes a DOI or a title. Adopt: each line of lit-search-judged.txt may be a DOI or a title, matched with the vendored common.clean_doi and common.normalize_title, and update §3 and scenario 8 to match.",
+   "recommendation": "Adopt: let each line of proposal/notes/lit-search-judged.txt be a DOI or a title. The wrapper matches DOIs with the vendored `common.clean_doi` and titles with `common.normalize_title`. Update §3 and the round-2 expectation in scenario 8."
+  },
+  {
+   "id": "lit-7",
+   "lens": "lit",
+   "title": "Output size: upstream caps output for the host and snowballs one seed at 5 per call; every round of ours exceeded Claude Code's cap, including round 1",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Upstream measured the hosts' output caps. On Claude Code, output over 30,000 characters is saved to a file and the model gets a short preview and the path. On Codex, output over about 40,000 bytes loses its middle; head and tail are kept, and a \"…N tokens truncated…\" marker is inserted, so the cut is visible but the dropped records are gone. In its own repo (a38b7b1..HEAD), upstream lowered snowball.py's default from 20 to 5 per seed (`DEFAULT_PER_SEED = 5`). Its SKILL.md now snowballs one seed per call and prints a `candidates: N (L lines, C characters)` line on stderr. Ours still has `default=20` in snowball.py:84. Our SKILL.md example snowballs one seed at `--limit-per-seed 20`; upstream measured about 79K characters for a single resolving seed at 20. Step 3 says to snowball from \"the best two or three seeds\" without saying one per call. Neither our scripts nor the v3 spec prints a total post-filter candidate count; the per-source summary gives no deduplicated total. Our saved round outputs were redirected to files, so the cap never actually hit. Their stdout would all have exceeded Claude Code's 30,000 characters: keyword rounds 34K–54K, snow1 362K, snow2 278K. v3 turns on `--compact` only after round 1. Compact output at 10 per source would fit for keyword rounds (kw1 estimated at about 18K), but snowball rounds would still be about 90K–127K. So the fix that matters for snowballing is one seed per call at 5 per seed, or `--out`. Note that upstream's SKILL.md tells the agent never to redirect output into the workspace. Upstream's own `--limit 10` search example can also exceed the cap when all sources answer, which upstream acknowledges.",
+   "recommendation": "Adopt in v3 §3 and SKILL.md. Every round writes with `--out` or runs `--compact` from round 1. The wrapper prints a post-filter `candidates: N` line. SKILL.md tells the agent to read the file in slices whenever it sees fewer `- id:` entries than N. Replace the multi-seed, 20-per-seed example with one seed per call or an `--out` file. This matters because we ship agents/openai.yaml for Codex."
+  },
+  {
+   "id": "lit-8",
+   "lens": "lit",
+   "title": "Reference verification: upstream's DOI-and-title verifier sits in import and reverse, not lit-search; we have none",
+   "kind": "they-have-we-lack",
+   "cost": "medium",
+   "claim": "Upstream's `validate_refs.py` resolves each DOI at Crossref and checks that the title matches; for an entry without a DOI, it accepts a Crossref search result only on an exact normalized-title match. Only proposal-import and proposal-reverse call it, to check references people typed in. Upstream lit-search has no verification step, so the README's \"verified against Crossref, arXiv, or DBLP\" (README.md:77) rests on candidates taken straight from API records. That is the same as our lit-search, so for search output the two plugins are at parity. The capability we lack is checking references that people enter by hand. Our SKILL.md step 3 already does a partial version: a kept source without a DOI gets one from a title search before it seeds. The run record shows a different gap: finding the published version of a candidate that carries an arXiv DOI. Crossref returns 404 for 10.48550 DOIs, so validate_refs would only mark such entries UNVERIFIABLE, and upstream lacks this lookup too. The run's \"confirm names and volume\" note is incomplete Crossref metadata; a verifier would pass that DOI unchanged. If adopted, `litsearch.py verify` is ported resolve-and-match, plus new work that title-searches for the published version of any 10.48550 DOI. Cost stays medium, but the published-version lookup is new design, not part of adopting upstream's verifier.",
+   "recommendation": "Adopt as `litsearch.py verify <DOI|\"title\">...` in the wrapper, since the v3 checker stays offline. Build it on the vendored `common.http_json` and `crossref.parse_work`, which both exist in OURS. Report per source: verified, DOI resolves to a different title, or not found. Flag 10.48550 (arXiv) DOIs for a published-version lookup. Call it from SKILL.md step 4. Do not vendor validate_refs.py itself: it parses a trailing CSL-YAML block, and our drafts use ACM-numbered lists."
+  },
+  {
+   "id": "lit-9",
+   "lens": "lit",
+   "title": "Upstream excludes sources the draft already cites; our skill does not",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "Upstream tells the agent never to add a candidate whose DOI or title is already in the proposal's `references:`. Our SKILL.md has no such rule. The v3 exclude file (proposal/notes/lit-search-judged.txt) only collects DOIs judged in earlier rounds and is never seeded with the draft's existing references. In the author's run the agent added the rule itself (run record line 14), so a run without it could re-propose sources already cited. Fix (small): in step 1, seed the exclude file with the DOIs from the draft's reference list. In step 3, add a rule dropping candidates already in the draft's reference list by DOI or title. The title rule must be a judgment rule because the v3 wrapper's --exclude matches DOIs only.",
+   "recommendation": "Adopt in SKILL.md step 1: before round 1, seed proposal/notes/lit-search-judged.txt with the DOIs or titles of the draft's reference list, or of the papers the user names, so the wrapper's exclude drops them."
+  },
+  {
+   "id": "lit-10",
+   "lens": "lit",
+   "title": "No fallback when the sandbox blocks script networking",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "Upstream says what to do when a sandbox blocks outbound network for scripts. The agent sends its own read-only GETs to the same public APIs (Crossref, DBLP, arXiv), applies the same relevance and untrusted-data rules, and builds the entries itself. When every source fails, our skill only says so and stops, and the v3 spec's litsearch.py wrapper does not change this. So lit-search is a dead end on any host whose sandbox blocks script networking, such as Codex's `workspace-write` sandbox, which our install records already use. v3 makes the gap more likely to matter: its agent-mode runs and Codex invocation by name may have no human to approve network escalation.",
+   "recommendation": "Adopt a short section in SKILL.md: when every note reads as a network failure, say the sandbox is the likely cause. If the host has a fetch tool, query `api.crossref.org/works?query=` and `export.arxiv.org/api/query` read-only under the same rules, and mark those sources in the report as not fetched by the scripts."
+  },
+  {
+   "id": "lit-11",
+   "lens": "lit",
+   "title": "Stop rule: upstream also stops on coverage and never continues for the reference count",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "Upstream stops broad searching when the contribution delta and every research question have an accepted source, or when a round adds nothing. After that it searches only for a gap it names, and it states that the reference count is never a reason to continue. Our step 3 stops when a snowball round adds no kept source or when the user has no seed to give. It has no coverage-based narrowing. Steps 1 and 4 set and report a 15-to-20 target, and nothing tells the agent that a count below the target is no reason for another broad round. We already reject sources that support no claim (step 3's keep rule), so the only gap is the missing count clause and the missing coverage clause. Fix (small): add to step 3, \"Once every named need has a kept source, search further only for a need you name; a count below the target is reported in step 4, never a reason for another round.\" The coverage clause should narrow the search, not end it before one barren snowball round. Item 5.2 attests that snowballing has saturated, so the barren-round stop must stay the terminating condition.",
+   "recommendation": "Adopt two clauses in SKILL.md step 3. Once every named need has a kept source, search further only for a need you name. A count below the template's target is reported, never filled with sources that support no claim. Keep our barren-round rule, which item 5.2 depends on."
+  },
+  {
+   "id": "lit-12",
+   "lens": "lit",
+   "title": "Key file: upstream makes sure api-keys.env is gitignored; our skill only names the path",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "The claim is accurate as stated. One point makes it stronger: our vendored `scripts/common.py` (`get_key` docstring) says a key file \"must be gitignored by whichever skill creates it\". Our skill leaves file creation to the user and never passes that requirement on, so in a repository like the author's, where `git check-ignore api-keys.env` exits 1, a project-root `api-keys.env` would be committable.",
+   "recommendation": "Adopt one sentence in SKILL.md under Keys, consistent with our skill writing no files: recommend `~/.config/thesis-proposal/api-keys.env`, which is outside any repository, and if the user picks the project's `api-keys.env`, tell them to add it to `.gitignore` first."
+  },
+  {
+   "id": "lit-13",
+   "lens": "lit",
+   "title": "Upstream requires one search, one judge, one merge in a single context; v3's Agent run paragraph should say the same",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Upstream judges all candidates in one context and never fans out to helper agents, because a preprint and its published version can only be recognised side by side. v3 makes lit-search model-invocable and adds an Agent run paragraph, but neither that paragraph nor any other part of the plugin says that an orchestrator, or the skill itself, must not split a round across agents or invocations. A split would quietly weaken the \"prefer the published version\" rule in step 3. The wrapper's per-run DOI dedupe and DOI exclude file do not catch preprint/published pairs, because the two versions have different DOIs. A split would also break the \"the judge appends\" model of proposal/notes/lit-search-judged.txt. (Upstream's key-uniqueness and proposal-writer reasons do not apply to us, since our skill merges nothing into the draft.) Fix: add one sentence, in the Agent run paragraph or in step 3, saying that each round's candidates are judged together in one context and that only that context appends to lit-search-judged.txt. In the same edit, fix the v3 §1 description \"writes no files\", which §3's exclude-file append contradicts. Cost: small.",
+   "recommendation": "Adopt one sentence in the v3 Agent run paragraph for lit-search: judge all of a round's candidates in one context, and let only that context write proposal/notes/lit-search-judged.txt."
+  },
+  {
+   "id": "lit-14",
+   "lens": "lit",
+   "title": "Reference format: upstream merges CSL-YAML into the proposal; ours writes nothing",
+   "kind": "both-differ",
+   "cost": "none",
+   "claim": "Upstream's skill merges accepted entries into the proposal's `references:` CSL-YAML block with `AuthorYearFirstWord` keys. It logs rejections in the Excluded Literature section of notes.md, but only when that file already exists. Ours reports the kept sources and adds nothing to the draft. The course draft uses an ACM-numbered list, and the author's project keeps references as slug-to-ACM-string entries in proposal/notes/citations.json, not as front-matter CSL-YAML. With the rule to cite only papers read in full, merging candidates automatically would not fit our setting. Keeping ours costs nothing.",
+   "recommendation": "Keep ours. The merge target, a front-matter `references:` block, does not exist in an ACM-numbered course draft, and merging before the paper is read would defeat the read-in-full rule. The only part worth borrowing is the rejection log, and lit-6 and lit-9 already cover it through the exclude file."
+  },
+  {
+   "id": "EVALS-1",
+   "lens": "evals",
+   "title": "v3 runs each scenario once but claims the 0.2.0 bars, which are defined over three runs",
+   "kind": "changes-v3-spec",
+   "cost": "medium",
+   "claim": "The README's 0.2.0 rule says a scenario's bar holds only if all three runs meet it. v3 section 5 runs scenarios 2, 3, 5 and 6 once each, yet \"Done when\" says they \"hold their bars\". As written, that pass cannot meet the bar. v3 also keeps three runs for scenario 7, which makes the spec inconsistent with itself. Our own scenario 2 data show real run-to-run variation on one unchanged configuration: pass/fail/pass at 5e13529 and fail/fail/pass at 76e9c28. One run cannot see this.\n\nTHEIRS labels each model-by-task cell over its epochs: all pass is solid, mixed is flaky, none is fail. Its epoch count depends on the model's price tier (cheap=3, mid=2, frontier=1, \"frontier binary\"). It marks any cell with fewer than 3 epochs with `*` as budget-reduced. So for frontier models like ours, THEIRS' practice is one run, labelled as such. That backs option (b): keep one run and label it \"one run, not the bar\". Option (a), three runs for each scenario whose skill text changes, rests on our own README rule, not on THEIRS. Its cost is medium because scenario 3 is interactive and the author drives it.\n\nThe solid/flaky/fail label belongs to each scenario-and-commit set of runs, for example in the Scenarios table or a summary line. It does not belong on the per-run rows of the Runs table. Separately, v3's agent mode starts on `claude -p` without `--continue`, which is the harness's turn-1 command. Re-read the 0.2.0 bars for scenarios 2, 5 and 6 before re-running them; scenario 5's \"turn 1 waited\" is one example.",
+   "recommendation": "Adopt in v3 section 5, one of two ways. (a) Run three times each scenario whose skill text v3 changes: 2 and 3 (design) and 5 and 6 (review), because both skills get a new description and an Agent run paragraph. (b) Keep one run and label it in the eval README as 'one run, not the bar'. Either way, add THEIRS' three-way label (solid/flaky/fail) to the Runs table."
+  },
+  {
+   "id": "EVALS-2",
+   "lens": "evals",
+   "title": "Every run uses the operator's ambient config, including claude.ai synced skills that claim proposals",
+   "kind": "changes-v3-spec",
+   "cost": "medium",
+   "claim": "All our eval runs used the operator's ambient ~/.claude config: the harness in the evals README sets no CLAUDE_CONFIG_DIR, and neither the plugin nor the v3 spec mentions isolation. That config holds the operator's other plugins and, on host 2.1.273 with no sync opt-out in settings.json, 18 claude.ai synced skills. One of them, `docs`, calls itself the default for any document, proposal included. Once v3 drops disable-model-invocation, scenario 7's \"no skill invoked unprompted\" also depends on these competing skills. The 0.2.0 delegation runs already show contamination from the ambient config: run 1 called the `design` plugin's `design:user-research`, and run 2 read the installed 0.1.0 copy. No run record names a synced skill, so their presence in those runs is inferred, not recorded. THEIRS isolates every run it cites as a measurement (routing sweeps, the judge, `poe smoke`, the install probe and `poe dev --isolated`), while its plain dev runs are ambient. An isolated run gets a temp CLAUDE_CONFIG_DIR whose settings.json holds exactly the three claude.ai opt-outs. The harness refuses a config that holds anything else or already holds synced content, stops a case at the first event showing any MCP server, a non-@builtin plugin or a synced skill, and voids the whole sweep if skills/synced or plugins/synced appears. The routing report and routing log record a `- isolation:` line, and dev-run summaries record `config: ambient|isolated`. The recommendation stands as written, including the token mode and the HOME caveat for scenario 6.",
+   "recommendation": "Adopt for v3 scenarios 7 and 8. Run them in a temp CLAUDE_CONFIG_DIR that holds only those three settings, logged in by token mode (`claude setup-token`, then export CLAUDE_CODE_OAUTH_TOKEN), with --plugin-dir. Token mode matters because THEIRS records that linking credentials stranded a refresh token on 2026-10-04. Copy the init event's plugin and skill lists into each run record. Scenario 6 reads `~/.claude/plugins/installed_plugins.json` literally, so an isolated config dir would not change what it detects: either keep scenario 6 ambient or also point HOME at a scratch home."
+  },
+  {
+   "id": "EVALS-3",
+   "lens": "evals",
+   "title": "A routing rig with a case set would replace scenario 7's one prompt x three full runs",
+   "kind": "they-have-we-lack",
+   "cost": "medium",
+   "claim": "THEIRS' `poe routing` measures which skill the host picks for a sentence, among eleven skills that can be routed by their descriptions. It has 60 cases in four kinds (23 canonical, 19 oblique, 14 collision, 4 negative) and runs each 3 times. The verdict is the first proposal-* Skill call. The case is stopped once that turn's rate-limit report has been read, which comes after the call's tool result and the skill's instructions, about 2 s in. It is also stopped at the run's end or when the next turn begins, and up to three preparatory calls are tolerated. Only Skill, Read and Glob are allowed. Cases time out at 90 s, and a dead login or a timeout counts as an error, not as 'unrouted'. Each case runs in an isolated config directory and environment, and the report is a confusion matrix.\n\nOurs (0.2.0) has four name-only skills (disable-model-invocation: true) that the host cannot route to. Scenario 7 is therefore a guard against unprompted use, not a routing test: one prompt, three runs, with the default tools and the operator's own install. Those runs also invoked another plugin's skill (design:user-research) and used Bash to read the installed 0.1.0 cache copy (delegation-v2-1.md). The case set becomes useful in v3, which removes the flag and keeps 'callable by name, triggered by nothing'. Its useful kinds are by-name positives and adjacent negatives; THEIRS' oblique, collision and confusion-matrix machinery matters less for us.\n\nA runner limited to Skill, Read and Glob drops the Agent tool, so it would lose scenario 7's delegation check unless Agent is allowed and counted. It also needs a scratch CLAUDE_CONFIG_DIR, or it measures the operator's plugins instead of a student's install. With those two additions the cost stays medium but is above a 150-line runner.",
+   "recommendation": "Adopt for v3 scenario 7. Add a routing_cases.toml-shaped file of about 12 cases to the evals folder: (1) by-name cases for each skill, expecting that skill; (2) adjacent negatives such as 'plan a pointing-device experiment', 'review my paper', 'find papers on Fitts' law', 'draft my IRB form', expecting no experiment-proposal:* skill; (3) collisions with the-ethics-board and research-grill. Write a ~150-line stdlib runner that calls `claude -p ... --allowed-tools Skill Read Glob --output-format stream-json --verbose`, reads events as they arrive, and stops the child at the first Skill tool_use. Each case then costs about one turn instead of a full answer."
+  },
+  {
+   "id": "EVALS-4",
+   "lens": "evals",
+   "title": "Scoring is done by hand from transcripts; most bar clauses could be pure L1 verdict functions",
+   "kind": "they-have-we-lack",
+   "cost": "medium",
+   "claim": "THEIRS has a committed L1 layer, harness/l1_checks.py (about 3,100 lines, roughly 70 verdict_* functions plus helpers). The functions take strings or paths and return (passed, explanation), both runners share them, and their docstrings are exported as the L1 assertion text. Unit tests cover them, partly against recorded streams and partly with synthetic strings. OURS has no committed, shared or tested verdict layer, and the v3 spec does not plan one. Some of our scoring is already scripted, though. The material-v2 and handoff-v2 run records were generated by throwaway scripts (/tmp/ep-eval-scripts/gen.py, /tmp/ep-eval/gen/gen_records.py). Scenario 5 was scored with /tmp/ep-eval-tools/score_review.py and /tmp/ep-eval/v2-5-score/quotes.py, which copy check_proposal.py's ROW regex instead of importing it. The checker clauses are run as commands. None of these scripts is committed, unit-tested or cited in any run record, and they will be lost when /tmp is cleared. The fix is cheaper than starting from scratch: move score_review.py and the generators into docs/research/2026-10-13-experiment-proposal-evals/score.py, import ROW, RESULTS and sections_of from check_proposal.py, and unit-test it on the streams in /tmp/ep-eval. Leave the \"reason describes the defect\" judgment to a reader.",
+   "recommendation": "Adopt docs/research/2026-10-13-experiment-proposal-evals/score.py: stdlib only, importing ROW, RESULTS and sections_of from plugins/experiment-proposal/scripts/check_proposal.py, with one verdict per bar clause. Scenario 5: each key item maps to a row result (fail means caught, pass means passed); count over-failures on the control rows; 13.2 and 13.3 must read not checked; fix-picking checks the `git diff -U0` hunk count and that rows outside the allowed set are byte-identical. Scenario 2: the extraction status per item vs the key, and no settled item ID among any round's questions. Scenario 3: brief checker exits 0, the freeze commit exists, at least one Agent tool_use. Scenario 6: the install commands, defend command and seed list appear in the last result text. Leave 'the reason describes the defect' to a reader or judge (EVALS-12). Unit-test score.py on the streams still in /tmp/ep-eval before /tmp is cleared."
+  },
+  {
+   "id": "EVALS-5",
+   "lens": "evals",
+   "title": "v3's Agent run paragraph has no pass bar; design's agent-run path has no scenario at all",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "v3 adds an Agent run paragraph, but no pass bar scores what it produces. The condition itself is already exercised. Scenario 2's runs are single-turn `claude -p` with no `--continue` and no answers (material-v2-1 to v2-9), which is exactly v3's agent-run trigger. So design's agent-run path does run in scenario 2, but its 0.2.0 bar only checks that gaps are marked weak or missing and settled items are not re-asked. Nothing checks `provisional` on unanswered frontier items, `Status: open`, or the absence of a freeze commit. Review in agent mode appears only in scenario 8, which has an expectation (65 of 65, four `not confirmed`) but no bar. There is also a sharper problem: scenario 5's turn 1 is `claude -p` without `--continue`, and it waited at 0.2.0 (review-v2-5.md line 71). Under v3's trigger definition that turn would be an agent run and must not wait. The spec still says scenarios 5 and 6 hold their 0.2.0 bars and that \"nothing else in the steps changes\", so the trigger definition and the eval plan conflict. THEIRS gives its unattended and read-only paths L1 verdicts: verdict_early_stop says no proposal is seeded and a notes file exists, and verdict_review says the proposal is byte-identical. THEIRS also records that in the Inspect loop models edited the proposal during check and review. The mechanism differs: THEIRS uses a 6-round persona dialogue, OURS a single headless turn. Recommendation: extend scenario 2's bar, which runs three times, with these checks: brief stays `Status: open`; every unanswered frontier item is `provisional`; no freeze commit; `check_proposal.py brief` exits 0. Add a barred agent-mode review run on the scenario 5 fixtures with these checks: `git diff --quiet` on proposal/draft.md; rows 3.1, 5.2, 13.1 and 13.4 read `not confirmed`; `check_proposal.py review` exits 0; the reply ends with the path and the Summary line. Then reconcile scenario 5's turn-1 driving with the v3 trigger. Every clause can be checked with git, grep or the checker. There is no score.py in OURS; scoring is by hand in run records. Cost: small.",
+   "recommendation": "Adopt in v3 section 5 a barred 'agent run' scenario: single-turn `claude -p` runs with no --continue, three each. Design on fixtures/material-with-gaps.md must leave the brief at `Status: open`, mark every key row listed as weak or missing `provisional`, make no freeze commit, and pass `check_proposal.py brief` (exit 0). Review on the scenario 5 fixtures must leave draft.md byte-identical (`git diff --quiet`), set rows 3.1, 5.2, 13.1 and 13.4 to `not confirmed`, pass `check_proposal.py review` (exit 0), and end with the file path and the Summary line. Every clause is L1-decidable by score.py."
+  },
+  {
+   "id": "EVALS-6",
+   "lens": "evals",
+   "title": "Our driver is untracked /tmp shell; theirs separates fail from untested and checks resume and session",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "Our eval driver is four untracked shell scripts (drive-v2.sh, review-v2-drive.sh, drive-real.sh, run-delegation.sh) plus two helpers (ep-turn-summary.py, final-text.py) in /tmp/ep-eval, 91 lines in all, and no repository holds any of them. The run records name only two of the six: review-v2-drive.sh in 24 records and drive-v2.sh in one. The `ls /tmp/ep-eval/*.sh` quote in the evidence shows one of the four files that command returns. The quoted records live at the vault root (docs/research/2026-10-13-experiment-proposal-evals), not under plugins/experiment-proposal. Our driver follows up with `--continue`, not with an explicit session id. The run records did check the session_id, rate_limit_event and api_error_status, but by hand after each run (from-scratch-v2-1, from-scratch-v2-3), and they gave the 429 turns an informal \"not scored\" status. Streams and scratch repos are already kept outside the repo and cited by path. One re-score without a re-run has already been done by hand: review-v2-4 after key commit ea99fd2. So the gap is automation and durability, not the idea. THEIRS' runner is tracked in the repo. Its exit statuses split FAIL (1), untested (3: the subscription could not serve the run, including a run stopped at the plan limit) and runner failure (4). It fails closed on a missing or refused rate-limit report. It sends follow-ups with `--resume <session-id>` and raises a RunnerFailure on a session mismatch (claude_runner.py:1513). Two of its features are opt-in rather than default: the per-run JSON summary line (`--summary-log PATH`) and kept workspaces (`--keep`), which `--rejudge` re-grades without re-running the model. THEIRS classifies a 429 as untested but does not recover from it, while our hand resend kept the session and the run passed. That is a trade-off between classifying and recovering, not a case where theirs does everything ours does and more. Cost: small for (a) a driver that asserts the session id and (b) one that records 'untested: 429'. Item (c) names a score.py that does not exist, since scoring is done by hand against keys. As written, (c) means building a scorer first, which is more than small; archiving the streams alone is small.",
+   "recommendation": "Adopt. Move review-v2-drive.sh, ep-turn-summary.py and final-text.py into the evals folder as one drive.py that: (a) takes the session id from turn 1's init event, passes `--resume <id>` and asserts the same id comes back; (b) reads rate_limit_event and the result's api_error_status, and records 'untested: 429' with the reset time instead of a verdict; (c) archives each scratch repo and its jsonl streams outside the repo, path in the record, so score.py can re-score after a key correction like ea99fd2 without re-running."
+  },
+  {
+   "id": "EVALS-7",
+   "lens": "evals",
+   "title": "The six substance tests we restate from them are not measured by any scenario",
+   "kind": "they-have-we-lack",
+   "cost": "medium",
+   "claim": "We restate THEIRS' six substance tests as checklist items 13.6 to 13.11, but scenario 5 never scores their verdicts. The key plants no substance defect and lists none of the six as a control. The rows are still checked mechanically: a pass must quote the draft with a location, the fix-picking check requires the rows to stay byte-identical, and scenario 6 carries narrow substance passes into the seed list. Whether any of the six passes or fails is never measured, though. On the same fixture, 13.9 failed in review-v2-4 and v2-5, passed narrowly in v2-6 and passed in v2-1, and none of these counted. THEIRS tests substance judgement in both directions with fixture pairs that differ in one passage: f28 ready vs f29 with a doubtful dependency (the executability test), and f31 with a decorative tool name vs f32 anchored to the tool, which differ only in the contribution close (the swap test). It also has a hollow proposal, f22, that must get a no-viable-core verdict naming the failed tests. Adopting this is medium cost. Make a scenario 5 variant whose overview and contributions would fit any pointing-device study; the key should expect 13.8 to fail, with 13.6 possibly failing too, and use the current text as the control where 13.8 must pass. The variant must keep the contributions paragraph's inline \"(a) ... (b) ... (c)\" format so D3's scoring does not move. It may also need the hypotheses made generic, since 13.8 names them. Commit the key rows before the runs.",
+   "recommendation": "Adopt. Add a pair to scenario 5, or a new scenario. The variant changes one paragraph of proposal-with-defects.md: rewrite the overview and contributions so they would describe any pointing-device study, and expect 13.8 (swap) to fail. The control is the current text, where 13.8 must pass. Optionally add a second pair for 13.7 (falsifiability). Write and commit the key rows before any run, as the eval README requires."
+  },
+  {
+   "id": "EVALS-8",
+   "lens": "evals",
+   "title": "A pinned persona model could drive scenario 3's dialogue in place of the executor agent",
+   "kind": "they-have-we-lack",
+   "cost": "medium",
+   "claim": "In scenario 3 (0.2.0 runs), an agent driver answers each `design` round from fixtures/from-scratch-answers.md, falling back to 'I don't know'. It writes each turn into an $S.turn<N>.prompt file, and /tmp/ep-eval/review-v2-drive.sh sends that file with `claude -p --continue`. A run takes ten to twelve turns: v2-4 had ten, v2-1 eleven, v2-3 twelve. The evals README still says the author drives this scenario by hand, which these records contradict. The run records live under research-vault/docs/research/..., not inside the plugin. THEIRS drives its dialogue tasks with a pinned persona model. That model is the [roles].persona role, which defaults to the held judge `openrouter/anthropic/claude-haiku-4.5` and can be overridden with PERSONA_MODEL. The persona model receives a persona file plus the whole transcript so far, in about 30 lines of solver code (persona_dialogue). One file, longrun-lara.txt, scripts its replies by number and says how to deflect questions the script does not cover; the other personas describe behaviour instead. This runs only on THEIRS' metered Inspect path; their subscription dev runner sends fixed `followups`. Fixed followups cannot work for us, because `design` varies which items each round asks about and how many rounds it takes. For example, round 4 was 7.3, 7.5, 8.3 in one run and 7.3, 7.5, 7.7, 7.9 in another. It also adds questions the sheet does not cover, such as pushback on settled items and offers to reopen them. No drive.py exists in OURS, so the recommendation would have to replace the bash driver and the agent-written prompt files.",
+   "recommendation": "Adopt for scenario 3 only. Generate fixtures/from-scratch-persona.txt from the answer sheet: answer by item ID, say 'I don't know' otherwise, approve the brief and the freeze when asked. drive.py then produces each next user turn with a single-turn, tool-less `claude -p` call to a pinned full model ID over the persona plus the last assistant message, the same kind of call THEIRS' claude_cli.py judge makes. Record the persona model in each run record. The sheet stays the single source, and the executor leaves the loop."
+  },
+  {
+   "id": "EVALS-9",
+   "lens": "evals",
+   "title": "`--model opus` is an alias, not a pin; v3 compares 0.3.0 runs with 0.2.0 bars without fixing the model",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Our 0.2.0 runs request the `--model opus` alias. Only some records name the model that actually served the run. The six handoff-v2 records and from-scratch-v2-1/4/6 name none, and the CLI version appears only in review-v2-3, from-scratch-v2-5, delegation-v2-1 and real-material-v2-1. The served IDs (claude-opus-5 on Claude Code 2.1.273, with claude-fable-5-1 in some from-scratch turns) are kept only in the temporary streams under /tmp/ep-eval. THEIRS treats aliases as not pins. It keeps every model ID in harness/models.toml, a unit test (tests/unit/test_model_ids.py) guards stray IDs, and a weekly model-currency workflow runs. Its dev-run summaries record `model_requested` beside the served `model` and `cli_version`, but its re-grade lines carry no `model_requested`. It saw the `haiku` alias move from haiku 4.5 to haiku 5.5 between CLI 2.1.284 and 2.1.296. v3 section 5 re-runs scenarios 2, 3, 5 and 6 against the 0.2.0 bars with no model or CLI version fixed. Our installed CLI 2.1.273 knows only claude-opus-5 and does not auto-update, but claude-opus-5-5 exists, so a CLI upgrade before the re-runs would probably change what `opus` serves. Recommendation: in v3 section 5, run with `--model claude-opus-5`, or treat any other served ID as a changed condition. Record the requested model, the served model and the CLI version in every run record, including the handoff records. Note that the subagent model (claude-fable-5-1 in the streams) is also unpinned.",
+   "recommendation": "Adopt in v3 section 5: run the re-runs with `--model claude-opus-5`, the full ID the 0.2.0 rows served. If the alias stays, state that a different served ID makes the 0.2.0 comparison a changed condition, and record the served model and CLI version in every record. No action on THEIRS' models.toml roster and weekly model-currency workflow: we have no metered matrix and no prices to keep current."
+  },
+  {
+   "id": "EVALS-10",
+   "lens": "evals",
+   "title": "No without-plugin baseline for review, so we cannot tell which planted defects a bare model already catches",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "THEIRS can run single-turn tasks again with the skill removed, on demand. Its report then flags a scorer that passes in both arms as a dead-assertion candidate, and one that fails in both as too-hard; these are flags for review, not automatic replacement. Our only no-plugin runs are scenario 1 (baseline-1..3, design, at 0.1.0, never re-run), recorded in docs/research/2026-10-13-experiment-proposal-evals/README.md at the repo root. Scenario 5's 12 planted review defects have never been run without the plugin, so we cannot tell which ones a bare model already catches. For D3, D8 and D9, a bare arm can test only the reviewer side, because their second home, the plugin's draft checker, would be missing. D12 stays testable as long as the baseline prompt supplies both the draft and the brief.",
+   "recommendation": "Adopt once for scenario 5. Run without --plugin-dir, with the prompt 'Review proposal/draft.md against proposal/design-brief.md and write proposal/review.md'. A reader scores it per defect against the key's descriptions, because the review shape will not exist. Replace any defect caught in both arms with one the bare model misses, and commit the new key before re-running."
+  },
+  {
+   "id": "EVALS-11",
+   "lens": "evals",
+   "title": "Upstream added a live per-source probe after our pin; it fits our planned DBLP issue",
+   "kind": "upstream-change-since-pin",
+   "cost": "small",
+   "claim": "After our pin, upstream added harness/lit_live.py (ccad5a7). It makes one read-only request per source through the shipped modules and prints one classified line each. HTTP 429, 5xx and network errors read 'busy' (exit 0). Exit 1 means the code must change: zero hits for the fixed request ('pentest' for the search sources, a seed DOI for OpenCitations), any other HTTP status, a challenge, unexpected or malformed answer, or a crash. It generalises a check the pin already had: `poe lit-live` ran `search.py pentest --sources dblp --limit 3`, and our vendored search.py can run that unchanged today to tell 'our three DBLP queries returned nothing' apart from 'DBLP fails a known-good query'. That is enough for the planned DBLP issue. Copied against our vendored copy, lit_live.py works for DBLP, Crossref, Semantic Scholar, OpenCitations and OpenAlex. Two adjustments are needed. Our arXiv path (common.http_text) raises SourceError with kind=None, so an arXiv 429 or network error would read 'unclassified' and exit 1. Our malformed kind is 'malformed_json', not upstream's later 'malformed'. Repointing the scripts path is also needed. The v3 wrapper's 20/40/80 s re-runs come on top of the client's two 429 retries (3 s, then 6 s) in real runs. The planned unit test stubs the subprocess, so those retries matter only for worst-case wall time, not for the test. Cost: small.",
+   "recommendation": "Adopt as a maintainer check, not shipped. Copy lit_live.py (MIT, with a provenance header) into tests/ or the evals folder and point it at plugins/experiment-proposal/skills/lit-search/scripts. Run it before filing the DBLP issue and quote its `dblp ...` line, so the issue separates 'DBLP returns nothing for our queries' from 'the DBLP module fails a known-good query'. In the wrapper's planned 429 unit test, account for the client's own two retries (3 s, then 6 s) before the wrapper's first 20 s wait."
+  },
+  {
+   "id": "EVALS-12",
+   "lens": "evals",
+   "title": "No separate pinned judge for the one semantic clause; the executor that drove the run also grades it",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "THEIRS grades semantic criteria with a separate judge. Its dev judge is pinned by full model ID and effort, each criterion is one tool-less single-turn call, and the reply must end with one GRADE: C or GRADE: I line. Any judge failure counts as untested, never FAIL, and dev grades are labelled not comparable to the matrix. OURS has no judge layer. Whether a review row \"describes\" a defect in scenario 5 is decided in prose by whichever agent writes the run record, on an unpinned model, with no fixed rubric, structured grade or untested outcome. In the three 0.2.0 review runs that agent scored saved artifacts after the driving session had been killed, so it was not the agent that drove the run. The recommendation needs a mechanical scorer (score.py with an L1 layer) that OURS does not have, so the cost is small only after that scorer is built.",
+   "recommendation": "Adopt narrowly: one rubric file for scenario 5's 'describes the defect' clause, taking the key row and the review row's reason as inputs. score.py calls it once per defect, only on rows that L1 has already found failing: a tool-less `claude -p` call to a pinned full model ID that must end with a GRADE line, with judge errors recorded as untested. Everything else stays with L1."
+  },
+  {
+   "id": "EVALS-13",
+   "lens": "evals",
+   "title": "Multi-host: their Codex runner reuses the same verdicts but tests project skills, not plugins; our Codex CLI is below their floor",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "THEIRS' Codex and Copilot dev runners share one core (hosts.py): the same scenario set, workspace staging and L1 verdicts, run on the real CLIs. Each runs in a harness-owned home, with skills staged as project skills under <ws>/.agents/skills/. On Codex the `plugins` feature is disabled and the install-prompt scenarios are refused, so THEIRS never tests Codex plugin installation. CODEX_MIN_VERSION 0.160 is the floor of their harness: the feature list is pinned there and refused if it differs. It is not a Codex compatibility floor. Their summaries are labelled \"dev-runner (<host>), not comparable to matrix\". We install the plugin itself on codex-cli 0.147.0 (installs-codex-1). That record covers the install, three session checks (names, review with no brief, an implicit prompt), and a review of the scenario-5 fixtures through `codex exec` that wrote proposal/review.md with checklist-ID rows. So a Codex scenario-5 transcript already exists, but no automated verdicts score it. v3 adds one by-name invocation record. Our local Codex (0.147.0) is below their harness floor. skill_search is not new at 0.160, though: it already reads `stable true` by default at 0.147.0, so it was on during installs-codex-1. It is not what kept the plugin's skills out of Codex's available-skills list, and a re-run after 0.160 is not justified on that ground. Adopting `codex exec --json` skill-load counting needs a path pattern for the plugin cache (~/.codex/plugins/cache/.../skills/*/SKILL.md), not THEIRS' `.agents/skills/proposal-*` regex. The cost stays small.",
+   "recommendation": "Keep ours for the plugin route: THEIRS never tests Codex plugins, since its runner disables `plugins`. Adopt two things into the v3 Codex test: run `codex exec --json` so skill loads can be counted from events, and record the Codex version as a condition of the allow_implicit_invocation result. Re-run the test once the CLI passes 0.160, because default-on skill_search may change implicit loading. Once score.py exists, scenario 5's L1 verdicts apply unchanged to a Codex transcript. No action on Copilot."
+  },
+  {
+   "id": "EVALS-14",
+   "lens": "evals",
+   "title": "Their reports are generated; our README run tables are hand-written and drift. Their caching work does not apply to us",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "THEIRS' report.py builds the README model-support summary, docs/model-support.md and shared/model-support.json from the newest eval log per cell, and it is idempotent. Our eval README's Runs tables are written by hand, and nothing checks them against the records. Today the README rows and the records' plugin commits all agree, so no drift has happened yet, but nothing would catch it. Provenance is also corrected by hand in the records themselves. For example, handoff-v2-4 and from-scratch-v2-5 correct the commit named by an executor harness brief that lives outside the repo, not by the README, whose Harness section names no commit. THEIRS' prompt-caching work (cache_probe.py, openrouter_cache.py, per-model cache telemetry in matrix.py) serves only their metered OpenRouter/Inspect path and does not apply to our subscription-CLI runs. Recommendation as stated. The script is small; retrofitting front matter onto about 69 records is mechanical but touches every one. The schema needs a field for runs with no plugin loaded and a short outcome field to carry the README's prose Outcome column.",
+   "recommendation": "Adopt the small part. Give each run record a front-matter block (scenario, run, plugin_commit, fixture_commit, served_model, cli_version, verdict: pass, fail or untested). Add a ~50-line script that regenerates the README's Runs tables between markers, with a --check mode run by the repo checks. No action on caching: our runs go through the subscription CLI, which caches on its own."
+  },
+  {
+   "id": "EVALS-15",
+   "lens": "evals",
+   "title": "Our run records carry the plugin commit, a clean-tree proof, exact commands and transcript lines; their summaries do not",
+   "kind": "we-have-they-lack",
+   "cost": "small",
+   "claim": "The later v2 run records (for example review-v2-4) carry things THEIRS' dev-run summary and generated grid lack: the plugin commit, proof the tree was unchanged, fixture byte-identity, the exact command for each turn, and the decisive transcript lines quoted inline. Not every record does. All 64 name a commit, but 31 have no clean-tree proof and only 13 show byte-identity. THEIRS' summary (claude_runner.summary) does more than the identity keys (scenario, model_requested, model, cli_version). It also records host, label, arm, billing, config, helper_calls, single_context, handoff, outcome and exit_status, and on judged runs an L2 `criteria` block with PASS, FAIL or UNTESTED and a why for each criterion. So marking pass or fail per criterion is not something they lack. They also save the full event stream as `.devrun-events.jsonl` in the kept workspace. What they do lack is a repo commit, a command line and an inline transcript excerpt. Their grid shows only a date (2026-08-10), and 8 of its 10 model rows are entirely untested. Ours lacks token and cost telemetry. Our records give only exit code, wall time and agent turns, while THEIRS records input, output and cache-read/write tokens and total_cost_usd from the result event. Adding those fields is a small change.",
+   "recommendation": "Keep ours. The commit plus the clean-tree proof is what let review-v2-4 tie its verdict to 76e9c28 while HEAD was e7dfcb1. When drive.py and score.py land, have them write these fields into each record's header (commit, `git status --porcelain` output, commands, served model, CLI version) rather than drop them. Add the one thing theirs has: input, output and cache read/write tokens and total_cost_usd from the result event."
+  },
+  {
+   "id": "agentdocs-1",
+   "lens": "agentdocs",
+   "title": "Codex test can be an offline render, and our skills are absent from Codex's skill list today",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "The v3 Codex test (spec lines 46 and 87) invokes each skill by name but says nothing about what counts as 'admitted'. The 2026-10-14 record shows a plain-text by-name prompt reached the review skill only after the model searched the plugin cache with rg and find and read SKILL.md, so the test as written can pass on a filesystem search. The test needs a criterion: a skill is admitted only when the explicit mention `$experiment-proposal:<skill>` makes Codex load it, with no rg, find or cat of the plugin cache in the transcript. Its absence from Codex's 'Available skills' list is expected under allow_implicit_invocation: false, not an open question. Codex's skill-creator doc says false keeps a skill out of the model context but still allows explicit `$skill`, and the offline render shows the .system review-agent skill (false) missing while its siblings at the default are listed. Our 2026-10-14 record already logs the absence. So rendering prompt-input at false and at true cannot decide anything: true always lists, and a 'flip if only true lists' rule would always flip, dropping v3's 'triggered by nothing' decision. The deciding check needs four codex exec runs, not an offline render, because `codex debug prompt-input` does not expand `$`-mentions. Run it after v3 removes disable-model-invocation: true, which the installed 0.2.0 still carries. Flip to true only if the `$`-mention fails. Their skills ship no openai.yaml and are listed by default, so their listing is not a like-for-like gap. Cost stays small.",
+   "recommendation": "Adopt. Rewrite the Codex rule in v3 section 1 and the Codex test in section 5. Render `codex debug prompt-input` twice, once with the four skills/*/agents/openai.yaml at false and once at true. This needs no model call and no quota. A skill counts as admitted only when `experiment-proposal:<skill>` appears in the rendered Skills block with its file path, or when a `$`-mention loads it. A model that finds the file by rg does not count. If only true lists the skills, flip all four and rely on the name-only descriptions. Record the codex-cli version and both renders in runs/installs-codex-v3-1.md, and state the result in the README's Codex paragraph."
+  },
+  {
+   "id": "agentdocs-2",
+   "lens": "agentdocs",
+   "title": "Upstream lit-search now snowballs one seed per call at 5 per seed; 429 retry predates our pin",
+   "kind": "upstream-change-since-pin",
+   "cost": "medium",
+   "claim": "After a38b7b1, upstream measured how much one seed's snowball output fills a host's tool result. They cut --limit-per-seed from 20 to 5 and changed the skill to one seed per call. They also added a stderr line, `candidates: N (L lines, C characters on stdout)`, which the agent reads to detect truncation; the skill tells it not to relay that line. Our SKILL.md still runs `--limit-per-seed 20`. v3's wrapper takes `<DOI...>` (several seeds) and relays the vendored notes verbatim. Two more facts change v3 section 3. Retry on 429 already existed at the pin (RETRIES=2, BACKOFF_SECONDS=3.0). The YAML scalar quoter is unchanged at HEAD. So the planned upstream PR is about longer backoff and newline-safe quoting, not about adding 429 backoff.",
+   "recommendation": "Adopt. In lit-search SKILL.md, change the example and step 3 to one seed per call with --limit-per-seed 5. In v3 section 3, have the wrapper run one subprocess per seed. After a re-vendor, the wrapper should check the `candidates:` line for truncation and not relay it. Rescope the upstream PR: quote titles containing newlines in `_yaml_scalar`, and make the existing 429 retry wait longer or honour Retry-After for Semantic Scholar. The exclude and compact features stay ours either way."
+  },
+  {
+   "id": "agentdocs-3",
+   "lens": "agentdocs",
+   "title": "No guard against a host fanning a skill out into helpers",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "v3's Agent run paragraph covers a caller that cannot answer. It does not cover a host that splits a skill into one helper agent per item. Upstream added `## Execution shape` as the first `##` heading to four skills (review, supervise, check, write) after a real supervise run fanned out into 27 agents. A follow-up sweep added it to three more (reverse, import, lit-search) with no observed failure. Each section is pinned by a test, and upstream calls the sections a mitigation whose only measurement is a dev-runner probe. Their review stays in one context and allows at most three agents. Our review judges 65 checklist items (67 minus the two defend-stage items) plus Cross-section consistency and Brief against draft, and both comparisons need the whole draft in one context. Design's only helper is hci-researcher, one question per call. Nothing in our SKILL.md files or the v3 spec says this. If adopted, the sentence should go near the top of each SKILL.md, where upstream puts it so it is read before a run is planned, not only in the closing Agent run paragraph.",
+   "recommendation": "Adopt. Add one sentence per SKILL.md beside the Agent run paragraph. For review: one context, no helper per item, section or substance test, and it alone writes review.md. The reason: Cross-section and Brief against draft compare the whole draft, and the Summary counts every row. For design: the only helpers are hci-researcher calls, one question each. For lit-search: judge all candidates together, so a preprint and its published version are seen side by side."
+  },
+  {
+   "id": "agentdocs-4",
+   "lens": "agentdocs",
+   "title": "Our helper is a registered agent that Codex does not expose; theirs is a brief any subagent tool can run",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "Their one helper with a brief, the verifier in proposal-supervise, lives at references/verifier-brief.md. The skill hands that brief to whatever subagent tool the host has. Where there is none, it asks the verifier's questions itself and records which path ran (`Verified by: fresh verifier` or `Verified by: inline — no subagent tool`). An optional adversarial check is allowed only when a host insists on a workflow. Ours, hci-researcher, is a registered plugin agent with a different job: it gives design recommendations rather than verifying output. Our Codex install record (codex-cli 0.147.0) says, based only on the model's own report, that `hci-researcher` was not among the agent types it could spawn, while \"General-purpose subagent\" was. README says the agent's description is loaded into every session where the plugin is enabled. When the agent is missing, design step 4 recommends from the checklist and the material, so the vendored HCI guidance in the agent body goes unused. Codex 0.147 exposes a general `spawn_agent` tool, so we could run the agent body as a brief through a general subagent. That brief must keep the read-only, run-nothing limit, because a general subagent does not inherit the agent file's `tools: Read, Grep, Glob` line. Cost is small: one paragraph in design step 4 plus a Codex re-test.",
+   "recommendation": "Adopt in design step 4, leaving the vendored agent file untouched. When `experiment-proposal:hci-researcher` is not an available agent type but a general subagent tool is, start a general subagent. Its brief is the body of agents/hci-researcher.md, found via `${CLAUDE_PLUGIN_ROOT}` or `../../agents/hci-researcher.md`, plus the one question. The basis line names which path ran: `Recommended (hci-researcher)`, `Recommended (hci-researcher brief, general agent)`, or the checklist and the material. Keep the registered agent for Claude Code."
+  },
+  {
+   "id": "agentdocs-5",
+   "lens": "agentdocs",
+   "title": "Our SKILL.md files hand off with Claude slash commands; theirs name the action and load the owning skill",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "Our skills name the next skill in Claude Code slash form. review/SKILL.md prints \"run /experiment-proposal:design first\" (step 1) and sends brief changes to `/experiment-proposal:design` (step 6). design/SKILL.md step 6 writes `/experiment-proposal:lit-search` and `/experiment-proposal:the-ethics-board` into the brief's Open items. It writes them to the file; it does not print them. The finding leaves out two more places: references/brief.md:50 and references/review.md:37 carry the same form, and the research-grill hand-off is Claude-only. In the Codex run, review printed the Claude form verbatim (installs-codex-1.md:52). Codex's own skill mention is `$name`, but our run never tried it, so whether the slash form works there is untested. Under v3 the reader may be an orchestrating agent. Upstream's handoff names the next step as an action and leaves skill names out. On approval, the agent loads the skill that owns the step, so that skill's own checks run (handoff.md:5). Ours already keeps each skill to its own files: review says \"the brief is never edited here\", and design says \"Write only proposal/design-brief.md\". Our plugin has no writing skill, so review applying the fixes the user picks does not take over another skill's step. The real gap is narrower: (a) skill names in SKILL.md text tied to one host, and (b) no Agent run sentence telling an agent caller to invoke the owning skill by name for the next step. Fixing this costs little only if the Open-items lines keep the `/experiment-proposal:` token. check_proposal.py:51/330 uses that token to tell commands from provisional items, and tests/test_experiment_proposal_plugin.py:729 pins \"run /experiment-proposal:design first\". Otherwise the checker, brief.md and that test change too.",
+   "recommendation": "Adopt in part. Keep skill names, since ours are invoked by name, but write them host-neutral in SKILL.md text: \"the experiment-proposal:design skill (`/experiment-proposal:design` in Claude Code)\". Add one sentence to the v3 Agent run paragraph: when the next step belongs to another skill, invoke that skill by name rather than doing its work under this skill's steps. For example, review never edits the brief, and design never runs the literature search itself."
+  },
+  {
+   "id": "agentdocs-6",
+   "lens": "agentdocs",
+   "title": "Non-interactive rules: theirs sit at the step that waits, v3 puts ours after the steps",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Upstream supervise states each of its non-interactive defaults inline, at the point where it would ask: lookups \"Declined, unanswered or unanswerable\" (line 29), the borderline tier \"nobody can answer (a non-interactive run)\" (line 75), and the verifier \"a run that cannot ask still starts it\" (line 119). Upstream check states its rule once, near the top in the read-only mandate paragraph (line 19), before its steps. Only 2 of upstream's 11 skills carry any such rule. The v3 spec (line 42) collects ours into one Agent run paragraph at the end of each SKILL.md. Our wait points sit mid-step: design step 3 \"then wait\", design step 7's freeze on approval, review step 2 \"Then wait;\", review step 3 \"wait for the answers before writing\", and review step 6's fix-number ask. An agent reading top to bottom therefore meets each wait roughly 200 to 680 words before the rule that overrides it. Neither repo has measured whether placement matters. Upstream's own check puts its rule before the steps, which is precedent for the recommended \"before ## Steps\" placement.",
+   "recommendation": "Adopt. Keep the single Agent run paragraph but place it after Files and before `## Steps`. End each wait sentence with \"(an agent run does not wait; see Agent run)\". The paragraph should also name the Done-when an agent run ends on: design step 6 (checker exits 0, brief open) and review step 5."
+  },
+  {
+   "id": "agentdocs-7",
+   "lens": "agentdocs",
+   "title": "Scenario 7 tests one generic prompt; the risk is prompts that reuse a description's own words",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Removing disable-model-invocation puts our descriptions in the model's skill list for the first time. The likely misfire is an utterance phrased in a description's own words. v3's scenario 7 reruns one prompt three times. That prompt (\"plan a controlled HCI experiment...\") borrows words from design's description, but review, lit-search and the-ethics-board get no probe in their own words. Upstream measures routing from descriptions alone, with canonical, collision and negative cases, three epochs each. Its negative kind (\"no skill should claim\") is the direct analog of our \"no Skill call\" bar. Recommendation: at 0.3.0, scenario 7 adds three more utterances, one each for review, lit-search and the-ethics-board, taken from the 0.3.0 descriptions (not the 0.2.0 trigger phrases), without the skill name. Each runs three times, and the bar is no Skill call. This also tests whether the \"Invoked by name:\" prefix suppresses routing. Add one named call for the-ethics-board on Claude Code, where the bar is that it runs, because scenario 8 already calls the other three by name. Count `\"name\":\"Skill\"` as the current record does. Cost: small.",
+   "recommendation": "Adopt in v3 section 5. Scenario 7 at 0.3.0 adds four utterances, one per skill, in that skill's own description words but without its name. Examples: \"check my experiment proposal against its design brief and write a review\", \"find sources for my literature review\", \"help me prepare for my IRB\". The bar is no Skill call. Add one named call per skill, where the bar is that it runs. Count `\"name\":\"Skill\"` as the current record does."
+  },
+  {
+   "id": "agentdocs-8",
+   "lens": "agentdocs",
+   "title": "No rule for when the checker or a script cannot be found",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "Their skills (lit-search:32, plus write, check and publish) say what to do when the script cannot be found: say it did not run, name what is therefore unverified, and never present a reading of the file as the script's result. Our design and review skills, the two reference shapes and lit-search's scripts section give only the fallback path and say nothing for the case where neither path runs. Lit-search does cover two narrower cases: a failed Python version check, and every source failing. The v3 spec adds no such rule, though its Agent run paragraphs make headless runs more likely. Our Done-when lines already require the checker to exit 0: design's freeze commits only then, and review step 5 finishes only then. The gap is therefore not a missing gate. It is that nothing tells an agent how to report a checker that could not run, and nothing forbids presenting a hand count as the checker's result. That hand count would feed review rows 3.2, 4.3, 5.1, 12.3 and 13.5 and the brief's shape check. In the one Codex run recorded, the relative fallback resolved. The neither-path case is plausible but has not been observed; likely causes are a missing Python 3.11 or later, no Bash tool, or a moved install. Adopt one sentence in each file at small cost.",
+   "recommendation": "Adopt. Add one sentence to the Files lists of design and review and to lit-search's scripts section. When neither path runs, say the checker or script did not run and leave the Done-when unmet: no freeze, and review.md not presented as checked. Name the rows the checker would have settled."
+  },
+  {
+   "id": "agentdocs-9",
+   "lens": "agentdocs",
+   "title": "v3's frontmatter change breaks two existing tests that section 5 does not mention",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "Upstream pins its frontmatter keys as a whitelist (tests/unit/test_skill_frontmatter.py:148-151). Ours pins the current invocation flags in three tests in /home/eranr/research-vault/tests/test_experiment_proposal_plugin.py (repo root, not inside the plugin directory). Two of them fail for certain under v3 section 1: test_skill_frontmatter_names_itself_and_is_name_only (line 131, all four skills) and test_the_ethics_board_gains_only_the_marked_invocation_edit (line 248, which asserts the literal `disable-model-invocation: true`). The third, test_skill_has_codex_metadata_that_forbids_implicit_invocation (line 140), fails only if the Codex test flips openai.yaml to true. v3 section 5 lists no change to any of them, yet its \"Done when\" requires the unit tests to pass. Section 5 should name the rewritten tests: the key is absent; design, review and lit-search have the spec's \"Invoked by name:\" descriptions; the-ethics-board test checks the new marked edit (flag removed, description shortened to the name-only line, which section 1 does not word yet, so the prefix check cannot cover all four skills unless the spec fixes that line); and openai.yaml holds whatever value the Codex rule records. Cost: small.",
+   "recommendation": "Adopt. v3 section 5 names the rewritten test: no `disable-model-invocation` key, a description that begins \"Invoked by name:\" and contains no \"Use when\", and an openai.yaml value equal to whatever the section 1 Codex rule records."
+  },
+  {
+   "id": "agentdocs-10",
+   "lens": "agentdocs",
+   "title": "Their invocation design does not answer v3's Codex or name-only question",
+   "kind": "both-differ",
+   "cost": "none",
+   "claim": "Upstream takes the opposite approach and gives no evidence on our question. No SKILL.md sets disable-model-invocation or allowed-tools, and their frontmatter test (tests/unit/test_skill_frontmatter.py) rejects any key beyond name, description, license, compatibility and metadata. No skill ships agents/openai.yaml, so allow_implicit_invocation never appears. Every skill can be invoked by the model, and each of the 11 descriptions runs 38 to 85 words with \"Use when\" triggers. Two of them (proposal-check and proposal-write) also point to proposal-review. Users are told they never need to type skill names. The only explicit advice to call a skill by name is a fallback for Haiku: invoke /proposal-troubleshoot. When one skill uses another, it reads the sibling's SKILL.md by file path (proposal-supervise reads ../proposal-lit-search/SKILL.md) rather than invoking it by name. They support Codex by installing skills into .agents/skills (plus the legacy ~/.codex/skills), not as a Codex plugin, so the yaml flag never comes up.",
+   "recommendation": "Keep ours. Our skills are called by name, and v3's first finding is about agents calling them by name. Trigger-rich descriptions would need a routing rig like theirs (174 measurements) to stay honest. No action beyond agentdocs-1 and agentdocs-7."
+  },
+  {
+   "id": "agentdocs-11",
+   "lens": "agentdocs",
+   "title": "Shared text: they inline it into every skill, we point to one references/ folder",
+   "kind": "both-differ",
+   "cost": "none",
+   "claim": "Upstream edits shared text once in shared/ and copies it into every skill. scripts/sync_shared.py writes five blocks, about 1,229 words, into each SKILL.md. proposal-troubleshoot gets four, about 1,127 words, because it skips the report offer. guidelines.md (6,243 words) is copied into five skills, structure.json into eight and check.py into five. The copies keep each skill self-contained for skills.sh and per-skill installers, neither of which we use. Words loaded per run: their SKILL.md files run 2,290-5,643 words. Review plus guidelines is about 10,000 words. Supervise is about 11,900 with guidelines, or about 12,600 counting its closing-note and verifier-brief. Ours run 676-1,171, plus the checklist (2,877) and the brief or review shape (515 or 675): about 4,450 for design and 4,550 for review. Only design and review, plus check_proposal.py, read the checklist. Codex reached the checklist by the path relative to SKILL.md, which is our fallback. Text loaded into every session: their eleven descriptions total about 704 words. Our four total 183 words today and are hidden by disable-model-invocation. v3 lists them in Claude Code at about 70-75 words. Codex stays hidden pending the v3 test.",
+   "recommendation": "Keep ours. The plugin installs whole: both the Claude and Codex plugin caches hold references/. Four skills share one checklist, and the fallback path works in Codex. A sync script would maintain copies that no install path needs."
+  },
+  {
+   "id": "agentdocs-12",
+   "lens": "agentdocs",
+   "title": "Our steps carry Done-when criteria; theirs carry none",
+   "kind": "we-have-they-lack",
+   "cost": "none",
+   "claim": "Each numbered step in design (8), review (7) and lit-search (4) carries a \"Done when\" criterion. Design step 7 and lit-search step 4 continue after that sentence, so not every step ends with it. The vendored ethics board has no numbered steps and no Done-when, only a Quality Checks list. None of their eleven SKILL.md files contains \"done when\". They mark completion at milestone level with the shared handoff ladder, plus prose stop rules: \"run it again, until the only findings left are the ones the source caused\", \"Seed at convergence or when the user says enough\", and \"Verify before you report\". Under the v3 spec's planned Agent run paragraph, which is not shipped yet, an agent caller would get a per-step exit test from ours. But a headless run stops early: design at step 6, with the brief left open, and review at step 5, with no fixes applied. So the Done-when criteria of design steps 7 and 8 and review step 6 can never be met in an agent run. Recommendation: keep ours, and have the Agent run paragraph (agentdocs-6) name the last step of each skill (design 6, review 5, lit-search 4) whose Done-when ends an agent run.",
+   "recommendation": "Keep ours. The only addition is the one in agentdocs-6: the Agent run paragraph names the step whose Done-when ends an agent run."
+  },
+  {
+   "id": "governance-1",
+   "lens": "governance",
+   "title": "Our pinned arxiv.py still queries over cleartext and parses the XML unchecked; upstream fixed both after the pin, under Security",
+   "kind": "upstream-change-since-pin",
+   "cost": "small",
+   "claim": "Our nine vendored scripts match a38b7b1 byte for byte apart from the 4-line provenance header. At that pin, arxiv.py queries http://export.arxiv.org, so the query travels in cleartext before arXiv redirects. It also passes the whole response to ET.fromstring, catching only ParseError. Upstream commit a721bfd, released only in v0.9.0, changed four things. arXiv moves to HTTPS. A body is parsed only when its first markup is the Atom <feed> root, so no DOCTYPE or entity definition reaches expat. Nesting deeper than 32 is refused. The catch-all notes in search.py and snowball.py print the exception type instead of server text. Our copy has none of these, and the v3 wrapper design would pass the old notes through verbatim. The XML guard is defence in depth: local expat 2.6.1 already limits entity expansion, and ElementTree does not resolve external entities. The cleartext query and the leak of server text are the more concrete gaps. Two more post-pin commits touch the scripts: b311e4f (UTF-8 output) and b5d24b5 (a candidates/size line on stderr; snowball's per-seed default goes from 20 to 5). A re-vendor from v0.9.0 (tag object a60a9c5, commit 1666e69) brings in all three. Content changes in arxiv.py, common.py, search.py and snowball.py; the other five need only a new hash in their headers. The THIRD-PARTY-NOTICES pin row needs updating too. The cost is small: our SKILL.md passes --limit-per-seed 20 explicitly, and the key-file lookup is unchanged.",
+   "recommendation": "adopt: re-vendor all nine scripts from tag v0.9.0 (1666e69) into plugins/experiment-proposal/skills/lit-search/scripts/ with the same header form. Because the headers say do not hand-edit, re-vendoring is the only route to the fix."
+  },
+  {
+   "id": "governance-2",
+   "lens": "governance",
+   "title": "v3 keeps the scripts frozen at an untagged commit between releases; make the re-vendor to v0.9.0 a v3 task",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "v3 section 3 builds litsearch.py over scripts pinned at a38b7b1, which was never a release. It is 42 commits after v0.8.0 and was committed about five hours after v0.8.0 was tagged on 2026-10-13. Annotated release tags are not new upstream: v0.1.0 to v0.8.0 are all annotated, so a release was available when we pinned. What is new in 0.9.0 is the rule that main holds released versions only. The CHANGELOG that states this does not exist at v0.8.0. develop and main are both at 1666e69 (v0.9.0), so no unreleased work is waiting. v3 should re-vendor at v0.9.0 before writing the wrapper, and from now on pin only to a release tag, recording the tag beside the sha. This is not a header-only bump. Between a38b7b1 and v0.9.0, search.py and snowball.py start printing a `candidates: N (L lines, C characters on stdout)` line on stderr. snowball's default --limit-per-seed drops from 20 to 5, and it now prints each repeated note once. Exception notes give only the type name. arxiv moves to https through a new common.http_xml. YAML quoting (_yaml_scalar) does not change, so the lenient parse is still needed. Section 3's stderr summary should therefore be written against v0.9.0's output, and the wrapper should keep passing --limit-per-seed explicitly. The new scripts would pass the existing vendoring tests (write shapes, environment names, browser-verification heading), so the cost stays small. Do not strike \"Vendored files untouched\" from the Decisions row. Reword it to \"re-vendored at v0.9.0, unchanged apart from headers\", because the wrapper still does not patch the vendored scripts.",
+   "recommendation": "adopt: add a re-vendor step to v3 sections 3 and 4 at v0.9.0 (1666e69). It updates the sha in the nine headers, the hutzelmann row of OURS:plugins/experiment-proposal/THIRD-PARTY-NOTICES.md, the `pin a38b7b11` paragraph in OURS:ATTRIBUTION.md, and the HUTZELMANN constant in OURS:tests/test_experiment_proposal_plugin.py. Also strike \"Vendored files untouched\" from v3's lit-search Decisions row."
+  },
+  {
+   "id": "governance-3",
+   "lens": "governance",
+   "title": "v0.9.0 changes the stderr output and the snowball default that the v3 wrapper is designed around",
+   "kind": "upstream-change-since-pin",
+   "cost": "small",
+   "claim": "Since the pin (a38b7b1 to 0.9.0), search.py and snowball.py both print a `candidates: N (L lines, C characters on stdout)` line on stderr just before the output. Above 25,000 characters or 1,800 lines the line ends with \"— more than some hosts show from one command; run narrower\". Upstream's SKILL.md says this line is for the agent and is not a degradation note to pass on. The catch-all notes in both scripts now give only the exception type. Only snowball.py prints each distinct note once per run; search.py never repeated notes. The SourceError `kind` `malformed_json` is now `malformed`, but this value never reaches stderr; the message still reads \"returned malformed JSON\". The 429 note is the same at both commits (`note: source degraded — <source>: HTTP 429`), so the v3 wrapper's `HTTP 429` substring trigger and a planted-429 test stub need no change. snowball.py's default `--limit-per-seed` went from 20 to 5: upstream measured 17,657 to 23,735 characters for one seed at 5, which fits under its 25,000-character bound, while two seeds at 5 go over it. Our SKILL.md:18 passes `--limit-per-seed 20` explicitly, which is the pin's default. Upstream's size reasoning (Claude Code shows up to 30,000 characters) applies to that call even now. The v3 wrapper passes `--limit-per-seed N` through and adds `--compact` and `--out`, which can reduce the risk. v3 plans no re-vendor. After a later re-vendor, though, the wrapper's step that echoes the vendored notes verbatim would pass on the `candidates:` line as if it were a degradation note. Its counts would describe the vendored stdout, not the wrapper's output after compacting, excluding and re-quoting. So the wrapper should skip lines that start with `candidates:`, or print its own count instead. SKILL.md should take the new per-seed default, one seed per call, when the vendored scripts are next updated.",
+   "recommendation": "adopt in v3 section 3. The wrapper's stderr parser should read or skip the `candidates:` line, and the 429 trigger should match the v0.9.0 note form. SKILL.md should drop the explicit `--limit-per-seed 20` (use the default 5, one seed per call). The unit test's planted-429 stub should emit stderr in the v0.9.0 form."
+  },
+  {
+   "id": "governance-4",
+   "lens": "governance",
+   "title": "The planned PR would add 429 backoff that upstream already has; the YAML bug it targets is still open at 1666e69",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "At the pin (a38b7b1) and at HEAD (1666e69), upstream common.py retries HTTP 429 twice, waiting 3 s and then 6 s, and our vendored Semantic Scholar client says it does. The \"adds 429 backoff\" half of the planned PR therefore duplicates what upstream already has. What upstream lacks for the shared Semantic Scholar pool is a longer wait, or one that honours Retry-After. The YAML half is still needed. `_yaml_scalar` quotes a value only when it matches a fixed pattern (certain characters, leading or trailing whitespace, a leading - or ?, or an empty value). An embedded line break does not match, and even the quoted branch escapes only backslash and double quote. Our own output proves this is the cause: snow1.yaml lines 2711-2713 hold an unquoted title broken by newlines (DOI 10.7717/peerj-cs.4052). The PR must escape line breaks and control characters, not just quote, and must change both upstream copies of `_yaml_scalar`: skills/proposal-lit-search/scripts/common.py and skills/proposal-reverse/scripts/common.py.",
+   "recommendation": "adopt: rewrite v3 section 3's upstream line. The PR quotes and escapes any scalar containing a line break or control character in `_yaml_scalar`. Drop the 429 part, or propose it as a separate change for Semantic Scholar (a longer or Retry-After-aware wait) backed by our measured 429s. Keep the wrapper's own 20/40/80 s backoff."
+  },
+  {
+   "id": "governance-5",
+   "lens": "governance",
+   "title": "v3's planned PR and issue do not follow upstream's contribution rules",
+   "kind": "changes-v3-spec",
+   "cost": "medium",
+   "claim": "The v3 plan for upstream (one PR for YAML quoting plus 429 backoff, one issue for DBLP) ignores upstream's contribution rules, and the spec mentions none of them. Those rules are: open an issue first (README.md:225); target develop; a behaviour change needs an OpenSpec change folder made with their CLI (AGENTS.md:13), whose proposal.md ends with a `Changelog:` line; `uv run poe test` must pass; and only sync sources may be edited. common.py in proposal-lit-search is a sync source copied into proposal-import and proposal-reverse, so a fix there regenerates three skills. The skill-defect form needs an installed skill and a proposal-troubleshoot report, but blank issues are enabled, so our report should be a blank issue. Two changes to the spec's plan: (a) 429 retry and backoff already exist at a38b7b1 and at HEAD (RETRY_CODES = (429, 500, 502, 503), BACKOFF_SECONDS), so the PR should carry only the quoting fix, unless we propose a different retry policy for Semantic Scholar's repeated 429s. (b) The bug still exists at HEAD: `_yaml_scalar` is identical, `entry()` only calls `title.strip()`, and the quoting regex never checks for an embedded newline, so a title containing one is written unquoted across lines. The test fixture should be a minimal synthetic entry in the style of test_lit_common.py, a title with an embedded newline. The reason is minimality, not privacy. snow1.yaml holds public paper metadata, not proposal text, and upstream's own test data contains real API responses with real author names.",
+   "recommendation": "adopt in v3 section 3. First open two blank issues, one for the DBLP empty results and one for YAML quoting. Each states that we vendor the scripts and was reproduced against v0.9.0, not a38b7b1. Then open one PR per behaviour change, targeting develop. Each carries an openspec/changes/<id>/ folder ending with `Changelog: ...`, a synthetic fixture (their `Erika Musterfrau` convention), and edits to skills/proposal-lit-search/scripts/common.py plus the copies scripts/sync_shared.py regenerates. Our 0.3.0 does not wait on either."
+  },
+  {
+   "id": "governance-6",
+   "lens": "governance",
+   "title": "Nothing tests our claim that the scripts are unchanged apart from their headers; upstream refuses drifted copies at commit and in CI",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "THIRD-PARTY-NOTICES and ATTRIBUTION say the nine lit-search scripts are unchanged apart from their headers. That is true today: each body matches upstream at a38b7b1 exactly once the 4-line header after the shebang is removed. But no automated check enforces it. Our tests check the provenance header strings, the exact file list, that each script compiles, that `--help` runs offline, that no script writes files or imports research_vault, and which environment names the scripts read. None of them compares a script body with the upstream file at the pin, and the v3 spec says 'vendored files untouched' without specifying a check. Upstream's pre-commit hook and CI (`sync_shared.py --check`) re-render every generated copy from its in-repo source and refuse the commit or fail the build when the text differs. That is a same-repo sync check, not a vendoring check. For copies taken from another repository at a pin, the equivalent is a recorded digest. Our repo already has a sha256-in-JSON pin of this shape (.github/okf-pin.json), but that pin detects upstream SPEC.md moving away from the pin, not our local copy being edited. Recording each script's upstream sha256 and testing the de-headered body against it would close the gap at small cost. The two mdformat-normalised Markdown files carry local edits, so their own body hash can catch later hand edits but cannot show they match upstream.",
+   "recommendation": "adopt: for each of the nine scripts, record the sha256 of the upstream file at the pin, either in the test's VENDORED dict or in a pin JSON beside THIRD-PARTY-NOTICES. Add a test that strips the 4-line header and compares the hash. For the two mdformat-normalised Markdown files, record our own body hash at vendoring time. The governance-2 re-vendor then updates one table."
+  },
+  {
+   "id": "governance-7",
+   "lens": "governance",
+   "title": "We have no changelog, so users cannot see what 0.2.0 changed or what 0.3.0 will change or break",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "Upstream keeps a Keep a Changelog file that says what each version part means. Breaking entries start with **Breaking:**, and nearly every entry links its OpenSpec change folder; a few cite a commit hash instead (for example 7385be1 and 4a11adb), and at least one cites nothing. Releases that predate the file got retroactive sections, and their tags were cut on 2026-10-14, the same time the file was added. We have two annotated tags whose messages hold only the version string, plus plugin.json. What changed per version lives only in specs, eval records and commit messages. v3 section 4 lists README and plugin.json edits but no release notes, although 0.3.0 makes the skills model-invocable and changes what `--references` checks and prints.",
+   "recommendation": "adopt: add plugins/experiment-proposal/CHANGELOG.md. Sections 0.1.0 and 0.2.0 are retroactive, each naming its tag and spec. Section 0.3.0 comes from v3's Decisions table and states that 0.2.0 briefs stay valid. Add the file to v3 section 4 and to the README's Version section, plus a test that every `experiment-proposal--v*` tag has a section. Skip their changelog.py, union-merge and release-command machinery."
+  },
+  {
+   "id": "governance-8",
+   "lens": "governance",
+   "title": "v3's ethics-board edits leave the notices, ATTRIBUTION and a test describing the old single edit, and override a v2 non-goal without naming it",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "v3 removes `disable-model-invocation: true` from the vendored the-ethics-board and shortens its description (section 1, line 40, \"with the provenance comment updated\"). It also adds a marked two-line edit to the upstream body (section 4, line 78), and that edit names no record update. THIRD-PARTY-NOTICES, ATTRIBUTION and the provenance header all describe a single frontmatter edit that adds the flag; the header also says \"Do not hand-edit this file\". test_the_ethics_board_gains_only_the_marked_invocation_edit asserts the flag is present. Among these records, v3 names only the provenance comment, and only for the frontmatter edits. It never mentions NOTICES (except as unchanged for lit-search), ATTRIBUTION or this test, although v2 explicitly named the NOTICES and ATTRIBUTION updates when hci-researcher gained an edit. The body edit overrides v2's non-goal \"Editing vendored text beyond marked frontmatter edits\" without naming it, while v3 states that every v2 decision it does not name still stands. Upstream keeps an explicit list of its deliberate divergences from the Agent Skills standard (a looser analog than vendored-text edits) and treats any unlisted divergence as a defect.",
+   "recommendation": "adopt in v3 sections 1 and 4: name the v2 non-goal that v3 overrides, and update the pm-claude-skills row of THIRD-PARTY-NOTICES, ATTRIBUTION's pm-claude-skills paragraph, the provenance header, and test_the_ethics_board_gains_only_the_marked_invocation_edit to describe the edits v3 actually makes."
+  },
+  {
+   "id": "governance-9",
+   "lens": "governance",
+   "title": "Change process: their archived OpenSpec folders versus our superseding design specs; borrow the closing Changelog line and a landed status",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "Upstream runs behaviour changes as OpenSpec folders (proposal, design, tasks, spec deltas). Each is archived under a date prefix and merged into living specs under openspec/specs/. 175 changes are archived, and the one read here (2026-10-13-classify-arxiv-answers) runs to 8,056 words across four files. We write one design spec per release that supersedes the last \"where it changes it\", plus a plan and eval records. The full OpenSpec loop is too heavy for a one-author plugin, but two parts are cheap. The first is the `Changelog:` line that, since the add-changelog change of 2026-10-14, openspec/config.yaml requires at the end of every proposal and that archiving copies into CHANGELOG.md. In practice it appears in only 5 of the 175 archived proposals, and in 5 of the 10 archived since the rule. The second is a status change when work lands. Our v2 spec still reads \"awaiting spec review\" although 0.2.0 was tagged on 2026-10-15.",
+   "recommendation": "keep ours: one design spec per release stays. Adopt two pieces: every experiment-proposal spec ends with a `Changelog: <sentence>` line that is copied into the governance-7 CHANGELOG at release, and the spec's Status line gains `landed <tag>` when the release is tagged. Apply both to v3 itself and back-fill v2."
+  },
+  {
+   "id": "governance-10",
+   "lens": "governance",
+   "title": "Nothing tells us when a project we vendor publishes a new release; upstream automates the same check for its own pins",
+   "kind": "they-have-we-lack",
+   "cost": "small",
+   "claim": "Upstream runs two weekly workflows that compare its pinned tools with what is published: the OpenSpec CLI against npm, and its model list against OpenRouter's catalog. Each opens a bump PR that a person merges. Those pins are tools, not vendored source code, so the check is analogous rather than the same. The vault already runs one such check, the weekly `okf-spec-drift` job in quality.yml, but none for the plugin's three vendored pins (a38b7b1, 98c7fae, f93fee7). The v3 spec plans none either. A `git ls-remote` check today would show three different results. hutzelmann/thesis-proposal-skills is behind: HEAD is 1666e69 (v0.9.0), and our pin is untagged, at v0.8.0-42. K-Dense-AI/scientific-agents has no tags, and its HEAD equals our pin 98c7fae. mohitagw15856/pm-claude-skills now returns \"Repository not found\". The governance-1 arXiv HTTPS/XML fix in upstream v0.9.0 came to light only through this manual comparison. Recommendation (small cost): either add the three pins to the existing scheduled drift-job pattern, or write a live_net test run at each plugin release. The test compares `git ls-remote <url> HEAD` with each pinned SHA and reports an unreachable upstream as its own finding, since a `--tags` comparison would find nothing on K-Dense and fail on pm-claude-skills.",
+   "recommendation": "adopt a small version: one test under the suite's live_net marker that runs `git ls-remote --tags` against each vendored upstream and fails when a release tag newer than the recorded one exists. Run it at each plugin release, not weekly."
+  },
+  {
+   "id": "governance-11",
+   "lens": "governance",
+   "title": "Release and tagging: their main holds only released states; our main gained two untagged commits after 0.2.0",
+   "kind": "both-differ",
+   "cost": "small",
+   "claim": "Upstream cuts a release with one local command, `poe release`, which runs `scripts/changelog.py release`. It writes the CHANGELOG section, sets pyproject.toml and uv.lock, stamps every SKILL.md, commits and makes an annotated `vX.Y.Z` tag on that commit. It fast-forwards `main` only when the release is cut on `develop`; `release_branch()` lets `main` cut a release itself before `develop` exists, which was the 0.9.0 transition. The command never pushes, and the pre-push hook refuses any push from a shell with no terminal. AGENTS.md:20 says main 'holds released versions only', but that rule dates from 0.9.0 (2026-10-15): 0.5.0-0.8.0 were tagged retroactively on 2026-10-14. In 0.9.0, two commits (4dfee0a, 1666e69) landed after the stamp commit 67dedad and the v0.9.0 tag sits on 1666e69, so the tag was placed by hand afterwards. What holds is that main's HEAD is currently tagged. The local clone fetched only main, so `develop` cannot be checked here. stamp_version.py itself says commits after a stamp 'ship with the older version still inside: the stamp is a floor'. On our side, we make an annotated `experiment-proposal--v<version>` tag after the branch lands on main with `--ff-only`, and plugin.json is the only place the version is written. Since the 0.2.0 tag, main has gained two untagged commits. Only 13035fb touches what users get: it copies plugin.json's description into the marketplace entry, a sync toward the single version source rather than drift away from it, and users receive it with no version change. de74cfe touches only docs/research. The comparison should not say that upstream stamps each SKILL.md because its marketplace entry has no version, or that our single writer prevents the drift. Our marketplace entry has no version either. Upstream has no plugin.json at all: the version lives in pyproject.toml and is stamped into the skills, because install.py and `npx skills add` deliver bare skill folders and `poe identify` reads the stamp to resolve bug reports. Our plugin.json does the same job inside the delivered folder, and like their stamp it does not stop untagged commits after a release from shipping. Our marketplace also lists a second plugin, research-vault, with source \"./\", so every main commit already reaches that plugin's users, and a 'main holds released states only' rule cannot work in this shared repo. Recommendation unchanged: keep the single writer and the `--ff-only` landing, with no develop branch and no pre-push hook. Once the governance-7 changelog exists, add one rule: any commit after a tag that changes plugins/experiment-proposal/ or its marketplace entry goes under [Unreleased] and ships in the next patch tag. The cost is small, assuming governance-7 lands.",
+   "recommendation": "keep ours: the single version writer, plus the release branch merged into main with --ff-only. No develop branch and no pre-push hook. Adopt one rule through the governance-7 changelog: any commit after a tag that changes plugins/experiment-proposal/ or its marketplace entry goes under [Unreleased] and ships in the next patch tag."
+  },
+  {
+   "id": "governance-12",
+   "lens": "governance",
+   "title": "v3 supersedes v2 but does not give v2 a Disposition line, as v2 did for the first spec",
+   "kind": "changes-v3-spec",
+   "cost": "small",
+   "claim": "The gap is real. v2 superseded the first spec only partly, and its Bookkeeping bullet still gave the first spec a `Disposition: superseded-by:` header. v3 also supersedes v2 only partly (\"where it changes it\"), but has no bookkeeping step. v2 will therefore carry no pointer to v3, though v3 replaces v2's invocation decision (v2:17, `disable-model-invocation: true`) and its vendored-text rule (v2:89 and the v2:151 non-goal, which v3 breaks with a body edit to the-ethics-board). v2 also stays inside `_active_design_specs()`, so the repo keeps checking it as a current-state surface. No repo-wide convention requires the pointer; v2 set the precedent itself. The fix is one bookkeeping bullet in v3 plus one header line in v2, which the existing Disposition-value test already accepts. Upstream is not an equivalent. OpenSpec avoids the problem by design: archived change folders (`openspec/changes/archive/<date>-<id>/`) record deltas, and the current state lives in a separate canonical `openspec/specs/` tree. Upstream has no supersession pointer at all.",
+   "recommendation": "adopt: add a bookkeeping bullet to v3 section 4: v2 gets `Disposition: superseded-by: 2026-10-23-experiment-proposal-v3-design.md (<date>; every decision v3 does not name stands)` under its title. The repo's existing check on Disposition values then covers it."
+  },
+  {
+   "id": "governance-13",
+   "lens": "governance",
+   "title": "Their CHANGELOG records every change since the pin to the files we vendored, so the re-vendor review can start from it",
+   "kind": "upstream-change-since-pin",
+   "cost": "none",
+   "claim": "Every change since a38b7b1 to the nine vendored scripts has a 0.9.0 CHANGELOG entry. a721bfd is classify-arxiv-answers (Fixed and Security), b311e4f is utf8-script-output (Fixed) and b5d24b5 is tighten-proposal-family (Changed: output sizing, default 5 instead of 20). crossref.py, dblp.py, openalex.py, opencitations.py and semantic_scholar.py are unchanged. Nothing that touches the vendored files is pending upstream: [Unreleased] is empty, and the remote's develop and main both point at v0.9.0 (1666e69). The local clone has no develop branch, so this was checked with `git ls-remote`. The two open bump PRs touch only harness/models.toml and scripts/validate_specs.py. The pin a38b7b1 sits between v0.8.0 and v0.9.0 and is not a tag, so the 0.9.0 section also holds entries from before the pin (for example sharpen-swap-test-anchors, which is a38b7b1 itself). A re-vendor review should start from the release section that contains the old pin and keep only the entries whose commits come after it, rather than reading 'sections between the old and new tags'.",
+   "recommendation": "no action beyond governance-2. At each future re-vendor, read the CHANGELOG sections between the old and new tags and list their archive links in the re-vendor commit message."
+  },
+  {
+   "id": "governance-14",
+   "lens": "governance",
+   "title": "The six substance tests we restate have not changed upstream since the pin",
+   "kind": "same",
+   "cost": "none",
+   "claim": "Upstream's six substance tests (shared/guidelines/guidelines.md and its per-skill references/ copies) have not changed since a38b7b1. Our checklist items 13.6 to 13.11 restate all six, and 13.8 includes the named-tool/domain clause the pin commit added, adapted to \"device, system or domain\". So our restatement matches the current one-line test definitions. It does not carry the longer paragraph from the same commit (guidelines.md:127) on how a name can pass: object of study, constraint source, unique data or access, an argued case, plus the title-blocker and Bachelor's rules. That gap is a separate question from upstream drift.",
+   "recommendation": "no action."
+  },
+  {
+   "id": "governance-15",
+   "lens": "governance",
+   "title": "Licence: our notices meet their MIT condition, and they ask for no citation",
+   "kind": "same",
+   "cost": "none",
+   "claim": "Their LICENSE.txt has one condition: the copyright notice and permission notice must accompany copies. plugins/experiment-proposal/THIRD-PARTY-NOTICES.md ships in the folder the marketplace installs and reproduces their copyright line and the full permission text, and each of the nine vendored scripts names the copyright holder and MIT in its header. LICENSE.txt is unchanged between pin a38b7b1 and HEAD, so a re-vendor keeps the same copyright line. They have no CITATION.cff, and their README only asks people to open an issue before a PR, so our README is right to list only K-Dense and pm-claude-skills as asking to be cited. The six substance tests (checklist 13.6-13.11) are a close paraphrase rather than a clean restatement: several clauses match their guidelines.md word for word. The licence condition is still met, because the Hutzelmann notice already ships in the same folder, but ATTRIBUTION.md (\"no text reproduced\") and checklist.md (\"in our own words\") should say \"adapted, with some wording kept\". At the re-vendor, update the sha in THIRD-PARTY-NOTICES.md, ATTRIBUTION.md and the nine script headers. The notices file has no tag to update.",
+   "recommendation": "no action. At the re-vendor, change only the sha and tag in the notices."
+  }
+ ],
+ "refuted": [
+  {
+   "id": "review-1",
+   "lens": "review",
+   "title": "No criterion for a permission, licence or data access the hypotheses depend on",
+   "reason": "The upstream quotes are accurate (guidelines.md lines 147 and 153), but the evidence about our side does not hold. `grep -n 'CARE permission'` matches lines 29, 600 and 612, not only line 29. Line 600 says \"CARE permission needed by 2 November, else the pilot runs without CARE\". The finding quotes line 115 only up to \"the CARE measure [18]\", and the same sentence goes on to say \"it awaits Prof. Mercer's permission (Appendix E.1): without it by 2 November the pilot runs without CARE, and if refused, PETS [26] replaces it\". E.1 (line 433) and E.9 (line 519) state the same fallback. In git history, the fallback was in the draft at every review commit (0ce404d, 8741fc7, 65073d8, 440c9e5): first as [FALLBACK EMPATHY SCALE], later as PETS. At each of those commits, review.md item 2.5 records \"CARE permission (Design) ... each have a response\". So our checklist item 2.5 (\"Each expected challenge ... has a planned response stated in the section it affects\") is the matching criterion, and it did check this dependency. The 0 hits for 'licen|permission' come from searching for keywords, not for the function. A narrower gap remains: upstream also requires that the fallback keeps every research question answerable as asked, and treats an indispensable resource whose availability is in doubt as a blocker. Our 2.5 asks only for a planned response. That is a different claim from this one, and both rules give the same outcome for the CARE case. The v3 spec has no permission or licence criterion."
+  }
+ ]
+}
