@@ -7,7 +7,7 @@ You are judging one research paper for a reader deciding whether to trust and us
 
 ## Inputs
 
-- Paper: {PAPER_PATHS} — the paper and every appendix and supplement stage 0 counted as the paper — and {PAGE_RENDERS} (images of pages carrying figures, tables or equations; "none" if none).
+- Paper: {PAPER_PATHS} — the paper and every appendix and supplement stage 0 counted as the paper — and {PAGE_RENDERS} (renders of the pages carrying the figures, tables and equations the evidence file cites; "none" if none).
 - Evidence file: {EVIDENCE_PATH} — identity, section map, promises, numbered claims, the not-stated list (N1, N2, …), the inconsistency list (C1, C2, …) with its reconciliation log, and the external-check list (W1, W2, …), each W entry a fact outside the paper with the source that settled it, including the related works read and the released-artifact checks.
 - Background files: {REFERENCE_PATHS}. These are the background files this paper calls for. A dimension bullet names a file by its references/ path: where this list holds a path ending in that name, open the file before writing the first subsection that names it, and run the checks each bullet assigns it; where the list holds none, skip those checks, since this paper does not call for them.
 

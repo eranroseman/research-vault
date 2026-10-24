@@ -356,3 +356,19 @@ def test_each_verifier_dispatch_fills_exactly_its_checks_inputs():
     assert _skill_dispatch_table() == VERIFY_DISPATCHES
     inputs = brief[brief.index("## Inputs") : brief.index("## Locator convention")]
     assert "{LOCATOR_CONVENTION}" not in inputs
+
+
+def test_the_judge_and_the_verifier_describe_their_renders_differently():
+    """The judge gets the renders the evidence file cites — its points cite
+    only figures, tables and equations the evidence file already names, and
+    every render cost Bloom's judge most of its 4.9M fresh tokens. Check 1 of
+    the verifier gets every render, because it must find a number wherever
+    the report points. One parenthetical copied over the other hands one of
+    them the wrong set."""
+    renders = re.compile(r"\{PAGE_RENDERS\} \(([^)]*)\)")
+    judge = renders.search(_brief("judge.md"))
+    verifier = renders.search(_brief("verify.md"))
+    assert judge, "judge.md lost its {PAGE_RENDERS} parenthetical"
+    assert verifier, "verify.md lost its {PAGE_RENDERS} parenthetical"
+    assert "cites" in judge.group(1)
+    assert "every page" in verifier.group(1)
