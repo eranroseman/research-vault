@@ -42,6 +42,8 @@ Resolve every locator under this convention, by the paper's own numbering and na
 
 Do this work yourself, and spawn no subagent: this pipeline already fills every seat the critique gets, and an agent you spawned would re-read the skill and fan out again.
 
+Run any tool from the scratch folder (`<paper-slug>-work/`, in the folder holding your inputs), so a tool that caches at its working directory caches there; you still create no file of your own.
+
 ## What you return
 
 The items that failed, then your count line, and nothing else. Each failed item:

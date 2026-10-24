@@ -372,3 +372,19 @@ def test_the_judge_and_the_verifier_describe_their_renders_differently():
     assert verifier, "verify.md lost its {PAGE_RENDERS} parenthetical"
     assert "cites" in judge.group(1)
     assert "every page" in verifier.group(1)
+
+
+def test_every_brief_keeps_tools_inside_the_scratch_folder():
+    """The 2026-10-04 write-scope audit found one leak: a runner type-checked
+    its scratch scripts with mypy from the repo root, and mypy cached at its
+    working directory. Files were already confined to the output folder;
+    tools were not. The rule and every brief name the working directory."""
+    text = _skill_text()
+    rule = text[text.index("**Write scope.**") :].split("\n", 1)[0]
+    assert "working directory" in rule
+    for brief_name in BRIEFS:
+        brief = _brief(brief_name)
+        assert "working directory" in brief, f"{brief_name} says nothing about cwd"
+        assert "<paper-slug>-work/" in brief, (
+            f"{brief_name} never names the scratch folder"
+        )

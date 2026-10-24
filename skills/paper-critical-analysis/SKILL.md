@@ -26,7 +26,7 @@ Eight stages, 0–7, every one on every paper. Each ends on a completion bar, re
 - **Provenance.** The reader must be able to tell apart what the paper says, what an outside source says, and what the writer infers. The `Key:` line in `templates/report-template.md`, which every report carries verbatim, states the marks.
 - **Nothing silent.** Write `none found; checked: <where>`, `not checked: <reason>` or `not applicable: <reason>` rather than leaving a gap; a section whose stage has not run yet reads `pending: stage <n>`.
 - **Integrity.** Concerns are neutral observations, given with their benign explanations; never accusations.
-- **Write scope.** Every file the run creates, scratch work included, goes in the output folder.
+- **Write scope.** Every file the run creates, scratch work included, goes in the output folder, and every tool runs from inside it, so a tool that caches at its working directory (mypy, for one) caches there too.
 - **Quotes.** Short ones only; never reproduce passages.
 
 ## Locators

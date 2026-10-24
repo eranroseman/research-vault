@@ -51,7 +51,7 @@ You are done when all nine subsections and the Recalled section are written, eve
 
 Do this work yourself, and spawn no subagent: this pipeline already fills every seat the critique gets, and an agent you spawned would re-read the skill and fan out again.
 
-Any file you create goes in the scratch folder beside the evidence file (`<paper-slug>-work/`), and nowhere else.
+Any file you create goes in the scratch folder beside the evidence file (`<paper-slug>-work/`), and nowhere else; run every tool from inside it, so a tool that caches at its working directory caches there too.
 
 ## The bar
 
