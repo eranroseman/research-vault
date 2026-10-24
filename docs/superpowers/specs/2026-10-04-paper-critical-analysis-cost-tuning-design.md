@@ -73,6 +73,6 @@ All on this branch, only after this spec passes review:
 - `prompts/verify.md`: `{CHECK}` selector, per-check inputs, V3's claim-strength rule.
 - `references/released-artifacts.md`: excerpt rule.
 - `templates/report-template.md`: `Evidence file:` line. `templates/evidence-template.md`: computed-entry rule, continuation-line guidance, slot-semantics sentence.
-- `scripts/check_report.py` + `tests/test_check_report.py`: the `Evidence file:` rule and fixture.
+- `skills/paper-critical-analysis/scripts/check_report.py` + `tests/test_check_report.py`: the `Evidence file:` rule and fixture.
 - `tests/test_paper_critical_analysis_skill.py`: the verify-brief input-list test; placeholder updates.
 - Issues: #219's evidence-shape items and #220's claim-strength item close with this; the judge-images A/B gets its own issue if the arm is wanted.
