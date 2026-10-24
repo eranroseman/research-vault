@@ -96,6 +96,6 @@ Closes with a line `Confidence: <high | medium | low>` and the evidence that wou
 - Not read: parts of the paper, supplements, or artifacts not read, and why.
 - Not checked: checks that could not run, each with its reason.
 - For the reader to double-check: claims resting on inference or an unconfirmed source.
-- Verification: the verifier's counts checked and failed, and the checker's final result.
+- Verification: the verifiers' four counts checked and failed (locators, quotes and numbers; W entries; claims; change-list items), and the checker's final result.
 - Recalled: the judge's recalled knowledge, one line each.
 - Evidence file only: every N, C, W and J ID the body above does not cite.
