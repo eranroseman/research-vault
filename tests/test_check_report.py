@@ -471,3 +471,18 @@ def test_more_abbreviations_do_not_end_a_derived_sentence(tmp_path, replacement)
     report = _swap(build_report(), RATE, replacement)
     status, out = run(report, build_evidence(), tmp_path)
     assert status == 0, out
+
+
+def test_a_slot_filled_not_applicable_with_a_reason_passes(tmp_path):
+    """The evidence template names `not applicable: <reason>` as a legal slot
+    fill — CheckIfExist's Headline recomputations slot is the worked example.
+    The checker accepted it before the template said so; this pins that."""
+    evidence = _swap(
+        build_evidence(),
+        "- Headline recomputations: W1.",
+        "- Headline recomputations: not applicable: the abstract and conclusion "
+        "state no number.",
+    )
+    status, out = run(build_report(), evidence, tmp_path)
+    assert status == 0, out
+    assert "bare" not in out

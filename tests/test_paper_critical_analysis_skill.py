@@ -271,3 +271,24 @@ def test_every_reference_file_is_reachable_from_the_load_table():
         assert f"references/{path.name}" in table, (
             f"references/{path.name} is shipped and the load table never assigns it"
         )
+
+
+def test_the_evidence_template_houses_the_judges_five_fields():
+    """The judge returns five fields per point and the evidence template shows
+    where each lands: Kind on the ID line, the other four one per indented
+    continuation line. A field renamed on one surface strands the other, and
+    the one-line semicolon chain this replaces is what the pair rating called
+    unreadable."""
+    brief = _brief("judge.md")
+    sentence = brief[brief.index("Every point carries five fields") :]
+    sentence = sentence.split("\n", 1)[0]
+    fields = re.findall(r"\*\*([A-Za-z ]+)\*\*", sentence)
+    assert len(fields) == 5, fields
+    template = (SKILL_DIR / "templates" / "evidence-template.md").read_text(
+        encoding="utf-8"
+    )
+    assert f"- J1: <{fields[0]}>" in template
+    for field in fields[1:]:
+        assert f"\n  {field}:" in template, (
+            f"evidence-template.md has no continuation line for {field}"
+        )

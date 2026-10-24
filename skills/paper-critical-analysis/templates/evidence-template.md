@@ -1,6 +1,16 @@
 # Evidence template
 
-`scripts/check_report.py` reads its required headings from this file, so keep them as written and replace every `{{placeholder}}`. A ledger entry starts on its own line — `- N1:`, `- C1:`, `- W1:`, or `- J1:` — and detail may continue on indented lines beneath it; the checker reads IDs from exactly that first-line shape. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
+`scripts/check_report.py` reads its required headings from this file, so keep them as written and replace every `{{placeholder}}`. A ledger entry starts on its own line — `- N1:`, `- C1:`, `- W1:`, or `- J1:` — and detail may continue on indented lines beneath it; the checker reads IDs from exactly that first-line shape. A computed entry — a recomputation, a reconciliation, a derived rate — carries its inputs and its result on those continuation lines: the inputs with their locators or source, the operation, and the value beside the paper's, as a table where several are compared. A script name alone is not evidence; name the script beside the figures, never in their place. A finding entry puts its five fields one per continuation line, never in one semicolon chain:
+
+```
+- J1: <Kind>
+  Locator: <locator>
+  Observation: <one sentence>
+  Evidence: <admissible items>
+  Why it matters: <one sentence>
+```
+
+A section whose stage has not run yet reads `pending: stage <n>`, never blank.
 
 ______________________________________________________________________
 
@@ -60,7 +70,7 @@ Every place two locations in the paper conflict. One entry per line: `- C1: <bot
 
 One entry per outside check: `- W1: <claim checked>; <source>; <URL>; <saved copy>; <what the source said>`.
 
-Each mandated check fills its slot below with the W IDs that discharged it or `not checked: <reason>`; the checker fails an unfilled slot:
+Each mandated check fills its slot below with the W IDs that discharged it, with `not checked: <reason>` when the check could not run, or with `not applicable: <reason>` when the paper gives it nothing to check — for a paper whose abstract and conclusion state no number, `Headline recomputations:` reads `not applicable: the abstract and conclusion state no number`. The checker fails an unfilled slot and accepts all three forms:
 
 - Venue rigor:
 - Authors' previous work:
@@ -73,7 +83,7 @@ Each mandated check fills its slot below with the W IDs that discharged it or `n
 
 ## Judge points
 
-Filled at stage 3's return: the kept points under assigned IDs, `- J1: <Kind; Locator; Observation; Evidence; Why it matters>`, then the judge's Recalled lines, then the count of points dropped as inadmissible.
+Filled at stage 3's return: the kept points under assigned IDs, in the five-field shape the preamble shows — one field per indented continuation line, never one semicolon chain — then the judge's Recalled lines, then the count of points dropped as inadmissible.
 
 ## Pruning record
 
