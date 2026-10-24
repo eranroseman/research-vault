@@ -14,9 +14,9 @@
 
 Every task's requirements implicitly include these.
 
-- **Branch and worktree:** `paper-critical-analysis-cost-tuning`, created from `main` at `6419497` when this plan was written and pushed to origin with the plan as its first commit (the spec names the branch, but it did not exist before). The worktree `/home/eranr/research-vault/.claude/worktrees/paper-critical-analysis-cost-tuning` is already on it: execute there, and create no second worktree or branch. The shared main checkout at `/home/eranr/research-vault` stays on `main`; never `git checkout` a branch there.
+- **Branch and worktree:** `paper-critical-analysis-cost-tuning`, created from `main` at `6419497` when this plan was written and pushed to origin with the plan as its first commit (the spec names the branch, but it did not exist before). The worktree `~/research-vault/.claude/worktrees/paper-critical-analysis-cost-tuning` is already on it: execute there, and create no second worktree or branch. The shared main checkout at `~/research-vault` stays on `main`; never `git checkout` a branch there.
 - **Commits:** explicit pathspec only, `git commit -m "<message>" -- <files>` (the message before the `--`: after it, every word is a pathspec); never `git add -A` or `git commit -a` — parallel sessions share this checkout. Every commit message ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
-- **Tests:** from the worktree root, with the main checkout's interpreter — the worktree has no `.venv`, so prefix every tool with `/home/eranr/research-vault/.venv/bin/` and set `PYTHONPATH=.` for pytest so `research_vault` resolves to the worktree, not the parent checkout (`docs/agents/testing.md`, the wrong-tree import trap; canary: `PYTHONPATH=. .venv/bin/python -c "import research_vault; print(research_vault.__file__)"`). Commands below write `python`, `ruff`, `mdformat` for brevity. Fast loop: `python -m pytest tests/test_check_report.py tests/test_paper_critical_analysis_skill.py -q`. Full gate before push: `python -m pytest tests -q -n auto`. Baseline on `main` at plan time: 62 passed in the two files.
+- **Tests:** from the worktree root, with the main checkout's interpreter — the worktree has no `.venv`, so prefix every tool with `~/research-vault/.venv/bin/` and set `PYTHONPATH=.` for pytest so `research_vault` resolves to the worktree, not the parent checkout (`docs/agents/testing.md`, the wrong-tree import trap; canary: `PYTHONPATH=. .venv/bin/python -c "import research_vault; print(research_vault.__file__)"`). Commands below write `python`, `ruff`, `mdformat` for brevity. Fast loop: `python -m pytest tests/test_check_report.py tests/test_paper_critical_analysis_skill.py -q`. Full gate before push: `python -m pytest tests -q -n auto`. Baseline on `main` at plan time: 62 passed in the two files.
 - **Form:** run the form owners on the touched files directly, never `pre-commit run` (it stashes other sessions' unstaged work): `ruff format <py files>`, `ruff check <py files>`, `mdformat --number --wrap keep <md files>`. mdformat realigns tables and renders thematic breaks as underscore lines; commit what it produces.
 - **Spec non-goals, verbatim:** "Stage 2 exhaustiveness, the mandated-check slots, the released-code reading mandate, stage 1's view-every-figure bar: untouched." "Shrinking verifier coverage: all three checks keep their full item counts; the split changes contexts, not scope." "A fast mode, a deep mode, or any second depth." "Chasing the original ~8.5M bar at any cost: if the measured floor and 8.5M conflict, the floor wins and the bar is re-set from evidence."
 - **SKILL.md's cost sentence** ("on a 33-page paper expect about 8M fresh tokens and about 2 hours", line 9) stays as it is until Task 9 measures. No earlier task touches it.
@@ -1000,7 +1000,7 @@ From the worktree (no checkout changes anywhere — a ref push to `main` is fast
 git fetch origin
 git push origin paper-critical-analysis-cost-tuning:main
 git log --oneline -1 origin/main
-git -C /home/eranr/research-vault pull --ff-only origin main
+git -C ~/research-vault pull --ff-only origin main
 ```
 
 Expected: the push succeeds and `origin/main` is the branch tip. If it is refused as non-fast-forward, `main` moved: `git rebase origin/main` in the worktree, `git push --force-with-lease origin paper-critical-analysis-cost-tuning`, wait for green again (Step 3), then retry. Never `--no-ff`: it mints a sha no check has run on. If the final `pull` into the shared main checkout refuses because another session has uncommitted work there, leave it — `origin/main` is the record, and Task 9 Step 2 re-checks the checkout before it runs.
@@ -1025,9 +1025,9 @@ This task spends roughly 8M fresh tokens and about two hours of wall time on a l
 Its commits go on a second branch from the merged `main`, in a worktree of its own (`$WT` below); the shared main checkout is never switched off `main`:
 
 ```bash
-cd /home/eranr/research-vault && git fetch origin
+cd ~/research-vault && git fetch origin
 git worktree add .claude/worktrees/paper-critical-analysis-cost-tuning-ab -b paper-critical-analysis-cost-tuning-ab origin/main
-WT=/home/eranr/research-vault/.claude/worktrees/paper-critical-analysis-cost-tuning-ab
+WT=~/research-vault/.claude/worktrees/paper-critical-analysis-cost-tuning-ab
 ```
 
 **Files:**
@@ -1040,7 +1040,7 @@ WT=/home/eranr/research-vault/.claude/worktrees/paper-critical-analysis-cost-tun
 
 **Interfaces:**
 
-- Consumes: the merged skill at `/home/eranr/research-vault/skills/paper-critical-analysis/` at Task 8's merged sha; the key `sources/bloom-skill-comparison/checkifexist-answer-key.md` (15 scored items A1–A6, B1–B6, C1–C3; D1–D4 in prose); the 2026-10-04 baseline in `sources/bloom-skill-comparison/run3-setup.md` (CheckIfExist: 13.5/15, D1–D4 pass, 13.4M fresh, 2 h 49 m, verifiability 9 on the pair rating).
+- Consumes: the merged skill at `~/research-vault/skills/paper-critical-analysis/` at Task 8's merged sha; the key `sources/bloom-skill-comparison/checkifexist-answer-key.md` (15 scored items A1–A6, B1–B6, C1–C3; D1–D4 in prose); the 2026-10-04 baseline in `sources/bloom-skill-comparison/run3-setup.md` (CheckIfExist: 13.5/15, D1–D4 pass, 13.4M fresh, 2 h 49 m, verifiability 9 on the pair rating).
 
 **Decision rule (from the spec, fixed before the run):**
 
@@ -1123,7 +1123,7 @@ Smoke-test it on the 2026-10-04 CheckIfExist transcripts if they are still under
 - [ ] **Step 2: Build the run root**
 
 ```bash
-cd /home/eranr/research-vault
+cd ~/research-vault
 git status --porcelain skills/paper-critical-analysis   # must print nothing
 git log -1 --format=%H -- skills/paper-critical-analysis   # must equal Task 8's merged sha
 mkdir -p sources/checkifexist-run2/input sources/checkifexist-run2/paper-critical-analysis
@@ -1135,17 +1135,17 @@ ls sources/checkifexist-run2/paper-critical-analysis/   # empty: an existing evi
 Write `sources/checkifexist-run2/PROMPT.md` — the 2026-10-04 prompt with only the run-root paths changed:
 
 ```text
-Critique a paper using the skill at `/home/eranr/research-vault/skills/paper-critical-analysis/`: read its `SKILL.md` in full and follow it exactly, resolving the skill's relative paths against that directory.
+Critique a paper using the skill at `~/research-vault/skills/paper-critical-analysis/`: read its `SKILL.md` in full and follow it exactly, resolving the skill's relative paths against that directory.
 
-Paper (first argument): `/home/eranr/research-vault/sources/checkifexist-run2/input/Abbonato - 2026 - CheckIfExist Detecting Citation Hallucinations in the Era of AI-Generated Content.pdf`
+Paper (first argument): `~/research-vault/sources/checkifexist-run2/input/Abbonato - 2026 - CheckIfExist Detecting Citation Hallucinations in the Era of AI-Generated Content.pdf`
 
 It is the only input; the paper names no supplements.
 
-Output folder (second argument): `/home/eranr/research-vault/sources/checkifexist-run2/paper-critical-analysis/`
+Output folder (second argument): `~/research-vault/sources/checkifexist-run2/paper-critical-analysis/`
 
 Keep a run log in the output folder as you go: the run is unattended, and every decision you make that the skill leaves open is recorded there with its reason.
 
-Boundaries: do not read anything under `/home/eranr/research-vault/sources/` outside `/home/eranr/research-vault/sources/checkifexist-run2/`, and do not read `/home/eranr/research-vault/docs/research/2026-09-20-paper-critical-analysis-evals/` or `/home/eranr/research-vault/docs/superpowers/`. Nothing in the repository is needed beyond the skill's own directory and your run folder.
+Boundaries: do not read anything under `~/research-vault/sources/` outside `~/research-vault/sources/checkifexist-run2/`, and do not read `~/research-vault/docs/research/2026-09-20-paper-critical-analysis-evals/` or `~/research-vault/docs/superpowers/`. Nothing in the repository is needed beyond the skill's own directory and your run folder.
 ```
 
 Write `sources/checkifexist-run2/rater-prompt.md` now, before the run exists, so the rubric is on disk this time (the 2026-10-04 rubric survives only as run3-setup.md's description of it; this reconstructs it):
@@ -1153,8 +1153,8 @@ Write `sources/checkifexist-run2/rater-prompt.md` now, before the run exists, so
 ```text
 You are a reader deciding whether to trust and use the paper this report describes. You are not a referee and you have no answer key. Read the report and its evidence file:
 
-- Report: /home/eranr/research-vault/sources/checkifexist-run2/paper-critical-analysis/critical-analysis-checkifexist.md
-- Evidence file: /home/eranr/research-vault/sources/checkifexist-run2/paper-critical-analysis/critical-analysis-checkifexist.evidence.md
+- Report: ~/research-vault/sources/checkifexist-run2/paper-critical-analysis/critical-analysis-checkifexist.md
+- Evidence file: ~/research-vault/sources/checkifexist-run2/paper-critical-analysis/critical-analysis-checkifexist.evidence.md
 
 Read nothing else. Return:
 
@@ -1181,7 +1181,7 @@ In this order, recording each result in a scratch note `sources/checkifexist-run
 2. Key: walk `sources/bloom-skill-comparison/checkifexist-answer-key.md` item by item (A1–A6, B1–B6, C1–C3) against the final report and evidence file, crediting ✓ / ½ / ✗ as the key's header defines; then D1–D4 in prose. Compare with the 2026-10-04 scorecard in `run3-setup.md` item by item.
 3. Wall time: the evidence file's Stage log (`stage <n>: met — <time>`) gives stage 0 and stage 7; also the dispatch-to-completion time from Step 3.
 4. Tokens: locate the transcripts of the run's agents (the runner and every subagent it spawned — judge, editor, verifier 1, 2, 3 — under `~/.claude/projects/`, by the run's timestamps) and run `python3 $WT/docs/research/2026-09-20-paper-critical-analysis-evals/mine_tokens.py main=<…> judge=<…> editor=<…> v1=<…> v2=<…> v3=<…>`.
-5. Write-scope audit: `find /home/eranr/research-vault /tmp -newer sources/checkifexist-run2/dispatch.stamp -not -path '*/sources/checkifexist-run2/*' -not -path '*/.git/*' 2>/dev/null` — expected: nothing attributable to the run (attribute anything found by content, as run3-setup.md did). Confirm no `.mypy_cache` outside the output folder.
+5. Write-scope audit: `find ~/research-vault /tmp -newer sources/checkifexist-run2/dispatch.stamp -not -path '*/sources/checkifexist-run2/*' -not -path '*/.git/*' 2>/dev/null` — expected: nothing attributable to the run (attribute anything found by content, as run3-setup.md did). Confirm no `.mypy_cache` outside the output folder.
 6. Pair rating: dispatch a fresh Opus agent with the exact text of `sources/checkifexist-run2/rater-prompt.md`; save its return as `sources/checkifexist-run2/rater-return.md`.
 7. Verifier dispositions: from the evidence file's Verifier list, the four counts (locators/quotes/numbers; W entries; claims; change-list items) and how many failures each check raised — the claim-strength check's count is new and gets recorded on its own.
 
@@ -1234,4 +1234,4 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs/research/2026-
 git push -u origin paper-critical-analysis-cost-tuning-ab
 ```
 
-Drop `skills/paper-critical-analysis/SKILL.md` from the `git add` and `git commit` pathspecs if the floor failed and the sentence was not changed. Wait for the `quality` check as in Task 8 Step 3 (same loop, this branch's sha), then fast-forward `main` as in Task 8 Step 4: `git push origin paper-critical-analysis-cost-tuning-ab:main`, then `git -C /home/eranr/research-vault pull --ff-only origin main`. Afterwards `git -C /home/eranr/research-vault worktree remove .claude/worktrees/paper-critical-analysis-cost-tuning-ab && git worktree prune`. Leave `sources/checkifexist-run2/` where it is: git-ignored evidence, like its predecessors.
+Drop `skills/paper-critical-analysis/SKILL.md` from the `git add` and `git commit` pathspecs if the floor failed and the sentence was not changed. Wait for the `quality` check as in Task 8 Step 3 (same loop, this branch's sha), then fast-forward `main` as in Task 8 Step 4: `git push origin paper-critical-analysis-cost-tuning-ab:main`, then `git -C ~/research-vault pull --ff-only origin main`. Afterwards `git -C ~/research-vault worktree remove .claude/worktrees/paper-critical-analysis-cost-tuning-ab && git worktree prune`. Leave `sources/checkifexist-run2/` where it is: git-ignored evidence, like its predecessors.
