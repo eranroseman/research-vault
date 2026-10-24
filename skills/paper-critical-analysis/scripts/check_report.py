@@ -197,8 +197,9 @@ def external_check_leads() -> list[str]:
 
 
 def lead_line(section: str, lead: str) -> str | None:
-    """The first line of ``section`` starting ``- <lead>:``, stripped."""
-    stripped = [line.strip() for line in section.splitlines()]
+    """The first unindented line of ``section`` starting ``- <lead>:``,
+    stripped. An indented bullet is a ledger entry's detail, not the slot."""
+    stripped = [line.rstrip() for line in section.splitlines()]
     return next((line for line in stripped if line.startswith(f"- {lead}:")), None)
 
 

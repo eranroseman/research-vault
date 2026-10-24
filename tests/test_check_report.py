@@ -337,6 +337,22 @@ def test_an_emptied_slot_is_an_error(tmp_path):
     assert "unfilled" in out
 
 
+def test_an_indented_bullet_does_not_fill_a_slot(tmp_path):
+    """A W entry's detail sits on indented lines beneath it, and a computed
+    entry now carries its figures there; a detail bullet that happens to
+    start with a slot's lead is the entry's, not the mandated slot."""
+    evidence = _swap(build_evidence(), "- Reference counts: W1.", "- Reference counts:")
+    evidence = _swap(
+        evidence,
+        "- W1: venue rigor; CORE; saved copy; ranked A.",
+        "- W1: venue rigor; CORE; saved copy; ranked A.\n  - Reference counts: W1.",
+    )
+    status, out = run(build_report(), evidence, tmp_path)
+    assert status == 1
+    assert "Reference counts" in out
+    assert "unfilled" in out
+
+
 def test_an_emptied_coverage_line_is_an_error(tmp_path):
     report = _swap(
         build_report(), "- Not checked: none; checked: the whole run.", "- Not checked:"
