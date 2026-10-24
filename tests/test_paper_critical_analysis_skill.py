@@ -292,6 +292,7 @@ def test_the_evidence_template_houses_the_judges_five_fields():
         assert f"\n  {field}:" in template, (
             f"evidence-template.md has no continuation line for {field}"
         )
+    assert f"{fields[0]}; {fields[1]}" not in template, "the semicolon chain is back"
 
 
 def test_the_editor_brief_runs_no_stylistic_pass():
@@ -299,13 +300,31 @@ def test_the_editor_brief_runs_no_stylistic_pass():
     every-rule-to-every-passage bar at most of the editor's items and minutes,
     with the reader-visible value in the structural moves and the copy flags.
     A stylistic bullet, the accounting bar, or their Test-field words coming
-    back brings the sweep back. Before stays verbatim because the verifier's
-    drift check consumes it."""
+    back brings the sweep back, under its old name or a new one, so the passes
+    and the Test vocabulary are pinned to what they are, not only to what they
+    were. Before stays verbatim because the verifier's drift check consumes
+    it."""
     brief = _brief("edit.md")
     assert "Stylistic:" not in brief
     assert "every rule has been applied to every passage" not in brief
     for word in ("tighten", "AI-pattern", "consistency"):
         assert word not in brief, f"edit.md's Test vocabulary still names {word}"
+    assert "Return an item only where you propose a change" in brief
+    passes = brief[brief.index("## Your passes") : brief.index("## Delegation")]
+    labels = re.findall(r"^([^-\s#][^\n]*):$", passes, flags=re.MULTILINE)
+    assert labels == ["Structural", "Copy flags"], labels
+    copy = passes[passes.index("Copy flags:") :].splitlines()
+    for line in (line for line in copy if line.startswith("- ")):
+        assert line.startswith("- Flag"), f"a copy bullet does more than flag: {line}"
+    test = brief[brief.index("**Test**") :].split("\n", 1)[0]
+    vocabulary = re.search(r"\(([^)]*)\)", test).group(1)
+    assert {word.strip() for word in vocabulary.split(",")} == {
+        "delete",
+        "one-place",
+        "move-detail",
+        "table",
+        "order",
+    }
     before = brief[brief.index("**Before**") :].split("\n", 1)[0]
     assert "verbatim" in before
 
@@ -349,13 +368,18 @@ def test_each_verifier_dispatch_fills_exactly_its_checks_inputs():
     fills; verify.md's Inputs subsections say which each check reads. A
     placeholder in one list and not the other is an input a verifier never
     receives, or one it receives and should not hold. The locator convention
-    sits outside the Inputs section and goes to every dispatch."""
+    sits outside the Inputs section and goes to every dispatch; a placeholder
+    anywhere else outside the subsections would reach all three."""
     brief = _brief("verify.md")
     assert "{CHECK}" in brief
     assert _verify_inputs_by_check() == VERIFY_DISPATCHES
     assert _skill_dispatch_table() == VERIFY_DISPATCHES
     inputs = brief[brief.index("## Inputs") : brief.index("## Locator convention")]
     assert "{LOCATOR_CONVENTION}" not in inputs
+    assert not _PLACEHOLDER.findall(inputs[: inputs.index("### Check ")])
+    fenced = brief[brief.index("```") : brief.rindex("```")]
+    outside = fenced.replace(inputs, "")
+    assert set(_PLACEHOLDER.findall(outside)) == {"CHECK", "LOCATOR_CONVENTION"}
 
 
 def test_the_judge_and_the_verifier_describe_their_renders_differently():
@@ -364,27 +388,40 @@ def test_the_judge_and_the_verifier_describe_their_renders_differently():
     every render cost Bloom's judge most of its 4.9M fresh tokens. Check 1 of
     the verifier gets every render, because it must find a number wherever
     the report points. One parenthetical copied over the other hands one of
-    them the wrong set."""
+    them the wrong set, and SKILL.md's stage 3 sentence is what the dispatcher
+    follows when it picks the judge's renders."""
     renders = re.compile(r"\{PAGE_RENDERS\} \(([^)]*)\)")
     judge = renders.search(_brief("judge.md"))
     verifier = renders.search(_brief("verify.md"))
     assert judge, "judge.md lost its {PAGE_RENDERS} parenthetical"
     assert verifier, "verify.md lost its {PAGE_RENDERS} parenthetical"
     assert "cites" in judge.group(1)
+    assert "every page" not in judge.group(1)
     assert "every page" in verifier.group(1)
+    text = _skill_text()
+    stage_3 = text[text.index(STAGES[3]) : text.index(STAGES[4])]
+    assert "the renders of the pages the evidence file cites" in stage_3
+    assert "the page images" not in stage_3
 
 
 def test_every_brief_keeps_tools_inside_the_scratch_folder():
     """The 2026-10-04 write-scope audit found one leak: a runner type-checked
     its scratch scripts with mypy from the repo root, and mypy cached at its
     working directory. Files were already confined to the output folder;
-    tools were not. The rule and every brief name the working directory."""
+    tools were not. The rule names the working directory, and so does every
+    brief's Delegation section, inside the fence the subagent receives: the
+    verifier's check 2 Inputs also name the scratch folder, and checks 1 and 3
+    never see that subsection."""
     text = _skill_text()
     rule = text[text.index("**Write scope.**") :].split("\n", 1)[0]
     assert "working directory" in rule
     for brief_name in BRIEFS:
         brief = _brief(brief_name)
-        assert "working directory" in brief, f"{brief_name} says nothing about cwd"
-        assert "<paper-slug>-work/" in brief, (
-            f"{brief_name} never names the scratch folder"
+        fenced = brief[brief.index("```") : brief.rindex("```")]
+        delegation = fenced[fenced.index("## Delegation") :].split("\n## ", 1)[0]
+        assert "working directory" in delegation, (
+            f"{brief_name}'s Delegation section says nothing about cwd"
+        )
+        assert "<paper-slug>-work/" in delegation, (
+            f"{brief_name}'s Delegation section never names the scratch folder"
         )

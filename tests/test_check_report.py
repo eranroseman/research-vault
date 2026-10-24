@@ -135,6 +135,7 @@ def test_the_shipped_templates_carry_the_checker_tokens():
     assert "\nEvidence file: " in report_template
     evidence_template = check_report.EVIDENCE_TEMPLATE.read_text(encoding="utf-8")
     assert "- N1:" in evidence_template
+    assert "`not applicable: <reason>`" in evidence_template
     for text in (report_template, evidence_template):
         assert "pending: stage" in text
 
@@ -312,6 +313,10 @@ def _template_only(path: Path) -> str:
 
 
 def test_a_template_only_pair_fails(tmp_path):
+    """It fails on what a run must fill, and on nothing a run copies: the
+    report template's body carries the Key and Evidence file lines, and the
+    evidence template's body defines no ledger ID, which is why the J1 shape
+    example sits above its break."""
     status, out = run(
         _template_only(check_report.REPORT_TEMPLATE),
         _template_only(check_report.EVIDENCE_TEMPLATE),
@@ -320,6 +325,8 @@ def test_a_template_only_pair_fails(tmp_path):
     assert status == 1
     assert "empty section" in out
     assert "slot is unfilled" in out
+    for copied in ("ledger", "evidence-file pointer", "provenance key"):
+        assert copied not in out, f"the templates' bodies fail on {copied}"
 
 
 def test_an_emptied_slot_is_an_error(tmp_path):
@@ -473,15 +480,22 @@ def test_more_abbreviations_do_not_end_a_derived_sentence(tmp_path, replacement)
     assert status == 0, out
 
 
-def test_a_slot_filled_not_applicable_with_a_reason_passes(tmp_path):
-    """The evidence template names `not applicable: <reason>` as a legal slot
-    fill — CheckIfExist's Headline recomputations slot is the worked example.
-    The checker accepted it before the template said so; this pins that."""
+@pytest.mark.parametrize(
+    "fill",
+    [
+        "not applicable: the abstract and conclusion state no number.",
+        "not checked: the index was down.",
+    ],
+)
+def test_a_slot_filled_with_a_reason_passes(tmp_path, fill):
+    """The evidence template names `not checked: <reason>` and `not applicable:
+    <reason>` as legal slot fills beside W IDs — CheckIfExist's Headline
+    recomputations slot is the worked example for the second. The checker
+    accepted both before the template said so; this pins that."""
     evidence = _swap(
         build_evidence(),
         "- Headline recomputations: W1.",
-        "- Headline recomputations: not applicable: the abstract and conclusion "
-        "state no number.",
+        f"- Headline recomputations: {fill}",
     )
     status, out = run(build_report(), evidence, tmp_path)
     assert status == 0, out
