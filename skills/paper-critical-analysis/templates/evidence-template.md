@@ -83,7 +83,7 @@ Each mandated check fills its slot below with the W IDs that discharged it, with
 
 ## Judge points
 
-Filled at stage 3's return: the kept points under assigned IDs, in the five-field shape the preamble shows — one field per indented continuation line, never one semicolon chain — then the judge's Recalled lines, then the count of points dropped as inadmissible.
+Filled at stage 3's return: the kept points under assigned IDs, in the five-field shape `templates/evidence-template.md`'s preamble shows — `- J<n>: <Kind>` on the ID line, then `Locator:`, `Observation:`, `Evidence:` and `Why it matters:` one per two-space-indented continuation line, never one semicolon chain — then the judge's Recalled lines, then the count of points dropped as inadmissible.
 
 ## Pruning record
 

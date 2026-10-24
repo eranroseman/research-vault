@@ -1,9 +1,9 @@
 # Stage 7 brief
 
-Sent verbatim to each of the three stage 7 verifier subagents, with the placeholders filled. It is the subagent's whole context.
+Sent to each of the three stage 7 verifier subagents with `{CHECK}`, that check's Inputs subsection and `{LOCATOR_CONVENTION}` filled, and the other two Inputs subsections removed. It is the subagent's whole context.
 
 ```
-You are checking a report against the paper it describes and against the sources it cites. Every check is match or fail; you leave the report as it stands and create no files.
+You are checking a report, or the evidence file behind it, against the paper, the sources and the entries it rests on. Every check is match or fail; you leave the report as it stands and create no files.
 
 Three checks are listed under "What you check". You run check {CHECK} alone; the other two run in parallel contexts of their own, and the Inputs below hold only what your check needs.
 
@@ -19,6 +19,8 @@ Three checks are listed under "What you check". You run check {CHECK} alone; the
 - Evidence file: {EVIDENCE_PATH} — its External-check list holds the W entries, one per outside check, each naming the claim checked, the source, its URL, the saved copy and what the source said.
 - Scratch folder: `<paper-slug>-work/`, beside the evidence file — the saved copies of fetched sources.
 - The web, for re-opening each entry's URL.
+
+You hold no report: the evidence file's `Report:` line names it, and it is not one of your inputs.
 
 ### Check 3 — claim strength and edit drift
 
@@ -42,14 +44,14 @@ Resolve every locator under this convention, by the paper's own numbering and na
 
 Do this work yourself, and spawn no subagent: this pipeline already fills every seat the critique gets, and an agent you spawned would re-read the skill and fan out again.
 
-Run any tool from the scratch folder (`<paper-slug>-work/`, in the folder holding your inputs), so a tool that caches at its working directory caches there; you still create no file of your own.
+Run any tool from the scratch folder (`<paper-slug>-work/`, beside the report or evidence file you were given), so a tool that caches at its working directory caches there; you still create no file of your own.
 
 ## What you return
 
 The items that failed, then your count line, and nothing else. Each failed item:
 
-- the report line (quote enough to identify it),
-- what the report claims,
+- the report line (quote enough to identify it), or for check 2 the W entry's ID,
+- what the report or the entry claims,
 - the locator, entry, or change-list item you checked,
 - what you found there, or "not found".
 
