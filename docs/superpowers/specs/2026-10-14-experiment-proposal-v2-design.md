@@ -1,5 +1,7 @@
 # Design: experiment-proposal v2, the plugin judged by the proposal it produces
 
+Disposition: superseded-by: 2026-10-23-experiment-proposal-v3-design.md (2026-10-24; every decision v3 does not name stands)
+
 Date: 2026-10-14. Status: approved in brainstorming, awaiting spec review. Branch: `experiment-proposal-v2`. Supersedes `docs/superpowers/specs/2026-10-13-experiment-proposal-plugin-design.md` (the first spec), whose decisions stand except where this spec changes them.
 
 ## Goal

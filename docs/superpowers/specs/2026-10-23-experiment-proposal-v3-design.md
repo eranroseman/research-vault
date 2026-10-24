@@ -1,6 +1,6 @@
 # Design: experiment-proposal v3, usable by agents, checked where it can be
 
-Date: 2026-10-23, revised the same day after the comparison with hutzelmann/thesis-proposal-skills (`docs/research/2026-10-23-thesis-proposal-skills-comparison.md`). Status: approved in brainstorming; reviewed 2026-10-24 (docs/research/2026-10-24-experiment-proposal-v3-spec-review.md) and amended the same day. Branch: `experiment-proposal-v3`. Supersedes `docs/superpowers/specs/2026-10-14-experiment-proposal-v2-design.md` where it changes it; every v2 decision not named here stands. The v2 spec gets `Disposition: superseded-by: 2026-10-23-experiment-proposal-v3-design.md (the landing date; every decision v3 does not name stands)` under its title when this spec lands.
+Date: 2026-10-23, revised the same day after the comparison with hutzelmann/thesis-proposal-skills (`docs/research/2026-10-23-thesis-proposal-skills-comparison.md`). Status: approved in brainstorming; reviewed 2026-10-24 (docs/research/2026-10-24-experiment-proposal-v3-spec-review.md) and amended the same day. Branch: `experiment-proposal-v3`. Supersedes `docs/superpowers/specs/2026-10-14-experiment-proposal-v2-design.md` where it changes it; every v2 decision not named here stands. The v2 spec carries `Disposition: superseded-by: 2026-10-23-experiment-proposal-v3-design.md (2026-10-24; every decision v3 does not name stands)` under its title, added when this spec landed.
 
 ## Why
 
