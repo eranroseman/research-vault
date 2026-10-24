@@ -15,7 +15,7 @@
 Every task's requirements implicitly include these.
 
 - **Branch and worktree:** `paper-critical-analysis-cost-tuning`, created from `main` at `6419497` when this plan was written and pushed to origin with the plan as its first commit (the spec names the branch, but it did not exist before). The worktree `/home/eranr/research-vault/.claude/worktrees/paper-critical-analysis-cost-tuning` is already on it: execute there, and create no second worktree or branch. The shared main checkout at `/home/eranr/research-vault` stays on `main`; never `git checkout` a branch there.
-- **Commits:** explicit pathspec only, `git commit -- <files>`; never `git add -A` or `git commit -a` — parallel sessions share this checkout. Every commit message ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- **Commits:** explicit pathspec only, `git commit -m "<message>" -- <files>` (the message before the `--`: after it, every word is a pathspec); never `git add -A` or `git commit -a` — parallel sessions share this checkout. Every commit message ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - **Tests:** from the worktree root, with the main checkout's interpreter — the worktree has no `.venv`, so prefix every tool with `/home/eranr/research-vault/.venv/bin/` and set `PYTHONPATH=.` for pytest so `research_vault` resolves to the worktree, not the parent checkout (`docs/agents/testing.md`, the wrong-tree import trap; canary: `PYTHONPATH=. .venv/bin/python -c "import research_vault; print(research_vault.__file__)"`). Commands below write `python`, `ruff`, `mdformat` for brevity. Fast loop: `python -m pytest tests/test_check_report.py tests/test_paper_critical_analysis_skill.py -q`. Full gate before push: `python -m pytest tests -q -n auto`. Baseline on `main` at plan time: 62 passed in the two files.
 - **Form:** run the form owners on the touched files directly, never `pre-commit run` (it stashes other sessions' unstaged work): `ruff format <py files>`, `ruff check <py files>`, `mdformat --number --wrap keep <md files>`. mdformat realigns tables and renders thematic breaks as underscore lines; commit what it produces.
 - **Spec non-goals, verbatim:** "Stage 2 exhaustiveness, the mandated-check slots, the released-code reading mandate, stage 1's view-every-figure bar: untouched." "Shrinking verifier coverage: all three checks keep their full item counts; the split changes contexts, not scope." "A fast mode, a deep mode, or any second depth." "Chasing the original ~8.5M bar at any cost: if the measured floor and 8.5M conflict, the floor wins and the bar is re-set from evidence."
@@ -215,13 +215,13 @@ ruff format skills/paper-critical-analysis/scripts/check_report.py tests/test_ch
 ruff check skills/paper-critical-analysis/scripts/check_report.py tests/test_check_report.py
 mdformat --number --wrap keep skills/paper-critical-analysis/templates/report-template.md skills/paper-critical-analysis/prompts/edit.md
 git add skills/paper-critical-analysis/templates/report-template.md skills/paper-critical-analysis/scripts/check_report.py skills/paper-critical-analysis/prompts/edit.md tests/test_check_report.py
-git commit -- skills/paper-critical-analysis/templates/report-template.md skills/paper-critical-analysis/scripts/check_report.py skills/paper-critical-analysis/prompts/edit.md tests/test_check_report.py -m "feat(skills): the report names its evidence file, and the checker requires the line
+git commit -m "feat(skills): the report names its evidence file, and the checker requires the line
 
 The blind rating scored the merged report 5/10 on verifiability when read
 alone and 9/10 with its evidence file: the pointer survives the report
 leaving its folder. The checker requires the line as it requires Key:.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills/paper-critical-analysis/templates/report-template.md skills/paper-critical-analysis/scripts/check_report.py skills/paper-critical-analysis/prompts/edit.md tests/test_check_report.py
 ```
 
 ______________________________________________________________________
@@ -360,7 +360,7 @@ ruff format tests/test_check_report.py tests/test_paper_critical_analysis_skill.
 ruff check tests/test_check_report.py tests/test_paper_critical_analysis_skill.py
 mdformat --number --wrap keep skills/paper-critical-analysis/templates/evidence-template.md
 git add skills/paper-critical-analysis/templates/evidence-template.md tests/test_check_report.py tests/test_paper_critical_analysis_skill.py
-git commit -- skills/paper-critical-analysis/templates/evidence-template.md tests/test_check_report.py tests/test_paper_critical_analysis_skill.py -m "docs(skills): evidence entries carry their computations, their fields and their not-applicable slots
+git commit -m "docs(skills): evidence entries carry their computations, their fields and their not-applicable slots
 
 From the pair re-rating of the Bloom run: J15 named a script and showed no
 inputs or result, where W22's table let the rater reproduce the arithmetic;
@@ -368,7 +368,7 @@ long J entries read as one semicolon chain. The slot semantics close #219's
 open comment: not applicable: <reason> is a legal fill, and the checker
 already accepted it.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills/paper-critical-analysis/templates/evidence-template.md tests/test_check_report.py tests/test_paper_critical_analysis_skill.py
 ```
 
 ______________________________________________________________________
@@ -525,7 +525,7 @@ ruff format tests/test_paper_critical_analysis_skill.py
 ruff check tests/test_paper_critical_analysis_skill.py
 mdformat --number --wrap keep skills/paper-critical-analysis/prompts/edit.md skills/paper-critical-analysis/SKILL.md ATTRIBUTION.md
 git add skills/paper-critical-analysis/prompts/edit.md skills/paper-critical-analysis/SKILL.md ATTRIBUTION.md tests/test_paper_critical_analysis_skill.py
-git commit -- skills/paper-critical-analysis/prompts/edit.md skills/paper-critical-analysis/SKILL.md ATTRIBUTION.md tests/test_paper_critical_analysis_skill.py -m "feat(skills): the editor runs a structural pass and copy flags, on a smaller model
+git commit -m "feat(skills): the editor runs a structural pass and copy flags, on a smaller model
 
 The acceptance runs put most of the editor's 51 + 46 items and most of its
 80 combined minutes in the stylistic sweep and the every-rule-to-every-
@@ -533,7 +533,7 @@ passage bar; the reader-visible value sat in the structural moves and the
 flags. Before stays verbatim on every item: the verifier's drift check
 consumes it.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills/paper-critical-analysis/prompts/edit.md skills/paper-critical-analysis/SKILL.md ATTRIBUTION.md tests/test_paper_critical_analysis_skill.py
 ```
 
 ______________________________________________________________________
@@ -709,7 +709,7 @@ ruff check tests/test_paper_critical_analysis_skill.py
 mdformat --number --wrap keep skills/paper-critical-analysis/prompts/verify.md skills/paper-critical-analysis/SKILL.md
 python -m pytest tests/test_paper_critical_analysis_skill.py -q
 git add skills/paper-critical-analysis/prompts/verify.md skills/paper-critical-analysis/SKILL.md tests/test_paper_critical_analysis_skill.py
-git commit -- skills/paper-critical-analysis/prompts/verify.md skills/paper-critical-analysis/SKILL.md tests/test_paper_critical_analysis_skill.py -m "feat(skills): the verifier runs as three parallel checks, each with its own inputs
+git commit -m "feat(skills): the verifier runs as three parallel checks, each with its own inputs
 
 The one verifier carried the paper, the images, the report, the evidence
 file and the web in one context for three checks that need disjoint inputs
@@ -719,7 +719,7 @@ citing an N, C, W or J entry says no more than the entry does (four Bloom
 instances stated a notch firmer than their entry). Closes #220's
 claim-strength item.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills/paper-critical-analysis/prompts/verify.md skills/paper-critical-analysis/SKILL.md tests/test_paper_critical_analysis_skill.py
 ```
 
 ______________________________________________________________________
@@ -805,14 +805,14 @@ ruff format tests/test_paper_critical_analysis_skill.py
 ruff check tests/test_paper_critical_analysis_skill.py
 mdformat --number --wrap keep skills/paper-critical-analysis/prompts/judge.md skills/paper-critical-analysis/SKILL.md
 git add skills/paper-critical-analysis/prompts/judge.md skills/paper-critical-analysis/SKILL.md tests/test_paper_critical_analysis_skill.py
-git commit -- skills/paper-critical-analysis/prompts/judge.md skills/paper-critical-analysis/SKILL.md tests/test_paper_critical_analysis_skill.py -m "feat(skills): the judge receives only the page renders the evidence file cites
+git commit -m "feat(skills): the judge receives only the page renders the evidence file cites
 
 Bloom's judge carried all 56 page images at 4.9M fresh tokens while its
 points cited only the figures, tables and equations the evidence file
 already names. The set is read off the evidence file at dispatch; dropping
 images entirely stays the A/B arm, not the default.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills/paper-critical-analysis/prompts/judge.md skills/paper-critical-analysis/SKILL.md tests/test_paper_critical_analysis_skill.py
 ```
 
 ______________________________________________________________________
@@ -848,13 +848,13 @@ Expected: all pass (`test_every_shipped_path_the_skill_and_briefs_cite_exists` a
 ```bash
 mdformat --number --wrap keep skills/paper-critical-analysis/references/released-artifacts.md
 git add skills/paper-critical-analysis/references/released-artifacts.md
-git commit -- skills/paper-critical-analysis/references/released-artifacts.md -m "docs(skills): code and data reach the context as script-extracted excerpts
+git commit -m "docs(skills): code and data reach the context as script-extracted excerpts
 
 Bloom's main context ran to 13.9M fresh tokens on whole-file reads of the
 released repository and data around probe scripts that already extracted
 what each check needed. The excerpt rule forbids the reads around them.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills/paper-critical-analysis/references/released-artifacts.md
 ```
 
 ______________________________________________________________________
@@ -949,13 +949,13 @@ ruff format tests/test_paper_critical_analysis_skill.py
 ruff check tests/test_paper_critical_analysis_skill.py
 mdformat --number --wrap keep skills/paper-critical-analysis/SKILL.md skills/paper-critical-analysis/prompts/judge.md skills/paper-critical-analysis/prompts/edit.md skills/paper-critical-analysis/prompts/verify.md
 git add skills/paper-critical-analysis/SKILL.md skills/paper-critical-analysis/prompts/judge.md skills/paper-critical-analysis/prompts/edit.md skills/paper-critical-analysis/prompts/verify.md tests/test_paper_critical_analysis_skill.py
-git commit -- skills/paper-critical-analysis/SKILL.md skills/paper-critical-analysis/prompts/judge.md skills/paper-critical-analysis/prompts/edit.md skills/paper-critical-analysis/prompts/verify.md tests/test_paper_critical_analysis_skill.py -m "fix(skills): tools run from inside the output folder, so cwd caches land there
+git commit -m "fix(skills): tools run from inside the output folder, so cwd caches land there
 
 The acceptance runs' write-scope audit found one leak: a .mypy_cache at
 the repo root, from a runner type-checking its scratch scripts from there.
 Files were confined; tools were not. Closes the write-scope item on #220.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- skills/paper-critical-analysis/SKILL.md skills/paper-critical-analysis/prompts/judge.md skills/paper-critical-analysis/prompts/edit.md skills/paper-critical-analysis/prompts/verify.md tests/test_paper_critical_analysis_skill.py
 ```
 
 ______________________________________________________________________
@@ -1226,11 +1226,11 @@ ruff check docs/research/2026-09-20-paper-critical-analysis-evals/mine_tokens.py
 mdformat --number --wrap keep docs/research/2026-09-20-paper-critical-analysis-evals/README.md skills/paper-critical-analysis/SKILL.md docs/superpowers/specs/2026-10-04-paper-critical-analysis-cost-tuning-design.md
 PYTHONPATH=. python -m pytest tests -q -n auto
 git add docs/research/2026-09-20-paper-critical-analysis-evals/mine_tokens.py docs/research/2026-09-20-paper-critical-analysis-evals/README.md skills/paper-critical-analysis/SKILL.md docs/superpowers/specs/2026-10-04-paper-critical-analysis-cost-tuning-design.md
-git commit -- docs/research/2026-09-20-paper-critical-analysis-evals/mine_tokens.py docs/research/2026-09-20-paper-critical-analysis-evals/README.md skills/paper-critical-analysis/SKILL.md docs/superpowers/specs/2026-10-04-paper-critical-analysis-cost-tuning-design.md -m "docs(evals): cost-tuning A/B on CheckIfExist — <score>/15, <n>M fresh, <time>
+git commit -m "docs(evals): cost-tuning A/B on CheckIfExist — <score>/15, <n>M fresh, <time>
 
 <One sentence: floor held or failed, and what was re-set or opened.>
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>" -- docs/research/2026-09-20-paper-critical-analysis-evals/mine_tokens.py docs/research/2026-09-20-paper-critical-analysis-evals/README.md skills/paper-critical-analysis/SKILL.md docs/superpowers/specs/2026-10-04-paper-critical-analysis-cost-tuning-design.md
 git push -u origin paper-critical-analysis-cost-tuning-ab
 ```
 
