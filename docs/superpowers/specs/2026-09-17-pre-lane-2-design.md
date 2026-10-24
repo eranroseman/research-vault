@@ -1,6 +1,6 @@
 # Clearing the way to lane 2: the pre-lane-2 milestone as one spec
 
-Status: **the active spec** (2026-09-17), beside the open decomposition (`2026-09-05-assembly-design.md`). Decision 22 of that document allows one open plan at a time; this spec's plan is it. It succeeds `2026-09-06-import-redesign-design.md` (lane 1, closed 2026-09-16) and amends it in place where a finding here changes it, each amendment dated. The skills comparison's briefs and matrix are the evidence sibling `2026-09-17-pre-lane-2-design-skills-evidence.md`.
+Status: **executed** (2026-09-17 to 2026-09-23; milestone `pre-lane-2`, 19 of 19 issues closed). It binds until superseded and is amended from `2026-10-03-substrate-components-design.md` (the active spec from 2026-10-24), which succeeds it. It succeeded `2026-09-06-import-redesign-design.md` (lane 1, closed 2026-09-16) and amended it in place where a finding here changed it, each amendment dated. The skills comparison's briefs and matrix are the evidence sibling `2026-09-17-pre-lane-2-design-skills-evidence.md`.
 
 **What this spec is.** The seventeen open issues of the `pre-lane-2` milestone, resolved here — none deferred — plus two preconditions outside it: the quality lane is red at `HEAD`, and the write-side gate the operator chose needs a public repository. The plan beneath this spec executes the spec, not the tickets; the issues close when the spec is approved (§11). What the spec sends onward is filed as issues in the same pass (§11).
 
