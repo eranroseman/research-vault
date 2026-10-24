@@ -6,6 +6,10 @@ Loads when the paper releases code or data. Stage 2 runs these checks, each reco
 
 Analysis code, notebooks, data dictionaries, and data files. For every headline number — every number in the abstract and conclusion — find the analysis code behind it, read it, and recompute the number from the released data. Compare the recomputed value with the paper's; a mismatch is a C entry as well as a W entry. Check the paper's usage or coverage claims against the released data itself, not against the paper's description of it.
 
+## How to read
+
+Code and data reach the main context as excerpts a script extracts, never as whole files. Open a code file at the functions a check names — the analysis behind one headline number — and read those lines; never read a data file into context — a script computes the aggregate a check needs, and you read its output. The recomputation scripts a run writes already work this way; this rule forbids the whole-file reads around them, which bloated the Bloom run's main context to 13.9M fresh tokens.
+
 ## What never to open or fetch
 
 Credential, key, environment, and config files (`.env`, `*.pem`, `credentials.*`, tokens, API keys, private endpoints). If a repository appears to expose one, record its path only, neutrally, as an observation under Ethics — never its contents, and never test whether it works.
