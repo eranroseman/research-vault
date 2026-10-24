@@ -125,11 +125,12 @@ evidence file, the checker, and the background file — derives from the vault
 owner's own guide to critical analysis of a research paper; no third-party
 text rode along.
 
-The stage 5 editor brief paraphrases, and copies nothing from: Editors
-Canada's *Professional Editorial Standards 2024* (structural, stylistic and
-copy-editing stages; the text is copyrighted); Strunk's *The Elements of
-Style* (public domain); and Wikipedia's "Signs of AI writing"
-(CC BY-SA, paraphrased).
+The stage 5 editor brief paraphrases, and copies nothing from, Editors
+Canada's *Professional Editorial Standards 2024* (its structural and
+copy-editing stages; the text is copyrighted). Its stylistic pass, dropped
+in the 2026-10 cost tuning, paraphrased Strunk's *The Elements of Style*
+(the 1918 edition, public domain) and Wikipedia's "Signs of AI writing"
+(CC BY-SA); git retains that text.
 
 ## Obsidian resources, screened
 

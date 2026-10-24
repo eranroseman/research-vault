@@ -99,7 +99,7 @@ Write the report in `templates/report-template.md`'s outline, starting from belo
 
 ## Stage 5 — Edit
 
-**Fresh context, required** — an author reviewing its own text keeps everything. Run one subagent whose whole context is `prompts/edit.md` with its placeholders filled: the report and the evidence file, which it reads only. It returns a change list; apply or reject each item yourself, recording every disposition with its reason, and the before-and-after word counts, under Pruning record in the evidence file. Its Flags section (uncited generalizations, numbers that do not add up) is yours to settle too: fix each flag or move it to Coverage's `For the reader to double-check:` line. Apply only items that hold the brief's invariant.
+**Fresh context, required** — an author reviewing its own text keeps everything. Run one subagent whose whole context is `prompts/edit.md` with its placeholders filled: the report and the evidence file, which it reads only. The brief asks for a structural pass and copy flags, not a stylistic sweep, and it does not need the strongest model: where the harness offers the choice, dispatch it on a smaller one. It returns a change list; apply or reject each item yourself, recording every disposition with its reason, and the before-and-after word counts, under Pruning record in the evidence file. Its Flags section (uncited generalizations, numbers that do not add up) is yours to settle too: fix each flag or move it to Coverage's `For the reader to double-check:` line. Apply only items that hold the brief's invariant.
 
 **Done when:** every change-list item is applied or rejected with a reason, every flag is fixed or on Coverage's `For the reader to double-check:` line, and the before-and-after word counts are logged.
 

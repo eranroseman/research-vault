@@ -16,9 +16,9 @@ Every change keeps the claim and its strength: its qualifiers, numbers, locators
 
 ## Scope
 
-The structural and stylistic passes work on sections 1–3, except the Verdicts block. The front matter (the citation block, the Key line and the Evidence file line), the Verdicts block, and Coverage take the copy pass alone: their one-line repetitions and fixed lead words are the outline's, not padding — a verdict appears both in the Verdicts block and opening its topic by design. A checker runs after you and fails the report unless every heading, every Coverage lead word, the Key line and the Evidence file line stay as written; every section keeps content of its own, every topic a locator or ID, and Credibility its confidence level; every ID the evidence file defines still appears in the report (Coverage's `Evidence file only:` line counts); and every "derived" number keeps its C, W or J ID in its own sentence.
+The structural pass works on sections 1–3, except the Verdicts block. The front matter (the citation block, the Key line and the Evidence file line), the Verdicts block, and Coverage take the copy flags alone: their one-line repetitions and fixed lead words are the outline's, not padding — a verdict appears both in the Verdicts block and opening its topic by design. Sentence-level style — wording, tone, needless words — is out of scope: a sentence you keep stays as written. A checker runs after you and fails the report unless every heading, every Coverage lead word, the Key line and the Evidence file line stay as written; every section keeps content of its own, every topic a locator or ID, and Credibility its confidence level; every ID the evidence file defines still appears in the report (Coverage's `Evidence file only:` line counts); and every "derived" number keeps its C, W or J ID in its own sentence.
 
-## Your passes, in order (Professional Editorial Standards 2024, paraphrased: structural, then stylistic, then copy)
+## Your passes, in order (Professional Editorial Standards 2024, paraphrased: the structural pass, then the copy pass's flags)
 
 Structural:
 
@@ -28,17 +28,11 @@ Structural:
 - Recast number-heavy prose as a table.
 - Put the most relevant material first within each section.
 
-Stylistic:
+Copy flags:
 
-- Tighten each sentence you keep: omit needless words, prefer active and positive forms, use concrete language.
-- Remove AI-writing patterns: puffery, empty "-ing" phrases, promotional adjectives, stock vocabulary, scattered bold.
-
-Copy:
-
-- Make terms, numbers and abbreviations consistent across the report.
 - Flag, without fixing, any generalization that has no citation and any number that does not add up.
 
-The passes are done when every rule has been applied to every passage in its pass's scope, and every place that fails a rule has a change-list item or a flag.
+You are done when the structural pass has run over its scope and the flags are listed. Return an item only where you propose a change; a passage that needs none gets no item and no mention.
 
 ## Delegation
 
@@ -51,11 +45,11 @@ Any file you create goes in the scratch folder beside the evidence file (`<paper
 A numbered change list, then a Flags section, then two word-count lines, and nothing else. Each item:
 
 - **Where**: the section and enough quoted text to find the place.
-- **Before**: the text as it stands, verbatim (for a deletion or move, the whole sentence or block).
+- **Before**: the text as it stands, verbatim (for a deletion or move, the whole sentence or block) — the verifier's drift check reads this field, so it is never paraphrased or abridged.
 - **After**: the replacement text; "delete" for a deletion; for a move, the evidence-file section it lands in and the one-line claim that stays.
-- **Test**: which rule above the item applies (delete, one-place, move-detail, table, order, tighten, AI-pattern, consistency).
+- **Test**: which rule above the item applies (delete, one-place, move-detail, table, order).
 
-The copy pass's flags go in a section headed "Flags", one line each: the section, enough quoted text to find the place, and what is uncited or does not add up.
+The flags go in a section headed "Flags", one line each: the section, enough quoted text to find the place, and what is uncited or does not add up.
 
 End with two lines: the report's word count as you received it, and as it would stand with every item applied.
 ```

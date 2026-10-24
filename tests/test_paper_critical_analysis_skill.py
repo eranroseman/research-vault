@@ -292,3 +292,19 @@ def test_the_evidence_template_houses_the_judges_five_fields():
         assert f"\n  {field}:" in template, (
             f"evidence-template.md has no continuation line for {field}"
         )
+
+
+def test_the_editor_brief_runs_no_stylistic_pass():
+    """The 2026-10-04 acceptance runs measured the stylistic sweep and the
+    every-rule-to-every-passage bar at most of the editor's items and minutes,
+    with the reader-visible value in the structural moves and the copy flags.
+    A stylistic bullet, the accounting bar, or their Test-field words coming
+    back brings the sweep back. Before stays verbatim because the verifier's
+    drift check consumes it."""
+    brief = _brief("edit.md")
+    assert "Stylistic:" not in brief
+    assert "every rule has been applied to every passage" not in brief
+    for word in ("tighten", "AI-pattern", "consistency"):
+        assert word not in brief, f"edit.md's Test vocabulary still names {word}"
+    before = brief[brief.index("**Before**") :].split("\n", 1)[0]
+    assert "verbatim" in before
