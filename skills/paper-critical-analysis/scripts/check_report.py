@@ -25,6 +25,7 @@ Errors (exit status 1):
 - a sentence containing "derived" cites no C, W or J entry (a table header
   row is exempt);
 - the ``Key:`` provenance line is missing;
+- the ``Evidence file:`` pointer line is missing;
 - a mandated-check slot in the evidence file's External-check list is
   missing, unfilled, or cites an ID the evidence file never defines;
 - the ledger is broken: an ID defined in the evidence file appears neither in
@@ -95,6 +96,7 @@ SENTENCE_SPLIT_RE = re.compile(
 )
 TABLE_SEPARATOR_RE = re.compile(r"^\|?\s*:?-{3,}")
 KEY_LINE_RE = re.compile(r"^Key: ", re.MULTILINE)
+EVIDENCE_LINE_RE = re.compile(r"^Evidence file: ", re.MULTILINE)
 
 
 def _without_key_lines(text: str) -> str:
@@ -415,6 +417,10 @@ def check_report(text: str, evidence_text: str | None) -> tuple[list[str], list[
         errors.append("report: Credibility states no confidence (high, medium, or low)")
     if not KEY_LINE_RE.search(text):
         errors.append("report: missing provenance key (the 'Key:' line)")
+    if not EVIDENCE_LINE_RE.search(text):
+        errors.append(
+            "report: missing evidence-file pointer (the 'Evidence file:' line)"
+        )
     if evidence_text is not None:
         errors.extend(ledger_errors(text, evidence_text))
 

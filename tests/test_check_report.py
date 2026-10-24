@@ -27,6 +27,9 @@ KEY_LINE = (
     'a number marked "derived" cites the C, W or J entry holding its '
     "computation; recalled knowledge appears only under Coverage."
 )
+EVIDENCE_LINE = (
+    "Evidence file: critical-analysis-example.evidence.md, alongside this report."
+)
 
 
 def _topic_body(heading: str) -> str:
@@ -58,6 +61,7 @@ def build_report() -> str:
                 "Doe (2026). Example. Venue. Version read: v1. Written 2026-10-04."
             )
             lines.append(KEY_LINE)
+            lines.append(EVIDENCE_LINE)
         elif heading.startswith("### Verdicts"):
             lines.append("Nine one-line verdicts stand here (Section 1; W1).")
         elif heading.startswith("## 4."):
@@ -128,6 +132,7 @@ def test_the_shipped_templates_carry_the_checker_tokens():
     fails at stage 6 with no way to comply."""
     report_template = check_report.REPORT_TEMPLATE.read_text(encoding="utf-8")
     assert "\nKey: " in report_template
+    assert "\nEvidence file: " in report_template
     evidence_template = check_report.EVIDENCE_TEMPLATE.read_text(encoding="utf-8")
     assert "- N1:" in evidence_template
     for text in (report_template, evidence_template):
@@ -178,6 +183,10 @@ def _missing_key(report: str) -> str:
     return report.replace(KEY_LINE + "\n", "")
 
 
+def _missing_evidence_pointer(report: str) -> str:
+    return report.replace(EVIDENCE_LINE + "\n", "")
+
+
 @pytest.mark.parametrize(
     ("mutate", "expected"),
     [
@@ -189,6 +198,7 @@ def _missing_key(report: str) -> str:
         (_missing_coverage_line, "Not checked"),
         (_derived_without_id, "derived"),
         (_missing_key, "provenance key"),
+        (_missing_evidence_pointer, "evidence-file pointer"),
     ],
 )
 def test_each_report_rule_fails_its_fixture(tmp_path, mutate, expected):

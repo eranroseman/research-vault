@@ -1,6 +1,6 @@
 # Report template
 
-Keep the headings, their order, and their numbering — `scripts/check_report.py` reads its required headings from this file. Each line under a `##` or `###` heading is guidance on what that section holds, its subsections included: answer each bullet's question in prose in the bullet's place; a Coverage bullet keeps its lead (`- Not read:` and the rest) and is filled after the colon. Replace every `{{placeholder}}`, and keep the `Key:` line verbatim — the checker requires it. Reserve the word "derived" for a computed number, in a sentence citing the C, W or J entry that holds its computation: the checker flags every sentence holding the word without such an ID, so write "drawn from" or "based on" where the sense is not a computation. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
+Keep the headings, their order, and their numbering — `scripts/check_report.py` reads its required headings from this file. Each line under a `##` or `###` heading is guidance on what that section holds, its subsections included: answer each bullet's question in prose in the bullet's place; a Coverage bullet keeps its lead (`- Not read:` and the rest) and is filled after the colon. Replace every `{{placeholder}}`, and keep the `Key:` line verbatim — the checker requires it, and requires the `Evidence file:` line too: it names the evidence file by filename, so the pointer survives the report leaving its folder. Reserve the word "derived" for a computed number, in a sentence citing the C, W or J entry that holds its computation: the checker flags every sentence holding the word without such an ID, so write "drawn from" or "based on" where the sense is not a computation. A section whose stage has not run yet reads `pending: stage <n>`, never blank.
 
 ______________________________________________________________________
 
@@ -9,6 +9,8 @@ ______________________________________________________________________
 {{Authors (year). Title. Venue, pages or DOI.}} Version read: {{preprint and number, or published}}. Report written {{date}}.
 
 Key: a locator cites the paper; (W12) cites a source outside the paper through the evidence file; [inferred] marks the writer's own reasoning; a number marked "derived" cites the C, W or J entry holding its computation; recalled knowledge appears only under Coverage.
+
+Evidence file: critical-analysis-{{paper slug}}.evidence.md, alongside this report.
 
 ## 1. Context
 
