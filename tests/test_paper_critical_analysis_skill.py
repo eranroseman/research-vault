@@ -425,3 +425,20 @@ def test_every_brief_keeps_tools_inside_the_scratch_folder():
         assert "<paper-slug>-work/" in delegation, (
             f"{brief_name}'s Delegation section never names the scratch folder"
         )
+
+
+def test_the_judge_shows_the_computation_the_evidence_template_requires():
+    """A judge point is the J entry the evidence file records, and the judge
+    never sees the template's preamble. Bloom's J15 named a script and showed
+    nothing: the rule that a script name is never the evidence has to reach
+    the brief that writes the point."""
+    rule = "never in their place"
+    template = (SKILL_DIR / "templates" / "evidence-template.md").read_text(
+        encoding="utf-8"
+    )
+    assert rule in template
+    judge = _brief("judge.md")
+    sentence = judge[judge.index("A number you compute is derived") :]
+    sentence = sentence.split("\n", 1)[0]
+    assert rule in sentence
+    assert "the inputs with their locators" in sentence
