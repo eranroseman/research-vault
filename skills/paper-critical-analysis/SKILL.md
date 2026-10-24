@@ -111,11 +111,17 @@ Run `python3 scripts/check_report.py <report>` — the path is relative to this 
 
 ## Stage 7 — Verify
 
-**Fresh context, required** — a verifier holding the reasoning behind a locator is no longer checking it. Run one subagent whose whole context is `prompts/verify.md` with its placeholders filled: the paper and its supplements, the page images, the report, the evidence file, and the Locators section above (verbatim). It runs the brief's checks and returns failures only, with the counts checked.
+**Fresh context, required** — a verifier holding the reasoning behind a locator is no longer checking it. Run three subagents in parallel, each with `prompts/verify.md` as its whole context: `{CHECK}` filled with the row's number, the row's placeholders filled, the other two Inputs subsections removed, and `{LOCATOR_CONVENTION}` filled from the Locators section above (verbatim) in every dispatch. The brief does not need the strongest model: where the harness offers the choice, dispatch it on a smaller one.
 
-Fix, drop, or move each returned item to Coverage; record the dispositions under Verifier list in the evidence file; update Coverage's `Verification:` line with the counts; run the checker again. Then delete raw participant-level data from the scratch folder and record what was deleted under Deletions.
+| `{CHECK}` | Checks                        | Placeholders filled                                |
+| --------- | ----------------------------- | -------------------------------------------------- |
+| 1         | locators, quotes and numbers  | `{PAPER_PATHS}`, `{PAGE_RENDERS}`, `{REPORT_PATH}` |
+| 2         | W entries                     | `{EVIDENCE_PATH}`                                  |
+| 3         | claim strength and edit drift | `{REPORT_PATH}`, `{DRAFT_PATH}`, `{EVIDENCE_PATH}` |
 
-**Done when:** every verifier item has a disposition, the checker is clean, and the deletion is recorded.
+Each returns failures only, with its count line. Fix, drop, or move each returned item to Coverage; record the dispositions under Verifier list in the evidence file; update Coverage's `Verification:` line with the four counts (locators, quotes and numbers; W entries; claims; change-list items); run the checker again. Then delete raw participant-level data from the scratch folder and record what was deleted under Deletions.
+
+**Done when:** all three verifiers have returned, every verifier item has a disposition, the checker is clean, and the deletion is recorded.
 
 ## Method menu
 

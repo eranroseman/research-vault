@@ -308,3 +308,51 @@ def test_the_editor_brief_runs_no_stylistic_pass():
         assert word not in brief, f"edit.md's Test vocabulary still names {word}"
     before = brief[brief.index("**Before**") :].split("\n", 1)[0]
     assert "verbatim" in before
+
+
+# One brief, three dispatches: which placeholders each verifier check receives.
+VERIFY_DISPATCHES = {
+    "1": {"PAPER_PATHS", "PAGE_RENDERS", "REPORT_PATH"},
+    "2": {"EVIDENCE_PATH"},
+    "3": {"REPORT_PATH", "DRAFT_PATH", "EVIDENCE_PATH"},
+}
+
+
+def _verify_inputs_by_check() -> dict[str, set[str]]:
+    """The placeholders under each `### Check N` subsection of verify.md's
+    Inputs section."""
+    brief = _brief("verify.md")
+    inputs = brief[brief.index("## Inputs") : brief.index("## Locator convention")]
+    found = {}
+    for block in re.split(r"^### Check ", inputs, flags=re.MULTILINE)[1:]:
+        number = block.split(maxsplit=1)[0]
+        found[number] = set(_PLACEHOLDER.findall(block))
+    return found
+
+
+def _skill_dispatch_table() -> dict[str, set[str]]:
+    """SKILL.md stage 7's dispatch table: the {CHECK} number of each row and
+    the placeholders its last column says to fill."""
+    text = _skill_text()
+    stage_7 = text[text.index(STAGES[7]) :]
+    rows = {}
+    for line in stage_7.splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) == 3 and cells[0] in ("1", "2", "3"):
+            rows[cells[0]] = set(_PLACEHOLDER.findall(cells[2]))
+    return rows
+
+
+def test_each_verifier_dispatch_fills_exactly_its_checks_inputs():
+    """The verifier's three checks need disjoint inputs, so stage 7 runs three
+    dispatches of one brief. SKILL.md's table says which placeholders each
+    fills; verify.md's Inputs subsections say which each check reads. A
+    placeholder in one list and not the other is an input a verifier never
+    receives, or one it receives and should not hold. The locator convention
+    sits outside the Inputs section and goes to every dispatch."""
+    brief = _brief("verify.md")
+    assert "{CHECK}" in brief
+    assert _verify_inputs_by_check() == VERIFY_DISPATCHES
+    assert _skill_dispatch_table() == VERIFY_DISPATCHES
+    inputs = brief[brief.index("## Inputs") : brief.index("## Locator convention")]
+    assert "{LOCATOR_CONVENTION}" not in inputs
