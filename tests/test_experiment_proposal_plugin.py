@@ -834,6 +834,26 @@ def test_readme_states_the_lens_the_mechanics_the_prerequisites_and_the_vendored
     assert "plugin.json" in text
     assert "0.1.0" not in text
     assert "0.2.0" not in text
+    assert "0.3.0" not in text
+    assert "## Agent use" in text
+    assert "`agent`" in text
+    assert "no human will answer" in text
+    assert (
+        "brief open, N provisional; the user freezes it with /experiment-proposal:design"
+        in text
+    )
+    assert "the user picks fixes with /experiment-proposal:review" in text
+    assert "--numbers" in text
+    assert "--placeholders" in text
+    assert "pass-placeholder" in text
+    assert "`Checker:`" in text
+    assert "headings, the title block and tables count" in text
+    assert "proposal/notes/lit-search-judged.txt" in text
+    assert "semantic_scholar: skipped (HTTP 429)" in text
+    assert "swh:1:rev:f93fee7459e2bf452ec9bc43163004812efba51f" in text
+    assert "unreachable" in text
+    assert "[<rule>; item <ID>]" in text
+    assert "claude -p" in text  # the headless paragraph stays
     lowered = text.lower()
     assert "rscript" not in lowered
     assert "simr" not in lowered
