@@ -1,9 +1,10 @@
 """Plugin-scoped checks for ``plugins/experiment-proposal``.
 
-Spec: ``docs/superpowers/specs/2026-10-14-experiment-proposal-v2-design.md``,
-section Tests, and the 0.1.0 spec it supersedes,
-``docs/superpowers/specs/2026-10-13-experiment-proposal-plugin-design.md``. The
-plugin is a second plugin in this repository's marketplace and shares no code
+Spec: ``docs/superpowers/specs/2026-10-23-experiment-proposal-v3-design.md``,
+section 5 (Tests and evaluation), and the specs it supersedes for what it does
+not name, ``docs/superpowers/specs/2026-10-14-experiment-proposal-v2-design.md``
+and ``docs/superpowers/specs/2026-10-13-experiment-proposal-plugin-design.md``.
+The plugin is a second plugin in this repository's marketplace and shares no code
 with ``research_vault``; the repository's skill tests glob only the root
 ``skills/``, so this module carries the plugin's own contract: manifests, skill
 frontmatter and Codex metadata, provenance headers, licence notices, the
@@ -517,9 +518,9 @@ _WRITE_SHAPES = re.compile(
 
 @pytest.mark.parametrize("name", LIT_SEARCH_SCRIPTS)
 def test_vendored_script_writes_no_files_and_stays_standalone(name):
-    """The spec's claim that lit-search writes nothing rests on the scripts
-    printing CSL-YAML to stdout and nothing to disk; a re-vendor that adds a
-    cache file must fail here, not surprise a user."""
+    """The vendored nine write nothing: they print CSL-YAML to stdout, and the
+    wrapper alone writes, through --out; a re-vendor that adds a cache file
+    must fail here, not surprise a user."""
     text = (SCRIPTS / name).read_text(encoding="utf-8")
     assert not _WRITE_SHAPES.search(text), f"{name} writes a file"
     assert "research_vault" not in text, f"{name} imports research_vault"
