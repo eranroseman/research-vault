@@ -163,6 +163,15 @@ def test_every_check_id_at_head_is_governed():
     )
 
 
+def test_dead_link_is_registered_and_closes_both_surfaces():
+    from research_vault import inbox, verify
+
+    assert "dead-link" in inbox.CHECK_IDS
+    assert "dead-link" in inbox.REASON_CODES
+    assert "dead-link" in verify.CLOSING_BY_SURFACE["commit"]
+    assert "dead-link" in verify.CLOSING_BY_SURFACE["publish"]
+
+
 def test_every_doctor_probe_id_at_head_is_governed():
     probes = _probe_ids()
     assert probes, "AST scan found no Probe ids — the scan itself is broken"

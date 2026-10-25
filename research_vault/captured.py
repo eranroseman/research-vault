@@ -10,14 +10,17 @@ import os
 import re
 from pathlib import Path
 
-from . import clock, frontmatter, literature_notes, structure
+from . import clock, frontmatter, links, literature_notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
 CHECK = "captured-set"
 LEDGER_PATH = literature_notes.LEDGER_PATH
 _CITATION = re.compile(r"\[@(?P<key>[A-Za-z0-9_.:-]+)")
-_WIKILINK = re.compile(r"\[\[(?P<target>[^\]\n#|]+)")
+# A line holding `[[` with no `]]` after it: Obsidian reads no link there, so
+# `links.find_links` sees none; the first stray `[[` swallows the rest of its
+# line, so a line is one row however many it holds.
+_UNTERMINATED = re.compile(r"\[\[(?:(?!\]\])[^\n])*$", re.MULTILINE)
 _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
 
 
@@ -83,32 +86,56 @@ def captured_set(vault_root) -> dict[str, str]:
     return {p.citation_key: p.item_key for _data, p in _notes(Path(vault_root))}
 
 
-def _aliases(vault: Path) -> set[str]:
-    names = set()
-    for data, _p in _notes(vault):
-        title = data.get("title")
-        if isinstance(title, str):
-            names.add(title)
-        names.update(a for a in data.get("aliases", []) if isinstance(a, str))
-    return names
+DEAD_LINK = "dead-link"
 
 
-def _page_names(vault: Path) -> set[str]:
-    """Every name a wikilink resolves to as a page: the stem, and each trailing path form Obsidian accepts
-    (`concepts/Foo`, `wiki/concepts/Foo` for `wiki/concepts/Foo.md`)."""
-    names: set[str] = set()
-    for path in vault.rglob("*.md"):
+def literature_paths(vault_root) -> tuple[dict[str, str], dict[str, str]]:
+    """Citation key → the note recording it, and title or alias → that note.
+
+    The captured set's own reading (decision 08): the key is the recorded
+    `citationKey`, never the filename, so a re-keyed note awaiting propagation
+    still resolves under the name its tuple records.
+    """
+    vault = Path(vault_root)
+    by_key: dict[str, str] = {}
+    by_name: dict[str, str] = {}
+    for path in sorted((vault / "literature").glob("*.md")):
         if structure.is_excluded(path, vault):
             continue
-        relative = path.relative_to(vault)
-        # The directory check reads the unstripped parts: with_suffix("") turns a
-        # root-level `literature.md` into `literature`, and the guard would take
-        # a page for the evidence folder and drop its name.
-        if relative.parts[0] == "literature":
+        try:
+            text = path.read_text(encoding="utf-8")
+            data, _body = frontmatter.parse(text)
+        except (OSError, UnicodeError, frontmatter.FrontmatterError):
             continue
-        parts = relative.with_suffix("").parts
-        names.update("/".join(parts[k:]) for k in range(len(parts)))
-    return names
+        provenance = literature_notes.read_provenance(text)
+        if provenance is None:
+            continue
+        relative = f"literature/{path.name}"
+        by_key[provenance.citation_key] = relative
+        title = data.get("title")
+        if isinstance(title, str) and title:
+            by_name.setdefault(title, relative)
+        for alias in data.get("aliases", []):
+            if isinstance(alias, str) and alias:
+                by_name.setdefault(alias, relative)
+    return by_key, by_name
+
+
+def link_index(vault_root) -> links.Index:
+    vault = Path(vault_root)
+    by_key, by_name = literature_paths(vault)
+    return links.Index.build(vault, by_key, by_name)
+
+
+def _is_path_shaped(link: links.Link) -> bool:
+    """#208's split: a target with a `/` or an attachment extension names a file,
+    so an unresolved one is `dead-link`; anything else is a would-be citation."""
+    extension = link.target.rsplit(".", 1)[-1].lower() if "." in link.target else ""
+    return (
+        link.kind == "markdown"
+        or "/" in link.target
+        or extension in links.ATTACHMENT_EXTENSIONS
+    )
 
 
 def _reportable(text: str) -> str:
@@ -137,12 +164,13 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
     wiki = vault / "wiki"
     if not wiki.is_dir():
         return outcomes
-    pages, aliases = _page_names(vault), _aliases(vault)
+    index = link_index(vault)
     for path in sorted(wiki.rglob("*.md")):
         if structure.is_excluded(path, vault):
             continue
         relative = path.relative_to(vault).as_posix()
         reported = _reportable(relative)
+        target_path = RepoPath(os.fsencode(relative))
         try:
             # frontmatter scanned with the body (§4.4). surrogateescape, as the sibling
             # residue lint reads its surfaces (propagate.py): a stray byte in one page
@@ -153,12 +181,7 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
             # of the walk. _read_notes and _structural type the same fault the same
             # way; this was the third read in the file and the last one that did not.
             outcomes.append(
-                Outcome(
-                    CHECK,
-                    RepoPath(os.fsencode(relative)),
-                    Result.UNREACHABLE,
-                    f"outage — {error}",
-                )
+                Outcome(CHECK, target_path, Result.UNREACHABLE, f"outage — {error}")
             )
             continue
         for match in _CITATION.finditer(text):
@@ -167,28 +190,71 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
                 outcomes.append(
                     Outcome(
                         CHECK,
-                        RepoPath(os.fsencode(relative)),
+                        target_path,
                         Result.UNMATCHED,
                         f"not-captured — {reported} cites [@{key}], not in the captured set",
                     )
                 )
-        for match in _WIKILINK.finditer(text):
-            written = match.group("target").strip()
-            # Resolved on the stripped form (Obsidian reads [[Foo.md]] as [[Foo]]),
-            # reported as written, so the finding's text is what the file says and
-            # grepping the vault for it succeeds.
-            target = written.removesuffix(".md")
-            if target in keys or target in pages or target in aliases:
+        for link in links.find_links(text):
+            # A folder (`[log/](log/)`) names no file: neither dead nor a citation.
+            if links.is_uri(link.target) or links.is_folder(link.target):
                 continue
-            outcomes.append(
-                Outcome(
-                    CHECK,
-                    RepoPath(os.fsencode(relative)),
-                    Result.UNMATCHED,
-                    f"not-captured — {reported} links [[{_reportable(written)}]], "
-                    "not a page and not in the captured set",
+            # Reported as written, so the finding's text is what the file says and
+            # grepping the vault for it succeeds.
+            written = _reportable(link.target)
+            verb = "embeds" if link.embed else "links"
+            hits = index.resolve(link.target, source=relative)
+            if len(hits) == 1:
+                continue
+            if len(hits) > 1:
+                shown = ", ".join(_reportable(hit) for hit in hits)
+                outcomes.append(
+                    Outcome(
+                        CHECK,
+                        target_path,
+                        Result.UNMATCHED,
+                        f"schema-violation — {reported} links [[{written}]], which "
+                        f"{len(hits)} files match ({shown}); resolve by hand",
+                    )
                 )
+                continue
+            if link.kind == "markdown":
+                outcomes.append(
+                    Outcome(
+                        DEAD_LINK,
+                        target_path,
+                        Result.UNMATCHED,
+                        f"dead-link — {reported} {verb} to {written}, which no file matches",
+                    )
+                )
+            elif _is_path_shaped(link):
+                outcomes.append(
+                    Outcome(
+                        DEAD_LINK,
+                        target_path,
+                        Result.UNMATCHED,
+                        f"dead-link — {reported} {verb} [[{written}]], which no file matches",
+                    )
+                )
+            else:
+                outcomes.append(
+                    Outcome(
+                        CHECK,
+                        target_path,
+                        Result.UNMATCHED,
+                        f"not-captured — {reported} links [[{written}]], "
+                        "not a page and not in the captured set",
+                    )
+                )
+        outcomes.extend(
+            Outcome(
+                CHECK,
+                target_path,
+                Result.UNMATCHED,
+                f"schema-violation — unterminated [[ on {reported}",
             )
+            for _line in _UNTERMINATED.finditer(text)
+        )
     return outcomes
 
 

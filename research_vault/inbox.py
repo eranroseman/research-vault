@@ -54,6 +54,8 @@ REASON_CODES = frozenset(
         "stale-key",
         # The captured-set lint's ledger verdict (ingest spec §4.4, decision 05).
         "recompile-needed",
+        # An embed or a path link to a file that does not exist (#208, spec §5.4).
+        "dead-link",
     }
 )
 # The governed check-id registry (terminology §4.4). ``append_entry`` itself
@@ -88,6 +90,8 @@ CHECK_IDS = frozenset(
         "captured-set",
         # The compile wrapper's own holds (ingest spec §4.5, decision 04).
         "compile",
+        # Unresolved embeds and path links in the compiled layer (#208, spec §5.4).
+        "dead-link",
     }
 )
 _REASON = re.compile(

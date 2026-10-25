@@ -342,7 +342,11 @@ def _walkers():
     return {
         "captured-set": lambda v: captured.lint_captured_set(v, as_of="2026-10-24"),
         "captured-notes": captured._read_notes,
-        "captured-page-names": captured._page_names,
+        # The link index's whole file set and the captured-set maps it adds.
+        "captured-link-index": lambda v: (
+            captured.literature_paths(v),
+            sorted(captured.link_index(v)._exact.values()),
+        ),
         "capture-all": capture._every_note,
         "lifecycle": lifecycle._provenances,
         "compile": lambda v: list(

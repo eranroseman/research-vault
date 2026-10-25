@@ -1,7 +1,7 @@
 import json
 import os
 
-from research_vault import Result, captured
+from research_vault import Result, captured, links
 from research_vault.pathcodec import decode_repo_path
 
 
@@ -193,8 +193,10 @@ def test_a_line_break_in_a_link_or_a_filename_stays_one_writable_row(tmp_vault):
     traceback rather than exit 2. Both routes are covered: the page's own filename,
     and a target. `\x0c` is a separator splitlines() honours that narrowing the
     regex to `\n` would not catch, which is why _reportable collapses rather than
-    strips; the unterminated `[[` is the typo an operator actually makes, and the
-    narrowed regex keeps it from swallowing the next line as one garbage target."""
+    strips. The unterminated `[[` is the typo an operator actually makes: Obsidian
+    reads no link there, so it is no target at all, and its line is one
+    `schema-violation` row naming the page rather than a garbage target that
+    swallows the next line."""
     pages = tmp_vault / "wiki" / "sources"
     pages.mkdir(parents=True)
     (pages / "A\nB.md").write_text(
@@ -207,7 +209,7 @@ def test_a_line_break_in_a_link_or_a_filename_stays_one_writable_row(tmp_vault):
         row.reason.encode("utf-8")
     assert [r.reason for r in rows] == [
         "not-captured — wiki/sources/A B.md links [[Gh ost]], not a page and not in the captured set",
-        "not-captured — wiki/sources/A B.md links [[oops]], not a page and not in the captured set",
+        "schema-violation — unterminated [[ on wiki/sources/A B.md",
     ]
     assert decode_repo_path(rows[0].target) == b"wiki/sources/A\nB.md"
 
@@ -539,22 +541,30 @@ def test_read_notes_rows_each_note_it_cannot_take_and_keeps_reading(tmp_vault):
     assert outcomes[3].reason == "schema-violation — no provenance tuple"
 
 
-def test_page_names_skip_excluded_and_literature_paths_but_not_the_pages_after_them(
+def test_the_link_index_skips_excluded_and_literature_paths_but_not_the_pages_after_them(
     tmp_vault,
 ):
     """rglob order is not name order: an excluded path and a literature/ note
-    are passed over, and every wiki page still contributes its names."""
+    are passed over, and every wiki page still resolves under each trailing
+    path form. Empty captured-set maps, so a literature/ hit can only come
+    from the walk."""
     (tmp_vault / ".raw").mkdir(exist_ok=True)
     (tmp_vault / ".raw" / "hidden.md").write_text("x\n")
     _note(tmp_vault, "smith2020", "SMITH001")
     (tmp_vault / "wiki" / "concepts").mkdir(parents=True, exist_ok=True)
     (tmp_vault / "wiki" / "concepts" / "Foo.md").write_text("x\n")
     (tmp_vault / "wiki" / "Bar.md").write_text("x\n")
-    names = captured._page_names(tmp_vault)
-    assert {"Foo", "concepts/Foo", "wiki/concepts/Foo", "Bar", "wiki/Bar"} <= names
-    assert "hidden" not in names
-    assert "smith2020" not in names
-    assert "literature/smith2020" not in names
+    index = links.Index.build(tmp_vault, {}, {})
+
+    def resolve(target):
+        return index.resolve(target, source="wiki/x.md")
+
+    for target in ("Foo", "concepts/Foo", "wiki/concepts/Foo"):
+        assert resolve(target) == ["wiki/concepts/Foo.md"], target
+    for target in ("Bar", "wiki/Bar"):
+        assert resolve(target) == ["wiki/Bar.md"], target
+    for target in ("hidden", ".raw/hidden", "smith2020", "literature/smith2020"):
+        assert resolve(target) == [], target
 
 
 def test_textual_half_walks_past_an_excluded_page_and_an_unreadable_one(tmp_vault):
@@ -589,9 +599,11 @@ def test_textual_half_walks_past_an_excluded_page_and_an_unreadable_one(tmp_vaul
     ]
 
 
-def test_aliases_collects_titles_and_aliases_and_tolerates_their_absence(tmp_vault):
-    """`_aliases`: a note with both, a note with neither; the set is exact so
-    a `None` added for a missing title, an upper-cased key, or a `None`
+def test_literature_paths_collects_titles_and_aliases_and_tolerates_their_absence(
+    tmp_vault,
+):
+    """The name map: a note with both, a note with neither; the maps are exact
+    so a `None` added for a missing title, an upper-cased key, or a `None`
     default for `aliases` each fail."""
     literature = tmp_vault / "literature"
     literature.mkdir(exist_ok=True)
@@ -609,4 +621,152 @@ def test_aliases_collects_titles_and_aliases_and_tolerates_their_absence(tmp_vau
         + tuple_lines.format(key="NONE0001", cite="neither")
         + "---\n"
     )
-    assert captured._aliases(tmp_vault) == {"Both", "Alias One"}
+    assert captured.literature_paths(tmp_vault) == (
+        {"both": "literature/both.md", "neither": "literature/neither.md"},
+        {"Both": "literature/both.md", "Alias One": "literature/both.md"},
+    )
+
+
+def test_an_embed_of_an_existing_image_pdf_or_base_is_not_a_finding(tmp_vault):
+    """#208: embeds resolve against every file, not only pages."""
+    _note(tmp_vault, "smith2020", "SMITH001")
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (tmp_vault / "wiki" / "figure.png").write_bytes(b"\x89PNG")
+    (tmp_vault / "wiki" / "paper.pdf").write_bytes(b"%PDF")
+    (tmp_vault / "system" / "bases").mkdir(parents=True, exist_ok=True)
+    (tmp_vault / "system" / "bases" / "trust-tier.base").write_text("views: []\n")
+    (pages / "A.md").write_text(
+        "---\ntype: source\n---\n![[figure.png]] ![[paper.pdf|200]] "
+        "![[system/bases/trust-tier.base]] ![](/wiki/figure.png)\n"
+    )
+    assert [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ] == []
+
+
+def test_a_dead_embed_or_path_link_is_a_dead_link_row_not_a_not_captured_row(
+    tmp_vault,
+):
+    """#208's split: a target with a `/` or an attachment extension, or an
+    unresolved markdown destination, is `dead-link` under its own check, so an
+    ack on it cannot hide a missing citation on the same page."""
+    _note(tmp_vault, "smith2020", "SMITH001")
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / "A.md").write_text(
+        "---\ntype: source\n---\n![[nowhere.png]] [[sources/Ghost]] "
+        "[text](concepts/Missing.md) [[ghost2020]] [u](https://example.org)\n"
+    )
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert [(o.check, o.reason) for o in rows] == [  # in link order
+        (
+            "dead-link",
+            "dead-link — wiki/sources/A.md embeds [[nowhere.png]], which no file matches",
+        ),
+        (
+            "dead-link",
+            "dead-link — wiki/sources/A.md links [[sources/Ghost]], which no file matches",
+        ),
+        (
+            "dead-link",
+            "dead-link — wiki/sources/A.md links to concepts/Missing.md, which no file matches",
+        ),
+        (
+            "captured-set",
+            "not-captured — wiki/sources/A.md links [[ghost2020]], not a page and not in the captured set",
+        ),
+    ]
+    assert all(decode_repo_path(o.target) == b"wiki/sources/A.md" for o in rows)
+
+
+def test_an_ambiguous_wikilink_is_a_resolve_by_hand_row(tmp_vault):
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (tmp_vault / "wiki" / "concepts").mkdir(exist_ok=True)
+    (tmp_vault / "wiki" / "concepts" / "Foo.md").write_text("---\ntype: concept\n---\n")
+    (pages / "Foo.md").write_text("---\ntype: source\n---\n")
+    (pages / "A.md").write_text("---\ntype: source\n---\n[[Foo]]\n")
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert [(o.check, o.reason) for o in rows] == [
+        (
+            "captured-set",
+            (
+                "schema-violation — wiki/sources/A.md links [[Foo]], which 2 files match "
+                "(wiki/concepts/Foo.md, wiki/sources/Foo.md); resolve by hand"
+            ),
+        )
+    ]
+
+
+def test_a_slash_led_markdown_link_to_a_literature_note_resolves_through_the_captured_set(
+    tmp_vault,
+):
+    _note(tmp_vault, "smith2020", "SMITH001")
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / "A.md").write_text(
+        "---\ntype: source\n---\n[smith2020](/literature/smith2020.md) "
+        "[gone](/literature/gone2020.md)\n"
+    )
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert [o.reason for o in rows] == [
+        "dead-link — wiki/sources/A.md links to /literature/gone2020.md, which no file matches"
+    ]
+
+
+def test_a_folder_link_on_a_wiki_page_is_no_row(tmp_vault):
+    """A target ending in `/` names a folder: neither a dead file nor a
+    would-be citation, so no row, even beside a root `log.md` the dotless rule
+    would otherwise have read `log/` as."""
+    (tmp_vault / "log.md").write_text("x\n")
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / "A.md").write_text(
+        "---\ntype: source\n---\n[log/](log/) [[literature/]] [all](/wiki/) "
+        "![[projects/]] [root](/)\n"
+    )
+    assert [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ] == []
+
+
+def test_an_unterminated_wikilink_is_one_row_per_line(tmp_vault):
+    """A line holding `[[` with no `]]` after it is one row, however many stray
+    `[[` it holds; a closed link earlier on the line does not hide it, and a
+    closed one is not a stray."""
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (tmp_vault / "wiki" / "Here.md").write_text("x\n")
+    (pages / "A.md").write_text(
+        "---\ntype: source\n---\n[[Here]] then [[oops and [[again\n"
+        "[[Here]] fine\n![[half.png\n"
+    )
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert [(o.check, o.reason) for o in rows] == [
+        ("captured-set", "schema-violation — unterminated [[ on wiki/sources/A.md"),
+        ("captured-set", "schema-violation — unterminated [[ on wiki/sources/A.md"),
+    ]
+
+
+def test_literature_paths_maps_keys_and_names_to_the_note_that_records_them(tmp_vault):
+    _note(tmp_vault, "smith2020", "SMITH001", title="Mortality decline")
+    (tmp_vault / "literature" / "renamed2020.md").write_text(
+        (tmp_vault / "literature" / "smith2020.md")
+        .read_text()
+        .replace('citationKey: "smith2020"', 'citationKey: "smith2020a"')
+    )
+    by_key, by_name = captured.literature_paths(tmp_vault)
+    assert by_key == {
+        "smith2020": "literature/smith2020.md",
+        "smith2020a": "literature/renamed2020.md",
+    }
+    assert by_name["Mortality decline"] in by_key.values()

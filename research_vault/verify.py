@@ -61,6 +61,7 @@ CLOSING_BY_SURFACE = {
             "tree",
             "propagation",
             "captured-set",
+            "dead-link",
         }
     ),
     "publish": frozenset(
@@ -74,6 +75,7 @@ CLOSING_BY_SURFACE = {
             "tree",
             "propagation",
             "captured-set",
+            "dead-link",
         }
     ),
 }

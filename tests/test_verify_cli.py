@@ -2212,6 +2212,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "tree",
                 "propagation",
                 "captured-set",
+                "dead-link",
             }
         ),
         "publish": frozenset(
@@ -2225,6 +2226,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "tree",
                 "propagation",
                 "captured-set",
+                "dead-link",
             }
         ),
     }

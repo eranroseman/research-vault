@@ -30,7 +30,7 @@ Each finding line begins with its finding id — the argument `ack` needs later.
 python3 -m research_vault verify --surface publish --vault PATH
 ```
 
-The publish surface closes on the publish closing set — every check `CLOSING_BY_SURFACE["publish"]` names (`citation-key`, `evidence-layer`, `quote`, `update-notice`, `okf-frontmatter`, `okf-structure`, `tree`, `propagation`, `captured-set`). Exit `0` means green, `1` means a closing check is UNMATCHED, `3` means something was UNREACHABLE, and `2` means verification could not run at all.
+The publish surface closes on the publish closing set — every check `CLOSING_BY_SURFACE["publish"]` names (`citation-key`, `evidence-layer`, `quote`, `update-notice`, `okf-frontmatter`, `okf-structure`, `tree`, `propagation`, `captured-set`, `dead-link`). Exit `0` means green, `1` means a closing check is UNMATCHED, `3` means something was UNREACHABLE, and `2` means verification could not run at all.
 
 ## Report the four states honestly
 
