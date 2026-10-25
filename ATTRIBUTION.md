@@ -80,9 +80,12 @@ v0.9.0; text unchanged since `a38b7b1`).
 
 **[mohitagw15856/pm-claude-skills](https://github.com/mohitagw15856/pm-claude-skills)**
 — MIT, © 2026 Mohit Aggarwal, vendored at pin `f93fee74` into
-`plugins/experiment-proposal/skills/the-ethics-board/SKILL.md`, with one marked
-frontmatter edit (`disable-model-invocation: true`). The upstream `CITATION.cff`
-asks to be cited; the plugin README repeats the request.
+`plugins/experiment-proposal/skills/the-ethics-board/SKILL.md`, with two marked
+local edits (the frontmatter description replaced by a name-only line; two
+sentences that write `proposal/ethics-review.md` and let an agent run proceed on
+the inputs given); the repository was unreachable on 2026-10-24, archived as
+`swh:1:rev:f93fee7459e2bf452ec9bc43163004812efba51f`. The upstream
+`CITATION.cff` asks to be cited; the plugin README repeats the request.
 
 **Adapted into `skills/paper-critical-analysis/`** — text from nine skill
 projects, all MIT; each copyright notice is reproduced here as that licence

@@ -1,7 +1,7 @@
 ---
 name: lit-search
-description: Search six scholarly indexes and snowball from seed DOIs for the sources an experiment proposal's literature review needs; reports each kept source with the claim it supports and writes no files.
-disable-model-invocation: true
+description: "Invoked by name: searches scholarly indexes and snowballs from seed DOIs for a literature review's sources; appends judged records to proposal/notes/lit-search-judged.txt. Not for unprompted use."
+argument-hint: "[agent] [path or need]"
 ---
 
 # lit-search

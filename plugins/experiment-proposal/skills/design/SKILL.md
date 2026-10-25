@@ -1,7 +1,7 @@
 ---
 name: design
-description: Settle a controlled HCI experiment's design decisions in numbered rounds and freeze them with their rationale in proposal/design-brief.md.
-disable-model-invocation: true
+description: "Invoked by name: settles a controlled experiment's design decisions in numbered rounds and freezes them in proposal/design-brief.md. Not for unprompted use."
+argument-hint: "[agent] [path or need]"
 ---
 
 # design

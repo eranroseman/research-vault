@@ -1,7 +1,7 @@
 ---
 name: review
-description: Check a written experiment proposal against its frozen design brief and the checklist, write proposal/review.md with evidence per pass and a fix per failure, apply only the fixes the user picks, and hand off to the defend stage.
-disable-model-invocation: true
+description: "Invoked by name: checks a written experiment proposal against its frozen design brief and the checklist, writes proposal/review.md. Not for unprompted use."
+argument-hint: "[agent] [path or need]"
 ---
 
 # review

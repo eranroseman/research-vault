@@ -114,23 +114,44 @@ def test_the_four_skills_ship():
     assert {p.name for p in SKILL_DIRS} == EXPECTED_SKILLS
 
 
+OWN_SKILLS = {"design", "review", "lit-search"}
+DESCRIPTIONS = {
+    "design": "Invoked by name: settles a controlled experiment's design decisions in numbered rounds and freezes them in proposal/design-brief.md. Not for unprompted use.",
+    "review": "Invoked by name: checks a written experiment proposal against its frozen design brief and the checklist, writes proposal/review.md. Not for unprompted use.",
+    "lit-search": "Invoked by name: searches scholarly indexes and snowballs from seed DOIs for a literature review's sources; appends judged records to proposal/notes/lit-search-judged.txt. Not for unprompted use.",
+    "the-ethics-board": "Invoked by name: rehearses an ethics-committee review of the study and writes proposal/ethics-review.md. Not for unprompted use.",
+}
+ARGUMENT_HINT = "[agent] [path or need]"
+
+
 @pytest.mark.parametrize("skill_dir", SKILL_DIRS, ids=lambda p: p.name)
-def test_skill_frontmatter_names_itself_and_is_name_only(skill_dir):
-    """name == directory (the plugin contract); a non-empty description; and
-    `disable-model-invocation: true` as a raw unquoted YAML boolean line, which
-    the loader reads as real YAML -- `"true"`, `yes` and `True` are silent
-    mis-reads a parsed value would not distinguish."""
+def test_skill_frontmatter_is_callable_by_name_and_triggered_by_nothing(skill_dir):
+    """0.3.0: no disable-model-invocation (an agent may call the skill by
+    name); the description a double-quoted one-line scalar that opens
+    "Invoked by name:", names what the skill produces, carries no trigger
+    phrase and ends "Not for unprompted use."; an argument-hint on the three
+    skills we own, none on the vendored ethics board."""
     skill_md = skill_dir / "SKILL.md"
     data = _frontmatter(skill_md)
     assert data.get("name") == skill_dir.name
-    assert isinstance(data.get("description"), str)
-    assert data["description"].strip()
-    raw = [
-        line.partition(":")[2].strip()
+    assert "disable-model-invocation" not in data
+    assert data["description"] == DESCRIPTIONS[skill_dir.name]
+    raw = {
+        line.partition(":")[0].strip(): line
         for line in _raw_frontmatter_lines(skill_md)
-        if line.partition(":")[0].strip() == "disable-model-invocation"
-    ]
-    assert raw == ["true"], f"{skill_dir.name}: disable-model-invocation line is {raw}"
+    }
+    assert raw["description"].partition(":")[2].strip().startswith('"'), (
+        "description is not double-quoted"
+    )
+    assert raw["description"].rstrip().endswith('"')
+    for phrase in ("Use when", "use when", "Trigger", "trigger"):
+        assert phrase not in data["description"]
+    if skill_dir.name in OWN_SKILLS:
+        assert data.get("argument-hint") == ARGUMENT_HINT
+        assert set(data) == {"name", "description", "argument-hint"}
+    else:
+        assert "argument-hint" not in data
+        assert set(data) == {"name", "description"}
 
 
 @pytest.mark.parametrize("skill_dir", SKILL_DIRS, ids=lambda p: p.name)
@@ -242,12 +263,43 @@ def test_the_subagent_is_renamed_with_a_marked_local_edit():
     )  # the edit names what it replaced
 
 
-def test_the_ethics_board_gains_only_the_marked_invocation_edit():
-    raw = "\n".join(
-        _raw_frontmatter_lines(PLUGIN / "skills" / "the-ethics-board" / "SKILL.md")
-    )
-    assert "# local edit (experiment-proposal)" in raw
-    assert "disable-model-invocation: true" in raw
+ETHICS_BOARD = PLUGIN / "skills" / "the-ethics-board" / "SKILL.md"
+ETHICS_BODY_EDIT = (
+    "Write this document to proposal/ethics-review.md.",
+    "When an input is missing and the arguments carry `agent` or the invoking message says no human will answer, name it and proceed with the study as described.",
+)
+
+
+def test_the_ethics_board_carries_exactly_two_marked_edits():
+    """The frontmatter edit (the 0.2.0 flag gone, the description replaced)
+    and the two-sentence body edit, each marked, each named in the header
+    with the upstream's state: unreachable on 2026-10-24, archived at
+    Software Heritage."""
+    text = ETHICS_BOARD.read_text(encoding="utf-8")
+    raw = "\n".join(_raw_frontmatter_lines(ETHICS_BOARD))
+    assert "# local edit (experiment-proposal): description replaced" in raw
+    assert "disable-model-invocation" not in text
+    assert raw.count("# local edit") == 1
+    body = text.split("-->", 1)[1]
+    assert body.count("<!-- local edit (experiment-proposal)") == 1
+    for sentence in ETHICS_BODY_EDIT:
+        assert sentence in body, sentence
+    produces = body.index("## What This Skill Produces")
+    inputs = body.index("## Required Inputs")
+    assert produces < body.index(ETHICS_BODY_EDIT[0]) < inputs
+    header = text[text.index("<!--") : text.index("-->")]
+    for fact in (
+        "two marked local edits",
+        "unreachable",
+        "2026-10-24",
+        "swh:1:rev:f93fee7459e2bf452ec9bc43163004812efba51f",
+        "proposal/ethics-review.md",
+        HEADER_CLOSE,
+    ):
+        assert fact in header, fact
+    assert (
+        "## Example Trigger Phrases" in body
+    )  # the upstream body is otherwise as vendored
 
 
 def test_third_party_notices_carry_the_mit_text_and_every_copyright_holder():
@@ -277,6 +329,15 @@ def test_third_party_notices_carry_the_mit_text_and_every_copyright_holder():
         p for p in text.split("\n\n") if "research-grill" in p and "CC BY-NC" in p
     )
     assert "hutzelmann" not in research_grill
+    pm_row = next(
+        line
+        for line in text.splitlines()
+        if "pm-claude-skills" in line and line.startswith("|")
+    )
+    assert "two marked local edits" in pm_row
+    assert "unreachable on 2026-10-24" in pm_row
+    assert "swh:1:rev:f93fee7459e2bf452ec9bc43163004812efba51f" in pm_row
+    assert "disable-model-invocation" not in pm_row
 
 
 # SHA-256 of each vendored file as shipped (provenance header and marked edits
@@ -285,7 +346,7 @@ def test_third_party_notices_carry_the_mit_text_and_every_copyright_holder():
 #   python3 -c 'import hashlib,sys; [print(repr(p), hashlib.sha256(open(p,"rb").read()).hexdigest()) for p in sys.argv[1:]]' <files>
 VENDORED_SHA256 = {
     "agents/hci-researcher.md": "490c0e596a7bfeb3737ecbd7b3b5d24513fb330dc0050b99f45955ac7c88b212",
-    "skills/the-ethics-board/SKILL.md": "599ead76ccacc70912e7df45f4aa1dfe926f321eb3d869c8fcdea644e21c354e",
+    "skills/the-ethics-board/SKILL.md": "b043401c59f9cfeffa411edc3c493ceca50a8b1201c5f22536d7bc1ea73bad1d",
     "skills/lit-search/scripts/arxiv.py": "01c5a1787ef5c6f4cb5b544e854301da3c63ed0d89fd3ff1f6889ed24e1d96a4",
     "skills/lit-search/scripts/common.py": "b81d648e027d83289c42d97615d60ebef3cac7ca465912482c8fa353250f499d",
     "skills/lit-search/scripts/crossref.py": "5d160214bfb902e8260947099886720b22e5b8fc2a92acff59c9b8200e4120f8",

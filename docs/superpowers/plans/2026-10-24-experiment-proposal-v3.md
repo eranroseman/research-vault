@@ -2411,7 +2411,7 @@ Provenance comment (replacing the whole `<!-- ... -->` block):
 <!--
 Vendored from https://github.com/mohitagw15856/pm-claude-skills @ f93fee7459e2bf452ec9bc43163004812efba51f
 (skills/the-ethics-board/SKILL.md), license MIT (© 2026 Mohit Aggarwal), licence and copyright as read at that commit when vendored; the repository and the user answered 404 on 2026-10-24 (`gh api`), so the upstream is recorded as unreachable and the revision is archived as swh:1:rev:f93fee7459e2bf452ec9bc43163004812efba51f.
-Renamed into the experiment-proposal plugin as skills/the-ethics-board/SKILL.md, with two marked local edits: the frontmatter description replaced by a name-only line (the 0.2.0 disable-model-invocation edit removed with it), and two sentences under What This Skill Produces that write the review to proposal/ethics-review.md and let an agent run proceed on the inputs given.
+Renamed into the experiment-proposal plugin as skills/the-ethics-board/SKILL.md, with two marked local edits: the frontmatter description replaced by a name-only line (the 0.2.0 model-invocation flag edit removed with it), and two sentences under What This Skill Produces that write the review to proposal/ethics-review.md and let an agent run proceed on the inputs given.
 mdformat normalized this file (mdformat --number --wrap keep).
 Do not hand-edit this file; re-vendor from upstream to update it.
 -->

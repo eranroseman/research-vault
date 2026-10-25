@@ -1,14 +1,13 @@
 ---
 name: the-ethics-board
-description: "Simulate defending your study or protocol before an ethics committee — the consent-comprehension probe, the vulnerable-participant challenge, the minimal-risk fight, the data-retention question you did not prepare for — with a debrief mapping every wobble to the protocol section that needs rewriting. Use when asked to prepare for an IRB or ethics review, rehearse an ethics-committee defence, why might ethics reject my study, or practice my protocol presentation. Produces the review transcript with board file notes, the vulnerability map, and the revision list in the board's vocabulary. Rehearsal only — never a substitute for actual review."
-# local edit (experiment-proposal): invoked by name only
-disable-model-invocation: true
+# local edit (experiment-proposal): description replaced by a name-only line; the upstream text is at the archived revision named below
+description: "Invoked by name: rehearses an ethics-committee review of the study and writes proposal/ethics-review.md. Not for unprompted use."
 ---
 
 <!--
 Vendored from https://github.com/mohitagw15856/pm-claude-skills @ f93fee7459e2bf452ec9bc43163004812efba51f
-(skills/the-ethics-board/SKILL.md), license MIT (© 2026 Mohit Aggarwal).
-Renamed into the experiment-proposal plugin as skills/the-ethics-board/SKILL.md; the frontmatter gained disable-model-invocation: true (a marked local edit).
+(skills/the-ethics-board/SKILL.md), license MIT (© 2026 Mohit Aggarwal), licence and copyright as read at that commit when vendored; the repository and the user answered 404 on 2026-10-24 (`gh api`), so the upstream is recorded as unreachable and the revision is archived as swh:1:rev:f93fee7459e2bf452ec9bc43163004812efba51f.
+Renamed into the experiment-proposal plugin as skills/the-ethics-board/SKILL.md, with two marked local edits: the frontmatter description replaced by a name-only line (the 0.2.0 model-invocation flag edit removed with it), and two sentences under What This Skill Produces that write the review to proposal/ethics-review.md and let an agent run proceed on the inputs given.
 mdformat normalized this file (mdformat --number --wrap keep).
 Do not hand-edit this file; re-vendor from upstream to update it.
 -->
@@ -23,6 +22,10 @@ The board is not hostile — it is professionally unimpressed, and it has read a
 - **The vulnerability map** — your protocol's weak sections ranked by likelihood of a revise-and-resubmit, each with what the board will ask for
 - **The revision list** — concrete edits in the board's own vocabulary: comprehension, proportionality, retention, withdrawal, coercion
 - **The debrief** — answers that satisfied versus answers that were promises, since boards accept only what the document says
+
+<!-- local edit (experiment-proposal): the two sentences below are ours -->
+
+Write this document to proposal/ethics-review.md. When an input is missing and the arguments carry `agent` or the invoking message says no human will answer, name it and proceed with the study as described.
 
 ## Required Inputs
 
