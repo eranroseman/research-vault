@@ -8,7 +8,7 @@ Trust-first academic research on a personal knowledge vault: every claim traceab
 
 **Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, built to outlive its tools (ADR 0001) as an OKF bundle.
 
-**Type (OKF)**: A note's kind, derived from its folder — `literature/` → literature, `log/` → daily, `inbox/` → fleeting, and only `projects/<name>/draft.md` → project. `wiki/` derives none: the compile tool writes its own `type` values (source, concept, entity, meta). `fulltext/` notes carry `type: fulltext` by construction. Notes under `system/` and at the vault root carry any non-empty type, freely chosen.
+**Type (OKF)**: A note's kind, derived from its folder — `literature/` → literature, `log/` → log, `daily/` → daily, `inbox/` → fleeting, and only `projects/<name>/draft.md` → project. `wiki/` derives none: the compile tool writes its own `type` values (source, concept, entity, meta). `fulltext/` notes carry `type: fulltext` by construction. Notes under `system/` and at the vault root carry any non-empty type, freely chosen.
 
 **Evidence layer**: The vault's machine-projected record of captured sources (`literature/`); never free-written.
 
@@ -23,7 +23,9 @@ _Avoid_: synthesis layer, synthesis note (the layer moved under `wiki/` and took
 
 **Inbox**: Fleeting captures and the review queue (`inbox/`); never a path by which a source becomes citable.
 
-**Log**: The append-only per-day activity record (`log/`), summarized in root `log.md`.
+**Log**: The machines' append-only per-day activity record (`log/`), typed `log`, written only by `publish` and summarized in root `log.md`. Never hand-written.
+
+**Daily note**: The person's diary (`daily/`), typed `daily` at any depth, written by Obsidian's Daily notes. Not a machine surface.
 
 **System folder**: The vault's support artifacts (`system/`): templates, bases, the CSL file (`system/bibliography.json`) and the applied propagation plans (`system/propagations/`).
 

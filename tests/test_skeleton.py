@@ -37,7 +37,7 @@ def test_tmp_vault_fixture(tmp_vault):
     assert (tmp_vault / ".git").is_dir()
 
 
-def test_fixture_daily_note_uses_ruled_type(fixture_vault):
+def test_fixture_log_day_file_uses_ruled_type(fixture_vault):
     data, _ = frontmatter.parse((fixture_vault / "log" / "2026-08-16.md").read_text())
 
-    assert data["type"] == "daily"
+    assert data["type"] == "log"

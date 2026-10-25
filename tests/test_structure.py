@@ -17,7 +17,9 @@ def _write(tmp_path, relative, text):
 def test_expected_type_is_the_folder():
     assert structure.expected_type("literature/smith2020.md") == "literature"
     assert structure.expected_type("projects/brief/draft.md") == "project"
-    assert structure.expected_type("log/2026-08-20.md") == "daily"
+    assert structure.expected_type("log/2026-08-20.md") == "log"
+    assert structure.expected_type("daily/2026-08-20.md") == "daily"
+    assert structure.expected_type("daily/weekly/2026-W34.md") == "daily"
     assert structure.expected_type("inbox/review-queue.md") == "review-queue"
     assert structure.expected_type("system/templates/literature.md") is None
     assert structure.expected_type("scratch.md") is None
@@ -58,7 +60,7 @@ def test_check_flags_missing_frontmatter_and_wrong_folder_type(tmp_path):
     assert outcome.result is Result.UNMATCHED
     assert (
         outcome.reason
-        == "schema-violation — type 'literature' but folder derives 'daily'"
+        == "schema-violation — type 'literature' but folder derives 'log'"
     )
 
 

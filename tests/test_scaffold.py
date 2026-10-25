@@ -25,6 +25,7 @@ EXPECTED_CREATED = [
     ".prettierignore",
     ".research-vault/machine.json",
     "AGENTS.md",
+    "daily/.gitkeep",
     "inbox/review-queue.md",
     "index.md",
     "literature/.gitkeep",
@@ -198,6 +199,15 @@ def test_scaffold_installs_an_executable_hook_and_keeps_empty_roots_in_clones(tm
     subprocess.run(["git", "clone", "-q", str(vault), str(clone)], check=True)
     for root in ("literature", "log", "projects"):
         assert (clone / root / ".gitkeep").is_file()
+
+
+def test_scaffold_seeds_daily_through_the_empty_roots_not_vault_dirs(tmp_path):
+    """§4.4: deleting an unused diary folder must never block a commit, so
+    `daily/` is a sentinel, not a required directory."""
+    created = scaffold.scaffold_vault(tmp_path)
+    assert "daily/.gitkeep" in created
+    assert "daily" not in scaffold.VAULT_DIRS
+    assert "daily" in scaffold._EMPTY_ROOTS
 
 
 def test_scaffold_ci_flags_are_independent(tmp_path):

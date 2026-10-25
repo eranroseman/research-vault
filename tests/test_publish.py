@@ -626,7 +626,7 @@ def test_a_dated_disposition_refuses_a_bad_date_before_writing_anything(
 
 
 def test_append_log_writes_the_day_header_once_and_keeps_every_line(green_vault):
-    """Two appends to one day: one `type: daily` header, both lines in order,
+    """Two appends to one day: one `type: log` header, both lines in order,
     and a missing log/ directory is created rather than refused."""
     import shutil
 
@@ -641,7 +641,7 @@ def test_append_log_writes_the_day_header_once_and_keeps_every_line(green_vault)
     )
     assert day == green_vault / "log" / "2026-09-07.md"
     assert day.read_text() == (
-        '---\ntype: "daily"\n---\n'
+        '---\ntype: "log"\n---\n'
         f"- 10:00 {publish.AGENT_ACTOR} — first\n"
         f"- 10:05 {publish.AGENT_ACTOR} — second\n"
     )
@@ -737,7 +737,7 @@ def test_mark_withdrawn_writes_status_and_logs_without_deleting_the_tag(
     day_files = sorted((green_vault / "log").glob("*.md"))
     assert len(day_files) == 1
     logged = day_files[0].read_text()
-    assert frontmatter.parse(logged)[0] == {"type": "daily"}
+    assert frontmatter.parse(logged)[0] == {"type": "log"}
     assert "withdrew projects/brief" in logged
     assert "withdrew projects/brief" in (green_vault / "log.md").read_text()
 

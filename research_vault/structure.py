@@ -27,7 +27,11 @@ from .pathcodec import RepoPath
 
 _FOLDER_TYPES = {
     "literature": "literature",
-    "log": "daily",
+    # §4.4: `log/` is the machines' activity record and `daily/` the person's
+    # diary. The type comes from the top folder at any depth, so a weekly note
+    # under `daily/weekly/` is `daily` too.
+    "log": "log",
+    "daily": "daily",
     "inbox": "fleeting",
 }
 # The compile tool's own stores (ingest spec §4.3): `.raw/` would hold a

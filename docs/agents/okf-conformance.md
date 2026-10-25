@@ -10,7 +10,7 @@ OKF §11's three rules, verbatim — paraphrase is what drifted before they were
 2. Every frontmatter block contains a non-empty `type` field.
 3. Every reserved filename (`index.md`, `log.md`) follows the structure in §8 and §9 respectively when present.
 
-OKF §3.1 fixes reserved-ness to `index.md` and `log.md` alone. The vault adds one rule of its own on top: a note's `type` is derived from its folder (`literature/` → `literature`, `log/` → `daily`, `inbox/` → `fleeting`, `projects/<name>/draft.md` → `project`), so a type that contradicts its folder is a finding.
+OKF §3.1 fixes reserved-ness to `index.md` and `log.md` alone. The vault adds one rule of its own on top: a note's `type` is derived from its folder (`literature/` → `literature`, `log/` → `log`, `daily/` → `daily`, `inbox/` → `fleeting`, `projects/<name>/draft.md` → `project`), so a type that contradicts its folder is a finding.
 
 ## Adopted families
 

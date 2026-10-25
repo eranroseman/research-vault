@@ -424,7 +424,7 @@ def _append_log(vault, message: str, *, date: str, now: datetime.datetime) -> Pa
     day = Path(vault) / "log" / f"{date}.md"
     day.parent.mkdir(parents=True, exist_ok=True)
     if not day.exists() or not day.read_bytes():
-        day.write_text(frontmatter.serialize({"type": "daily"}))
+        day.write_text(frontmatter.serialize({"type": "log"}))
     with day.open("a", encoding="utf-8", newline="") as stream:
         stream.write(f"- {now:%H:%M} {AGENT_ACTOR} — {message}\n")
     stamp.stamp_types(vault)

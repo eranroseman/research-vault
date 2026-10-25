@@ -169,7 +169,7 @@ def test_markdown_templates_match_canonical_content():
         'status: "draft"\ngenerated: {by: "{{ACTOR}}", at: "{{NOW}}"}\n---\n'
     )
     assert asset("vault/system/templates/daily.md").read_text() == (
-        '---\ntype: "daily"\n---\n\n<!-- log/YYYY-MM-DD.md; append-only -->\n'
+        '---\ntype: "daily"\n---\n'
     )
 
 

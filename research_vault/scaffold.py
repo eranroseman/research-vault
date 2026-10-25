@@ -20,7 +20,7 @@ PROVISION_COMPANIONS = [
     "kepano/obsidian-skills",
     "claude-obsidian@agricidaniel-claude-obsidian",
 ]
-_EMPTY_ROOTS = ("literature", "log", "projects")
+_EMPTY_ROOTS = ("daily", "literature", "log", "projects")
 _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".research-vault/machine.json"}
 GLOSSARY_PATH = "system/glossary.md"
 GLOSSARY_ENVELOPE = b'---\ntype: "guide"\n---\n\n'
@@ -91,6 +91,7 @@ def _render_glossary_if_absent(vault: Path, templates, created: list[str]) -> No
 def _add_empty_root_sentinels(vault: Path, created: list[str]) -> None:
     for root in _EMPTY_ROOTS:
         directory = vault / root
+        directory.mkdir(parents=True, exist_ok=True)
         if not any(directory.iterdir()):
             sentinel = directory / ".gitkeep"
             sentinel.touch(exist_ok=False)
