@@ -16,26 +16,27 @@ repos:
       # vendored fork (K-Dense's paper-lookup skill) — re-vendor from upstream
       # to pick up fixes; running our formatter/linter over it would create
       # vendor drift instead of tracking upstream's own form.
-      # plugins/experiment-proposal/skills/lit-search/scripts/*.py likewise (hutzelmann's proposal-lit-search).
+      # plugins/experiment-proposal/skills/lit-search/scripts/*.py likewise (hutzelmann's proposal-lit-search); the wrapper litsearch.py beside them is ours and is named by file.
       # plugins/experiment-proposal/scripts is our own checker and IS linted; its vendored neighbour skills/lit-search/scripts stays out.
       - id: ruff-format
         name: "form: python (ruff format)"
         language: system
-        entry: bash -c 'ruff format research_vault tests scripts hooks plugins/experiment-proposal/scripts'
+        entry: bash -c 'ruff format research_vault tests scripts hooks plugins/experiment-proposal/scripts plugins/experiment-proposal/skills/lit-search/scripts/litsearch.py'
         pass_filenames: false
         always_run: true
       - id: ruff-check
         name: "lint: python (ruff)"
         language: system
-        entry: bash -c 'ruff check research_vault tests scripts hooks plugins/experiment-proposal/scripts'
+        entry: bash -c 'ruff check research_vault tests scripts hooks plugins/experiment-proposal/scripts plugins/experiment-proposal/skills/lit-search/scripts/litsearch.py'
         pass_filenames: false
         always_run: true
       - id: mypy
         name: "types: python (mypy rung-1)"
         language: system
         # Bare: pyproject's [tool.mypy] files is the one surface list (hooks,
-        # plugins/experiment-proposal/scripts, research_vault, scripts); an explicit
-        # path here would silently override it.
+        # plugins/experiment-proposal/scripts,
+        # plugins/experiment-proposal/skills/lit-search/scripts/litsearch.py,
+        # research_vault, scripts); an explicit path here would silently override it.
         entry: bash -c 'mypy'
         pass_filenames: false
         always_run: true

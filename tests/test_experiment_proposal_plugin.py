@@ -18,6 +18,7 @@ import json
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -331,12 +332,14 @@ def test_the_vendored_scripts_are_v0_9_0():
 # --------------------------------------------------------------------------
 
 
-def test_exactly_the_nine_upstream_scripts_are_vendored():
-    assert sorted(p.name for p in SCRIPTS.glob("*.py")) == LIT_SEARCH_SCRIPTS
+def test_the_scripts_directory_holds_the_nine_vendored_scripts_and_the_wrapper():
+    assert sorted(p.name for p in SCRIPTS.glob("*.py")) == sorted(
+        [*LIT_SEARCH_SCRIPTS, "litsearch.py"]
+    )
 
 
-@pytest.mark.parametrize("name", LIT_SEARCH_SCRIPTS)
-def test_vendored_script_compiles(name):
+@pytest.mark.parametrize("name", [*LIT_SEARCH_SCRIPTS, "litsearch.py"])
+def test_lit_search_script_compiles(name):
     result = subprocess.run(
         [sys.executable, "-m", "py_compile", str(SCRIPTS / name)],
         capture_output=True,
@@ -366,7 +369,7 @@ runpy.run_path(script, run_name="__main__")
 """
 
 
-@pytest.mark.parametrize("name", ["search.py", "snowball.py"])
+@pytest.mark.parametrize("name", ["search.py", "snowball.py", "litsearch.py"])
 def test_vendored_entry_point_prints_help_without_network(name):
     """The entry points import their siblings by bare name, so they run from
     their own directory (never with -I). The child process has socket.connect
@@ -383,6 +386,40 @@ def test_vendored_entry_point_prints_help_without_network(name):
     )
     assert result.returncode == 0, result.stderr
     assert "usage:" in result.stdout
+
+
+def test_the_wrapper_is_ours_and_the_form_owners_cover_it():
+    """litsearch.py is not vendored: no provenance header, and ruff and mypy
+    reach it by file path, never the vendored directory beside it."""
+    text = (SCRIPTS / "litsearch.py").read_text(encoding="utf-8")
+    assert "Vendored from" not in text
+    assert "hutzelmann/thesis-proposal-skills" in text  # it says what it wraps
+    wrapper_path = "plugins/experiment-proposal/skills/lit-search/scripts/litsearch.py"
+    with (ROOT / "pyproject.toml").open("rb") as handle:
+        pyproject = tomllib.load(handle)
+    assert wrapper_path in pyproject["tool"]["mypy"]["files"]
+    assert wrapper_path in pyproject["tool"]["ruff"]["lint"]["per-file-ignores"]
+    skipped = next(
+        o
+        for o in pyproject["tool"]["mypy"]["overrides"]
+        if o.get("follow_imports") == "skip"
+    )
+    assert sorted(skipped["module"]) == sorted(n[:-3] for n in LIT_SEARCH_SCRIPTS)
+    hooks = yaml.safe_load(
+        (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    )
+    entries = [
+        hook["entry"]
+        for repo in hooks["repos"]
+        for hook in repo["hooks"]
+        if hook["id"] in {"ruff-format", "ruff-check"}
+    ]
+    assert len(entries) == 2
+    for entry in entries:
+        assert wrapper_path in entry
+        assert (
+            "skills/lit-search/scripts " not in entry
+        )  # the directory would reformat the vendored nine
 
 
 _WRITE_SHAPES = re.compile(
@@ -405,7 +442,7 @@ def _names_the_scripts_read_from_the_environment() -> set[str]:
     plus the KEY_FILE_ENV constant that names the key-file override, off the
     scripts' ASTs."""
     names: set[str] = set()
-    for path in SCRIPTS.glob("*.py"):
+    for path in (SCRIPTS / name for name in LIT_SEARCH_SCRIPTS):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
