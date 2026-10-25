@@ -102,4 +102,4 @@ One registry code stays off this table: `matched` never reaches the queue (only 
 
 ## Annotations scatter by link, never by retyping
 
-When the same quote is needed on another page, link the existing claim — `[[citation-key#^claim-id]]` — never retype the quote text. Retyping creates a second, unverified copy that the checker never compares; the single verified quote lives once, in the literature note — a note wholly machine-written from Zotero.
+When the same quote is needed on another page, link the existing claim — `[[citation-key#^claim-id]]` — never retype the quote text. Retyping creates a second, unverified copy that the checker never compares; the single verified quote lives once, in the literature note — a note wholly machine-written from Zotero. The wikilink form survives only inside a claim block or an inline field such as `[supports:: …]`; elsewhere in a note the commit normalises (not `literature/` or `wiki/`), the link normaliser rewrites it to the markdown form `[citation-key > ^claim-id](/literature/citation-key.md#^claim-id)`, which links the same claim.

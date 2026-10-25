@@ -30,7 +30,7 @@ Each finding line begins with its finding id — the argument `ack` needs later.
 python3 -m research_vault verify --surface publish --vault PATH
 ```
 
-The publish surface closes on the publish closing set — every check `CLOSING_BY_SURFACE["publish"]` names (`citation-key`, `evidence-layer`, `quote`, `update-notice`, `okf-frontmatter`, `okf-structure`, `tree`, `propagation`, `captured-set`, `dead-link`). Exit `0` means green, `1` means a closing check is UNMATCHED, `3` means something was UNREACHABLE, and `2` means verification could not run at all.
+The publish surface closes on the publish closing set — every check `CLOSING_BY_SURFACE["publish"]` names (`citation-key`, `evidence-layer`, `quote`, `update-notice`, `okf-frontmatter`, `okf-structure`, `tree`, `propagation`, `captured-set`, `dead-link`). Exit `0` means green, `1` means a closing check is UNMATCHED, `3` means something was UNREACHABLE, `2` means verification could not run at all, and `4` means the OKF frontmatter reader's dependency, PyYAML, is missing, so nothing was verified.
 
 ## Report the four states honestly
 
@@ -113,7 +113,7 @@ These two are the *only* dispositions a published project has. Both refuse a pro
 
 ## Refusals and exit codes
 
-`mark-published` and `mark-corrected` run the gate, so they answer with it: `0` done, `1` a closing check is UNMATCHED, `3` a check was UNREACHABLE so publishing waits. `mark-withdrawn` and `mark-parked` run no gate, so they only ever answer `0` or `2`. Across all four, `2` means the CLI could not carry the disposition out at all — no such project, the project has uncommitted files, a tag of that name already exists, the project was never published, the project is already published, or its name is one git cannot turn into a tag (`arm-publish` refuses that last one up front, before anyone waits on a gate run). Read the printed blockers back verbatim; do not summarize them into "it failed".
+`mark-published` and `mark-corrected` run the gate, so they answer with it: `0` done, `1` a closing check is UNMATCHED, `3` a check was UNREACHABLE so publishing waits, `4` PyYAML is missing so the gate could not read frontmatter. `mark-withdrawn` and `mark-parked` run no gate, so they answer `0` or `2`, except that `mark-withdrawn` writes its log line through the fixer, which reads frontmatter with PyYAML, so without it `mark-withdrawn` answers `4` too. Across all four, `2` means the CLI could not carry the disposition out at all — no such project, the project has uncommitted files, a tag of that name already exists, the project was never published, the project is already published, or its name is one git cannot turn into a tag (`arm-publish` refuses that last one up front, before anyone waits on a gate run). Read the printed blockers back verbatim; do not summarize them into "it failed".
 
 Publishing commits only the project note. If the CLI reports uncommitted files under `projects/NAME`, have the person commit them first — the published tag has to match the project the moment it is minted, or the published-drift lint reports the project as diverged.
 

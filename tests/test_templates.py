@@ -91,7 +91,7 @@ def test_markdown_templates_match_canonical_content():
         "- [wiki/](wiki/) — compiled layer: per-source pages under `wiki/sources/`, "
         "cross-source pages under `wiki/concepts/`, written by the adopted compile tool\n"
         "- [projects/](projects/) — manuscripts and deliverables\n"
-        "- [log/](log/) — daily activity log (summary: [log](/log.md))\n"
+        "- [log/](log/) — the machines' activity log (summary: [log](/log.md))\n"
         "- [daily/](daily/) — the person's diary: Obsidian's Daily notes write here\n"
         "- [inbox/](inbox/) — fleeting notes and the review queue\n"
         "- [system/](system/) — support artifacts: templates, bases, the CSL file, "

@@ -93,7 +93,8 @@ def stamp_text(relative: str, text: str) -> tuple[str | None, str | None]:
         data, body = frontmatter.parse(text)
         # Q18: "type missing" is decided by the structure check's own
         # reader and test, never by the flat parser's view of the value,
-        # so every missing type the check reports is one stamp repairs.
+        # so stamp never adds a type the check reads as present. A block
+        # the flat parser refuses is still reported, not repaired (#265).
         # A missing PyYAML is not content: it propagates (§5.6).
         okf_data, _ = frontmatter.read_okf(text)
     except frontmatter.FrontmatterError:

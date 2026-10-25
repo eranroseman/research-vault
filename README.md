@@ -26,7 +26,7 @@ Claims are written in project drafts and arranged into `wiki/` pages by the comp
 - The **citation key and locator** parse losslessly to CSL `locator` + `label`.
 - The **anchor** derives from stable content (a Zotero annotation key, else a quote hash), never from render order, so re-rendering never breaks an existing claim link.
 
-Quotes put the verbatim text in a blockquote beneath the claim line, where a checker can byte-compare it (that check is frozen while the compiled layer settles; see CONTEXT.md). Nothing is retyped: when the same quote is needed elsewhere, link the existing claim (`[[citation-key#^claim-id]]`) rather than creating a second, unverified copy.
+Quotes put the verbatim text in a blockquote beneath the claim line, where a checker can byte-compare it (that check is frozen while the compiled layer settles; see CONTEXT.md). Nothing is retyped: when the same quote is needed elsewhere, link the existing claim (`[[citation-key#^claim-id]]`) rather than creating a second, unverified copy. That wikilink form survives only inside a claim block or an inline field; elsewhere in a note the commit normalises, it is rewritten to the markdown form `[citation-key > ^claim-id](/literature/citation-key.md#^claim-id)`, which links the same claim.
 
 **Claims are deprecated, never deleted.** Retirement is a transition record written on the same line — status, date, actor, reason, and a `superseded-by` link where a successor exists. The anchor survives the transition.
 
