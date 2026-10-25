@@ -966,9 +966,12 @@ def test_review_is_steps_that_run_the_checker_and_keep_the_evidence_rule():
     for note in (
         "sections to item 3.2",
         "words to item 13.5",
-        "references to item 5.1",
+        "the citation-count line to item 5.1",
+        "a cited-without-entry line to item 3.3",
         "the bullet list to item 4.3",
         "the supervision sentence to item 12.3",
+        "the placeholder report to item 13.5",
+        "the numbers report to step 4",
     ):
         assert note in text, f"review does not map {note}"
     assert "/oss:research-grill defend" in text
@@ -981,6 +984,28 @@ def test_review_is_steps_that_run_the_checker_and_keep_the_evidence_rule():
     lowered = text.lower()
     assert "power" not in lowered
     assert "blocked" not in lowered
+    assert "## Agent run" in text
+    assert text.index("## Agent run") < text.index("## Steps")
+    assert "$ARGUMENTS" in text
+    assert "the token `agent`" in text
+    assert '"no human will answer"' in text
+    assert "`not confirmed`, never `pass`" in text
+    assert "the user picks fixes with /experiment-proposal:review" in text
+    assert "research-grill install not checked." in text
+    assert "`Checker:`" in text
+    assert "--review-section" in text
+    assert "--numbers" in text
+    assert "--placeholders" in text
+    assert "the Judged section" in text
+    assert "carried forward as `references/review.md` says" in text
+    steps = text.split("## Steps", 1)[1]
+    numbered = re.split(r"\n(?=\d+\. \*\*)", steps)
+    waits = {
+        n: "(an agent run does not wait; see Agent run)" in numbered[n]
+        for n in range(1, 8)
+    }
+    assert waits == {1: False, 2: True, 3: True, 4: False, 5: False, 6: True, 7: True}
+    assert "is named, not done here" in text
 
 
 def test_review_names_the_attested_items_and_the_defaults():
