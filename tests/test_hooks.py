@@ -1965,3 +1965,168 @@ def test_stop_gate_matches_direct_publish_state_and_effects(
     assert output["decision"] == "block"
     assert all(reason in output["reason"] for reason in direct_reasons)
     assert projected_state(hook_vault) == projected_state(direct_vault)
+
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+def _hook_env(tmp_path: Path) -> dict[str, str]:
+    bin_dir = tmp_path / "hook-bin"
+    bin_dir.mkdir()
+    shim = bin_dir / "python3"
+    shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+    shim.chmod(0o755)
+    return {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "PYTHONPATH": str(REPO),
+    }
+
+
+def _commit(vault: Path, env, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "commit", "-q", "-m", "x", *args],
+        cwd=vault,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _hook_vault(tmp_path: Path) -> tuple[Path, dict[str, str]]:
+    from research_vault import scaffold
+
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault)
+    env = _hook_env(tmp_path)
+    # The import probe must find research_vault: a hook that cannot import it
+    # exits 0 before any assertion below could fail.
+    probe = subprocess.run(
+        ["python3", "-c", "import research_vault, sys; print(research_vault.__file__)"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert probe.stdout.startswith(str(REPO))
+    return vault, env
+
+
+def _fingerprint(path: Path) -> tuple[bytes, int]:
+    return path.read_bytes(), path.stat().st_mtime_ns
+
+
+def test_real_hook_never_stages_untracked_files(tmp_path):
+    vault, env = _hook_vault(tmp_path)
+    strays = {
+        "log/x.md": "- a hand-typed line\n",
+        "inbox/s.md": "a thought\n",
+        "literature/stray.md": "no frontmatter\n",
+    }
+    for relative, text in strays.items():
+        (vault / relative).write_text(text)
+    before = {relative: _fingerprint(vault / relative) for relative in strays}
+    (vault / "projects" / "p").mkdir()
+    (vault / "projects" / "p" / "draft.md").write_text(
+        '---\ntype: "project"\n---\nbody\n'
+    )
+    subprocess.run(
+        ["git", "add", "projects/p/draft.md"], cwd=vault, env=env, check=True
+    )
+    assert _commit(vault, env).returncode == 0
+    # verify rewrites the review queue in the worktree; the next commit's
+    # verify refuses a tracked queue that differs from the index, so restore it.
+    subprocess.run(
+        ["git", "checkout", "--", "inbox/review-queue.md"],
+        cwd=vault,
+        env=env,
+        check=True,
+    )
+    (vault / "projects" / "p" / "notes.md").write_text('---\ntype: "note"\n---\nbody\n')
+    # `git commit -- <path>` needs the path known to git.
+    subprocess.run(
+        ["git", "add", "projects/p/notes.md"], cwd=vault, env=env, check=True
+    )
+    assert _commit(vault, env, "--", "projects/p/notes.md").returncode == 0
+    for relative, fingerprint in before.items():
+        assert _fingerprint(vault / relative) == fingerprint, relative
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=vault,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    for relative in strays:
+        assert f"?? {relative}" in status
+
+
+def test_real_hook_refuses_a_bare_staged_note_until_it_is_restaged(tmp_path):
+    vault, env = _hook_vault(tmp_path)
+    (vault / "daily" / "d.md").write_text("a thought\n")
+    subprocess.run(["git", "add", "daily/d.md"], cwd=vault, env=env, check=True)
+    refused = _commit(vault, env)
+    assert refused.returncode == 1
+    assert "daily/d.md" in refused.stderr
+    assert (
+        vault / "daily" / "d.md"
+    ).read_text() == '---\ntype: "daily"\n---\na thought\n'
+    staged = subprocess.run(
+        ["git", "show", ":daily/d.md"],
+        cwd=vault,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert staged == "a thought\n"  # the hook wrote the worktree, never the index
+    subprocess.run(["git", "add", "daily/d.md"], cwd=vault, env=env, check=True)
+    assert _commit(vault, env).returncode == 0
+
+
+def test_real_hook_under_a_pathspec_commit_passes_on_the_second_run(tmp_path):
+    """`git commit -- <path>` needs the path known to git, so it is added bare
+    first; the pathspec commit then builds its temporary index from the
+    worktree copy, which the fixer rewrote on the first run."""
+    vault, env = _hook_vault(tmp_path)
+    (vault / "daily" / "d.md").write_text("a thought\n")
+    subprocess.run(["git", "add", "daily/d.md"], cwd=vault, env=env, check=True)
+    assert _commit(vault, env, "--", "daily/d.md").returncode == 1
+    assert _commit(vault, env, "--", "daily/d.md").returncode == 0
+    shown = subprocess.run(
+        ["git", "show", "HEAD:daily/d.md"],
+        cwd=vault,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert shown == '---\ntype: "daily"\n---\na thought\n'
+
+
+def test_real_hook_reports_a_partially_staged_file_and_leaves_it(tmp_path):
+    vault, env = _hook_vault(tmp_path)
+    note = vault / "daily" / "d.md"
+    note.write_text("a\n")
+    subprocess.run(["git", "add", "daily/d.md"], cwd=vault, env=env, check=True)
+    note.write_text("a\nb\n")
+    refused = _commit(vault, env)
+    assert refused.returncode == 1
+    assert "partially staged" in refused.stderr
+    assert "commit-closing verification failed" in refused.stderr  # the bare index copy
+    assert note.read_text() == "a\nb\n"
+
+
+def test_real_hook_regenerates_root_log_and_names_it(tmp_path):
+    vault, env = _hook_vault(tmp_path)
+    day = vault / "log" / "2026-10-24.md"
+    day.write_text('---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — a line\n')
+    subprocess.run(["git", "add", "log/2026-10-24.md"], cwd=vault, env=env, check=True)
+    refused = _commit(vault, env)
+    assert refused.returncode == 1
+    assert "log.md" in refused.stderr
+    assert "a line" in (vault / "log.md").read_text()
+    subprocess.run(["git", "add", "log.md"], cwd=vault, env=env, check=True)
+    assert _commit(vault, env).returncode == 0

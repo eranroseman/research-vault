@@ -1,6 +1,12 @@
 #!/bin/sh
-# research-vault pre-commit: offline commit-closing checks.
+# research-vault pre-commit: the fixer, then the offline commit-closing checks.
 # Bypass: git commit --no-verify. CI replays the same checks.
+# This hook never stages (#203). It runs the one fixer (stamp-type --staged:
+# type stamp, link normalisation, root log.md) on the staged files whose
+# worktree copy equals the staged blob, and refuses the commit when the fixer
+# changed any of them: stage them and run the same commit again. A partially
+# staged file is reported, never rewritten. Under `git commit -- <paths>` the
+# fixer sees the temporary index git names in GIT_INDEX_FILE.
 # The lifecycle leg is held — verify --offline reports it UNREACHABLE and
 # never blocks; ingest spec invariant 5.
 vault="$(git rev-parse --show-toplevel)" || exit 1
@@ -21,9 +27,18 @@ if ! git cat-file -e "$git_base^{tree}"; then
   exit 1
 fi
 
-stamped="$(python3 -m research_vault stamp-type --vault "$vault" | sed -n 's/^stamped //p')"
-if [ -n "$stamped" ]; then
-  printf '%s\n' "$stamped" | while IFS= read -r path; do git add -- "$path"; done
+fixed="$(python3 -m research_vault stamp-type --vault "$vault" --staged)"
+fixer_code=$?
+if [ "$fixer_code" -ne 0 ]; then
+  echo "pre-commit: the fixer exited with status $fixer_code; refusing an unfixed commit." >&2
+  exit "$fixer_code"
+fi
+printf '%s\n' "$fixed" | grep -v -e '^stamped ' -e '^normalised ' -e '^regenerated ' -e '^$' >&2
+changed="$(printf '%s\n' "$fixed" | sed -n -e 's/^stamped //p' -e 's/^normalised //p' -e 's/^regenerated //p' | awk '!seen[$0]++')"
+if [ -n "$changed" ]; then
+  echo "pre-commit: the fixer changed these files; stage them and run the same commit again:" >&2
+  printf '%s\n' "$changed" | sed 's/^/  /' >&2
+  exit 1
 fi
 
 python3 -m research_vault verify --vault "$vault" --offline --surface commit --git-base "$git_base" --git-candidate index
@@ -38,6 +53,10 @@ case "$code" in
   3)
     echo "pre-commit: verification unreachable; leaving commit open for CI replay." >&2
     exit 0
+    ;;
+  4)
+    echo "pre-commit: the OKF reader's dependency is missing (PyYAML); refusing an unverified commit." >&2
+    exit 4
     ;;
   *)
     echo "pre-commit: verifier exited unexpectedly with status $code." >&2
