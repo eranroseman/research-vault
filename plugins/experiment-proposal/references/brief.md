@@ -9,7 +9,7 @@ Three lines before the first section:
 ```text
 Draft: proposal/draft.md
 Status: open
-Checklist: experiment-proposal 0.2.0
+Checklist: experiment-proposal 0.3.0
 ```
 
 `Draft:` is the path the proposal draft will have. `Status:` is `open` while the rounds run and `frozen YYYY-MM-DD` once the user has approved the brief and it is committed. `Checklist:` carries the plugin's version, read from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`.
@@ -31,7 +31,7 @@ One entry under Decisions per design-tree item (the checklist items whose scope 
 - Source: user, round 3
 ```
 
-The five lines, in that order, and nothing else in the entry. The Decision line is at most 400 characters; numbers, tables and long reasoning go in Looked up or the rationale. The Rationale quotes the user's words, or reads `accepted recommendation: <its basis>` after a bare "yes". The Source is `user, round N`, `extracted from <file>, "<quoted passage>" (<location>)`, or `hci-researcher`.
+The five lines, in that order, and nothing else in the entry. The Decision line is at most 400 characters; numbers, tables and long reasoning go in Looked up or the rationale. The Rationale quotes the user's words, or reads `accepted recommendation: <its basis>` after a bare "yes". The Source is `user, round N`, `extracted from <file>, "<quoted passage>" (<location>)`, `hci-researcher`, or `agent run, <date>` for a provisional entry an agent run wrote with the recommendation standing in.
 
 `Status:` is one of three words:
 

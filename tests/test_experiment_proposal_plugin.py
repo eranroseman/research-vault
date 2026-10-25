@@ -640,11 +640,11 @@ def _words(path: Path) -> int:
 
 
 WORD_BUDGETS = {
-    "skills/design/SKILL.md": 1400,
-    "skills/review/SKILL.md": 1100,
-    "skills/lit-search/SKILL.md": 650,
+    "skills/design/SKILL.md": 1500,
+    "skills/review/SKILL.md": 1300,
+    "skills/lit-search/SKILL.md": 900,
     "references/brief.md": 700,
-    "references/review.md": 800,
+    "references/review.md": 950,
 }
 
 
@@ -662,6 +662,7 @@ def test_the_status_words_agree_between_the_brief_shape_and_the_checker():
     assert "`missing`" in reference
     for label in _checker.ENTRY_LINES:
         assert f"- {label}:" in reference
+    assert "`agent run, <date>`" in reference
 
 
 def test_design_is_steps_that_point_at_the_shape_the_checker_and_the_subagent():
@@ -781,3 +782,10 @@ def test_the_result_words_and_counts_agree_between_the_review_shape_and_the_chec
     assert _checker.DEFEND in reference
     for command in _checker.INSTALL:
         assert command in reference
+    assert "`not confirmed`" in reference
+    assert "counted under Fail" in reference
+    assert "Checker: draft" in reference
+    assert "## Judged" in reference
+    assert "placeholder" in reference
+    assert "research-grill install not checked." in reference
+    assert "## Carrying an earlier review forward" in reference

@@ -23,6 +23,11 @@ The two reports judge nothing, skip the mechanics and exit 0; --json gives
 other list by each entry's first surname and year; the list's total is a
 stderr line.
 
+The review header may carry a fifth line, Checker: draft <options>, the
+option set the pass ran, checked as such; an optional ## Judged section
+follows Items; not confirmed is a result of the four attested items only
+and counts under Fail.
+
 Each defect line ends ` [<rule>; item <ID>]`, the rule a short slug and the
 ID the checklist item that owns it (`none` for a shape rule); --json carries
 them as the keys rule and item. Informational lines go to stderr and never
@@ -39,10 +44,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, NoReturn, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
@@ -70,6 +76,9 @@ OPEN_LINE = re.compile(r"^\d+\. (.+)$")
 OPEN_REF = re.compile(r"\bItems? (\d{1,2}\.\d{1,2})\b")
 COMMAND = "/experiment-proposal:"
 REVIEW_HEADER = ("Brief:", "Draft:", "Date:", "Checklist:")
+CHECKER_LINE = "Checker:"
+JUDGED = "Judged"
+ATTESTED_RESULT = "not confirmed"
 REVIEW_SECTIONS = (
     "Items",
     "Cross-section consistency",
@@ -80,7 +89,15 @@ REVIEW_SECTIONS = (
     "Hand-off",
 )
 SUBSTANCE = ("13.6", "13.7", "13.8", "13.9", "13.10", "13.11")
-RESULTS = ("pass narrowly", "pass", "fail (waived)", "fail", "not checked")
+RESULTS = (
+    "pass narrowly",
+    "pass",
+    "fail (waived)",
+    "fail",
+    "not confirmed",
+    "not checked",
+)
+FAILING = ("fail", "fail (waived)", "not confirmed")
 ROW = re.compile(
     r"^- \*\*(\d{1,2}\.\d{1,2})\*\* ("
     + "|".join(re.escape(r) for r in RESULTS)
@@ -533,6 +550,9 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
     return defects
 
 
+QUOTED = re.compile(r'"[^"]*"')
+
+
 def _review_rows(
     add: Adder,
     lines: Sequence[str],
@@ -582,6 +602,13 @@ def _review_rows(
                 "row-not-checked",
                 item_id,
             )
+        if result == ATTESTED_RESULT and item.kind != "attested":
+            add(
+                number,
+                f"row {item_id}: attested result on a draft-checked item",
+                "row-attested",
+                item_id,
+            )
         if result in ("pass", "pass narrowly"):
             if item.kind == "draft-checked" and QUOTE.search(rest) is None:
                 add(
@@ -597,6 +624,16 @@ def _review_rows(
                     "row-confirmed",
                     item_id,
                 )
+            for quoted in QUOTED.findall(rest):
+                placeholder = PLACEHOLDER.search(quoted)
+                if placeholder is not None:
+                    add(
+                        number,
+                        f"row {item_id} passes on a placeholder: {placeholder.group(0)}",
+                        "pass-placeholder",
+                        item_id,
+                    )
+                    break
     missing = [i for i in expected if i not in found]
     extra = [i for i in found if i not in expected]
     if missing:
@@ -605,9 +642,6 @@ def _review_rows(
         add(start, f"{name}: unexpected rows {', '.join(extra)}", "rows-extra")
     if not missing and not extra and found != list(expected):
         add(start, f"{name}: rows are not in checklist order", "rows-order")
-
-
-QUOTED = re.compile(r'"[^"]*"')
 
 
 def _fix_numbers(add: Adder, lines: Sequence[str]) -> int:
@@ -640,6 +674,43 @@ def _lines_in(lines: Sequence[str], section: tuple[int, int]) -> list[str]:
     return [clean(lines[number - 1]) for number in range(start + 1, end + 1)]
 
 
+class _OptionError(ValueError):
+    """argparse's error, raised instead of exiting, for the Checker line."""
+
+
+class _QuietParser(argparse.ArgumentParser):
+    def error(self, message: str) -> NoReturn:
+        raise _OptionError(message)
+
+
+def checker_line_defect(line: str) -> str | None:
+    """Why a `Checker:` header line is not a `draft` option set, or None."""
+    try:
+        tokens = shlex.split(line[len(CHECKER_LINE) :])
+    except ValueError as exc:
+        return f"unbalanced quotes ({exc})"
+    if not tokens or tokens[0] != "draft":
+        return "must begin `Checker: draft`"
+    parser = _QuietParser(add_help=False, allow_abbrev=False)
+    add_draft_options(parser)
+    try:
+        args, extra = parser.parse_known_args(tokens[1:])
+    except _OptionError as exc:
+        return str(exc)
+    if extra:
+        return f"unknown option(s): {' '.join(extra)}"
+    given = {token.split("=", 1)[0] for token in tokens[1:] if token.startswith("--")}
+    missing = [option for option in ("--words", "--references") if option not in given]
+    if missing:
+        return "missing " + " and ".join(missing)
+    try:
+        parse_range(args.words)
+        parse_range(args.references)
+    except ValueError:
+        return "--words and --references take LOW-HIGH"
+    return None
+
+
 def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
     lines = path.read_text(encoding="utf-8").splitlines()
     defects: list[Defect] = []
@@ -654,10 +725,21 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
     for prefix in REVIEW_HEADER:
         if not any(line.startswith(prefix) for line in header):
             add(1, f"header: no `{prefix}` line", "header-line")
-    if names != list(REVIEW_SECTIONS):
+    for line in header:
+        if line.startswith(CHECKER_LINE) and (why := checker_line_defect(line)):
+            add(
+                1,
+                f"header: Checker line is not a draft option set: {why}",
+                "checker-line",
+                "3.1",
+            )
+    expected_sections = list(REVIEW_SECTIONS)
+    if JUDGED in names:
+        expected_sections.insert(1, JUDGED)
+    if names != expected_sections:
         add(
             first,
-            "sections must be Items, Cross-section consistency, Brief against draft, Substance tests, Summary, Waivers, Hand-off, in that order",
+            "sections must be Items, Cross-section consistency, Brief against draft, Substance tests, Summary, Waivers, Hand-off, in that order (Judged, optional, after Items)",
             "sections",
         )
     by_name = {name: (start, end) for name, start, end in sections}
@@ -745,7 +827,7 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
             computed = (
                 sum(1 for r in results.values() if r != "not checked"),
                 sum(1 for r in results.values() if r in ("pass", "pass narrowly")),
-                sum(1 for r in results.values() if r in ("fail", "fail (waived)")),
+                sum(1 for r in results.values() if r in FAILING),
                 sum(1 for r in results.values() if r == "not checked"),
                 findings,
                 fixes,

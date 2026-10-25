@@ -735,6 +735,133 @@ def test_the_row_pattern_accepts_every_result_word():
         assert match.group(2) == result
 
 
+def test_not_confirmed_is_accepted_on_attested_items_and_counts_under_fail(tmp_path):
+    text = mutate(
+        valid_review(),
+        "- **3.1** pass: confirmed by the user, 2026-10-27",
+        "- **3.1** not confirmed: earlier review.md read confirmed by the user, 2026-10-15",
+    )
+    text = mutate(text, "Pass: 65. Fail: 0.", "Pass: 64. Fail: 1.")
+    path = tmp_path / "review.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("review", str(path))
+    assert result.returncode == 0, result.stdout
+    wrong = mutate(text, "Pass: 64. Fail: 1.", "Pass: 65. Fail: 0.")
+    path.write_text(wrong, encoding="utf-8")
+    assert "Summary: Fail says 0, the rows give 1" in run("review", str(path)).stdout
+    draft_checked = mutate(
+        valid_review(),
+        '- **7.5** pass: "a quoted passage" (Design, para 2)',
+        "- **7.5** not confirmed: nobody asked",
+    )
+    path.write_text(draft_checked, encoding="utf-8")
+    assert (
+        "row 7.5: attested result on a draft-checked item [row-attested; item 7.5]"
+        in run("review", str(path)).stdout
+    )
+
+
+def test_a_pass_quoted_from_a_placeholder_is_a_defect(tmp_path):
+    text = mutate(
+        valid_review(),
+        '- **8.9** pass: "a quoted passage" (Design, para 2)',
+        '- **8.9** pass: "[NO-SHOW EXTRAS] extra bookings" (Appendix A, para 2)',
+    )
+    path = tmp_path / "review.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("review", str(path))
+    assert result.returncode == 1
+    assert (
+        "row 8.9 passes on a placeholder: [NO-SHOW EXTRAS] [pass-placeholder; item 8.9]"
+        in result.stdout
+    )
+    for quote in ('"the TODO list" (Design)', '"a TBD count" (Design)'):
+        path.write_text(
+            mutate(
+                valid_review(),
+                '- **8.9** pass: "a quoted passage" (Design, para 2)',
+                f"- **8.9** pass: {quote}",
+            ),
+            encoding="utf-8",
+        )
+        assert "pass-placeholder" in run("review", str(path)).stdout
+    acronym = mutate(
+        valid_review(),
+        '- **8.9** pass: "a quoted passage" (Design, para 2)',
+        '- **8.9** pass: "the [27] source and a [Named] thing" (Design, para 2)',
+    )
+    path.write_text(acronym, encoding="utf-8")
+    assert run("review", str(path)).returncode == 0
+
+
+def test_the_checker_header_line_is_accepted_when_it_is_a_draft_option_set(tmp_path):
+    text = mutate(
+        valid_review(),
+        "Checklist: experiment-proposal 0.2.0\n",
+        'Checklist: experiment-proposal 0.2.0\nChecker: draft --words 2000-4000 --references 15-20 --supervisor "Dr. Example"\n',
+    )
+    path = tmp_path / "review.md"
+    path.write_text(text, encoding="utf-8")
+    assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
+    full = mutate(
+        text,
+        'Checker: draft --words 2000-4000 --references 15-20 --supervisor "Dr. Example"',
+        'Checker: draft --sections "Introduction, Design, Appendix" --words 2000-4000 --references 15-27 --review-section "Related work"',
+    )
+    path.write_text(full, encoding="utf-8")
+    assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
+    for bad, why in (
+        (
+            "Checker: draft --words 2000-4000 --references 15-20 --colour blue",
+            "unknown option(s): --colour blue",
+        ),
+        ("Checker: review proposal/review.md", "must begin `Checker: draft`"),
+        ("Checker: draft --words 2000-4000", "missing --references"),
+        (
+            "Checker: draft --words lots --references 15-20",
+            "--words and --references take LOW-HIGH",
+        ),
+        (
+            "Checker: draft --word 2000-4000 --references 15-20",
+            "unknown option(s): --word 2000-4000",
+        ),
+    ):
+        path.write_text(
+            mutate(
+                text,
+                'Checker: draft --words 2000-4000 --references 15-20 --supervisor "Dr. Example"',
+                bad,
+            ),
+            encoding="utf-8",
+        )
+        out = run("review", str(path)).stdout
+        assert (
+            f"header: Checker line is not a draft option set: {why} [checker-line; item 3.1]"
+            in out
+        ), out
+
+
+def test_a_judged_section_is_accepted_after_items_only(tmp_path):
+    text = mutate(
+        valid_review(),
+        "## Cross-section consistency\n",
+        "## Judged\n\n- RQ1: Is target selection faster with a mouse or a trackball?\n- H1: faster with the mouse.\n\n## Cross-section consistency\n",
+    )
+    path = tmp_path / "review.md"
+    path.write_text(text, encoding="utf-8")
+    assert run("review", str(path)).returncode == 0, run("review", str(path)).stdout
+    misplaced = mutate(
+        valid_review(),
+        "## Summary\n",
+        "## Judged\n\n- RQ1.\n\n## Summary\n",
+    )
+    path.write_text(misplaced, encoding="utf-8")
+    assert (
+        "sections must be Items, Cross-section consistency, Brief against draft, Substance tests, Summary, Waivers, Hand-off, in that order (Judged, optional, after Items)"
+        in run("review", str(path)).stdout
+    )
+
+
 # --------------------------------------------------------------------------
 # draft
 # --------------------------------------------------------------------------
