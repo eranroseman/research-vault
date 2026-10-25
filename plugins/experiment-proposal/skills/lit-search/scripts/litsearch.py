@@ -10,7 +10,8 @@ Usage:
                  [--exclude FILE] [--compact | --full] [--out FILE]
 
 The records go to stdout as CSL-YAML with every string a double-quoted JSON
-scalar, valid YAML whatever a title holds; compact by default (title, author
+scalar, each character outside YAML's printable set escaped and a lone surrogate
+made U+FFFD, valid YAML whatever a title holds; compact by default (title, author
 surnames, year, venue, DOI, abstract cut to 300 characters), --full adds given
 names, URL, type and source and cuts the abstract at 1,500. --exclude names the
 judged file, one record per line `<DOI or title> | <kept or rejected> |
@@ -33,6 +34,7 @@ import argparse
 import contextlib
 import io
 import json
+import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
@@ -54,6 +56,15 @@ ABSTRACT_FULL = 1500
 DEGRADED_429 = "note: source degraded — semantic_scholar: HTTP 429"
 SKIP_429 = "semantic_scholar: skipped (HTTP 429); snowball's graph endpoints cover it"
 DEFAULT_SOURCES = [name for name in search.SEARCH_SOURCES if name != "dblp"]
+# What JSON leaves raw and a YAML parser refuses or alters: the characters
+# outside YAML's printable set (DEL, the C1 controls, U+FFFE, U+FFFF) and NEL
+# (U+0085), a line break YAML folds to a space. Each is escaped as \uXXXX.
+NOT_YAML_PRINTABLE = re.compile(
+    r"[^\t\n\r\x20-\x7e\xa0-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]"
+)
+# Half a UTF-16 pair, from a \ud800-style escape in a server's JSON: no
+# character, so no UTF-8 file and no YAML parser holds it; it becomes U+FFFD.
+LONE_SURROGATE = re.compile(r"[\ud800-\udfff]")
 
 
 class Tee(io.TextIOBase):
@@ -123,8 +134,10 @@ def source_lines(
 
 
 def scalar(value: object) -> str:
-    """A YAML double-quoted scalar: JSON's string form is a subset of YAML's."""
-    return json.dumps(str(value), ensure_ascii=False)
+    """A YAML double-quoted scalar: JSON's string form is a subset of YAML's
+    once the characters YAML cannot hold raw are escaped."""
+    text = json.dumps(LONE_SURROGATE.sub("\ufffd", str(value)), ensure_ascii=False)
+    return NOT_YAML_PRINTABLE.sub(lambda match: f"\\u{ord(match[0]):04x}", text)
 
 
 def to_yaml(records: Sequence[dict], *, compact: bool) -> str:
@@ -184,9 +197,20 @@ def run_search(args: argparse.Namespace) -> tuple[list[dict], dict[str, str]]:
 
 
 def run_snowball(args: argparse.Namespace) -> tuple[list[dict], dict[str, str]]:
-    """The vendored expand and enrichment for one seed, the seed itself dropped."""
+    """The vendored expand and enrichment for one seed, the seed itself dropped.
+    The enrichment replaces a bare DOI with Crossref's record, tagged crossref;
+    the tag of the index that found the DOI is put back."""
     expanded = snowball.expand([args.doi], args.limit_per_seed, args.direction)
-    merged = common.dedupe(snowball.enrich_bare_dois(expanded))
+    found_by = {
+        common.clean_doi(item.get("DOI")): item.get("_source")
+        for item in expanded
+        if item.get("DOI") and not item.get("title")
+    }
+    enriched = snowball.enrich_bare_dois(expanded)
+    for record in enriched:
+        if tag := found_by.get(common.clean_doi(record.get("DOI"))):
+            record["_source"] = tag
+    merged = common.dedupe(enriched)
     seed = common.clean_doi(args.doi)
     return [record for record in merged if record.get("DOI") != seed], {}
 

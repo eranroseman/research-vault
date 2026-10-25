@@ -88,6 +88,59 @@ def test_a_title_with_a_newline_yields_output_that_strict_parses(federate, capsy
     assert "candidates: 2 (after exclude: 2)" in err
 
 
+def _c_safe_load(text):
+    return yaml.load(text, Loader=yaml.CSafeLoader)
+
+
+@pytest.mark.parametrize(
+    "load",
+    [
+        pytest.param(yaml.safe_load, id="SafeLoader"),
+        pytest.param(
+            _c_safe_load,
+            id="CSafeLoader",
+            marks=pytest.mark.skipif(
+                not yaml.__with_libyaml__, reason="PyYAML built without libyaml"
+            ),
+        ),
+    ],
+)
+def test_characters_yaml_cannot_hold_raw_round_trip_and_a_lone_surrogate_becomes_fffd(
+    monkeypatch, capsys, tmp_path, load
+):
+    """JSON leaves DEL, the C1 controls (a cp1252 apostrophe \\x92 among them),
+    NEL and the noncharacters raw, and YAML refuses or folds them; a lone
+    surrogate (from a \\ud800 escape in a server's JSON) is no character at all."""
+    odd = {
+        "type": "article-journal",
+        "title": "It\x92s a \x7f title, \x85 folded, \ufffe\uffff, \x1b, tab\t, é 😀",
+        "_source": "crossref",
+        "DOI": "10.1000/odd",
+        "author": [{"family": "O\x92Brien", "given": "\x7fJ."}],
+        "container-title": "Venue\x85",
+        "abstract": "An\x92 abstract\x85",
+    }
+    broken = {
+        "title": "half a pair \ud800 here",
+        "_source": "arxiv",
+        "abstract": "lone \udfff",
+    }
+    monkeypatch.setattr(
+        wrapper.search,
+        "federate",
+        lambda query, limit, sources: [dict(odd), dict(broken)],
+    )
+    assert wrapper.main(["search", "q", "--full"]) == 0
+    records = load(capsys.readouterr().out)
+    for key in ("title", "author", "container-title", "abstract", "DOI", "type"):
+        assert records[0][key] == odd[key], key
+    assert records[1]["title"] == "half a pair \ufffd here"
+    assert records[1]["abstract"] == "lone \ufffd"
+    target = tmp_path / "round.yaml"
+    assert wrapper.main(["search", "q", "--full", "--out", str(target)]) == 0
+    assert load(target.read_text(encoding="utf-8")) == records
+
+
 def test_full_output_keeps_given_names_the_url_the_type_and_the_source(
     federate, capsys
 ):
@@ -240,6 +293,8 @@ def test_snowball_uses_the_vendored_expand_and_enrichment_and_drops_the_seed(
 
     def fake_expand(seeds, limit, direction):
         seen["expand"] = (list(seeds), limit, direction)
+        # a 429 in snowball mode: relayed, but the search-only skip line is false here
+        print(wrapper.DEGRADED_429, file=sys.stderr)  # noqa: T201
         return [
             {"DOI": "10.1000/bare", "_source": "opencitations"},
             dict(RECORD),
@@ -247,8 +302,15 @@ def test_snowball_uses_the_vendored_expand_and_enrichment_and_drops_the_seed(
         ]
 
     def fake_enrich(items):
+        """As the vendored enrichment does: a titled record passes through, a
+        bare DOI is replaced by Crossref's record, tagged crossref."""
         seen["enrich"] = len(items)
-        return [dict(item, title=item.get("title") or "Enriched") for item in items]
+        return [
+            item
+            if item.get("title")
+            else {"title": "Enriched", "DOI": item["DOI"], "_source": "crossref"}
+            for item in items
+        ]
 
     monkeypatch.setattr(wrapper.snowball, "expand", fake_expand)
     monkeypatch.setattr(wrapper.snowball, "enrich_bare_dois", fake_enrich)
@@ -259,7 +321,10 @@ def test_snowball_uses_the_vendored_expand_and_enrichment_and_drops_the_seed(
     titles = [r["title"] for r in yaml.safe_load(out)]
     assert "The seed" not in titles
     assert "Enriched" in titles
+    # the enriched record keeps the tag of the index that found it
     assert 'opencitations(1, 1) query="https://doi.org/10.1000/SEED"' in err
+    assert 'crossref(1, 1) query="https://doi.org/10.1000/SEED"' in err
+    assert f"{wrapper.DEGRADED_429}\n" in err
     assert "semantic_scholar: skipped" not in err
 
 
