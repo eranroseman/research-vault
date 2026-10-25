@@ -1557,9 +1557,7 @@ def test_the_draft_fixture_fails_exactly_the_three_planted_mechanics():
     ]
 
 
-def test_the_checker_stops_with_an_install_pointer_on_an_old_python(
-    monkeypatch, capsys
-):
+def test_the_checker_stops_on_an_old_python_saying_it_needs_3_11(monkeypatch, capsys):
     monkeypatch.setattr(checker.sys, "version_info", (3, 10, 0))
     assert checker.main(["brief", "proposal/design-brief.md"]) == 2
     assert "Python 3.11 or later" in capsys.readouterr().err

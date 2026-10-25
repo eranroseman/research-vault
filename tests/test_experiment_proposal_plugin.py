@@ -847,6 +847,14 @@ def test_readme_states_the_lens_the_mechanics_the_prerequisites_and_the_vendored
         in text
     )
     assert "the user picks fixes with /experiment-proposal:review" in text
+    assert "frozen brief; amendments need the user" in text
+    assert "research-grill install not checked." in text
+    assert "stops with a one-line ask" in text
+    assert "saying it needs Python 3.11 or later" in text
+    assert "install pointer" not in text
+    assert "--out" in text
+    assert "compact by default" in text
+    assert "DBLP on a short query of its own" in text
     assert "--numbers" in text
     assert "--placeholders" in text
     assert "pass-placeholder" in text
