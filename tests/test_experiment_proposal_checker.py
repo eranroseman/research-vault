@@ -1303,6 +1303,8 @@ def test_numbers_groups_repeated_values_and_masks_citations_code_and_heading_num
     report = json.loads(result.stdout)["numbers"]
     by_value = {group["value"]: group["locations"] for group in report}
     assert set(by_value) == {"52", "36", "$847", "93%"}, by_value
+    # document order, within a line too: `52` and `36` precede `$847` on one line
+    assert [group["value"] for group in report] == ["52", "36", "$847", "93%"]
     assert len(by_value["52"]) == 2
     assert len(by_value["36"]) == 2
     assert {loc["heading"] for loc in by_value["36"]} == {

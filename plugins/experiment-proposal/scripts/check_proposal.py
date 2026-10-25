@@ -1106,12 +1106,13 @@ def numbers_report(lines: Sequence[str]) -> list[dict]:
                 + " " * len(heading.group(2))
                 + masked[heading.end(2) :]
             )
+        hits: list[tuple[int, int, str]] = []  # recorded in line order, not by pattern
         for pattern, suffix in ((MONEY, ""), (PERCENT, "%")):
             for m in pattern.finditer(masked):
                 digits = re.sub(r"[\s,%$]", "", m.group(0))
                 value = ("$" if pattern is MONEY else "") + digits + suffix
                 always.add(value)
-                record(value, number, line, m.start(), m.end())
+                hits.append((m.start(), m.end(), value))
             masked = _blank(masked, pattern)
         for m in INTEGER.finditer(masked):
             digits = m.group(0).replace(",", "")
@@ -1123,7 +1124,9 @@ def numbers_report(lines: Sequence[str]) -> list[dict]:
                 and NUMBERS_YEAR[0] <= int(digits) <= NUMBERS_YEAR[1]
             ):
                 continue
-            record(digits, number, line, m.start(), m.end())
+            hits.append((m.start(), m.end(), digits))
+        for start, end, value in sorted(hits):
+            record(value, number, line, start, end)
     return [
         {"value": value, "locations": locations}
         for value, locations in groups.items()
