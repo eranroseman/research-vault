@@ -15,6 +15,15 @@ folder (``is_folder``), which resolves to no file and is never read as
 ``<name>.md``. Only a markdown destination can be a URI (``is_external``),
 and the caller skips one before resolving: a wikilink target never is one,
 so ``[[ghost:2020]]`` resolves as a name.
+
+The normaliser rewrites a note's body only; its frontmatter block is never
+normalised. Dataview's frontmatter reader takes only ``[[…]]`` as a link, so
+a rewritten property would lose its Link type (the reason Q19 masks
+``[k:: …]`` fields in the body), while Obsidian core reads both forms there
+(app.js ``cD``, per the plan author's ruling of 2026-10-25), so nothing core
+is lost; and ``read_okf`` at seal is the YAML gate. This deviates from spec
+§5.2, which has the normaliser refuse a rewrite that leaves frontmatter
+unparseable: with no rewrite there is nothing to refuse.
 """
 
 from __future__ import annotations
@@ -343,11 +352,12 @@ _NOT_LINE_END = re.compile(r"[^\r\n]")
 
 @dataclass(frozen=True)
 class Problem:
-    """A link the normaliser left as written for a person to resolve: its target
-    names no file (``dead``) or several (``ambiguous``, with the candidates), or
-    it sits in a frontmatter block kept as written (``frontmatter``: a rewrite
-    would leave the block unreadable, or the block has no closing ``---``).
-    ``written`` is the link's span exactly as the text holds it."""
+    """What the normaliser left as written for a person to resolve: a link
+    whose target names no file (``dead``) or several (``ambiguous``, with the
+    candidates), or a note whose frontmatter block has no closing ``---``
+    line (``frontmatter``: the note was not normalised; ``target`` is empty).
+    ``written`` is the link's span, or the block's opening line, exactly as
+    the text holds it."""
 
     kind: Literal["dead", "ambiguous", "frontmatter"]
     target: str
@@ -450,13 +460,10 @@ def _kept_as_written(link: Link) -> bool:
     )
 
 
-def _rewrite(
-    text: str, index: Index, source: str
-) -> tuple[str, list[Problem], list[Link]]:
-    """``text`` normalised, the links left for a person, and the links rewritten."""
+def _rewrite(text: str, index: Index, source: str) -> tuple[str, list[Problem]]:
+    """``text`` normalised, and the links left for a person."""
     spans = _protected_spans(text)
     problems: list[Problem] = []
-    rewritten: list[Link] = []
     pieces: list[str] = []
     cursor = 0
     for link in find_links(text):
@@ -478,47 +485,36 @@ def _rewrite(
         # A markdown link's text is its alias, never None, so the renderer
         # keeps it as written; only the destination changes.
         pieces += [text[cursor : link.start], render_markdown(link, hits[0])]
-        rewritten.append(link)
         cursor = link.end
     pieces.append(text[cursor:])
-    return "".join(pieces), problems, rewritten
+    return "".join(pieces), problems
 
 
 def normalize(text: str, index: Index, *, source: str) -> tuple[str, list[Problem]]:
-    """Rewrite every resolvable wikilink to the markdown form and add the `/`
-    to a bare markdown destination that resolves to one file; leave URIs,
-    folders, same-page anchors, relative forms, dead and ambiguous targets
-    alone, and report every dead and ambiguous one. The frontmatter block is
-    rewritten only if the result still reads as YAML; one with no closing
-    `---` line is never rewritten. What is reported is
-    the caller's to print, not a review-queue row: outside `wiki/` a link to
-    a note not yet written is an ordinary act, never a refused commit."""
+    """Rewrite every resolvable wikilink in the body to the markdown form and
+    add the `/` to a bare markdown destination that resolves to one file;
+    leave URIs, folders, same-page anchors, relative forms, dead and
+    ambiguous targets alone, and report every dead and ambiguous one.
+
+    The frontmatter block, opening `---` line through closing delimiter, is
+    passed through byte for byte and nothing in it is reported: Dataview
+    reads only `[[…]]` as a link in a property, and read_okf at seal is the
+    YAML gate (a deviation from §5.2's "refuses a rewrite that leaves
+    frontmatter unparseable"; see the module docstring). A note whose block
+    has no closing `---` line is not normalised at all, and is reported once.
+
+    What is reported is the caller's to print, not a review-queue row:
+    outside `wiki/` a link to a note not yet written is an ordinary act,
+    never a refused commit."""
     opening = frontmatter._FRONTMATTER_OPEN.match(text)
     if opening is None:
-        new_text, problems, _ = _rewrite(text, index, source)
-        return new_text, problems
+        return _rewrite(text, index, source)
     closing = frontmatter._FRONTMATTER_CLOSE.search(text, opening.end())
-    # With no closing `---` line (none at all, or a last one with no newline
-    # after it) the rest of the file is the would-be block and there is no
-    # body: read_okf refuses the block as unterminated, so it is kept whole.
-    end, after = closing.span() if closing else (len(text), len(text))
-    head = text[: opening.end()]
-    block = text[opening.end() : end]
-    delimiter = text[end:after]
-    new_body, problems, _ = _rewrite(text[after:], index, source)
-    new_block, block_problems, rewritten = _rewrite(block, index, source)
-    if rewritten:
-        try:
-            frontmatter.read_okf(head + new_block + delimiter)
-        except frontmatter.FrontmatterError:
-            # An unquoted `related: [[x]]` would become `related: [x](/p/x.md)`,
-            # a flow sequence followed by junk: the block is kept as written and
-            # every link that would have been rewritten is reported with it.
-            kept = [
-                Problem(
-                    "frontmatter", link.target, written=block[link.start : link.end]
-                )
-                for link in rewritten
-            ]
-            return head + block + delimiter + new_body, kept + block_problems + problems
-    return head + new_block + delimiter + new_body, block_problems + problems
+    if closing is None:
+        # No closing `---` line (none at all, or a last one with no newline
+        # after it, which read_okf also refuses): where the block ends is
+        # unknown, so no part of the note is the body.
+        opening_line = text[: opening.end()].rstrip("\r\n")
+        return text, [Problem("frontmatter", "", written=opening_line)]
+    new_body, problems = _rewrite(text[closing.end() :], index, source)
+    return text[: closing.end()] + new_body, problems

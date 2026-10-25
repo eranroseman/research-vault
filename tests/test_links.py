@@ -349,25 +349,19 @@ def test_normalize_skips_anchored_claim_blocks_whole_and_masks_inline_fields(tmp
     )
 
 
-def test_normalize_refuses_a_rewrite_that_leaves_frontmatter_unparseable(tmp_path):
+def test_normalize_leaves_the_frontmatter_block_byte_for_byte(tmp_path):
+    """Only the body is normalised: Dataview reads only `[[…]]` as a link in a
+    property, so a rewritten one would lose its Link type. Nothing in the
+    block is rewritten or reported, dead and ambiguous links included."""
     index = _index(tmp_path)
-    text = "---\ntype: note\nrelated: [[Only Here]]\n---\nbody [[Only Here]]\n"
-    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
-    assert (
-        out
-        == "---\ntype: note\nrelated: [[Only Here]]\n---\nbody [Only Here](/wiki/concepts/Only%20Here.md)\n"
+    block = (
+        '---\ntype: note\nrelated: "[[Only Here]]"\nbare: [[Only Here]]\n'
+        'md: "[b](concepts/Foo.md)"\nup: [[Foo]]\ngone: "[[nowhere]]"\n---\n'
     )
-    assert [(p.kind, p.target) for p in problems] == [("frontmatter", "Only Here")]
-
-
-def test_normalize_rewrites_a_quoted_frontmatter_link_that_stays_valid(tmp_path):
-    index = _index(tmp_path)
-    text = '---\ntype: note\nrelated: "[[Only Here]]"\n---\n'
-    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
-    assert (
-        out
-        == '---\ntype: note\nrelated: "[Only Here](/wiki/concepts/Only%20Here.md)"\n---\n'
+    out, problems = links.normalize(
+        block + "body [[Only Here]]\n", index, source="projects/brief/draft.md"
     )
+    assert out == block + "body [Only Here](/wiki/concepts/Only%20Here.md)\n"
     assert problems == []
 
 
@@ -464,23 +458,6 @@ def test_normalize_leaves_the_seed_index_folder_links_alone_and_unreported(tmp_p
     assert problems == []
 
 
-def test_normalize_reports_the_other_links_of_a_refused_frontmatter_rewrite(tmp_path):
-    """The block is kept whole when a rewrite would break its YAML; a link
-    that would have been rewritten is reported as such, an ambiguous one as
-    ambiguous, and an already-normal `/`-led one not at all."""
-    index = _index(tmp_path)
-    text = (
-        "---\nrelated: [[Only Here]]\nup: [[Foo]]\n"
-        'norm: "[x](/wiki/concepts/Foo.md)"\n---\n'
-    )
-    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
-    assert out == text
-    assert [(p.kind, p.target) for p in problems] == [
-        ("frontmatter", "Only Here"),
-        ("ambiguous", "Foo"),
-    ]
-
-
 _AFTER = "\nafter [[Only Here]]\n"
 _AFTER_NORMAL = "\nafter [Only Here](/wiki/concepts/Only%20Here.md)\n"
 
@@ -553,21 +530,21 @@ def test_normalize_masks_no_comment_inside_code_and_no_span_across_a_blank_line(
     [
         "---\nrelated: [[Only Here]]\nup: [[nowhere]]\n---",
         "---\nrelated: [[Only Here]]\nup: [[nowhere]]\n",
+        "---\r\nrelated: [[Only Here]]\r\nup: [[nowhere]]\r\n",
     ],
-    ids=["closed-at-eof-without-newline", "unterminated"],
+    ids=["closed-at-eof-without-newline", "unterminated", "unterminated-crlf"],
 )
-def test_normalize_never_rewrites_inside_an_unterminated_frontmatter_block(
+def test_normalize_reports_an_unterminated_frontmatter_block_once_and_rewrites_nothing(
     tmp_path, text
 ):
-    """With no closing `---` line read_okf would accept, the rest of the file
-    is the would-be block: kept as written, its links reported as for a
-    refused rewrite."""
+    """With no closing `---` line read_okf would accept, the note is not
+    normalised: one `frontmatter` Problem for the note, written as its opening
+    line, and none for the links in it."""
     index = _index(tmp_path)
     out, problems = links.normalize(text, index, source="projects/brief/draft.md")
     assert out == text
-    assert [(p.kind, p.target) for p in problems] == [
-        ("frontmatter", "Only Here"),
-        ("dead", "nowhere"),
+    assert [(p.kind, p.target, p.candidates, p.written) for p in problems] == [
+        ("frontmatter", "", (), "---")
     ]
 
 
@@ -579,7 +556,6 @@ def test_normalize_reports_each_problem_with_its_link_as_written(tmp_path):
     )
     _, problems = links.normalize(text, index, source="projects/brief/draft.md")
     assert [(p.kind, p.target, p.written) for p in problems] == [
-        ("frontmatter", "Only Here", "[[Only Here|here]]"),
         ("dead", "nowhere.md", "[g](nowhere.md)"),
         ("dead", "x.png", "![[x.png]]"),
         ("ambiguous", "Foo", "[[Foo|B]]"),
