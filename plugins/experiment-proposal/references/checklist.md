@@ -18,7 +18,7 @@ Each item is one line: `- **ID** (kind; scope; depends on IDs) holds-when text`.
 - The lens's mechanics are items the draft can show: the section list and order (item 3.2), the word bounds (item 13.5), the reference count (item 5.1), the bullet list of contributions (item 4.3) and the consent form's supervision sentence (item 12.3); item 3.1 records the template's values for them, with the course's values as defaults.
 - The plugin's `lit-search` skill replaces step 5's search tips; item 5.2 is attested.
 - research-grill's defend stage replaces "present to a critical listener" (item 13.2), and its written record serves the feedback item (item 13.3); `review` checks neither and hands off to the defend stage.
-- Additions: the six substance tests (items 13.6 to 13.11), closely paraphrased, some clauses verbatim, from hutzelmann/thesis-proposal-skills' `shared/guidelines/guidelines.md` (MIT; commit `1666e690e7b2f0659531253d319d41ebf0a310d7`, v0.9.0, text unchanged since `a38b7b1`), read through proposal-supervise's generated copy of it, in sentences split from research-grill's.
+- Additions: the six substance tests (items 13.6 to 13.11), closely paraphrased, some clauses verbatim, from hutzelmann/thesis-proposal-skills' `shared/guidelines/guidelines.md` (MIT; commit `1666e690e7b2f0659531253d319d41ebf0a310d7`, v0.9.0, text unchanged since `a38b7b1`), read through proposal-supervise's generated copy of it.
 - Three ideas restated from scdenney's research-grill (CC BY-NC 4.0, no text copied) shape `design`, not this list: the "why this matters" line, provisional answers, and a written record.
 
 ## Step 1: fit, ethics and data

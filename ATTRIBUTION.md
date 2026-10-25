@@ -73,7 +73,7 @@ request.
 — MIT, © 2026 Thomas Hutzelmann, vendored at pin `1666e690` (v0.9.0): the nine upstream
 proposal-lit-search scripts, unchanged apart from their headers, under
 `plugins/experiment-proposal/skills/lit-search/scripts/`. The `lit-search`
-SKILL.md over them is this repository's own. The six substance tests of its
+SKILL.md over them is this repository's own. The six substance tests of hutzelmann's
 `shared/guidelines/guidelines.md` are closely paraphrased, some clauses verbatim,
 into the plugin's `references/checklist.md` items 13.6 to 13.11 (read at `1666e690`,
 v0.9.0; text unchanged since `a38b7b1`).

@@ -1514,7 +1514,7 @@ Expected: FAIL on the new assertions.
 Line 21 (the Additions bullet) becomes:
 
 ```markdown
-- Additions: the six substance tests (items 13.6 to 13.11), closely paraphrased, some clauses verbatim, from hutzelmann/thesis-proposal-skills' `shared/guidelines/guidelines.md` (MIT; commit `1666e690e7b2f0659531253d319d41ebf0a310d7`, v0.9.0, text unchanged since `a38b7b1`), read through proposal-supervise's generated copy of it, in sentences split from research-grill's.
+- Additions: the six substance tests (items 13.6 to 13.11), closely paraphrased, some clauses verbatim, from hutzelmann/thesis-proposal-skills' `shared/guidelines/guidelines.md` (MIT; commit `1666e690e7b2f0659531253d319d41ebf0a310d7`, v0.9.0, text unchanged since `a38b7b1`), read through proposal-supervise's generated copy of it.
 ```
 
 Item 5.1 (line 54) becomes:
@@ -1531,15 +1531,15 @@ Item 13.8 (line 122) becomes one line:
 
 - [ ] **Step 4: Edit the notices and the attribution**
 
-In `THIRD-PARTY-NOTICES.md`, the hutzelmann row's third column becomes `the nine scripts under `skills/lit-search/scripts/`: the upstream `skills/proposal-lit-search/scripts/\*.py`, unchanged apart from their headers; and the six substance tests of `shared/guidelines/guidelines.md`, closely paraphrased into `references/checklist.md` items 13.6 to 13.11, some clauses verbatim` (the commit column changes in Task 6). The "Ideas restated" paragraph is replaced by two:
+In `THIRD-PARTY-NOTICES.md`, the hutzelmann row's third column becomes `` the nine scripts under `skills/lit-search/scripts/`: the upstream `skills/proposal-lit-search/scripts/*.py`, unchanged apart from their headers; and the six substance tests of `shared/guidelines/guidelines.md`, closely paraphrased into `references/checklist.md` items 13.6 to 13.11, some clauses verbatim `` (the commit column changes in Task 6). The "Ideas restated" paragraph is replaced by two:
 
 ```markdown
-Text closely paraphrased, credited in `ATTRIBUTION.md` and in `references/checklist.md`: the six substance tests of hutzelmann's `shared/guidelines/guidelines.md` (MIT), some clauses verbatim, in sentences split from research-grill's; the MIT notice above covers them.
+Text closely paraphrased, credited in `ATTRIBUTION.md` and in `references/checklist.md`: the six substance tests of hutzelmann's `shared/guidelines/guidelines.md` (MIT), some clauses verbatim; the MIT notice above covers them.
 
 Ideas restated without copying text: the "why this matters" line, provisional answers and a written record of scdenney's research-grill (CC BY-NC 4.0), consulted and not copied.
 ```
 
-In `ATTRIBUTION.md`, the hutzelmann paragraph gains a sentence after "is this repository's own.": `The six substance tests of its `shared/guidelines/guidelines.md`are closely paraphrased, some clauses verbatim, into the plugin's`references/checklist.md`items 13.6 to 13.11 (read at`1666e690`, v0.9.0; text unchanged since `a38b7b1`).` The "Ideas only, no text reproduced" paragraph becomes:
+In `ATTRIBUTION.md`, the hutzelmann paragraph gains a sentence after "is this repository's own.": `` The six substance tests of hutzelmann's `shared/guidelines/guidelines.md` are closely paraphrased, some clauses verbatim, into the plugin's `references/checklist.md` items 13.6 to 13.11 (read at `1666e690`, v0.9.0; text unchanged since `a38b7b1`). `` The "Ideas only, no text reproduced" paragraph becomes:
 
 ```markdown
 Ideas only, no text reproduced: scdenney's research-grill (CC BY-NC 4.0; the "why this

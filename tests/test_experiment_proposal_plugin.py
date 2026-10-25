@@ -340,6 +340,10 @@ def test_third_party_notices_carry_the_mit_text_and_every_copyright_holder():
         p for p in text.split("\n\n") if "research-grill" in p and "CC BY-NC" in p
     )
     assert "hutzelmann" not in research_grill
+    hutzelmann_credit = next(
+        p for p in text.split("\n\n") if p.startswith("Text closely paraphrased")
+    )
+    assert "research-grill" not in hutzelmann_credit  # its text is not from there
     pm_row = next(
         line
         for line in text.splitlines()
@@ -687,6 +691,11 @@ def test_checklist_names_its_provenance_the_lens_and_its_deviations():
     assert "shared/guidelines/guidelines.md" in text
     assert "closely paraphrased" in text
     assert "restated in our own words" not in text
+    additions = next(
+        line for line in text.splitlines() if line.startswith("- Additions:")
+    )
+    # the substance tests' text is not from research-grill
+    assert "research-grill" not in additions
 
 
 def test_items_5_1_and_13_8_read_as_the_v3_spec_says():
