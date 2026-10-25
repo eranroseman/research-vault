@@ -349,15 +349,28 @@ def test_normalize_skips_anchored_claim_blocks_whole_and_masks_inline_fields(tmp
     )
 
 
-def test_normalize_leaves_the_frontmatter_block_byte_for_byte(tmp_path):
+@pytest.mark.parametrize(
+    "block",
+    [
+        '---\ntype: note\nrelated: "[[Only Here]]"\nmd: "[b](concepts/Foo.md)"\n---\n',
+        (
+            '---\ntype: note\nrelated: "[[Only Here]]"\nbare: [[Only Here]]\n'
+            'md: "[b](concepts/Foo.md)"\nup: [[Foo]]\ngone: "[[nowhere]]"\n---\n'
+        ),
+    ],
+    ids=["quoted-only", "mixed"],
+)
+def test_normalize_leaves_the_frontmatter_block_byte_for_byte(tmp_path, block):
     """Only the body is normalised: Dataview reads only `[[…]]` as a link in a
     property, so a rewritten one would lose its Link type. Nothing in the
-    block is rewritten or reported, dead and ambiguous links included."""
+    block is rewritten or reported, dead and ambiguous links included.
+
+    Two blocks, because each catches what the other cannot. Rewriting
+    `quoted-only` leaves valid YAML, so a rewrite guarded by "keep the block
+    if the YAML breaks" changes its bytes. In `mixed`, rewriting `bare:`
+    breaks the YAML, so that guard keeps the bytes as written; there,
+    `problems == []` catches any report of the block's links."""
     index = _index(tmp_path)
-    block = (
-        '---\ntype: note\nrelated: "[[Only Here]]"\nbare: [[Only Here]]\n'
-        'md: "[b](concepts/Foo.md)"\nup: [[Foo]]\ngone: "[[nowhere]]"\n---\n'
-    )
     out, problems = links.normalize(
         block + "body [[Only Here]]\n", index, source="projects/brief/draft.md"
     )
