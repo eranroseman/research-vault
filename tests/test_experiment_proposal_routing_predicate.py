@@ -1,6 +1,7 @@
 """Scenario 7's judge, routing_predicate.py, over synthetic stream-json lines
-(spec v3, section 5): a positive is a Skill call of this plugin whose result
-is not an error; a negative is no Skill or Agent call of this plugin."""
+(spec v3, section 5): a positive is a top-level Skill call of this plugin
+whose result is not an error; a negative is no Skill or Agent call of this
+plugin, top-level or inside a subagent."""
 
 import importlib.util
 import json
@@ -216,3 +217,84 @@ def test_a_result_whose_is_error_is_null_is_not_a_positive(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["skill_calls"] == [
         {"skill": "experiment-proposal:design", "is_error": None}
     ]
+
+
+def _in_subagent(event, parent="toolu_agent"):
+    """The stream marks an event of a subagent's conversation with the id of
+    the Agent call that spawned it; a top-level event carries null."""
+    return {**event, "parent_tool_use_id": parent}
+
+
+def _delegated(skill):
+    """The main session delegates to a general-purpose Agent, which calls the
+    skill inside its own conversation (run routing-review-1 at 0.3.0)."""
+    return (
+        _in_subagent(
+            _tool_use(
+                "Agent",
+                {"subagent_type": "general-purpose", "prompt": "x"},
+                "toolu_agent",
+            ),
+            None,
+        ),
+        _in_subagent(_tool_use("Skill", {"skill": skill}, "toolu_nested")),
+        _in_subagent(_tool_result("toolu_nested")),
+        _in_subagent(_tool_result("toolu_agent"), None),
+    )
+
+
+def test_a_skill_call_inside_a_subagent_alone_is_not_a_positive(tmp_path):
+    path = _stream(tmp_path, _init(), *_delegated("experiment-proposal:review"))
+    verdict = predicate.judge(path, "positive", "review")
+    assert verdict["pass"] is False
+    assert verdict["skill_calls"] == [
+        {"skill": "experiment-proposal:review", "is_error": False}
+    ]
+    assert verdict["skill_calls_in_subagents"] == [
+        {
+            "skill": "experiment-proposal:review",
+            "is_error": False,
+            "parent_tool_use_id": "toolu_agent",
+        }
+    ]
+    assert predicate.main(["positive", "review", str(path)]) == 1
+
+
+def test_a_top_level_call_passes_whether_parent_tool_use_id_is_null_or_absent(
+    tmp_path,
+):
+    """Real streams carry the key with null on every top-level event; the
+    synthetic events above omit it. Both are the top-level conversation."""
+    path = _stream(
+        tmp_path,
+        _init(),
+        *_delegated("experiment-proposal:review"),
+        _in_subagent(_tool_use("Skill", {"skill": "experiment-proposal:review"}), None),
+        _in_subagent(_tool_result(), None),
+    )
+    verdict = predicate.judge(path, "positive", "review")
+    assert verdict["pass"] is True
+    assert len(verdict["skill_calls"]) == 2
+    assert len(verdict["skill_calls_in_subagents"]) == 1
+
+
+def test_a_call_of_this_plugin_inside_a_subagent_fails_a_negative(tmp_path):
+    nested_skill = _stream(tmp_path, _init(), *_delegated("experiment-proposal:design"))
+    assert predicate.judge(nested_skill, "negative")["pass"] is False
+    nested_agent = _stream(
+        tmp_path,
+        _init(),
+        _in_subagent(
+            _tool_use(
+                "Agent",
+                {"subagent_type": "experiment-proposal:hci-researcher", "prompt": "x"},
+                "toolu_inner",
+            )
+        ),
+        _in_subagent(_tool_result("toolu_inner")),
+    )
+    verdict = predicate.judge(nested_agent, "negative")
+    assert verdict["pass"] is False
+    assert verdict["agent_calls"] == ["experiment-proposal:hci-researcher"]
+    other = _stream(tmp_path, _init(), *_delegated("design:user-research"))
+    assert predicate.judge(other, "negative")["pass"] is True

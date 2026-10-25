@@ -50,7 +50,7 @@ The v2 plan's grammars stand (checklist item line, citation, brief header and en
 - **The exclude file** `proposal/notes/lit-search-judged.txt`: one record per line, `<DOI or title> | <kept or rejected> | <one-line reason>`; the wrapper reads the first field only, as a DOI through `common.clean_doi` and as a title through `common.normalize_title`; a line that is empty or starts with `#` is skipped.
 - **Wrapper stderr.** The vendored notes verbatim (relayed through a tee); one line per index `<index>(<returned>, <kept>) query="<query>"`, `<returned>` being the records carrying the index's `_source` tag after the vendored de-duplication and `<kept>` those left after the exclude; `semantic_scholar: skipped (HTTP 429); snowball's graph endpoints cover it` when the captured notes hold `note: source degraded — semantic_scholar: HTTP 429` in `search` mode; `candidates: N (after exclude: M)`; `wrote M records to <path>` with `--out`; `no candidates left this round` before exit 1.
 - **Wrapper output.** CSL-YAML with every string emitted through `json.dumps(value, ensure_ascii=False)`, every character outside YAML's printable set (and NEL, U+0085, and the separators U+2028 and U+2029, which YAML folds) then escaped as `\uXXXX`; a lone surrogate becomes U+FFFD before emitting. Compact (default): `title`, `author` (each `family` only), `issued.year`, `container-title`, `DOI`, `abstract` cut to 300 characters. `--full` adds `given`, `URL` (when no DOI), `type`, `source` (the `_source` tag) and cuts `abstract` at 1,500.
-- **Routing predicate.** Over a `claude -p --output-format stream-json --verbose` stream: a positive for `<skill>` is at least one `tool_use` block named `Skill` whose `input.skill` is `experiment-proposal:<skill>` and whose `tool_result` is present with `is_error` false or absent; a negative is zero `Skill` blocks whose `input.skill` starts with `experiment-proposal:` and zero `Agent` blocks whose `input.subagent_type` is `experiment-proposal:hci-researcher`; other plugins' calls are listed under `other_calls` and not barred.
+- **Routing predicate.** Over a `claude -p --output-format stream-json --verbose` stream: a positive for `<skill>` is at least one `tool_use` block of the top-level conversation (its event's `parent_tool_use_id` null or absent) named `Skill` whose `input.skill` is `experiment-proposal:<skill>` and whose `tool_result` is present with `is_error` false or absent; a `Skill` call inside a subagent is not a positive; a negative is zero `Skill` blocks, top-level or inside a subagent, whose `input.skill` starts with `experiment-proposal:` and zero `Agent` blocks, top-level or inside a subagent, whose `input.subagent_type` is `experiment-proposal:hci-researcher`; other plugins' calls are listed under `other_calls` and not barred.
 
 ## File Structure
 
@@ -2919,8 +2919,9 @@ Create `tests/test_experiment_proposal_routing_predicate.py`:
 
 ```python
 """Scenario 7's judge, routing_predicate.py, over synthetic stream-json lines
-(spec v3, section 5): a positive is a Skill call of this plugin whose result
-is not an error; a negative is no Skill or Agent call of this plugin."""
+(spec v3, section 5): a positive is a top-level Skill call of this plugin
+whose result is not an error; a negative is no Skill or Agent call of this
+plugin, top-level or inside a subagent."""
 
 import importlib.util
 import json
@@ -3034,13 +3035,16 @@ Usage:
     routing_predicate.py positive <skill> <stream.jsonl>
     routing_predicate.py negative <stream.jsonl>
 
-A positive for <skill> holds when at least one Skill tool_use names
-experiment-proposal:<skill> and its tool_result is not an error. A negative
-holds when no Skill tool_use names an experiment-proposal skill and no Agent
-tool_use names experiment-proposal:hci-researcher; other plugins' calls are
-listed under other_calls and not barred. Prints one JSON object with the
-verdict, the calls, the init event's plugins, skills, agents and model, and
-the models that served assistant turns. Exit 0 pass, 1 fail, 2 unreadable.
+A positive for <skill> holds when at least one Skill tool_use of the
+top-level conversation (its event's parent_tool_use_id null or absent) names
+experiment-proposal:<skill> and its tool_result is not an error; a call made
+inside a subagent is not a positive. A negative holds when no Skill
+tool_use, top-level or inside a subagent, names an experiment-proposal skill
+and no Agent tool_use names experiment-proposal:hci-researcher; other
+plugins' calls are listed under other_calls and not barred. Prints one JSON
+object with the verdict, the calls, the init event's plugins, skills, agents
+and model, and the models that served assistant turns. Exit 0 pass, 1 fail,
+2 unreadable.
 """
 
 from __future__ import annotations

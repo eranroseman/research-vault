@@ -6,15 +6,18 @@ Usage:
     routing_predicate.py positive <skill> <stream.jsonl>
     routing_predicate.py negative <stream.jsonl>
 
-A positive for <skill> holds when at least one Skill tool_use names
+A positive for <skill> holds when at least one Skill tool_use of the
+top-level conversation (its event's parent_tool_use_id null or absent) names
 experiment-proposal:<skill> and has a tool_result whose is_error is false or
 absent; a call with no tool_result reads is_error null and is not a
-positive, nor is a result whose is_error is null. A negative holds when no
-Skill tool_use names an experiment-proposal skill and no Agent tool_use
-names experiment-proposal:hci-researcher; other plugins' calls are listed
-under other_calls and not barred. Prints one JSON object with the verdict,
-the calls, the init event's plugins, skills, agents and model, and the
-models that served assistant turns. Exit 0 pass, 1 fail, 2 unreadable.
+positive, nor is a result whose is_error is null, nor is a call made inside
+a subagent (listed under skill_calls_in_subagents). A negative holds when no
+Skill tool_use, top-level or inside a subagent, names an experiment-proposal
+skill and no Agent tool_use names experiment-proposal:hci-researcher; other
+plugins' calls are listed under other_calls and not barred. Prints one JSON
+object with the verdict, the calls, the init event's plugins, skills, agents
+and model, and the models that served assistant turns. Exit 0 pass, 1 fail,
+2 unreadable.
 """
 
 from __future__ import annotations
@@ -49,6 +52,7 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
     events = events_of(path)
     init: dict = {}
     uses: dict[str, dict] = {}
+    parents: dict[str, object] = {}
     order: list[str] = []
     results: dict[str, object] = {}
     served: list[str] = []
@@ -74,12 +78,17 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
             if not isinstance(block, dict):
                 continue
             if block.get("type") == "tool_use":
-                uses[block.get("id", f"anon-{len(order)}")] = block
-                order.append(block.get("id", f"anon-{len(order)}"))
+                tool_id = block.get("id", f"anon-{len(order)}")
+                uses[tool_id] = block
+                # a call inside a subagent names the Agent call that spawned it
+                parents[tool_id] = event.get("parent_tool_use_id")
+                order.append(tool_id)
             elif block.get("type") == "tool_result":
                 # kept as sent: only false or absent is no error, null is not
                 results[block.get("tool_use_id", "")] = block.get("is_error", False)
     skill_calls: list[dict] = []
+    top_level: list[dict] = []
+    in_subagents: list[dict] = []
     agent_calls: list[str] = []
     other_calls: list[dict] = []
     for tool_id in order:
@@ -88,9 +97,12 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
         if not isinstance(tool_input, dict):
             tool_input = {}
         if name == "Skill" and str(tool_input.get("skill", "")).startswith(PLUGIN):
-            skill_calls.append(
-                {"skill": tool_input["skill"], "is_error": results.get(tool_id)}
-            )
+            call = {"skill": tool_input["skill"], "is_error": results.get(tool_id)}
+            skill_calls.append(call)
+            if parents[tool_id] is None:
+                top_level.append(call)
+            else:
+                in_subagents.append({**call, "parent_tool_use_id": parents[tool_id]})
         elif name == "Agent" and tool_input.get("subagent_type") == SUBAGENT:
             agent_calls.append(SUBAGENT)
         elif name == "Skill":
@@ -100,7 +112,7 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
     if mode == "positive":
         passed = any(
             c["skill"] == f"{PLUGIN}{skill}" and c["is_error"] is False
-            for c in skill_calls
+            for c in top_level
         )
     else:
         passed = not skill_calls and not agent_calls
@@ -109,6 +121,7 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
         "skill": skill,
         "pass": passed,
         "skill_calls": skill_calls,
+        "skill_calls_in_subagents": in_subagents,
         "agent_calls": agent_calls,
         "other_calls": other_calls,
         "init": init,
