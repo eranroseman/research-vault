@@ -187,3 +187,32 @@ def test_the_cli_exits_0_on_pass_1_on_fail_2_on_an_unreadable_stream(tmp_path, c
     broken = tmp_path / "broken.jsonl"
     broken.write_text("not json\n", encoding="utf-8")
     assert predicate.main(["negative", str(broken)]) == 2
+
+
+def test_a_malformed_message_or_input_is_read_as_empty_not_a_crash(tmp_path, capsys):
+    """An error event carries a string message, and a tool_use's input can be a
+    string; neither is a call of this plugin, so the negative holds (exit 0)."""
+    path = _stream(
+        tmp_path,
+        _init(),
+        {"type": "error", "message": "overloaded"},
+        _tool_use("Skill", "x"),
+        _tool_result(),
+    )
+    assert predicate.main(["negative", str(path)]) == 0
+    verdict = json.loads(capsys.readouterr().out)
+    assert verdict["other_calls"] == [{"name": "Skill", "skill": None}]
+
+
+def test_a_result_whose_is_error_is_null_is_not_a_positive(tmp_path, capsys):
+    """The grammar says false or absent; null is neither."""
+    path = _stream(
+        tmp_path,
+        _init(),
+        _tool_use("Skill", {"skill": "experiment-proposal:design"}),
+        _tool_result(is_error=None),
+    )
+    assert predicate.main(["positive", "design", str(path)]) == 1
+    assert json.loads(capsys.readouterr().out)["skill_calls"] == [
+        {"skill": "experiment-proposal:design", "is_error": None}
+    ]

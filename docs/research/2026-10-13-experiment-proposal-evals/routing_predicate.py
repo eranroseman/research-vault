@@ -7,13 +7,14 @@ Usage:
     routing_predicate.py negative <stream.jsonl>
 
 A positive for <skill> holds when at least one Skill tool_use names
-experiment-proposal:<skill> and has a tool_result that is not an error; a
-call with no tool_result reads is_error null and is not a positive. A negative
-holds when no Skill tool_use names an experiment-proposal skill and no Agent
-tool_use names experiment-proposal:hci-researcher; other plugins' calls are
-listed under other_calls and not barred. Prints one JSON object with the
-verdict, the calls, the init event's plugins, skills, agents and model, and
-the models that served assistant turns. Exit 0 pass, 1 fail, 2 unreadable.
+experiment-proposal:<skill> and has a tool_result whose is_error is false or
+absent; a call with no tool_result reads is_error null and is not a
+positive, nor is a result whose is_error is null. A negative holds when no
+Skill tool_use names an experiment-proposal skill and no Agent tool_use
+names experiment-proposal:hci-researcher; other plugins' calls are listed
+under other_calls and not barred. Prints one JSON object with the verdict,
+the calls, the init event's plugins, skills, agents and model, and the
+models that served assistant turns. Exit 0 pass, 1 fail, 2 unreadable.
 """
 
 from __future__ import annotations
@@ -49,7 +50,7 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
     init: dict = {}
     uses: dict[str, dict] = {}
     order: list[str] = []
-    results: dict[str, bool] = {}
+    results: dict[str, object] = {}
     served: list[str] = []
     for event in events:
         if event.get("type") == "system" and event.get("subtype") == "init":
@@ -62,7 +63,9 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
                 "skills": list(event.get("skills") or []),
                 "agents": list(event.get("agents") or []),
             }
-        message = event.get("message") or {}
+        message = event.get("message")
+        if not isinstance(message, dict):  # an error event's message is a string
+            message = {}
         if event.get("type") == "assistant":
             model = message.get("model")
             if model and model not in served:
@@ -74,15 +77,16 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
                 uses[block.get("id", f"anon-{len(order)}")] = block
                 order.append(block.get("id", f"anon-{len(order)}"))
             elif block.get("type") == "tool_result":
-                results[block.get("tool_use_id", "")] = bool(
-                    block.get("is_error", False)
-                )
+                # kept as sent: only false or absent is no error, null is not
+                results[block.get("tool_use_id", "")] = block.get("is_error", False)
     skill_calls: list[dict] = []
     agent_calls: list[str] = []
     other_calls: list[dict] = []
     for tool_id in order:
         block = uses[tool_id]
-        name, tool_input = block.get("name"), block.get("input") or {}
+        name, tool_input = block.get("name"), block.get("input")
+        if not isinstance(tool_input, dict):
+            tool_input = {}
         if name == "Skill" and str(tool_input.get("skill", "")).startswith(PLUGIN):
             skill_calls.append(
                 {"skill": tool_input["skill"], "is_error": results.get(tool_id)}
