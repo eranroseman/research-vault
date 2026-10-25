@@ -807,8 +807,8 @@ def cmd_stamp_type(args):
             print(f"skipped {path} — file could not be written")
         elif reason == "unstaged-day-file":
             print(
-                f"skipped {path} — a log/ day file is untracked or has unstaged"
-                " changes; the log is rendered only from staged day files"
+                f"skipped {path} — a log/ day file is not in this commit's index"
+                " as it stands; the log is rendered only from staged day files"
             )
         else:
             print(f"skipped {path} — no type could be derived")

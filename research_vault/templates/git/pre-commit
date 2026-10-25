@@ -4,8 +4,8 @@
 # This hook never stages (#203). It runs the one fixer, stamp-type --staged:
 # the type stamp and link normalisation on the staged files whose worktree
 # copy equals the staged blob, and root log.md when one of those is a log/ day
-# file or log.md itself and no log/ day file is untracked or has unstaged
-# changes. It refuses the commit when the fixer changed a file (log.md among
+# file or log.md itself, or a day file's deletion is staged, and every log/
+# day file is in this commit's index as the worktree holds it. It refuses the commit when the fixer changed a file (log.md among
 # them, staged or not): stage it (or add it to the commit's `--` pathspec)
 # and commit again. A partially staged file is reported, never rewritten;
 # when its staged copy is one the fixer would change (the fixer's own rewrite

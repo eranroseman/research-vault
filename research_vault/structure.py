@@ -326,7 +326,8 @@ def check_reserved(vault_root) -> list[Outcome]:
                         relative,
                         (
                             "root log.md differs from its render; run stamp-type, "
-                            "which regenerates it, and stage log.md"
+                            "which regenerates it, and stage log.md; or stage "
+                            "the day files it renders from"
                         ),
                     )
                 )

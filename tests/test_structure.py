@@ -654,7 +654,7 @@ def test_nested_reserved_names_follow_one_shape_rule(tmp_path, relative, text, r
 
 _LOG_DIFFERS = (
     "schema-violation — root log.md differs from its render; run stamp-type, "
-    "which regenerates it, and stage log.md"
+    "which regenerates it, and stage log.md; or stage the day files it renders from"
 )
 
 
@@ -716,14 +716,21 @@ def _commit_blockers(vault, candidate):
 
 
 def test_a_staged_day_file_deletion_is_refused_at_commit(fixture_vault, capsys):
-    """The hook's fixer renders nothing on a staged deletion (#203), so the
-    commit surface compares the index's log.md with a render of the index's
-    day files: the deleted day's heading is still in the staged log."""
+    """A staged deletion of a day file triggers the hook's render (R8), which
+    writes the worktree only (#203), so the commit surface compares the
+    index's log.md with a render of the index's day files: the deleted
+    day's heading is still in the staged log until the render is staged."""
     subprocess.run(
         ["git", "rm", "-q", "log/2026-08-16.md"], cwd=fixture_vault, check=True
     )
-    assert _staged_fixer_says(fixture_vault, capsys) == []
+    assert _staged_fixer_says(fixture_vault, capsys) == ["regenerated log.md"]
     assert _LOG_BLOCKER in _commit_blockers(fixture_vault, "index")
+    subprocess.run(["git", "add", "log.md"], cwd=fixture_vault, check=True)
+    # verify wrote the review queue and its marks (#260, #269); an
+    # index-candidate run refuses a tracked file that differs from the
+    # index, so every other file is restored to it.
+    subprocess.run(["git", "checkout", "--", "."], cwd=fixture_vault, check=True)
+    assert _LOG_BLOCKER not in _commit_blockers(fixture_vault, "index")
 
 
 def test_a_stale_staged_log_beside_a_fresh_worktree_one_is_refused_at_commit(

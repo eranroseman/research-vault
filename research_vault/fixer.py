@@ -5,7 +5,8 @@ Writers call it on the paths they wrote; the commit hook calls it with
 any (#203). It never stages. Under ``--staged`` it is given only the files
 whose worktree copy equals the staged blob, and `staged_log` decides root
 ``log.md``: rendered only when one of them is a ``log/`` day file or
-``log.md``, and never from a day file that differs from the index. A
+``log.md``, or a day file's deletion is staged, and never from a day file
+that differs from the index. A
 partially staged note is never written; `unfixed_staged` names the ones
 whose staged blob it would change, so a retried commit cannot commit it.
 """
@@ -178,15 +179,26 @@ def _is_day_file(listed: str) -> bool:
 
 def staged_log(vault_root, staged, partial, env=None) -> bool | str:
     """``fix``'s ``log`` under ``--staged`` (#203): render root ``log.md`` only
-    when a fully staged path is a day file or ``log.md`` itself. Never while
-    ``log.md`` is partially staged (already reported as such), and never from
-    a day file the index does not hold as it stands — untracked, or with an
-    unstaged edit or deletion — which is reported instead."""
-    if "log.md" in partial or not any(
-        path == "log.md" or _is_day_file(path) for path in staged
-    ):
+    when a fully staged path is a day file or ``log.md`` itself, or a day
+    file's deletion is staged. Never while ``log.md`` is partially staged
+    (already reported as such), and never from a day file the index does
+    not hold as it stands — untracked, or with an unstaged edit or deletion
+    — which is reported instead."""
+    if "log.md" in partial:
         return False
     vault = Path(vault_root)
+    if not any(path == "log.md" or _is_day_file(path) for path in staged):
+        deleted = _git_names(
+            vault,
+            "diff",
+            "--cached",
+            "--name-only",
+            "--no-renames",
+            "--diff-filter=D",
+            env=env,
+        )
+        if not any(_is_day_file(path) for path in deleted):
+            return False
     indexed = set(_git_names(vault, "ls-files", env=env))
     dirty = _git_names(vault, "diff", "--name-only", "--no-renames", env=env)
     rendered = {path.relative_to(vault).as_posix() for path in okf.day_files(vault)}

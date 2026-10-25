@@ -309,8 +309,8 @@ def _staged(vault, capsys):
 
 _DAY = '---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — captured {}\n'
 _UNSTAGED_DAY = (
-    "skipped log.md — a log/ day file is untracked or has unstaged changes;"
-    " the log is rendered only from staged day files"
+    "skipped log.md — a log/ day file is not in this commit's index as it"
+    " stands; the log is rendered only from staged day files"
 )
 
 
@@ -440,3 +440,27 @@ def test_staged_names_the_unfixed_staged_copy_a_retry_would_commit(tmp_path, cap
     assert staged == '---\ntype: "note"\n---\nsee [[2026-10-26]]\n'
     _git(vault, "add", "projects/p/idea.md")
     assert _staged(vault, capsys) == []
+
+
+def test_staged_renders_the_log_when_a_day_files_deletion_is_staged(tmp_path, capsys):
+    """R8: a staged deletion of a log/ day file changes what root log.md
+    renders from, as a staged addition or edit does, so it triggers the
+    render; a staged deletion of any other file does not."""
+    from research_vault import scaffold
+
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault)
+    _page(vault, "log/2026-10-23.md", _DAY.format("gone"))
+    _page(vault, "projects/p/n.md", '---\ntype: "note"\n---\nbody\n')
+    fixer.fix(vault, paths=[])
+    assert "captured gone" in (vault / "log.md").read_text()
+    _git(vault, "add", "log/2026-10-23.md", "log.md", "projects/p/n.md")
+    _git(vault, "commit", "-q", "--no-verify", "-m", "day")
+    _git(vault, "rm", "-q", "projects/p/n.md")
+    assert fixer.staged_log(vault, [], []) is False
+    assert _staged(vault, capsys) == []
+    _git(vault, "rm", "-q", "log/2026-10-23.md")
+    assert fixer.staged_log(vault, [], []) is True
+    assert _staged(vault, capsys) == ["regenerated log.md"]
+    assert "captured gone" not in (vault / "log.md").read_text()
+    assert (vault / "log.md").read_text() == okf.render_log(vault)
