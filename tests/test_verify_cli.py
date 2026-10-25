@@ -5184,15 +5184,36 @@ def test_network_outcomes_uses_an_uppercase_doi_to_skip_the_synthetic_outage(
     assert outcome.result is Result.MATCHED
 
 
-def test_verify_exits_4_when_pyyaml_is_missing(net_vault, monkeypatch, capsys):
+_NO_PYYAML = (
+    "verification cannot run: PyYAML is not installed; the OKF frontmatter "
+    "reader cannot run (pip install PyYAML)\n"
+)
+
+
+def test_verify_exits_4_when_pyyaml_is_missing(tmp_vault, pyyaml_missing, capsys):
     """§5.6: fail closed. The hook's `*)` branch refuses 4; exit 3 would let the
-    commit through as an outage."""
+    commit through as an outage. End to end: the real verify, on a vault with
+    one note, meets the refused import in the OKF reader, and nothing between
+    it and the CLI turns the missing dependency into a finding or a pass."""
     import research_vault.__main__ as cli
 
-    def missing(*_args, **_kwargs):
-        raise frontmatter.DependencyMissingError("PyYAML is not installed")
-
-    monkeypatch.setattr(cli, "verify_state", missing)
-    code = cli.main(["verify", "--vault", str(net_vault), "--offline"])
+    (tmp_vault / "wiki" / "concepts" / "x.md").write_text(
+        '---\ntype: "concept"\n---\nbody\n'
+    )
+    code = cli.main(["verify", "--vault", str(tmp_vault), "--offline"])
     assert code == cli.EXIT_DEPENDENCY_MISSING == 4
-    assert "PyYAML" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert captured.err == _NO_PYYAML
+    assert captured.out == ""
+
+
+def test_every_verb_that_reads_okf_exits_4_without_pyyaml(
+    tmp_vault, pyyaml_missing, capsys
+):
+    """Not only verify: stamp-type reaches the OKF reader too, and answers the
+    same exit and the same line, never a traceback."""
+    (tmp_vault / "literature" / "x.md").write_text("---\ntitle: x\n---\nbody\n")
+    assert main(["stamp-type", "--vault", str(tmp_vault)]) == 4
+    captured = capsys.readouterr()
+    assert captured.err == _NO_PYYAML
+    assert captured.out == ""

@@ -76,6 +76,9 @@ _NAMED_FAILURES = (
 # §5.6: the OKF reader's dependency is missing. Not 3 (an outage the hook
 # lets through for CI replay) and not 2 (could not run): a distinct code the
 # hook's `*)` branch refuses, so a vault with no PyYAML never commits unchecked.
+# It is the one named failure answered in `main`, not in `_NAMED_FAILURES`:
+# that tuple is each verb's exit 2, and every verb that reaches the OKF reader
+# (verify, stamp-type, capture, publish's gate) must answer 4, with one line.
 EXIT_DEPENDENCY_MISSING = 4
 
 
@@ -282,9 +285,6 @@ def cmd_verify(args):
             changed_paths_file=args.changed_paths_file,
             commit_projected=args.commit_projected,
         )
-    except frontmatter.DependencyMissingError as error:
-        print(f"verification cannot run: {error}", file=sys.stderr)
-        return EXIT_DEPENDENCY_MISSING
     except _NAMED_FAILURES as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
         return 2
@@ -738,7 +738,8 @@ def cmd_scaffold(args):
 
 def cmd_stamp_type(args):
     """A fixer, not a gate: mechanically stamp what's fully determined, report
-    the rest, always exit 0."""
+    the rest, exit 0 — or 4, from `main`, when the OKF reader's PyYAML is
+    missing (§5.6)."""
     stamped, reported = stamp.stamp_types(args.vault)
     for path in stamped:
         print(f"stamped {path}")
@@ -909,7 +910,7 @@ def main(argv=None):
     except ZoteroError as error:
         print(error, file=sys.stderr)
         return 2
-    return {
+    handler = {
         "probe": cmd_probe,
         "capture": cmd_capture,
         "add": cmd_add,
@@ -928,7 +929,12 @@ def main(argv=None):
         "scaffold": cmd_scaffold,
         "doctor": cmd_doctor,
         "stamp-type": cmd_stamp_type,
-    }[args.cmd](args)
+    }[args.cmd]
+    try:
+        return handler(args)
+    except frontmatter.DependencyMissingError as error:
+        print(f"verification cannot run: {error}", file=sys.stderr)
+        return EXIT_DEPENDENCY_MISSING
 
 
 if __name__ == "__main__":

@@ -338,17 +338,53 @@ def test_read_okf_reads_an_empty_block_as_an_empty_mapping():
     assert frontmatter.read_okf("---\n\n---\nbody\n") == ({}, "body\n")
 
 
-def test_read_okf_names_a_missing_pyyaml_as_its_own_error(monkeypatch):
-    import builtins
-
-    real_import = builtins.__import__
-
-    def refuse(name, *args, **kwargs):
-        if name == "yaml":
-            raise ImportError("No module named 'yaml'")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", refuse)
-    monkeypatch.setattr(frontmatter, "_LOADER", None)
+def test_read_okf_names_a_missing_pyyaml_as_its_own_error(pyyaml_missing):
     with pytest.raises(frontmatter.DependencyMissingError, match="PyYAML"):
         frontmatter.read_okf("---\ntype: a\n---\n")
+
+
+@pytest.mark.parametrize(
+    ("text", "cause", "mark"),
+    [
+        # A constructor fault keeps its cause: PyYAML's own message leads with
+        # the context and its mark, so its first two lines never named it.
+        (
+            "---\ndate: {{date}}\n---\n",
+            "while constructing a mapping, found unhashable key {'date': None}",
+            "(line 2, column 8)",
+        ),
+        (
+            "---\ntype: a\ntype: b\n---\n",
+            "while constructing a mapping, found duplicate key 'type'",
+            "(line 3, column 1)",
+        ),
+        # The line is the file's, not the block's: the opening delimiter is
+        # line 1, and a CRLF is one break. C and pure loaders word this cause
+        # differently; the mark is shared.
+        (
+            "---\r\ntype: concept\r\ntitle: A: B\r\n---\r\n",
+            "mapping values are not allowed",
+            "(line 3, column 9)",
+        ),
+    ],
+)
+def test_read_okf_names_the_cause_on_one_line_at_the_files_line(text, cause, mark):
+    with pytest.raises(frontmatter.FrontmatterError) as caught:
+        frontmatter.read_okf(text)
+    message = str(caught.value)
+    assert message.startswith(f"frontmatter is not valid YAML: {cause}")
+    assert message.endswith(f" {mark}")
+    assert "\n" not in message
+
+
+def test_read_okf_reports_a_markless_fault_on_one_line():
+    """A reader fault (a control character) carries no problem or mark: its
+    first line is the cause, and the block offset after it is dropped."""
+    with pytest.raises(frontmatter.FrontmatterError) as caught:
+        frontmatter.read_okf("---\na: \x07\n---\n")
+    message = str(caught.value)
+    assert message.startswith(
+        "frontmatter is not valid YAML: unacceptable character #x0007"
+    )
+    assert "\n" not in message
+    assert "position" not in message

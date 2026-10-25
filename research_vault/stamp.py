@@ -10,9 +10,11 @@ cannot parse. Two shapes are stamped:
   (`structure.expected_type`), falling back to the recorded `inbox/`
   fleeting exemption (`structure.is_fleeting`) since that exemption is
   deliberately excluded from `expected_type` itself — prepend a fresh block.
-- A parseable block missing `type`, or carrying a null one (a blank
-  `type:`, `null`, `~`, `NULL`, `Null`: its line is replaced, never a second
-  added), with `structure.expected_type` deriving one (the fleeting fallback
+- A parseable block whose `type` is missing as the structure check reads it
+  (`frontmatter.okf_type` over `frontmatter.read_okf`: absent, or a value
+  OKF rule 2's `not value` test reads as missing — a blank `type:`, `null`,
+  `~`, `false`, `0`, `[]` — whose line is replaced, never a second added),
+  with `structure.expected_type` deriving one (the fleeting fallback
   does *not* apply here — a file that already carries hand-written
   frontmatter keys but no `type` is ambiguous, not a bare capture) — insert
   `type` as the first key, otherwise byte-for-byte, including the file's
@@ -21,11 +23,11 @@ cannot parse. Two shapes are stamped:
 Everything else is reported, never edited: a human decides those. Each
 reported path carries a reason — `"symlink"` (the path itself is a symlink;
 writing through it could escape the vault boundary), `"unparseable"`
-(unparseable YAML-shaped frontmatter, frontmatter with a duplicate
-top-level key — `frontmatter._DuplicateKeyMapping` — since a plain
-`{"type": derived, **data}` spread would silently collapse the repeats to
-last-write-wins, or a block whose stamped form does not read back as
-`{type, **data}` under `frontmatter.read_okf`), `"outage"` (the file could
+(frontmatter the flat parser or `frontmatter.read_okf` refuses — a
+duplicate top-level key among them, which a plain `{"type": derived,
+**data}` spread would otherwise collapse to last-write-wins — or a block
+whose stamped form does not read back as `{type, **data}` under
+`frontmatter.read_okf`), `"outage"` (the file could
 not be read at all), `"not-utf-8"` (the file is not UTF-8, so no
 frontmatter could be parsed from it),
 `"outside"` (the path resolves outside the vault: a symlinked ancestor, an
@@ -121,16 +123,18 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
         has_delimiter = _has_delimiter(text)
         try:
             data, body = frontmatter.parse(text)
+            # Q18: "type missing" is decided by the structure check's own
+            # reader and test, never by the flat parser's view of the value,
+            # so every missing type the check reports is one stamp repairs.
+            # Its duplicate-key refusal also keeps a repeated key from
+            # collapsing in `rest` below (a repeated `.nan`, never equal to
+            # itself, gets past it and fails the key-set check instead).
+            # A missing PyYAML is not content: it propagates (§5.6).
+            typed = frontmatter.okf_type(frontmatter.read_okf(text)[0])
         except frontmatter.FrontmatterError:
             reported.append((relative, "unparseable"))
             continue
-
-        value = data.get("type")
-        null = value == [] or (
-            isinstance(value, str)
-            and (not value.strip() or value in {"null", "~", "NULL", "Null"})
-        )
-        if "type" in data and not null:
+        if typed:
             continue
 
         if has_delimiter:
@@ -149,18 +153,13 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
         newline = events._first_line_ending(text)
 
         if has_delimiter:
-            if isinstance(data, frontmatter._DuplicateKeyMapping):
-                # A plain-dict spread would collapse repeated keys to
-                # last-write-wins before serialize ever sees them — report,
-                # don't edit, same as unparseable YAML above.
-                reported.append((relative, "unparseable"))
-                continue
             rest = {k: v for k, v in frontmatter._mapping_items(data) if k != "type"}
             block = frontmatter.serialize({"type": derived, **rest})
             # Q18: after the insert, the block must read back as {type, **data}
-            # under the OKF reader; a key the flat parser passes as text but
-            # YAML reads otherwise (`yes`, `1`, `[a`) would otherwise be
-            # rewritten into a block the structure check reads differently.
+            # under the OKF reader. The flat parser passes some keys as text
+            # that YAML reads otherwise once re-emitted: `yes` and `1` come
+            # back as a bool and an int key, and a quoted `"type"` (the flat
+            # parser keeps the quotes) becomes a second `type`, a duplicate.
             try:
                 reparsed, _ = frontmatter.read_okf(block + body)
             except frontmatter.FrontmatterError:

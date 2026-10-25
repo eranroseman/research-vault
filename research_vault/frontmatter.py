@@ -195,9 +195,10 @@ def parse(text: str) -> tuple[dict, str]:
 
 class DependencyMissingError(RuntimeError):
     """PyYAML cannot be imported: the OKF reader cannot run, and nothing that
-    depends on it may read as a pass. `cmd_verify` maps this to exit 4, which
-    the vault's pre-commit hook refuses (its `*)` branch), and doctor's
-    `pyyaml` row names the repair."""
+    depends on it may read as a pass. The CLI maps this to exit 4 on every
+    verb that reaches the reader (`main`'s dispatch), which the vault's
+    pre-commit hook refuses (its `*)` branch), and doctor's `pyyaml` row
+    names the repair."""
 
 
 _LOADER = None
@@ -262,6 +263,26 @@ def _loader():
     return _LOADER
 
 
+def _yaml_fault(error, first_line: int) -> str:
+    """One line naming a YAML fault's cause, at the file's line and column.
+
+    PyYAML's own message spans lines and leads with the context's mark, so a
+    constructor fault's cause (``found unhashable key``) sat past the first
+    two; its marks count from the block, which starts at ``first_line`` of
+    the file. A fault with no problem (a reader fault: a control character)
+    gives its first line, without the block offset that follows it.
+    """
+    problem = getattr(error, "problem", None)
+    if problem is None:
+        return str(error).splitlines()[0]
+    context = getattr(error, "context", None)
+    detail = f"{context}, {problem}" if context else problem
+    mark = getattr(error, "problem_mark", None)
+    if mark is None:
+        return detail
+    return f"{detail} (line {mark.line + first_line}, column {mark.column + 1})"
+
+
 def read_okf(text: str) -> tuple[dict, str]:
     """OKF §11's reader: YAML frontmatter as the reference implementation reads it.
 
@@ -290,11 +311,10 @@ def read_okf(text: str) -> tuple[dict, str]:
         # an arbitrary Python object.
         data = yaml.load(block, Loader=loader)  # noqa: S506
     except yaml.YAMLError as error:
-        message = str(error).splitlines()
-        detail = next(
-            (line.strip() for line in message if "duplicate key" in line), None
-        ) or " ".join(line.strip() for line in message[:2])
-        raise FrontmatterError(f"frontmatter is not valid YAML: {detail}") from error
+        first_line = text.count("\n", 0, opening.end()) + 1
+        raise FrontmatterError(
+            f"frontmatter is not valid YAML: {_yaml_fault(error, first_line)}"
+        ) from error
     if data is None:
         return {}, body
     if not isinstance(data, dict):
@@ -304,7 +324,10 @@ def read_okf(text: str) -> tuple[dict, str]:
 
 def okf_type(data) -> bool:
     """OKF §11 rule 2 as the reference tests it: ``not fm.get("type")`` is a
-    missing type. A whitespace-only string is also missing — the one divergence,
-    in the strict direction, that `check_note_frontmatter` already made."""
+    missing type, so a null, ``false``, ``0`` or an empty list or mapping is
+    missing, and any other value passes — a non-str one too (``[a, b]``,
+    ``{a: 1}``, ``5``, ``true``), as OKF's reference test reads it, where the
+    flat-parser check refused every non-str type. A whitespace-only string
+    is also missing: the one place this reader is stricter than OKF's."""
     value = data.get("type") if isinstance(data, dict) else None
     return bool(value) and not (isinstance(value, str) and not value.strip())

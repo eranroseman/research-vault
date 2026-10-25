@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from research_vault import frontmatter, stamp
+from research_vault import Result, frontmatter, stamp, structure
 
 
 def test_stamps_bare_capture_with_folder_type(tmp_path):
@@ -278,14 +278,67 @@ def test_stamp_replaces_a_blank_type_line_and_never_raises_on_its_value(tmp_path
     assert note.read_text() == '---\ntype: "literature"\ntitle: "x"\n---\nbody\n'
 
 
-def test_stamp_reports_a_block_whose_insert_does_not_round_trip(tmp_path):
+@pytest.mark.parametrize(
+    "before",
+    [
+        # The flat parser refuses it before anything is stamped.
+        pytest.param("---\nmeta:\n  nested: 1\n---\nbody\n", id="flat-parser-refuses"),
+        # The flat parser reads `[a` as a key; the OKF reader that decides
+        # whether a type is missing refuses the block.
+        pytest.param("---\n[a: 1\n---\nbody\n", id="okf-reader-refuses"),
+        # The flat parser keeps a quoted key's quotes, so `"type"` is not the
+        # `type` it would replace: the stamped block would carry two, and the
+        # re-parse refuses the duplicate.
+        pytest.param('---\n"type": null\n---\nbody\n', id="stamped-block-unreadable"),
+        # `yes` reads back as the bool key True: the stamped block parses, but
+        # not as {type, **data}.
+        pytest.param("---\nyes: 1\n---\nbody\n", id="stamped-keys-differ"),
+    ],
+)
+def test_stamp_reports_a_block_whose_insert_does_not_round_trip(tmp_path, before):
     """After the insert, stamp re-parses; a block that does not read back as
-    `{type, **data}` is reported `unparseable`, never written."""
+    `{type, **data}` is reported `unparseable`, never written. Each case is
+    the one fixture that reaches its own refusal."""
     (tmp_path / "literature").mkdir()
     note = tmp_path / "literature" / "x.md"
-    before = "---\nmeta:\n  nested: 1\n---\nbody\n"
     note.write_text(before)
     stamped, reported = stamp.stamp_types(tmp_path)
     assert stamped == []
     assert reported == [("literature/x.md", "unparseable")]
     assert note.read_text() == before
+
+
+@pytest.mark.parametrize("value", ["false", "off", "0", "[]"])
+def test_stamp_replaces_every_type_the_structure_check_reads_as_missing(
+    tmp_path, value
+):
+    """One reader decides "type missing" for both (Q18): a type the structure
+    check reports as missing is one stamp replaces, with one `type` line."""
+    (tmp_path / "literature").mkdir()
+    note = tmp_path / "literature" / "x.md"
+    note.write_text(f"---\ntype: {value}\ntitle: x\n---\nbody\n")
+    (finding,) = structure.check_note_frontmatter(tmp_path, note)
+    assert finding.reason == "schema-violation — missing type (OKF §11 rule 2)"
+    assert stamp.stamp_types(tmp_path) == (["literature/x.md"], [])
+    assert note.read_text() == '---\ntype: "literature"\ntitle: "x"\n---\nbody\n'
+    (finding,) = structure.check_note_frontmatter(tmp_path, note)
+    assert finding.result is Result.MATCHED
+
+
+def test_stamp_keeps_a_quoted_null_type_the_check_reads_as_present(tmp_path):
+    """`type: "null"` is a string the OKF reader keeps: stamp never overrides
+    a present type, so the check's mismatch is left for a human."""
+    (tmp_path / "literature").mkdir()
+    note = tmp_path / "literature" / "x.md"
+    before = '---\ntype: "null"\n---\nbody\n'
+    note.write_text(before)
+    assert stamp.stamp_types(tmp_path) == ([], [])
+    assert note.read_text() == before
+
+
+def test_stamp_lets_a_missing_pyyaml_propagate(tmp_path, pyyaml_missing):
+    """§5.6 fails closed: no PyYAML is not an `unparseable` note."""
+    (tmp_path / "literature").mkdir()
+    (tmp_path / "literature" / "x.md").write_text("---\ntitle: x\n---\nbody\n")
+    with pytest.raises(frontmatter.DependencyMissingError, match="PyYAML"):
+        stamp.stamp_types(tmp_path)

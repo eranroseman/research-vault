@@ -1,4 +1,5 @@
 import ast
+import builtins
 import json as _json
 import os
 import re
@@ -11,7 +12,7 @@ from typing import AnyStr
 
 import pytest
 
-from research_vault import scaffold, zotero
+from research_vault import frontmatter, scaffold, zotero
 
 
 def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyStr:
@@ -494,3 +495,21 @@ def dead_base(_no_socket):
         port = sock.getsockname()[1]
     _no_socket.add(("127.0.0.1", port))
     return f"http://127.0.0.1:{port}"
+
+
+@pytest.fixture
+def pyyaml_missing(monkeypatch):
+    """An install without PyYAML: `import yaml` is refused, and frontmatter's
+    loader is put back in its never-built state, so the next OKF read meets
+    the refusal. The loader is built once per process; without the reset, any
+    earlier test in the worker would have built it and the refusal would
+    never be reached."""
+    real_import = builtins.__import__
+
+    def refuse(name, *args, **kwargs):
+        if name == "yaml" or name.startswith("yaml."):
+            raise ImportError(f"No module named {name!r}")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", refuse)
+    monkeypatch.setattr(frontmatter, "_LOADER", None)
