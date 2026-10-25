@@ -758,7 +758,7 @@ INLINE_CODE = re.compile(r"`[^`]*`")
 HEADING_NUMBER = re.compile(r"^(#{1,6} )((?:\d+|[A-Z])(?:\.\d+)*\.?\s*)")
 MONEY = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?")
 PERCENT = re.compile(r"\d[\d,]*(?:\.\d+)?\s?%")
-INTEGER = re.compile(r"(?<![\w.,])\d{1,3}(?:,\d{3})+(?![\w.])|(?<![\w.,])\d+(?![\w.,])")
+INTEGER = re.compile(r"(?<![\w.,])\d{1,3}(?:,\d{3})+(?!\w|[.,]\d)|(?<![\w.,])\d+(?!\w|[.,]\d)")
 NUMBERS_YEAR = (1900, 2099)
 WINDOW = 6  # words either side of a reported number
 ```

@@ -1440,7 +1440,7 @@ def _numbers_fixture() -> str:
     text = mutate(
         text,
         "## Procedure\n\n",
-        "## Procedure\n\nEach of the 52 sessions lasts a 45-minute slot of 52.5 trials on average; participants [52] agree; completion was 93% in `run_52.py`. ",
+        "## Procedure\n\nEach of the 52 sessions lasts a 45-minute slot of 52.5 trials on average; participants [52] agree; completion was 93% in `run.py --n 52`. ",
     )
     return mutate(
         text,
