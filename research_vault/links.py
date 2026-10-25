@@ -73,6 +73,10 @@ ATTACHMENT_EXTENSIONS = frozenset(
     }
 )
 _WIKI = re.compile(r"(?P<embed>!?)\[\[(?P<inner>[^\[\]\n]+?)\]\]")
+# Obsidian's table escape: in a table it writes `[[x\|y]]`, so the row keeps
+# its cells. `\|` separates the alias as `|` does, and its `\` is no part of
+# the target, which `_fold` would otherwise turn into a folder's `/` (§5.2).
+_ALIAS_SEPARATOR = re.compile(r"\\?\|")
 # A destination is one run without whitespace, with one level of balanced
 # parentheses (Obsidian writes `a%20(b)` unencoded); a `[x](dest "title")`
 # form is not a link this module reads.
@@ -173,13 +177,21 @@ def _split_subpath(raw: str) -> tuple[str, str]:
     return head, (sep + tail if sep else "")
 
 
+def _split_alias(inner: str) -> tuple[str, str, str | None]:
+    """A wikilink's inside as ``(path part, separator as written, alias)``:
+    the separator is ``|`` or a table's ``\\|``; with none, ``("", None)``."""
+    separator = _ALIAS_SEPARATOR.search(inner)
+    if separator is None:
+        return inner, "", None
+    return inner[: separator.start()], separator.group(), inner[separator.end() :]
+
+
 def find_links(text: str) -> list[Link]:
     """Every link in ``text`` in order of appearance. Nothing is masked here:
     the normaliser decides what a code fence or a claim block protects."""
     found: list[Link] = []
     for match in _WIKI.finditer(text):
-        inner = match.group("inner")
-        path_part, _, alias = inner.partition("|")
+        path_part, _separator, alias = _split_alias(match.group("inner"))
         target, subpath = _split_subpath(path_part)
         found.append(
             Link(
@@ -187,7 +199,7 @@ def find_links(text: str) -> list[Link]:
                 match.group("embed") == "!",
                 target.strip(),
                 subpath.strip(),
-                alias if "|" in inner else None,
+                alias,
                 match.start(),
                 match.end(),
             )
@@ -566,7 +578,8 @@ def link_names_note(link: Link, key: str, *, source: str) -> bool:
 
 
 def rewrite_key(text: str, old: str, new: str, *, source: str) -> str:
-    """Rename every link naming ``old``: a wikilink keeps its form, a markdown
+    """Rename every link naming ``old``: a wikilink keeps its form (a table's
+    ``\\|`` included), a markdown
     link is re-pointed at ``/literature/<new>.md`` with its subpath, and a
     display text equal to the old key, or starting ``<old> > `` as the
     normaliser renders a subpath link, has the key renamed."""
@@ -577,7 +590,10 @@ def rewrite_key(text: str, old: str, new: str, *, source: str) -> str:
             continue
         bang = "!" if link.embed else ""
         if link.kind == "wiki":
-            alias = f"|{link.alias}" if link.alias is not None else ""
+            # The separator as written: a table's `\|` stays escaped. The
+            # span's first `|` is its separator: `[[` holds none.
+            _path, separator, _alias = _split_alias(text[link.start : link.end])
+            alias = f"{separator}{link.alias}" if link.alias is not None else ""
             replacement = f"{bang}[[{new}{link.subpath}{alias}]]"
         else:
             shown = link.alias or ""

@@ -864,3 +864,34 @@ def test_literature_paths_maps_keys_and_names_to_the_note_that_records_them(tmp_
         "smith2020a": "literature/renamed2020.md",
     }
     assert by_name["Mortality decline"] in by_key.values()
+
+
+def test_a_table_escaped_wikilink_is_checked_not_read_as_a_folder(tmp_vault):
+    """R2, the repro: in a table `[[x\\|y]]` escapes its pipe. The `\\` is no
+    part of the target, so each link is checked like its unescaped twin and
+    reported as written; a resolving one is no row."""
+    _note(tmp_vault, "smith2020", "SMITH001")
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / "A.md").write_text(
+        "---\ntype: source\n---\n| a | b | c | d |\n| --- | --- | --- | --- |\n"
+        "| [[ghost2021\\|Ghost]] | [[nofile/x.png\\|pic]] | [[idea\\|Idea]] "
+        "| [[smith2020\\|Smith]] |\n"
+    )
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert [(o.check, o.reason) for o in rows] == [
+        (
+            "captured-set",
+            "not-captured — wiki/sources/A.md links [[ghost2021\\|Ghost]], not a page and not in the captured set",
+        ),
+        (
+            "dead-link",
+            "dead-link — wiki/sources/A.md links [[nofile/x.png\\|pic]], which no file matches",
+        ),
+        (
+            "captured-set",
+            "not-captured — wiki/sources/A.md links [[idea\\|Idea]], not a page and not in the captured set",
+        ),
+    ]

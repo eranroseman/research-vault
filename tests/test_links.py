@@ -674,3 +674,46 @@ def test_rewrite_key_reads_a_colon_key_as_a_name_only_in_a_wikilink():
     assert links.rewrite_key(text, "re:2020", "re2021", source="index.md") == (
         "[[re2021]] [x](re:2020)\n"
     )
+
+
+def test_find_links_reads_a_table_escaped_pipe_as_the_alias_separator():
+    """R2, §5.2: inside a table Obsidian writes `[[x\\|y]]`, the pipe escaped
+    so the row keeps its cells. `\\|` separates the alias, and the `\\` is no
+    part of the target (else `_fold` makes it a `/` and the link a folder);
+    the span stays as written."""
+    text = "| [[ghost2021\\|Ghost]] | [[Foo#Heading\\|shown]] | ![[img.png\\|480]] |"
+    found = links.find_links(text)
+    assert [
+        (link.target, link.subpath, link.alias, text[link.start : link.end])
+        for link in found
+    ] == [
+        ("ghost2021", "", "Ghost", "[[ghost2021\\|Ghost]]"),
+        ("Foo", "#Heading", "shown", "[[Foo#Heading\\|shown]]"),
+        ("img.png", "", "480", "![[img.png\\|480]]"),
+    ]
+    assert not any(links.is_folder(link.target) for link in found)
+
+
+def test_normalize_rewrites_a_table_escaped_wikilink_to_a_pipe_free_link(tmp_path):
+    """R2: the markdown form `[Here](/…)` carries no `|`, so the table cell
+    needs no escape and the row keeps its cells; a dead one is reported
+    under its target, its span as written."""
+    index = _index(tmp_path)
+    text = "| a | b |\n| --- | --- |\n| [[Only Here\\|Here]] | [[nowhere\\|N]] |\n"
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert out == (
+        "| a | b |\n| --- | --- |\n"
+        "| [Here](/wiki/concepts/Only%20Here.md) | [[nowhere\\|N]] |\n"
+    )
+    assert [(p.kind, p.target, p.written) for p in problems] == [
+        ("dead", "nowhere", "[[nowhere\\|N]]")
+    ]
+
+
+def test_rewrite_key_keeps_a_table_escaped_pipe_as_written():
+    """A re-keyed wikilink in a table keeps its `\\|`: a bare `|` would split
+    the cell."""
+    text = "| [[old2020\\|Old]] | [[old2020#^c-1\\|q]] | [[old2020|x]] |\n"
+    assert links.rewrite_key(text, "old2020", "new2020", source="index.md") == (
+        "| [[new2020\\|Old]] | [[new2020#^c-1\\|q]] | [[new2020|x]] |\n"
+    )
