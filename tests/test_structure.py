@@ -394,6 +394,10 @@ def test_a_littered_vault_reads_the_same_to_every_walker(fixture_vault, walker):
 # Walks over paths that hold no vault note, keyed by module and enclosing
 # function (line numbers drift); each says why the predicate has nothing to
 # exclude there. A stale entry fails the test below, so none outlives its walk.
+# The stray inventories of the flat machine folders (`check_log_dir` over
+# log/, `check_tree` over literature/) are not listed: they call
+# `is_excluded`, but only to skip a dot-directory, and report a dot-named
+# file as a stray rather than exclude it (#204, #211).
 _NOT_NOTE_WALKS = {
     "scaffold.py::_template_files": "the package's own template tree, not a vault",
     "scaffold.py::_add_empty_root_sentinels": "asks only whether a root is empty, to seed .gitkeep",
@@ -658,6 +662,43 @@ _LOG_DIFFERS = (
 )
 
 
+def test_log_dir_numbers_lines_as_an_editor_counts_them(tmp_path):
+    """A form feed, NEL or U+2028 inside a day file's line does not shift the
+    numbers of the rows after it: a line ends at `\\n` only. The render reads
+    lines through `splitlines`, so it drops what follows the separator, and
+    the line holding it is a row of its own."""
+    _scaffold_min(tmp_path)
+    _write(
+        tmp_path,
+        "log/2026-10-01.md",
+        f'---\ntype: "log"\n---\n- 09:00 {WRITER} — a\x0cb\n'
+        f"- 09:00 {WRITER} — c\x85d\u2028e\n- 09:00 {WRITER} — fine\n- hand-typed\n",
+    )
+    assert _rows(tmp_path) == [
+        (
+            "okf-structure",
+            "path-bytes:log/2026-10-01.md",
+            (
+                "schema-violation — line 4 is not in the writer's format: "
+                f"'- 09:00 {WRITER} — a\\x0cb'"
+            ),
+        ),
+        (
+            "okf-structure",
+            "path-bytes:log/2026-10-01.md",
+            (
+                "schema-violation — line 5 is not in the writer's format: "
+                f"'- 09:00 {WRITER} — c\\x85d\\u2028e'"
+            ),
+        ),
+        (
+            "okf-structure",
+            "path-bytes:log/2026-10-01.md",
+            "schema-violation — line 7 is not in the writer's format: '- hand-typed'",
+        ),
+    ]
+
+
 def test_root_log_md_must_equal_its_render(tmp_path):
     """#210: every edit to the root log — an entry, a removed entry, the
     frontmatter, the heading order, an extra line, CRLF line endings — is
@@ -890,3 +931,13 @@ def test_an_unreadable_fleeting_capture_is_still_exempt(tmp_path, data):
     path.parent.mkdir()
     path.write_bytes(data)
     assert structure.check_note_frontmatter(tmp_path, path) == []
+
+
+def test_the_text_layer_folder_is_one_name_in_every_module_that_spells_it():
+    """structure copies `fulltext.FULLTEXT_DIR` rather than import the
+    transport (`literature_notes`' precedent for `ITEM_KEY`), and stamp's
+    whole-vault skip spells it too: one name, pinned here."""
+    from research_vault import fulltext, stamp
+
+    assert structure._FULLTEXT_DIR == fulltext.FULLTEXT_DIR
+    assert frozenset({fulltext.FULLTEXT_DIR}) == stamp._SKIP_DIRS

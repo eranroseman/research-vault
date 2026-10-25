@@ -3473,9 +3473,7 @@ def test_a_nested_note_under_literature_is_not_a_literature_note_anywhere(net_va
     assert sorted(
         (o.check, o.result, o.reason)
         for o in effective
-        if "older" in str(o.target)
-        or "older" in str(o.extra.get("note_path", ""))
-        or (o.check == "tree" and "older" in o.reason)
+        if "older" in str(o.target) or "older" in str(o.extra.get("note_path", ""))
     ) == [
         ("okf-frontmatter", Result.MATCHED, "matched"),
         (

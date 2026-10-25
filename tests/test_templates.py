@@ -1,3 +1,4 @@
+import fnmatch
 import json
 import os
 import re
@@ -205,7 +206,14 @@ def test_bases_and_machine_example_match_canonical_shapes():
     assert ".obsidian/workspace*\n" in gitignore
     for litter in (".DS_Store\n", "._*\n", "[Dd]esktop.ini\n"):
         assert litter in gitignore
-    assert set(structure.OS_LITTER) == {".DS_Store", "desktop.ini", "Desktop.ini"}
+    # The walkers' litter names are the seed's own gitignore lines: each name
+    # the predicate excludes is one a seeded pattern ignores, AppleDouble's
+    # prefix included, and each casing a seeded pattern ignores is excluded.
+    patterns = [line for line in gitignore.splitlines() if line and line[0] != "#"]
+    for name in (*structure.OS_LITTER, f"{structure._APPLE_DOUBLE_PREFIX}x.md"):
+        assert any(fnmatch.fnmatchcase(name, line) for line in patterns), name
+    for name in ("desktop.ini", "Desktop.ini"):
+        assert structure.is_os_litter(name), name
 
 
 # Anchored (leading "/") gitignore-style form, as research_vault/lints.py's

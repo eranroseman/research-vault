@@ -23,7 +23,7 @@ import os
 import re
 from pathlib import Path
 
-from . import frontmatter, fulltext, literature_notes
+from . import frontmatter, literature_notes
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
@@ -63,6 +63,9 @@ _TOOL_RESERVED_FILES = frozenset(
 _MACHINE_RESERVED_PREFIXES = ("system/propagations/",)
 
 _PROJECT_NOTE_NAME = "draft.md"
+# Copied from ``fulltext.FULLTEXT_DIR`` rather than imported, so ``structure``
+# stays transport-free (``fulltext`` imports ``zotero``); a test pins the two.
+_FULLTEXT_DIR = "fulltext"
 
 
 def is_os_litter(name: str) -> bool:
@@ -75,7 +78,11 @@ def is_excluded(path: Path, vault: Path) -> bool:
     Every walker in the package calls this; a test pins that every `glob`,
     `rglob` and `iterdir` calls it or walks no vault note. `.gitkeep` is a
     dot-name too, so a walker over every file (not only `*.md`) treats the
-    sentinel as excluded, which is right: nothing reads it.
+    sentinel as excluded, which is right: nothing reads it. The stray
+    inventories of the two flat machine folders, `check_log_dir` over `log/`
+    and `check_tree` over `literature/`, are not note walks: they skip the
+    sentinel and OS litter by name, call this only to skip a dot-directory,
+    and report a dot-named file as a stray, never exclude it (#204, #211).
     """
     parts = path.relative_to(vault).parts
     return any(part.startswith(".") for part in parts) or (
@@ -144,16 +151,13 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
         ]
     # §5.5: `type: fulltext` belongs to fulltext/ alone, and the test comes
     # before inbox/'s exemption so a moved text file is refused anywhere (Q26).
-    if data.get("type") == "fulltext" and not relative.startswith(
-        f"{fulltext.FULLTEXT_DIR}/"
-    ):
+    if data.get("type") == "fulltext" and not relative.startswith(f"{_FULLTEXT_DIR}/"):
         return [
             Outcome(
                 "okf-frontmatter",
                 _repo_path(relative),
                 Result.UNMATCHED,
-                "schema-violation — type 'fulltext' is reserved for "
-                f"{fulltext.FULLTEXT_DIR}/",
+                f"schema-violation — type 'fulltext' is reserved for {_FULLTEXT_DIR}/",
             )
         ]
     if is_fleeting(relative):
@@ -235,8 +239,10 @@ def _okf_structure(relative: str, detail: str) -> Outcome:
 
 def check_log_dir(vault_root) -> list[Outcome]:
     """#204: `log/` holds `.gitkeep` and `<YYYY-MM-DD>.md` day files whose body
-    lines are the writer's; a directory is a `tree` row and anything else an
-    `okf-structure` row under its own path, never under log.md."""
+    lines are the writer's. OS litter and a dot-directory (a sync tool's
+    store, #194) are no entry; any other directory is a `tree` row, and any
+    other file, a dot-named one too, an `okf-structure` row under its own
+    path, never under log.md: literature/'s one rule (`check_tree`)."""
     # Lazy: okf imports structure.
     from . import okf
 
@@ -287,10 +293,17 @@ def check_log_dir(vault_root) -> list[Outcome]:
                 _okf_structure(relative, "frontmatter is not the writer's flat form")
             )
             continue
-        # The file's own line numbers: the body starts below the block.
+        # The file's own line numbers, as an editor counts them: the body
+        # starts below the block, and a line ends at "\n" only, so a form
+        # feed or U+2028 shifts no later number. The render reads each line
+        # through `splitlines`, so a line it would cut short is a row.
         first = text.count("\n", 0, len(text) - len(body)) + 1
-        for number, line in enumerate(body.splitlines(), start=first):
-            if line.strip() and not okf.WRITER_LINE.match(line):
+        for number, raw in enumerate(body.split("\n"), start=first):
+            line = raw.removesuffix("\r")
+            if any(
+                piece.strip() and not okf.WRITER_LINE.match(piece)
+                for piece in line.splitlines()
+            ):
                 rows.append(
                     _okf_structure(
                         relative,
@@ -395,7 +408,9 @@ def check_tree(vault_root) -> list[Outcome]:
     reader of the evidence layer globs it flat (decision 08), so a note in a
     nested directory is a literature note nowhere — reported here rather than
     typed by folder and forgotten. So is every file there but `.gitkeep` and
-    `<citation key>.md` (#211): a PDF, a text file, a name no key gives.
+    `<citation key>.md` (#211): a PDF, a text file, a name no key gives, a
+    dot-named file. OS litter and a dot-directory (a sync tool's store, #194)
+    are no entry: log/'s one rule (`check_log_dir`).
     """
     from . import scaffold
 

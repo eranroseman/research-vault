@@ -317,7 +317,7 @@ _UNSTAGED_DAY = (
 def test_staged_never_renders_the_log_from_an_untracked_day_file(tmp_path, capsys):
     """#203 under `--staged`: root log.md is rendered only when a fully staged
     path is a log/ day file or log.md, and never from a day file the index
-    does not hold; bare `stamp-type` still renders the worktree's log/."""
+    does not hold."""
     from research_vault import scaffold
 
     vault = tmp_path / "vault"

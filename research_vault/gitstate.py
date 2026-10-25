@@ -21,7 +21,9 @@ ZERO_OID = "0" * 40
 
 
 class GitStateError(RuntimeError):
-    """Snapshot, projection, manifest, or publication state is incoherent."""
+    """Snapshot, projection, manifest, or publication state is incoherent, or
+    there is no git repository to read it from (``fixer.staged_paths`` raises
+    it naming git's own refusal)."""
 
 
 @dataclass(frozen=True)
