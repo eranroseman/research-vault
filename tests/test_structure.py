@@ -1,4 +1,5 @@
 import ast
+import os
 import subprocess
 from pathlib import Path
 
@@ -216,13 +217,13 @@ def test_check_tree_reports_each_nested_directory_under_literature(tmp_path):
             "tree",
             "literature/older/",
             Result.UNMATCHED,
-            "schema-violation — literature/ is flat: literature/older/",
+            "schema-violation — literature/ is flat",
         ),
         (
             "tree",
             "literature/zzz/",
             Result.UNMATCHED,
-            "schema-violation — literature/ is flat: literature/zzz/",
+            "schema-violation — literature/ is flat",
         ),
     ]
 
@@ -283,7 +284,7 @@ def test_check_tree_leaves_a_dot_directory_under_literature_alone(tmp_vault):
     ] == [
         (
             "literature/nested/",
-            "schema-violation — literature/ is flat: literature/nested/",
+            "schema-violation — literature/ is flat",
         )
     ]
 
@@ -397,7 +398,6 @@ _NOT_NOTE_WALKS = {
     "scaffold.py::_template_files": "the package's own template tree, not a vault",
     "scaffold.py::_add_empty_root_sentinels": "asks only whether a root is empty, to seed .gitkeep",
     "scaffold.py::_preflight_conflicts": "the same emptiness question, asked before any write",
-    "structure.py::check_log_dir": "log/ is a machine surface; its stray inventory is not a note walk",
 }
 _WALK_CALLS = frozenset({"glob", "rglob", "iterdir", "walk"})
 _SCOPES = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp, ast.stmt)
@@ -528,7 +528,7 @@ def test_log_dir_reports_strays_under_their_own_paths_never_under_log_md(tmp_pat
     date, a stray heading and a hand-typed line are each a row on their own
     file, numbered by the file's own lines; so is a day file whose frontmatter
     only the OKF reader accepts, which the render drops whole. OS litter and
-    `.gitkeep` are no entry."""
+    `.gitkeep` are no entry, nor is a sync tool's dot-directory (#194)."""
     from research_vault import okf
 
     _scaffold_min(tmp_path)
@@ -551,6 +551,7 @@ def test_log_dir_reports_strays_under_their_own_paths_never_under_log_md(tmp_pat
         "---\ntype: log\nmeta:\n  a: 1\n---\n- hand-typed\n",
     )
     (log / "nested").mkdir()
+    (log / ".stversions").mkdir()  # a sync tool's store: no entry
     (log / ".gitkeep").touch()
     _write(tmp_path, "log/.x.md", "- a force-added dot-named stray\n")
     (log / ".DS_Store").write_bytes(b"\x00\x05\x16\x07")  # OS litter: no entry
@@ -592,7 +593,7 @@ def test_log_dir_reports_strays_under_their_own_paths_never_under_log_md(tmp_pat
             "path-bytes:log/Untitled.md",
             "schema-violation — log/ holds only <YYYY-MM-DD>.md day files and .gitkeep",
         ),
-        ("tree", "log/nested/", "schema-violation — log/ is flat: log/nested/"),
+        ("tree", "log/nested/", "schema-violation — log/ is flat"),
     ]
     assert not any("log.md" in target for _check, target, _reason in rows)
 
@@ -755,6 +756,11 @@ def test_stamp_leaves_reserved_names_untouched_anywhere(tmp_path):
     assert (tmp_path / "log" / "log.md").read_text() == "bare\n"
 
 
+_LITERATURE_STRAY = (
+    "schema-violation — literature/ holds only <citation key>.md and .gitkeep"
+)
+
+
 def test_check_tree_reports_a_stray_file_under_literature(tmp_path):
     from research_vault import scaffold
 
@@ -772,18 +778,9 @@ def test_check_tree_reports_a_stray_file_under_literature(tmp_path):
         if o.result is Result.UNMATCHED
     ]
     assert rows == [
-        (
-            "path-bytes:literature/bad%20key.md",
-            "schema-violation — literature/ holds only <citation key>.md and .gitkeep: literature/bad key.md",
-        ),
-        (
-            "path-bytes:literature/notes.txt",
-            "schema-violation — literature/ holds only <citation key>.md and .gitkeep: literature/notes.txt",
-        ),
-        (
-            "path-bytes:literature/smith2020.pdf",
-            "schema-violation — literature/ holds only <citation key>.md and .gitkeep: literature/smith2020.pdf",
-        ),
+        ("path-bytes:literature/bad%20key.md", _LITERATURE_STRAY),
+        ("path-bytes:literature/notes.txt", _LITERATURE_STRAY),
+        ("path-bytes:literature/smith2020.pdf", _LITERATURE_STRAY),
     ]
 
 
@@ -820,6 +817,28 @@ def test_stray_file_in_literature_closes_the_commit(tmp_path):
     )
 
 
+def test_a_stray_with_a_non_utf8_name_is_a_row_not_a_crash(tmp_path):
+    """The reason carries no path: a raw name that is not UTF-8 decodes to a
+    lone surrogate, which the queue's strict UTF-8 write refuses. The encoded
+    target names the file."""
+    from research_vault import scaffold, verify
+
+    scaffold.scaffold_vault(tmp_path)
+    try:
+        (tmp_path / "literature" / os.fsdecode(b"caf\xe9.pdf")).write_bytes(b"%PDF")
+    except OSError:
+        pytest.skip("the filesystem refuses a name that is not UTF-8")
+    _report, effective, _hashes, warning = verify.verify_state(
+        tmp_path, network=False, git_candidate="worktree"
+    )
+    decision, blockers = verify.surface_decision("commit", effective, warning)
+    assert decision == 1
+    assert (
+        f"UNMATCHED tree path-bytes:literature/caf%E9.pdf — {_LITERATURE_STRAY}"
+        in blockers
+    )
+
+
 @pytest.mark.parametrize(
     "relative", ["wiki/x.md", "inbox/moved.md", "projects/p/text.md", "D7EJ9FTG.md"]
 )
@@ -850,3 +869,17 @@ def test_a_text_file_in_its_own_layer_still_passes(tmp_path):
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "data",
+    [b"---\nsee: x\n[[nowhere]]\n", b"caf\xe9\n"],
+    ids=["unterminated-frontmatter", "not-utf-8"],
+)
+def test_an_unreadable_fleeting_capture_is_still_exempt(tmp_path, data):
+    """Parsing now comes before the fleeting return, so a capture whose
+    frontmatter does not parse, or whose bytes do not decode, is still no row."""
+    path = tmp_path / "inbox" / "x.md"
+    path.parent.mkdir()
+    path.write_bytes(data)
+    assert structure.check_note_frontmatter(tmp_path, path) == []

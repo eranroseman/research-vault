@@ -23,7 +23,7 @@ import os
 import re
 from pathlib import Path
 
-from . import frontmatter, literature_notes
+from . import frontmatter, fulltext, literature_notes
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
@@ -122,7 +122,11 @@ def _repo_path(relative: str) -> RepoPath:
 
 
 def check_note_frontmatter(vault_root, path) -> list[Outcome]:
-    """Rules 1 and 2 plus the folder-type vault rule, for one non-reserved file."""
+    """Rules 1 and 2 plus the folder-type vault rule, for one non-reserved file.
+
+    `type: fulltext` is reserved for `fulltext/` (§5.5), tested before the
+    fleeting exemption, so a text file moved into `inbox/` is refused too.
+    """
     vault = Path(vault_root)
     relative = Path(path).relative_to(vault).as_posix()
     try:
@@ -140,13 +144,16 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
         ]
     # §5.5: `type: fulltext` belongs to fulltext/ alone, and the test comes
     # before inbox/'s exemption so a moved text file is refused anywhere (Q26).
-    if data.get("type") == "fulltext" and not relative.startswith("fulltext/"):
+    if data.get("type") == "fulltext" and not relative.startswith(
+        f"{fulltext.FULLTEXT_DIR}/"
+    ):
         return [
             Outcome(
                 "okf-frontmatter",
                 _repo_path(relative),
                 Result.UNMATCHED,
-                "schema-violation — type 'fulltext' is reserved for fulltext/",
+                "schema-violation — type 'fulltext' is reserved for "
+                f"{fulltext.FULLTEXT_DIR}/",
             )
         ]
     if is_fleeting(relative):
@@ -239,20 +246,25 @@ def check_log_dir(vault_root) -> list[Outcome]:
         return []
     rows: list[Outcome] = []
     for child in sorted(log_dir.iterdir()):
-        # Not `is_excluded`: a dot-named stray is a stray too (#204); only the
-        # sentinel and OS litter are no entry at all.
+        # One rule for both flat machine folders, log/ and literature/: the
+        # sentinel, OS litter and a dot-directory (a sync tool's store, which
+        # Obsidian ignores; #194) are no entry. Any other directory is a
+        # `tree` row; every other file, a dot-named one too, meets the
+        # folder's name rule (#204, #211). Reasons carry no path: the
+        # encoded target does, and a raw name may not be UTF-8.
         if child.name == ".gitkeep" or is_os_litter(child.name):
             continue
         relative = f"log/{child.name}"
         if child.is_dir():
-            rows.append(
-                Outcome(
-                    "tree",
-                    f"{relative}/",
-                    Result.UNMATCHED,
-                    f"schema-violation — log/ is flat: {relative}/",
+            if not is_excluded(child, vault):
+                rows.append(
+                    Outcome(
+                        "tree",
+                        f"{relative}/",
+                        Result.UNMATCHED,
+                        "schema-violation — log/ is flat",
+                    )
                 )
-            )
             continue
         if child.suffix != ".md" or not is_day_stem(child.stem):
             rows.append(
@@ -398,9 +410,12 @@ def check_tree(vault_root) -> list[Outcome]:
     literature = vault / "literature"
     if literature.is_dir():
         for child in sorted(literature.iterdir()):
-            # As in log/, only the sentinel and OS litter are no entry: a
-            # machine surface's dot-named file is a stray (#211), one every
-            # reader skips. A dot-directory is a sync tool's store (#194).
+            # One rule for both flat machine folders, log/ and literature/: the
+            # sentinel, OS litter and a dot-directory (a sync tool's store, which
+            # Obsidian ignores; #194) are no entry. Any other directory is a
+            # `tree` row; every other file, a dot-named one too, meets the
+            # folder's name rule (#204, #211). Reasons carry no path: the
+            # encoded target does, and a raw name may not be UTF-8.
             if child.name == ".gitkeep" or is_os_litter(child.name):
                 continue
             excluded = is_excluded(child, vault)
@@ -412,7 +427,7 @@ def check_tree(vault_root) -> list[Outcome]:
                             "tree",
                             f"{relative}/",
                             Result.UNMATCHED,
-                            f"schema-violation — literature/ is flat: {relative}/",
+                            "schema-violation — literature/ is flat",
                         )
                     )
                 continue
@@ -423,7 +438,7 @@ def check_tree(vault_root) -> list[Outcome]:
                         _repo_path(relative),
                         Result.UNMATCHED,
                         "schema-violation — literature/ holds only "
-                        f"<citation key>.md and .gitkeep: {relative}",
+                        "<citation key>.md and .gitkeep",
                     )
                 )
     return rows

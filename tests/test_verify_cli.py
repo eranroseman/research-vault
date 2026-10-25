@@ -3480,7 +3480,7 @@ def test_a_nested_note_under_literature_is_not_a_literature_note_anywhere(net_va
         (
             "tree",
             Result.UNMATCHED,
-            "schema-violation — literature/ is flat: literature/older/",
+            "schema-violation — literature/ is flat",
         ),
     ]
     assert "[failed-verification::" not in nested.read_text()
