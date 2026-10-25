@@ -744,17 +744,18 @@ SENTENCE = "Participants will select targets on the screen with each device in t
 
 def valid_draft(body_sentences: int = 240, reference_count: int = 16) -> str:
     """A draft with the course's sections in order, about 2,900 body words,
-    sixteen references, a bulleted contributions list and the supervision
-    sentence."""
+    sixteen references each cited in the Literature review, a bulleted
+    contributions list and the supervision sentence."""
     prose = SENTENCE * (body_sentences // 7)
     references = "\n".join(
         f"- Author {n} ({2000 + n}). A paper about pointing, number {n}. A Journal."
         for n in range(reference_count)
     )
+    cites = "; ".join(f"Author {n} ({2000 + n})" for n in range(reference_count))
     return (
         "# A controlled experiment\n\n"
         f"## Introduction\n\nWe ask a question. {prose}\n\nThe contributions will be:\n\n- an estimate;\n- a test;\n- a program.\n\n"
-        f"## Literature review\n\n{prose}\n\n"
+        f"## Literature review\n\n{prose} Prior work: {cites}.\n\n"
         f"## Research questions or Hypotheses\n\n- H1: faster with the mouse.\n\n{prose}\n\n"
         f"## Participants\n\n{prose}\n\n"
         f"## Materials\n\n{prose}\n\n"
@@ -898,13 +899,153 @@ def test_the_reference_count_and_the_supervisor_name(tmp_path):
     path = tmp_path / "draft.md"
     path.write_text(valid_draft(reference_count=14), encoding="utf-8")
     assert (
-        "references: 14 entries; the template asks for 15 to 20"
+        "references: the Literature review cites 14 of the list's 14 entries; the template asks for 15 to 20"
         in run("draft", str(path)).stdout
     )
     path.write_text(valid_draft(), encoding="utf-8")
     out = run("draft", str(path), "--supervisor", "Dr. Someone Else").stdout
     assert "appendix: the supervision sentence names 'Dr. Example" in out
     assert "not 'Dr. Someone Else'" in out
+
+
+def _numbered_draft(cited: int = 18, listed: int = 28, extra_citation: str = "") -> str:
+    """An ACM-numbered draft: `[n]` entries, the Literature review citing the
+    first `cited` of them as `[1]`, `[2, 3]`, `[4-6]` and single brackets."""
+    text = valid_draft()
+    entries = "\n".join(
+        f"[{n}] Author {n}. {2000 + n}. A paper about pointing, number {n}. A Journal."
+        for n in range(1, listed + 1)
+    )
+    start, end = (
+        text.index("## References\n\n") + len("## References\n\n"),
+        text.index("## Appendix A"),
+    )
+    text = text[:start] + entries + "\n\n" + text[end:]
+    rest = ", ".join(f"[{n}]" for n in range(7, cited + 1))
+    citations = f"Prior work [1] showed it [2, 3] and so did others [4–6]; see also {rest}{extra_citation}."
+    return re.sub(r"Prior work: .*?\.\n", citations + "\n", text, count=1)
+
+
+def test_numbered_reference_lines_count_as_entries_and_the_review_citations_are_counted(
+    tmp_path,
+):
+    """An ACM-numbered list is 28 entries, not one; the count the template
+    bounds is the Literature review's 18 distinct cited numbers, so the draft
+    passes `--references 15-20` with 28 entries listed. The list total and the
+    uncited entries are informational, on stderr, never in --json."""
+    path = tmp_path / "draft.md"
+    path.write_text(_numbered_draft(), encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 0, result.stdout
+    assert "references: 28 entries in the list" in result.stderr
+    assert "references: entry [19] is not cited" in result.stderr
+    assert "references: entry [28] is not cited" in result.stderr
+    assert "entry [18] is not cited" not in result.stderr
+    assert (
+        json.loads(
+            run("--json", "draft", str(path), "--supervisor", "Dr. Example").stdout
+        )
+        == []
+    )
+    path.write_text(_numbered_draft(cited=14), encoding="utf-8")
+    out = run("draft", str(path), "--supervisor", "Dr. Example").stdout
+    assert (
+        "references: the Literature review cites 14 of the list's 28 entries; the template asks for 15 to 20 [references-count; item 5.1]"
+        in out
+    )
+
+
+def test_a_citation_without_an_entry_is_a_defect_under_item_3_3(tmp_path):
+    path = tmp_path / "draft.md"
+    path.write_text(_numbered_draft(extra_citation=" and [29]"), encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 1
+    assert (
+        "references: [29] is cited but has no entry in the list [citation-no-entry; item 3.3]"
+        in result.stdout
+    )
+    defects = json.loads(
+        run("--json", "draft", str(path), "--supervisor", "Dr. Example").stdout
+    )
+    assert [d["rule"] for d in defects] == ["citation-no-entry"]
+    assert defects[0]["line"] == next(
+        n
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if "[29]" in line
+    )
+
+
+def test_an_author_year_entry_counts_when_its_first_surname_and_year_are_cited(
+    tmp_path,
+):
+    """`Fitts (1954)` and `Soukoreff and MacKenzie (2004)` count; an entry
+    cited nowhere is informational; a surname in prose with no entry (`Zhai
+    (2004)`) is not a cited-without-entry defect, since the checker cannot
+    prove an author-year citation."""
+    text = valid_draft(reference_count=0)
+    entries = (
+        "- Fitts, P. M. (1954). The information capacity of the human motor system. Journal of Experimental Psychology, 47(6), 381-391.\n"
+        "- Soukoreff, R. W., and MacKenzie, I. S. (2004). Towards a standard for pointing device evaluation. IJHCS, 61(6), 751-789.\n"
+        "- Card, S. K., English, W. K., and Burr, B. J. (1978). Evaluation of mouse, joystick, step keys and text keys. Ergonomics, 21(8), 601-613.\n"
+    )
+    text = mutate(text, "## References\n\n\n", f"## References\n\n{entries}\n")
+    text = mutate(
+        text,
+        "Prior work: .",
+        "Fitts (1954) showed it; Soukoreff and MacKenzie (2004) set the standard; Zhai (2004) cautioned.",
+    )
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert (
+        "references: the Literature review cites 2 of the list's 3 entries; the template asks for 15 to 20"
+        in result.stdout
+    )
+    assert "citation-no-entry" not in result.stdout
+    assert "references: 3 entries in the list" in result.stderr
+    assert "references: entry Card (1978) is not cited" in result.stderr
+    assert checker.first_surname("- Card, S. K., English, W. K. (1978). X.") == "Card"
+    assert checker.first_surname("- ISO (2000). ISO 9241-9.") == "ISO"
+    assert checker.first_surname("1. Author 3 (2003). A paper.") == "Author 3"
+    assert checker.year_of("- Fitts, P. M. (1954). X, 47(6).") == "1954"
+    assert checker.cited_numbers("see [1], [2, 3] and [4–6]; not [NAME]") == {
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+    }
+    assert checker.cited_numbers("dated [2026-10-24] and [1-2-3]") == set()
+
+
+def test_the_review_section_can_be_named_and_is_a_defect_when_absent(tmp_path):
+    text = mutate(valid_draft(), "## Literature review\n", "## Related work\n")
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    named = run(
+        "draft",
+        str(path),
+        "--supervisor",
+        "Dr. Example",
+        "--sections",
+        "Introduction, Related work, Design",
+        "--review-section",
+        "Related work",
+    )
+    assert named.returncode == 0, named.stdout
+    default = run(
+        "draft",
+        str(path),
+        "--supervisor",
+        "Dr. Example",
+        "--sections",
+        "Introduction, Design",
+    )
+    assert (
+        "references: no `Literature review` section to count citations in [references-section; item 5.1]"
+        in default.stdout
+    )
 
 
 def test_subheadings_stay_inside_their_sections(tmp_path):
@@ -1092,7 +1233,7 @@ def test_the_draft_fixture_fails_exactly_the_three_planted_mechanics():
     assert result.returncode == 1
     messages = [message_of(line) for line in result.stdout.splitlines()]
     assert messages == [
-        "references: 14 entries; the template asks for 15 to 20",
+        "references: the Literature review cites 14 of the list's 14 entries; the template asks for 15 to 20",
         "introduction: no bullet list of contributions",
         "appendix: no consent sentence saying the study is under the supervision of the instructor",
     ]

@@ -5,11 +5,17 @@ Usage:
     check_proposal.py [--json] brief proposal/design-brief.md
     check_proposal.py [--json] review proposal/review.md
     check_proposal.py [--json] draft proposal/draft.md [--sections "A, B, ..."]
-        [--words 2000-4000] [--references 15-20] [--supervisor "<name>"]
+        [--words 2000-4000] [--references 15-20] [--review-section "<heading>"]
+        [--supervisor "<name>"]
 
 Exit 0: clean. Exit 1: defects, one per line as `<file>:<line>: <message>`
 (a JSON list with --json). Exit 2: a file could not be read, the arguments
 were malformed, or the interpreter is older than 3.11.
+
+--references bounds the citations in the section --review-section names
+(default "Literature review"): a [n] list by the numbers cited there, any
+other list by each entry's first surname and year; the list's total is a
+stderr line.
 
 Each defect line ends ` [<rule>; item <ID>]`, the rule a short slug and the
 ID the checklist item that owns it (`none` for a shape rule); --json carries
@@ -33,7 +39,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
 
 CHECKLIST = Path(__file__).resolve().parents[1] / "references" / "checklist.md"
 
@@ -97,7 +103,14 @@ INSTALL = (
     "claude plugin install oss@open-science-skills",
 )
 HEADING = re.compile(r"^(#{1,6}) (.+)$")
-LIST_ITEM = re.compile(r"^(?:[-*] |\d+\. )")
+LIST_ITEM = re.compile(r"^(?:[-*] |\d+\. |\[\d+\] )")
+NUMBERED_ENTRY = re.compile(r"^\[(\d+)\] ")
+CITATION = re.compile(r"\[(\d+(?:\s*[,\u2013-]\s*\d+)*)\]")
+RANGE = re.compile(r"^(\d+)\s*[\u2013-]\s*(\d+)$")
+RANGE_MAX = 200  # `[1-999]` is a typo, not nine hundred entries
+YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
+SURNAME = re.compile(r"^\s*([^,(]+?)\s*(?:,|\()")
+DEFAULT_REVIEW_SECTION = "Literature review"
 SUPERVISION = re.compile(
     r"under\s+the\s+supervision\s+of\s+([^\n]{1,60})", re.IGNORECASE
 )
@@ -742,12 +755,94 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
     return defects
 
 
+def cited_numbers(text: str) -> set[int]:
+    """Every entry number a `[n]`, `[n, m]` or `[n-m]` citation in the text names."""
+    numbers: set[int] = set()
+    for match in CITATION.finditer(text):
+        for part in re.split(r"\s*,\s*", match.group(1)):
+            span = RANGE.match(part)
+            if span is not None:
+                low, high = int(span.group(1)), int(span.group(2))
+                numbers.update(range(low, min(high, low + RANGE_MAX) + 1))
+            elif part.isdecimal():
+                numbers.add(int(part))
+    return numbers
+
+
+def first_surname(entry: str) -> str | None:
+    """An author-year entry's first surname: the text after the list marker up
+    to the first comma or opening parenthesis, so `Card, S. K., English, ...`
+    gives `Card` and `ISO (2000).` gives `ISO`."""
+    match = SURNAME.match(LIST_ITEM.sub("", entry, count=1))
+    return match.group(1) if match else None
+
+
+def year_of(entry: str) -> str | None:
+    match = YEAR.search(entry)
+    return match.group(0) if match else None
+
+
+def mentions(text: str, token: str) -> bool:
+    """`token` occurs in `text` as a whole token."""
+    return re.search(rf"(?<!\w){re.escape(token)}(?!\w)", text) is not None
+
+
+def _count_numbered(
+    add: Adder,
+    lines: Sequence[str],
+    body_end: int,
+    in_appendix: Callable[[int], bool],
+    listed: Sequence[str],
+    section_text: str,
+    body_text: str,
+) -> int:
+    """`[n]` mode: the entries the section cites; a body citation with no
+    entry is a defect under item 3.3; an entry cited nowhere is informational."""
+    numbers = {int(m.group(1)) for line in listed if (m := NUMBERED_ENTRY.match(line))}
+    for n in range(1, body_end + 1):
+        if in_appendix(n):
+            continue
+        for number in sorted(cited_numbers(clean(lines[n - 1])) - numbers):
+            add(
+                n,
+                f"references: [{number}] is cited but has no entry in the list",
+                "citation-no-entry",
+                "3.3",
+            )
+    for number in sorted(numbers - cited_numbers(body_text)):
+        print(f"references: entry [{number}] is not cited", file=sys.stderr)
+    return len(cited_numbers(section_text) & numbers)
+
+
+def _count_author_year(
+    entries: Sequence[str], section_text: str, body_text: str
+) -> int:
+    """Author-year mode: an entry is cited where its first surname and its
+    year both occur; no cited-without-entry defect, since a surname in prose
+    is no citation the checker can prove."""
+    cited = 0
+    for entry in entries:
+        surname, year = first_surname(entry), year_of(entry)
+        if surname is None or year is None:
+            print(
+                f"references: entry without a surname and year: {entry[:60]}",
+                file=sys.stderr,
+            )
+            continue
+        if mentions(section_text, surname) and mentions(section_text, year):
+            cited += 1
+        elif not (mentions(body_text, surname) and mentions(body_text, year)):
+            print(f"references: entry {surname} ({year}) is not cited", file=sys.stderr)
+    return cited
+
+
 def check_draft(
     path: Path,
     sections: Sequence[str],
     words: tuple[int, int],
     references: tuple[int, int],
     supervisor: str | None,
+    review_section: str,
 ) -> list[Defect]:
     lines = path.read_text(encoding="utf-8").splitlines()
     defects: list[Defect] = []
@@ -820,19 +915,38 @@ def check_draft(
         start, end = block(references_index)
         entry_lines = [clean(lines[n - 1]) for n in range(start + 1, end + 1)]
         listed = [line for line in entry_lines if LIST_ITEM.match(line)]
-        if listed:
-            found_refs = len(listed)
-        else:
-            found_refs = sum(
-                1 for para in "\n".join(entry_lines).split("\n\n") if para.strip()
-            )
-        if not references[0] <= found_refs <= references[1]:
+        entries = listed or [
+            para for para in "\n".join(entry_lines).split("\n\n") if para.strip()
+        ]
+        print(f"references: {len(entries)} entries in the list", file=sys.stderr)
+        review_index = find(review_section)
+        if review_index is None:
             add(
-                heads[references_index][1],
-                f"references: {found_refs} entries; the template asks for {references[0]} to {references[1]}",
-                "references-count",
+                1,
+                f"references: no `{review_section}` section to count citations in",
+                "references-section",
                 "5.1",
             )
+        else:
+            r_start, r_end = block(review_index)
+            section_text = " ".join(
+                clean(lines[n - 1]) for n in range(r_start + 1, r_end + 1)
+            )
+            if listed and all(NUMBERED_ENTRY.match(line) for line in listed):
+                cited = _count_numbered(
+                    add, lines, body_end, in_appendix, listed, section_text, body
+                )
+            else:
+                cited = _count_author_year(entries, section_text, body)
+            if not references[0] <= cited <= references[1]:
+                add(
+                    heads[references_index][1],
+                    f"references: the {review_section} cites {cited} of the list's "
+                    f"{len(entries)} entries; the template asks for "
+                    f"{references[0]} to {references[1]}",
+                    "references-count",
+                    "5.1",
+                )
     intro = find("introduction")
     if intro is not None:
         start, end = block(intro)
@@ -910,6 +1024,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     draft.add_argument("--words", default="2000-4000")
     draft.add_argument("--references", default="15-20")
     draft.add_argument("--supervisor")
+    draft.add_argument("--review-section", default=DEFAULT_REVIEW_SECTION)
     args = parser.parse_args(argv)
     path = Path(args.path)
     try:
@@ -942,6 +1057,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             words,
             references,
             args.supervisor,
+            args.review_section,
         )
     if args.json:
         print(json.dumps([asdict(d) for d in defects], indent=2))
