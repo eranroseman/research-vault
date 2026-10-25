@@ -300,6 +300,8 @@ _LITTER_COPIES = {
     ".obsidian/plugins/dataview/README.md": "wiki/concepts/mortality-trends.md",
 }
 _LITTER_BYTES = {
+    # Obsidian's own bin: a deleted page whose wikilink resolves nowhere.
+    "wiki/.trash/old.md": b'---\ntype: "concept"\n---\nSee [[Nowhere at all]].\n',
     "literature/._gone2019.md": _APPLE_DOUBLE,
     "log/._2026-01-01.md": _APPLE_DOUBLE,
     "wiki/._p.md": _APPLE_DOUBLE,
