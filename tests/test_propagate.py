@@ -366,6 +366,65 @@ def test_plan_and_lint_read_a_markdown_link_from_the_surface_that_holds_it(
     assert stale.target == "path-bytes:projects/brief/late.md"
 
 
+def test_a_uri_destination_names_no_note_even_for_a_colon_key(tmp_vault, monkeypatch):
+    """`[x](re:2020)` is a URI (`links.is_external`), never the note `re:2020`:
+    it is neither planned, rewritten nor residue, while `[[re:2020]]`, a
+    wikilink target, names the note and is all three."""
+    (tmp_vault / "literature" / "re:2020.md").write_text(_note("E352DFS8", "re:2020"))
+    (tmp_vault / "projects" / "brief").mkdir(parents=True)
+    uri = tmp_vault / "projects" / "brief" / "uri.md"
+    uri.write_text("[x](re:2020)\n")
+    wiki = tmp_vault / "projects" / "brief" / "wiki.md"
+    wiki.write_text("[[re:2020]]\n")
+    client = _zotero(monkeypatch, "re2021")
+    monkeypatch.setattr(
+        propagate.capture, "capture", lambda vault, client, keys, **kw: []
+    )
+    planned, path, digest = _planned(tmp_vault, client, (("re:2020", "re2021"),))
+    assert [s.path for s in planned.surfaces] == ["projects/brief/wiki.md"]
+    propagate.apply(tmp_vault, client, path, digest)
+    assert uri.read_text() == "[x](re:2020)\n"
+    assert wiki.read_text() == "[[re2021]]\n"
+    (clean,) = propagate.lint_propagation(tmp_vault)
+    assert clean.result is Result.MATCHED, clean
+    wiki.write_text("[[re:2020]]\n")
+    (stale,) = propagate.lint_propagation(tmp_vault)
+    assert stale.target == "path-bytes:projects/brief/wiki.md"
+
+
+def test_lint_parses_each_surface_once_whatever_the_number_of_keys(
+    tmp_vault, monkeypatch
+):
+    """The lint runs on the commit path: a surface's links are found once and
+    every stale key is tested against them, not one parse per key."""
+    _seed(tmp_vault)
+    records = tmp_vault / "system" / "propagations"
+    records.mkdir(parents=True, exist_ok=True)
+    (records / "propagate-20260908T101500Z.json").write_text(
+        json.dumps(
+            {
+                "schema": propagate.SCHEMA,
+                "operation_id": "propagate-20260908T101500Z",
+                "date": "2026-09-08",
+                "mapping": {"a2020": "b2020", "c2020": "d2020", "e2020": "f2020"},
+                "item_keys": {},
+                "surfaces": [],
+            }
+        )
+    )
+    parsed: list[str] = []
+    find_links = propagate.links.find_links
+
+    def counted(text):
+        parsed.append(text)
+        return find_links(text)
+
+    monkeypatch.setattr(propagate.links, "find_links", counted)
+    (clean,) = propagate.lint_propagation(tmp_vault)
+    assert clean.result is Result.MATCHED, clean
+    assert len(parsed) == len(list(propagate._surfaces(tmp_vault))) == 3
+
+
 def test_cli_plans_then_applies_only_against_the_printed_hash(
     tmp_vault, monkeypatch, capsys
 ):

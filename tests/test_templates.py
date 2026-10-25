@@ -263,9 +263,8 @@ def test_formatter_ignores_cover_every_machine_surface():
         elif "/" in relative:
             glob = relative
         else:
-            glob = (
-                surface  # a root file keeps its leading slash: that is what anchors it
-            )
+            # a root file keeps its leading slash: that is what anchors it
+            glob = surface
         assert f"[{glob}]" in editorconfig, (surface, glob)
     assert "= unset" not in editorconfig
     assert "charset =" not in editorconfig

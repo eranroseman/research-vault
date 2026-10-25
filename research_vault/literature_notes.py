@@ -429,7 +429,7 @@ def render_body(provenance: Provenance, children, child_notes, pages=()) -> str:
     lines: list[str] = []
     if pages:
         lines.append("## Compiled\n")
-        lines.extend(f"![](/{links._encode(page)})" for page in pages)
+        lines.extend(f"![](/{links.encode_path(page)})" for page in pages)
         lines.append("")
     lines.append("## Item\n")
     lines.append(

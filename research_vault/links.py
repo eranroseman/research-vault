@@ -147,6 +147,27 @@ def _forms(candidate: str) -> tuple[list[str], str | None]:
     return [candidate, f"{candidate}.md"], candidate
 
 
+def _candidate(target: str, *, source: str) -> tuple[str, bool] | None:
+    """The one vault path ``target`` is read as, before any lookup, and
+    whether only that exact path may answer it (a ``/``-led or ``./``/``../``
+    target, joined to ``source``'s folder). None for a folder (``is_folder``)
+    and for a path that leaves the vault. ``Index.resolve`` and ``names_note``
+    both read a target through this step, so they cannot read it apart."""
+    raw = _fold(target)
+    if is_folder(raw):
+        return None  # before normpath, which strips the slash
+    if raw.startswith("/"):
+        candidate, exact_only = posixpath.normpath(raw.lstrip("/")), True
+    elif raw.startswith(("./", "../")):
+        candidate = posixpath.normpath(posixpath.join(posixpath.dirname(source), raw))
+        exact_only = True
+    else:
+        candidate, exact_only = posixpath.normpath(raw), False
+    if candidate in {".", ""} or candidate.startswith("../"):
+        return None
+    return candidate, exact_only
+
+
 def _split_subpath(raw: str) -> tuple[str, str]:
     head, sep, tail = raw.partition("#")
     return head, (sep + tail if sep else "")
@@ -256,22 +277,12 @@ class Index:
         captured-set key, then as a recorded title or alias, and only then by
         trailing components; a name whose dot starts no ``md`` or attachment
         extension is tried as written and then as ``<name>.md``."""
-        raw = _fold(target)
-        if not raw:
+        if not _fold(target):
             return [source]
-        if is_folder(raw):
-            return []  # before normpath, which strips the slash
-        if raw.startswith("/"):
-            candidate, exact_only = posixpath.normpath(raw.lstrip("/")), True
-        elif raw.startswith(("./", "../")):
-            candidate = posixpath.normpath(
-                posixpath.join(posixpath.dirname(source), raw)
-            )
-            exact_only = True
-        else:
-            candidate, exact_only = posixpath.normpath(raw), False
-        if candidate in {".", ""} or candidate.startswith("../"):
+        read = _candidate(target, source=source)
+        if read is None:
             return []
+        candidate, exact_only = read
         wanted, name = _forms(candidate)
         for form in wanted:
             hit = self._exact_hit(form)
@@ -289,14 +300,17 @@ class Index:
         )
 
 
-def _encode(path: str) -> str:
+def encode_path(path: str) -> str:
+    """``path`` as a markdown destination spells it, as Obsidian's
+    ``generateMarkdownLink`` encodes it: ``\\``, control characters and the
+    space percent-encoded, everything else as written."""
     return _ENCODE.sub(lambda m: f"%{ord(m.group(0)):02X}", path)
 
 
 def render_markdown(link: Link, path: str) -> str:
     """``[[x]]`` → ``[basename](/p/x.md)``; alias and subpath carried; embeds
     keep only their alias (a size such as ``480``) as the text."""
-    destination = "/" + _encode(path) + _encode(link.subpath)
+    destination = "/" + encode_path(path) + encode_path(link.subpath)
     if link.embed:
         return f"![{link.alias or ''}]({destination})"
     if link.alias is not None:
@@ -524,49 +538,55 @@ def normalize(text: str, index: Index, *, source: str) -> tuple[str, list[Proble
 
 
 def names_note(target: str, key: str, *, source: str) -> bool:
-    """Whether a link target names ``literature/<key>.md`` in any spelling
-    Obsidian or a person writes, each with or without ``.md``: the bare key
-    or ``literature/<key>``, or a ``/``-led or relative path to
-    ``literature/<key>``. A path form is read as ``Index.resolve`` reads it,
-    exactly, from ``source``: ``/<key>.md`` is the root file, not the note.
-    A markdown destination that is a URI is the caller's to skip
-    (``is_external``); a wikilink target never is one, so a key holding a
-    ``:`` is still named."""
-    raw = urllib.parse.unquote(target.strip()).replace("\\", "/")
-    if not raw:
+    """Whether a link target names ``literature/<key>.md``, read through the
+    resolver's own candidate step (``_candidate``): a path to it, ``/``-led,
+    relative to ``source`` or neither, with or without ``.md``, matched
+    case-insensitively as ``Index.resolve`` matches a path; or, led by
+    neither, the bare key, matched exactly as the captured set holds it. A
+    folder names no note, and ``/<key>.md`` is the root file, not the note.
+    The target is read as given: a markdown one ``find_links`` has already
+    decoded, a wikilink one never is. A markdown URI is ``link_names_note``'s
+    to skip; a wikilink target never is one, so a key holding a ``:`` is
+    still named."""
+    read = _candidate(target, source=source)
+    if read is None:
         return False
-    named = {f"literature/{key}"}
-    if raw.startswith("/"):
-        raw = posixpath.normpath(raw.lstrip("/"))
-    elif raw.startswith(("./", "../")):
-        raw = posixpath.normpath(posixpath.join(posixpath.dirname(source), raw))
-    else:
-        named.add(key)
-    return raw.removesuffix(".md") in named
+    candidate, exact_only = read
+    wanted, name = _forms(candidate)
+    note = f"literature/{key}.md".lower()
+    if any(form.lower() == note for form in wanted):
+        return True
+    return not exact_only and name == key
+
+
+def link_names_note(link: Link, key: str, *, source: str) -> bool:
+    """Whether ``link``, in ``source``, names ``literature/<key>.md``
+    (``names_note``); a markdown URI (``is_external``) names no note."""
+    return not is_external(link) and names_note(link.target, key, source=source)
 
 
 def rewrite_key(text: str, old: str, new: str, *, source: str) -> str:
     """Rename every link naming ``old``: a wikilink keeps its form, a markdown
     link is re-pointed at ``/literature/<new>.md`` with its subpath, and a
-    display text equal to the old key becomes the new one."""
+    display text equal to the old key, or starting ``<old> > `` as the
+    normaliser renders a subpath link, has the key renamed."""
     pieces: list[str] = []
     cursor = 0
     for link in find_links(text):
-        if (
-            link.start < cursor
-            or is_external(link)
-            or not names_note(link.target, old, source=source)
-        ):
+        if link.start < cursor or not link_names_note(link, old, source=source):
             continue
         bang = "!" if link.embed else ""
         if link.kind == "wiki":
             alias = f"|{link.alias}" if link.alias is not None else ""
             replacement = f"{bang}[[{new}{link.subpath}{alias}]]"
         else:
-            shown = new if link.alias == old else (link.alias or "")
-            replacement = (
-                f"{bang}[{shown}](/literature/{_encode(new)}.md{_encode(link.subpath)})"
+            shown = link.alias or ""
+            if shown == old or shown.startswith(f"{old} > "):
+                shown = new + shown[len(old) :]
+            destination = (
+                f"/literature/{encode_path(new)}.md{encode_path(link.subpath)}"
             )
+            replacement = f"{bang}[{shown}]({destination})"
         pieces.append(text[cursor : link.start])
         pieces.append(replacement)
         cursor = link.end

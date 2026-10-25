@@ -50,15 +50,13 @@ def _cite_pattern(old: str) -> tuple[re.Pattern[str], str]:
     return re.compile(rf"\[@{re.escape(old)}(?=[\],\s])"), "[@{new}"
 
 
-def _names(text: str, old: str, source: str) -> bool:
-    """Whether ``text``, read as the surface ``source``, cites ``old`` or links
-    the note in any spelling ``links.names_note`` reads; a markdown URI
-    (``links.is_external``) names no note."""
+def _names(text: str, found: list[links.Link], old: str, source: str) -> bool:
+    """Whether ``text``, the surface ``source`` with its links ``found`` (one
+    ``links.find_links`` pass, shared by every key), cites ``old`` or links
+    the note in any spelling ``links.link_names_note`` reads."""
     pattern, _template = _cite_pattern(old)
     return pattern.search(text) is not None or any(
-        not links.is_external(link)
-        and links.names_note(link.target, old, source=source)
-        for link in links.find_links(text)
+        links.link_names_note(link, old, source=source) for link in found
     )
 
 
@@ -224,7 +222,8 @@ def plan(
     for path, relative in _surfaces(vault):
         data = path.read_bytes()
         text = data.decode("utf-8", errors="surrogateescape")
-        if not any(_names(text, old, relative) for old in mapping):
+        found = links.find_links(text)
+        if not any(_names(text, found, old, relative) for old in mapping):
             continue
         try:
             relative.encode("utf-8")
@@ -440,7 +439,7 @@ def lint_propagation(vault_root) -> list[Outcome]:
                 "no-identifier — no applied propagation plan",
             )
         ]
-    texts: list[tuple[str, str]] = []
+    texts: list[tuple[str, str, list[links.Link]]] = []
     outcomes: list[Outcome] = []
     for path, relative in _surfaces(vault):
         # One surface nobody can read is a row against that surface, not the
@@ -451,9 +450,7 @@ def lint_propagation(vault_root) -> list[Outcome]:
         # reads_surfaces_byte_tolerantly). A decode fault therefore cannot reach
         # here; a read the filesystem refuses can, and it is that page's row.
         try:
-            texts.append(
-                (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))
-            )
+            text = path.read_text(encoding="utf-8", errors="surrogateescape")
         except OSError as error:
             outcomes.append(
                 Outcome(
@@ -463,6 +460,8 @@ def lint_propagation(vault_root) -> list[Outcome]:
                     f"outage — {error}",
                 )
             )
+            continue
+        texts.append((relative, text, links.find_links(text)))
     recorded = {path.name: p for path, p in lifecycle._provenances(vault)}
     for old, (new, operation_id, item_key) in _stale_keys(records).items():
         provenance = recorded.get(f"{old}.md")
@@ -479,7 +478,7 @@ def lint_propagation(vault_root) -> list[Outcome]:
             outcomes.append(_stale(f"literature/{old}.md", old, new, operation_id))
         outcomes.extend(
             _stale(relative, old, new, operation_id)
-            for relative, text in texts
-            if _names(text, old, relative)
+            for relative, text, found in texts
+            if _names(text, found, old, relative)
         )
     return outcomes or [Outcome(CHECK, RECORD_DIR, Result.MATCHED, "matched")]

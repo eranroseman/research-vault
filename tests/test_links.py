@@ -586,6 +586,12 @@ def test_normalize_reads_a_backslashed_relative_target_as_resolve_does(tmp_path)
     assert [(p.kind, p.target) for p in problems] == [("dead", ".\\nowhere.md")]
 
 
+# The captured set of one note and no other file: what `names_note` must agree
+# with, target for target, since both read a target through one candidate step.
+_NOTE = "literature/old2020.md"
+_LITERATURE_ONLY = links.Index([], literature={"old2020": _NOTE}, names={})
+
+
 @pytest.mark.parametrize(
     ("target", "named"),
     [
@@ -598,10 +604,18 @@ def test_normalize_reads_a_backslashed_relative_target_as_resolve_does(tmp_path)
         ("old2020a", False),
         ("concepts/old2020", False),
         ("https://x.org/old2020", False),
+        ("/Literature/old2020.md", True),  # a path matches case-insensitively
+        ("literature/OLD2020", True),
+        ("Old2020", False),  # the bare key exactly, as the captured set holds it
+        ("/literature/old2020/", False),  # a folder names no note
+        ("../../literature/old2020/", False),
+        ("old%32020", False),  # a target is never decoded a second time
     ],
 )
 def test_names_note_recognises_every_spelling_of_a_literature_link(target, named):
-    assert links.names_note(target, "old2020", source="wiki/sources/A.md") is named
+    source = "wiki/sources/A.md"
+    assert links.names_note(target, "old2020", source=source) is named
+    assert (_LITERATURE_ONLY.resolve(target, source=source) == [_NOTE]) is named
 
 
 @pytest.mark.parametrize(
@@ -622,6 +636,7 @@ def test_names_note_reads_a_led_path_only_as_the_literature_path(target, named):
     `Index.resolve` reads it: from a root note `/old2020.md` is the root file
     `old2020.md`, never the note. Only a target led by neither is a key form."""
     assert links.names_note(target, "old2020", source="index.md") is named
+    assert (_LITERATURE_ONLY.resolve(target, source="index.md") == [_NOTE]) is named
 
 
 def test_rewrite_key_renames_wiki_and_markdown_links_and_display_text():
@@ -636,6 +651,19 @@ def test_rewrite_key_renames_wiki_and_markdown_links_and_display_text():
         "[[new2020]] [[new2020#^c-1]] [[new2020|alias]] [new2020](/literature/new2020.md) "
         "[shown](/literature/new2020.md#^c-1) [x](/literature/new2020.md) "
         "[[old2020a]] [other](/literature/other2020.md) ![[new2020]]\n"
+    )
+
+
+def test_rewrite_key_renames_the_display_text_the_normaliser_renders():
+    """`render_markdown` writes `[[old2020#^c-1]]` as `[old2020 > ^c-1](…)`:
+    the key in that text is renamed with the target; other text is kept."""
+    text = (
+        "[old2020 > ^c-1](/literature/old2020.md#^c-1) "
+        "[old2020 >x](/literature/old2020.md) [d](/literature/old2020/)\n"
+    )
+    assert links.rewrite_key(text, "old2020", "new2020", source="index.md") == (
+        "[new2020 > ^c-1](/literature/new2020.md#^c-1) "
+        "[old2020 >x](/literature/new2020.md) [d](/literature/old2020/)\n"
     )
 
 
