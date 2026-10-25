@@ -26,3 +26,7 @@ Commit the copied fixtures in the scratch project before the first turn (`git ad
 ## The missing-input check
 
 Run twice more in a copy of the project: once with `proposal/design-brief.md` deleted (expected: stops, names the brief and says to run `/experiment-proposal:design` first) and once with `proposal/draft.md` deleted (expected: stops and names `proposal/draft.md`). Once more with the brief's `Status:` line changed to `open` (expected: stops and says the brief is not frozen yet).
+
+## Agent run (0.3.0)
+
+`/experiment-proposal:review agent` on the committed fixtures, one run, no earlier `review.md`. Bar: the draft is unchanged (`git diff --quiet proposal/draft.md`); rows 3.1, 5.2, 13.1 and 13.4 read `not confirmed`; the twelve defects are scored as above (at least 11 caught, none passed, at most two over-failures); every draft-checked pass quotes a passage; `check_proposal.py review proposal/review.md` exits 0; the header carries a `Checker:` line with `--words 2000-4000 --references 15-20` and no `--supervisor`; the reply contains "the user picks fixes with /experiment-proposal:review" and ends with the hand-off in full. The draft checker's lines are D3, D8 and D9 and nothing else, as before.

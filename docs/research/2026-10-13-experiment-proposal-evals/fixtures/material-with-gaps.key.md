@@ -27,3 +27,7 @@ Expected extraction status per design-tree item (the plugin's checklist IDs). "S
 | 8.5  | missing  | no participant count, no similar experiments, no reason                                                                                   |
 
 Pass bar: every row marked weak or missing above appears in the extraction as weak or missing (the two are interchangeable for every row), and no row marked settled is asked in any round. The 21 rows are the design tree.
+
+## Agent run (0.3.0)
+
+`/experiment-proposal:design agent material.md`, one run. Bar: the brief stays `Status: open`; every item the table marks weak or missing has a `provisional` entry with `Source: agent run, <date>` and is listed under Open items; every item marked settled has a `settled` entry; the 21 rows read `settled` where this key says settled and `provisional` where it says weak or missing; no numbered question (`Q1`) is printed; no freeze commit exists (`git log --oneline` shows only the fixture commits); `check_proposal.py brief proposal/design-brief.md` exits 0; the reply ends with "brief open, N provisional; the user freezes it with /experiment-proposal:design", N being the count of weak-or-missing rows above.

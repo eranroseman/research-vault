@@ -50,7 +50,7 @@ The v2 plan's grammars stand (checklist item line, citation, brief header and en
 - **The exclude file** `proposal/notes/lit-search-judged.txt`: one record per line, `<DOI or title> | <kept or rejected> | <one-line reason>`; the wrapper reads the first field only, as a DOI through `common.clean_doi` and as a title through `common.normalize_title`; a line that is empty or starts with `#` is skipped.
 - **Wrapper stderr.** The vendored notes verbatim (relayed through a tee); one line per index `<index>(<returned>, <kept>) query="<query>"`, `<returned>` being the records carrying the index's `_source` tag after the vendored de-duplication and `<kept>` those left after the exclude; `semantic_scholar: skipped (HTTP 429); snowball's graph endpoints cover it` when the captured notes hold `note: source degraded — semantic_scholar: HTTP 429` in `search` mode; `candidates: N (after exclude: M)`; `wrote M records to <path>` with `--out`; `no candidates left this round` before exit 1.
 - **Wrapper output.** CSL-YAML with every string emitted through `json.dumps(value, ensure_ascii=False)`, every character outside YAML's printable set (and NEL, U+0085, which YAML folds) then escaped as `\uXXXX`; a lone surrogate becomes U+FFFD before emitting. Compact (default): `title`, `author` (each `family` only), `issued.year`, `container-title`, `DOI`, `abstract` cut to 300 characters. `--full` adds `given`, `URL` (when no DOI), `type`, `source` (the `_source` tag) and cuts `abstract` at 1,500.
-- **Routing predicate.** Over a `claude -p --output-format stream-json --verbose` stream: a positive for `<skill>` is at least one `tool_use` block named `Skill` whose `input.skill` is `experiment-proposal:<skill>` and whose `tool_result` has `is_error` false or absent; a negative is zero `Skill` blocks whose `input.skill` starts with `experiment-proposal:` and zero `Agent` blocks whose `input.subagent_type` is `experiment-proposal:hci-researcher`; other plugins' calls are listed under `other_calls` and not barred.
+- **Routing predicate.** Over a `claude -p --output-format stream-json --verbose` stream: a positive for `<skill>` is at least one `tool_use` block named `Skill` whose `input.skill` is `experiment-proposal:<skill>` and whose `tool_result` is present with `is_error` false or absent; a negative is zero `Skill` blocks whose `input.skill` starts with `experiment-proposal:` and zero `Agent` blocks whose `input.subagent_type` is `experiment-proposal:hci-researcher`; other plugins' calls are listed under `other_calls` and not barred.
 
 ## File Structure
 
@@ -3161,26 +3161,26 @@ Written before any 0.3.0 run. Each utterance is one `claude -p` session in a fre
 
 The prompt names the skill in words, never as a slash command; the bar is a Skill call of that skill whose result is not an error, followed by the skill's first decisive line.
 
-| Skill            | Prompt                                                                                                                                                              | First decisive line                                                                        |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| design           | Use the experiment-proposal plugin's design skill as an agent run on material.md; no human will answer. (`material.md` is `fixtures/material-with-gaps.md`.)            | the extraction table, or "brief open, N provisional; the user freezes it with /experiment-proposal:design" |
-| review           | Use the experiment-proposal plugin's review skill as an agent run on this project; no human will answer. (the scenario 5 fixtures in `proposal/`)                      | the `not confirmed` rows, or "No design brief at proposal/design-brief.md" when the brief is absent |
-| lit-search       | Use the experiment-proposal plugin's lit-search skill as an agent run; the need is similar studies of pointing-device comparison; no human will answer.               | "which indexes will answer", then the round's `candidates:` line                            |
-| the-ethics-board | Use the experiment-proposal plugin's ethics board skill on the study in proposal/draft.md; no human will answer.                                                      | `# Ethics Review:` and the file `proposal/ethics-review.md`                                 |
+| Skill            | Prompt                                                                                                                                                       | First decisive line                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| design           | Use the experiment-proposal plugin's design skill as an agent run on material.md; no human will answer. (`material.md` is `fixtures/material-with-gaps.md`.) | the extraction table, or "brief open, N provisional; the user freezes it with /experiment-proposal:design" |
+| review           | Use the experiment-proposal plugin's review skill as an agent run on this project; no human will answer. (the scenario 5 fixtures in `proposal/`)            | the `not confirmed` rows, or "No design brief at proposal/design-brief.md" when the brief is absent        |
+| lit-search       | Use the experiment-proposal plugin's lit-search skill as an agent run; the need is similar studies of pointing-device comparison; no human will answer.      | "which indexes will answer", then the round's `candidates:` line                                           |
+| the-ethics-board | Use the experiment-proposal plugin's ethics board skill on the study in proposal/draft.md; no human will answer.                                             | `# Ethics Review:` and the file `proposal/ethics-review.md`                                                |
 
 ## Negatives (three runs each, 21 runs, all-three rule)
 
 The bar is zero Skill calls of this plugin and zero Agent calls of its subagent; other plugins' calls are recorded and not barred.
 
-| Set           | Utterance                                                                                                                                   |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| design        | Help me settle the design decisions of my controlled experiment in rounds and freeze them in a brief.                                        |
-| review        | Check my written experiment proposal against its frozen design brief and a checklist and write me a review.                                  |
-| lit-search    | Search scholarly indexes and snowball from a couple of seed DOIs for the sources my literature review needs.                                  |
-| ethics board  | Rehearse an ethics-committee review of my study and write up the review.                                                                     |
-| out of scope  | review this pull request                                                                                                                      |
-| out of scope  | find papers on transformer pruning                                                                                                            |
-| out of scope  | help me prepare for my IRB meeting                                                                                                            |
+| Set          | Utterance                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------ |
+| design       | Help me settle the design decisions of my controlled experiment in rounds and freeze them in a brief.        |
+| review       | Check my written experiment proposal against its frozen design brief and a checklist and write me a review.  |
+| lit-search   | Search scholarly indexes and snowball from a couple of seed DOIs for the sources my literature review needs. |
+| ethics board | Rehearse an ethics-committee review of my study and write up the review.                                     |
+| out of scope | review this pull request                                                                                     |
+| out of scope | find papers on transformer pruning                                                                           |
+| out of scope | help me prepare for my IRB meeting                                                                           |
 ```
 
 - [ ] **Step 5: Add the agent-run bars to the two keys**
