@@ -63,7 +63,6 @@ def test_capture_writes_note_text_layer_and_csl_file(tmp_vault, monkeypatch):
         json.loads((tmp_vault / "system" / "bibliography.json").read_text())[0]["id"]
         == "jakesch.etal2023a"
     )
-    assert (tmp_vault / "log.md").is_file()
 
 
 def test_capture_accepts_an_item_key_and_resolves_a_citation_key(
@@ -706,13 +705,11 @@ def test_a_note_recording_another_database_is_refused_not_read(tmp_vault, monkey
     assert not [c for c in fake.calls if c[1].endswith("/items/OTHER001?format=json")]
 
 
-def test_a_mid_run_412_stamps_what_was_written_before_the_vault_row(
-    tmp_vault, monkeypatch
-):
-    """The database moves between two items. The notes written before it moved are
-    stamped and their log regenerated — the run's record of what it did — and the
-    `vault` row ends the list. No CSL file: it would be written from the database
-    that answered after the move."""
+def test_a_mid_run_412_writes_the_notes_before_the_vault_row(tmp_vault, monkeypatch):
+    """The database moves between two items. The notes written before it moved
+    stay written — the run's record of what it did — and the `vault` row ends
+    the list. No CSL file: it would be written from the database that answered
+    after the move."""
     second = json.loads(json.dumps(ITEM))
     second["key"] = second["data"]["key"] = "F441KKD2"
     second["data"]["citationKey"] = "second2023"
@@ -739,11 +736,9 @@ def test_a_mid_run_412_stamps_what_was_written_before_the_vault_row(
         outcomes[-1].reason
         == "database-changed — Zotero-Server-ID does not match this server"
     )
+    # The written note is the discriminator: the item read before the move is
+    # on disk although the run ends on the vault row.
     assert (tmp_vault / "literature" / "jakesch.etal2023a.md").is_file()
-    # log.md is the discriminator: tmp_vault ships none, and the pre-fix early
-    # return skipped okf.regenerate_log. (A `type` assertion on the note would be
-    # vacuous — render_note writes that field on every write, stamped or not.)
-    assert (tmp_vault / "log.md").is_file()
     assert not (tmp_vault / "system" / "bibliography.json").exists()
 
 
@@ -1025,10 +1020,10 @@ def test_cli_capture_with_neither_keys_nor_all_is_a_usage_error(tmp_vault, capsy
 def test_cli_capture_reports_a_named_failure_outside_the_per_item_try_as_exit_2(
     tmp_vault, monkeypatch, capsys
 ):
-    """An OSError from `stamp_types`, `regenerate_log` or the CSL write sits
-    outside the per-item `try`; it used to be a traceback whose exit 1 read
-    as UNMATCHED. `cmd_verify`'s named-exception tuple now answers exit 2 —
-    "could not run", never a four-state verdict."""
+    """An OSError from the CSL write sits outside the per-item `try`; it used
+    to be a traceback whose exit 1 read as UNMATCHED. `cmd_verify`'s
+    named-exception tuple now answers exit 2 — "could not run", never a
+    four-state verdict."""
     import research_vault.__main__ as cli
 
     fake = _canned_run(canned_item(FakeZotero()))
@@ -1038,7 +1033,7 @@ def test_cli_capture_reports_a_named_failure_outside_the_per_item_try_as_exit_2(
     def failing(*_args, **_kwargs):
         raise OSError(30, "Read-only file system")
 
-    monkeypatch.setattr(capture.stamp, "stamp_types", failing)
+    monkeypatch.setattr(capture.bibliography, "write", failing)
     assert cli.main(["capture", "E352DFS8", "--vault", str(tmp_vault)]) == 2
     captured = capsys.readouterr()
     assert captured.out == ""

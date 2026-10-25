@@ -20,8 +20,6 @@ from . import (
     keystore,
     lifecycle,
     literature_notes,
-    okf,
-    stamp,
     structure,
 )
 from .outcome import Outcome, Result
@@ -529,8 +527,8 @@ def capture(
             library_name = library_name or read.item.get("library", {}).get("name")
             outcomes.extend(_capture_one(vault, read, server_id, now))
         except DatabaseChangedError as error:
-            # The database moved mid-run: stop reading, but let the notes already
-            # written be stamped and logged before the vault row ends the list.
+            # The database moved mid-run: stop reading. The notes already
+            # written stay, and the vault row ends the list.
             aborted = Outcome(
                 CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}"
             )
@@ -567,9 +565,6 @@ def capture(
                     f"schema-violation — {error}",
                 )
             )
-    if any(o.reason == "matched" for o in outcomes):
-        stamp.stamp_types(vault)
-        okf.regenerate_log(vault)
     if aborted is not None:
         # No CSL file from the database that answered after the move.
         return [*outcomes, aborted]

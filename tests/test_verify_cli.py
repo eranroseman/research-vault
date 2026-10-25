@@ -718,8 +718,47 @@ def test_scaffold_and_stamp_type_run_in_process_with_their_flags(tmp_path, capsy
     assert ".github/workflows/verify.yml" in created
     assert ".github/workflows/rw-batch.yml" in created
     (vault / "inbox" / "idea.md").write_text("a thought\n")
-    assert main(["stamp-type", "--vault", str(vault)]) == 0
+    assert main(["stamp-type", "--vault", str(vault), "--paths", "inbox/idea.md"]) == 0
     assert capsys.readouterr().out.splitlines() == ["stamped inbox/idea.md"]
+
+
+def test_stamp_type_takes_paths_a_paths_file_and_staged(tmp_path, capsys):
+    vault = tmp_path / "vault"
+    assert main(["scaffold", "--vault", str(vault)]) == 0
+    capsys.readouterr()
+    (vault / "inbox" / "a.md").write_text("a\n")
+    (vault / "inbox" / "b.md").write_text("b\n")
+    assert main(["stamp-type", "--vault", str(vault), "--paths", "inbox/a.md"]) == 0
+    assert capsys.readouterr().out.splitlines() == ["stamped inbox/a.md"]
+    listing = tmp_path / "paths"
+    listing.write_bytes(b"inbox/b.md\0")
+    assert (
+        main(["stamp-type", "--vault", str(vault), "--paths-file", str(listing)]) == 0
+    )
+    assert capsys.readouterr().out.splitlines() == ["stamped inbox/b.md"]
+    (vault / "inbox" / "c.md").write_text("c\n")
+    subprocess.run(["git", "add", "inbox/c.md"], cwd=vault, check=True)
+    (vault / "inbox" / "d.md").write_text("d\n")
+    subprocess.run(["git", "add", "inbox/d.md"], cwd=vault, check=True)
+    (vault / "inbox" / "d.md").write_text("d\nmore\n")
+    assert main(["stamp-type", "--vault", str(vault), "--staged"]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "stamped inbox/c.md",
+        "skipped inbox/d.md — partially staged; stage the whole file or none of it",
+    ]
+    assert (vault / "inbox" / "d.md").read_text() == "d\nmore\n"
+
+
+def test_stamp_type_exits_4_without_pyyaml(tmp_path, monkeypatch, capsys):
+    import research_vault.__main__ as cli
+    from research_vault import fixer, frontmatter
+
+    def missing(*_args, **_kwargs):
+        raise frontmatter.DependencyMissingError("PyYAML is not installed")
+
+    monkeypatch.setattr(fixer, "fix", missing)
+    assert main(["stamp-type", "--vault", str(tmp_path)]) == cli.EXIT_DEPENDENCY_MISSING
+    assert "PyYAML" in capsys.readouterr().err
 
 
 def test_stamp_type_prints_each_report_reason_on_its_own_line(tmp_path, capsys):

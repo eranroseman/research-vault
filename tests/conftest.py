@@ -325,7 +325,7 @@ generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
         _json.dumps(bibliography, indent=1)
     )
     (tmp_vault / "log" / "2026-08-16.md").write_text(
-        '---\ntype: "log"\n---\n- 09:00 human:eran — imported smith2020\n'
+        '---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — imported smith2020\n'
     )
     (tmp_vault / "inbox" / "review-queue.md").write_text(
         '---\ntype: "review-queue"\n---\n'

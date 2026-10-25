@@ -113,7 +113,9 @@ def _prepare_append(vault, project) -> tuple[Path, bool]:
     created = not path.exists()
     if created or not path.read_bytes():
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(frontmatter.serialize({"type": SEARCH_LOG_TYPE}))
+        path.write_text(
+            frontmatter.serialize({"type": SEARCH_LOG_TYPE}), encoding="utf-8"
+        )
     else:
         _body(path)  # validates the existing frontmatter before appending
     return path, created

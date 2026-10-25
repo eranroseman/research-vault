@@ -31,7 +31,8 @@ value that runs onto a line the flat parser takes for a key; or a block
 whose stamped form does not read back as `{type, **data}` under
 `frontmatter.read_okf`), `"outage"` (the file could
 not be read at all), `"not-utf-8"` (the file is not UTF-8, so no
-frontmatter could be parsed from it),
+frontmatter could be parsed from it), `"unwritable"` (the stamp could not
+be written back, #174),
 `"outside"` (the path resolves outside the vault: a symlinked ancestor, an
 absolute path elsewhere, a `..` that lexically passes), or `"no-type"` (no
 derivation at all — `system/`, root files, non-canonical `projects/` files).
@@ -182,7 +183,13 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
         if newline == "\r\n":
             block = block.replace("\n", newline)
         new_text = block + body
-        _write_text(path, new_text)
+        try:
+            _write_text(path, new_text)
+        except OSError:
+            # #174: an unwritable file is a report under its own path and the
+            # walk continues; the verb still exits 0.
+            reported.append((relative, "unwritable"))
+            continue
         stamped.append(relative)
 
     return sorted(stamped), sorted(reported)

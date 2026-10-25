@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from . import (
     clock,
     events,
     factcheck,
+    fixer,
     frontmatter,
     gitstate,
     inbox,
@@ -23,7 +25,6 @@ from . import (
     publish,
     scaffold,
     searchlog,
-    stamp,
     zotero,
 )
 from . import compile as compile_mod
@@ -133,8 +134,8 @@ def cmd_capture(args):
     """The capture verb (ingest spec §3.3): one line per outcome, holds filed.
 
     A named failure outside the verb's per-item handling (a disk fault in
-    ``stamp_types``, ``regenerate_log`` or the CSL write) is exit 2 — "could
-    not run" — never exit 1, which is UNMATCHED's code.
+    the CSL write) is exit 2 — "could not run" — never exit 1, which is
+    UNMATCHED's code.
     """
     client = ZoteroClient(base=args.base)
     try:
@@ -737,13 +738,32 @@ def cmd_scaffold(args):
 
 
 def cmd_stamp_type(args):
-    """A fixer, not a gate: mechanically stamp what's fully determined, report
-    the rest, exit 0 — or 4, from `main`, when the OKF reader's PyYAML is
-    missing (§5.6)."""
-    stamped, reported = stamp.stamp_types(args.vault)
-    for path in stamped:
+    """The one fixer (spec §5.1), not a gate: stamp what is fully determined,
+    normalise links, regenerate root log.md; report the rest; exit 0 — or 4,
+    from `main`, when the OKF reader's PyYAML is missing (§5.6)."""
+    paths = None
+    partial: list[str] = []
+    if args.staged:
+        paths, partial = fixer.staged_paths(args.vault)
+    elif args.paths_file:
+        try:
+            raw = Path(args.paths_file).read_bytes()
+        except OSError as error:
+            print(f"stamp-type: cannot read --paths-file: {error}", file=sys.stderr)
+            return 2
+        paths = [os.fsdecode(name) for name in raw.split(b"\0") if name]
+    elif args.paths:
+        paths = list(args.paths)
+    report = fixer.fix(args.vault, paths)
+    for path in report.stamped:
         print(f"stamped {path}")
-    for path, reason in reported:
+    for path in report.normalised:
+        print(f"normalised {path}")
+    if report.log_regenerated:
+        print("regenerated log.md")
+    for path in partial:
+        print(f"skipped {path} — partially staged; stage the whole file or none of it")
+    for path, reason in report.reported:
         if reason == "unparseable":
             print(f"skipped {path} — frontmatter is unparseable")
         elif reason == "symlink":
@@ -756,8 +776,22 @@ def cmd_stamp_type(args):
             print(
                 f"skipped {path} — path resolves outside the vault, refusing to write through it"
             )
+        elif reason == "unwritable":
+            print(f"skipped {path} — file could not be written")
         else:
             print(f"skipped {path} — no type could be derived")
+    for path, problem in report.problems:
+        if problem.kind == "frontmatter":
+            print(
+                f"skipped {path} — frontmatter is not terminated; the note was not normalised"
+            )
+            continue
+        detail = (
+            f"{len(problem.candidates)} files match ({', '.join(problem.candidates)})"
+            if problem.kind == "ambiguous"
+            else "no file matches"
+        )
+        print(f"unresolved {path} — {problem.written} {detail}; resolve by hand")
     return 0
 
 
@@ -881,7 +915,21 @@ def main(argv=None):
     doctor_vault.add_argument("--vault", required=True)
     stamp_type = sub.add_parser("stamp-type", parents=[common])
     stamp_type.add_argument("--vault", required=True)
+    stamp_type.add_argument("--paths", nargs="+", metavar="PATH")
+    stamp_type.add_argument(
+        "--paths-file", metavar="FILE", help="NUL-separated vault-relative paths"
+    )
+    stamp_type.add_argument(
+        "--staged",
+        action="store_true",
+        help="the fully staged files of the index git names",
+    )
     args = parser.parse_args(argv)
+    if (
+        args.cmd == "stamp-type"
+        and sum(bool(x) for x in (args.paths, args.paths_file, args.staged)) > 1
+    ):
+        parser.error("stamp-type: --paths, --paths-file and --staged are exclusive")
     if args.cmd == "capture" and not args.keys and not args.all:
         parser.error("capture needs at least one KEY or --all")
     if (

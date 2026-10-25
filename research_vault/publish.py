@@ -21,7 +21,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import AGENT_ACTOR, Result, frontmatter, gitstate, okf, stamp, structure
+from . import AGENT_ACTOR, Result, fixer, frontmatter, gitstate, structure
 from .events import record_pass
 from .lints import PUBLISHED_TAG
 from .markers import _read_note_text, _write_note_text
@@ -416,7 +416,8 @@ def _create_tag(vault, tag: str, commit: str) -> None:
 
 
 def _append_log(vault, message: str, *, date: str, now: datetime.datetime) -> Path:
-    """Append one activity line to the day's log, then regenerate root log.md.
+    """Append one activity line to the day's log, then run the fixer on the
+    day file, which regenerates root log.md.
 
     Both the day file and the line's own time come from the caller's single
     clock read, for the reason ``_utc_now`` gives.
@@ -424,11 +425,10 @@ def _append_log(vault, message: str, *, date: str, now: datetime.datetime) -> Pa
     day = Path(vault) / "log" / f"{date}.md"
     day.parent.mkdir(parents=True, exist_ok=True)
     if not day.exists() or not day.read_bytes():
-        day.write_text(frontmatter.serialize({"type": "log"}))
+        day.write_text(frontmatter.serialize({"type": "log"}), encoding="utf-8")
     with day.open("a", encoding="utf-8", newline="") as stream:
         stream.write(f"- {now:%H:%M} {AGENT_ACTOR} — {message}\n")
-    stamp.stamp_types(vault)
-    okf.regenerate_log(vault)
+    fixer.fix(vault, paths=[f"log/{date}.md"])
     return day
 
 

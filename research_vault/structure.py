@@ -3,7 +3,7 @@
 The vault rule: a note's ``type`` is determined by its folder. ``system/``
 and root-level concepts carry any non-empty type. ``inbox/`` captures other
 than the review queue are the recorded fleeting exemption — never checked
-here; the stamp converges them at chokepoints.
+here; the fixer converges them when they are staged (§5.1).
 
 ``projects/`` is narrower than the other folders: ``publish.project_note()``
 requires exactly one ``type: "project"`` note per project directory, found
@@ -17,6 +17,7 @@ project directory — derives no type (``None``), so it is free to carry
 any non-empty ``type`` (an appendix, a supplementary note, ...).
 """
 
+import datetime
 import os
 import re
 from pathlib import Path
@@ -76,6 +77,15 @@ def is_excluded(path: Path, vault: Path) -> bool:
 
 def is_fleeting(relative: str) -> bool:
     return relative.startswith("inbox/") and relative != "inbox/review-queue.md"
+
+
+def is_day_stem(stem: str) -> bool:
+    """A `log/` day file's stem is exactly a calendar date (#204): `2026-13-45`
+    and `20261004` are strays, not day files."""
+    try:
+        return datetime.date.fromisoformat(stem).isoformat() == stem
+    except ValueError:
+        return False
 
 
 def expected_type(relative: str) -> str | None:

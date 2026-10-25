@@ -292,7 +292,7 @@ def _prepare_append(vault) -> tuple[Path, bool]:
     created = not queue.exists()
     if created or not queue.read_bytes():
         queue.parent.mkdir(parents=True, exist_ok=True)
-        queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}))
+        queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}), encoding="utf-8")
     else:
         _body(queue)
     return queue, created
