@@ -250,8 +250,8 @@ def check_log_dir(vault_root) -> list[Outcome]:
         # sentinel, OS litter and a dot-directory (a sync tool's store, which
         # Obsidian ignores; #194) are no entry. Any other directory is a
         # `tree` row; every other file, a dot-named one too, meets the
-        # folder's name rule (#204, #211). Reasons carry no path: the
-        # encoded target does, and a raw name may not be UTF-8.
+        # folder's name rule (#204, #211). Reasons carry no path: a raw name
+        # may not be UTF-8, and a file's encoded target names it.
         if child.name == ".gitkeep" or is_os_litter(child.name):
             continue
         relative = f"log/{child.name}"
@@ -414,8 +414,8 @@ def check_tree(vault_root) -> list[Outcome]:
             # sentinel, OS litter and a dot-directory (a sync tool's store, which
             # Obsidian ignores; #194) are no entry. Any other directory is a
             # `tree` row; every other file, a dot-named one too, meets the
-            # folder's name rule (#204, #211). Reasons carry no path: the
-            # encoded target does, and a raw name may not be UTF-8.
+            # folder's name rule (#204, #211). Reasons carry no path: a raw name
+            # may not be UTF-8, and a file's encoded target names it.
             if child.name == ".gitkeep" or is_os_litter(child.name):
                 continue
             excluded = is_excluded(child, vault)
