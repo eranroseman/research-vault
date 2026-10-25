@@ -867,6 +867,10 @@ def test_readme_states_the_lens_the_mechanics_the_prerequisites_and_the_vendored
     assert "--out" in text
     assert "compact by default" in text
     assert "DBLP on a short query of its own" in text
+    assert "only after every kept seed has been expanded once" in text
+    assert "every repeated integer of two or more digits that is not a year" in text
+    assert "every repeated number" not in text
+    assert "HTTP 429 in `search` mode" in text
     assert "--numbers" in text
     assert "--placeholders" in text
     assert "pass-placeholder" in text
