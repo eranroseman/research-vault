@@ -17,11 +17,11 @@ def _seed(vault):
     )
     (vault / "projects" / "brief").mkdir(parents=True)
     (vault / "projects" / "brief" / "draft.md").write_text(
-        '---\ntype: "project"\n---\nSee [@old2020, p. 3] and [@old2020] and [[old2020]] and [[old2020#^c-1]] and [[old2020|alias]].\n'
+        '---\ntype: "project"\n---\nSee [@old2020, p. 3] and [@old2020] and [[old2020]] and [[old2020#^c-1]] and [[old2020|alias]] and [old2020](/literature/old2020.md#^c-1).\n'
     )
     (vault / "wiki" / "sources").mkdir(parents=True)
     (vault / "wiki" / "sources" / "A.md").write_text(
-        "---\ntype: source\n---\n[[old2020]] and [[older2020]]\n"
+        "---\ntype: source\n---\n[[old2020]] and [../../literature/old2020.md](../../literature/old2020.md) and [[older2020]]\n"
     )
     (vault / "wiki" / "sources" / "B.md").write_text(
         "---\ntype: source\n---\nnames nothing\n"
@@ -138,7 +138,7 @@ def test_apply_refuses_a_key_that_moved_again_between_plan_and_apply(
         (tmp_vault / "projects" / "brief" / "draft.md")
         .read_text()
         .endswith(
-            "See [@old2020, p. 3] and [@old2020] and [[old2020]] and [[old2020#^c-1]] and [[old2020|alias]].\n"
+            "See [@old2020, p. 3] and [@old2020] and [[old2020]] and [[old2020#^c-1]] and [[old2020|alias]] and [old2020](/literature/old2020.md#^c-1).\n"
         )
     )
     assert not (tmp_vault / "system" / "propagations").exists()
@@ -237,9 +237,11 @@ def test_rewrite_surfaces_touches_every_citation_and_wikilink_shape(tmp_vault):
     assert changed == ["projects/brief/draft.md", "wiki/sources/A.md"]
     draft = (tmp_vault / "projects" / "brief" / "draft.md").read_text()
     assert draft.endswith(
-        "See [@new2020, p. 3] and [@new2020] and [[new2020]] and [[new2020#^c-1]] and [[new2020|alias]].\n"
+        "See [@new2020, p. 3] and [@new2020] and [[new2020]] and [[new2020#^c-1]] and [[new2020|alias]] and [new2020](/literature/new2020.md#^c-1).\n"
     )
-    assert "[[older2020]]" in (tmp_vault / "wiki" / "sources" / "A.md").read_text()
+    assert (tmp_vault / "wiki" / "sources" / "A.md").read_text() == (
+        "---\ntype: source\n---\n[[new2020]] and [../../literature/old2020.md](/literature/new2020.md) and [[older2020]]\n"
+    )
 
 
 def test_apply_refuses_when_the_vault_moved_since_planning(tmp_vault, monkeypatch):
@@ -323,6 +325,39 @@ def test_lint_reports_residue_and_is_quiet_when_clean(tmp_vault, monkeypatch):
     assert {o.reason for o in stale} == {
         f"stale-key — names old2020, mapped to new2020 by {planned.operation_id}"
     }
+
+
+def test_plan_and_lint_read_a_markdown_link_from_the_surface_that_holds_it(
+    tmp_vault, monkeypatch
+):
+    """A markdown link is matched through `links.names_note` from its own
+    surface: `../../literature/old2020.md` names the note from
+    `projects/brief/`, so it is planned, rewritten and, written again
+    afterwards, residue; `../literature/old2020.md` from there names
+    `projects/literature/old2020.md` and is none of these."""
+    _seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    monkeypatch.setattr(
+        propagate.capture, "capture", lambda vault, client, keys, **kw: []
+    )
+    notes = tmp_vault / "projects" / "brief" / "notes.md"
+    notes.write_text("[n](../../literature/old2020.md) [m](../literature/old2020.md)\n")
+    planned, path, digest = _planned(tmp_vault, client)
+    assert "projects/brief/notes.md" in [s.path for s in planned.surfaces]
+    propagate.apply(tmp_vault, client, path, digest)
+    assert notes.read_text() == (
+        "[n](/literature/new2020.md) [m](../literature/old2020.md)\n"
+    )
+    (clean,) = propagate.lint_propagation(tmp_vault)
+    assert clean.result is Result.MATCHED, clean
+    (tmp_vault / "projects" / "brief" / "late.md").write_text(
+        "[n](../../literature/old2020.md)\n"
+    )
+    (tmp_vault / "projects" / "brief" / "near.md").write_text(
+        "[m](../literature/old2020.md)\n"
+    )
+    (stale,) = propagate.lint_propagation(tmp_vault)
+    assert stale.target == "path-bytes:projects/brief/late.md"
 
 
 def test_cli_plans_then_applies_only_against_the_printed_hash(

@@ -518,3 +518,51 @@ def normalize(text: str, index: Index, *, source: str) -> tuple[str, list[Proble
         return text, [Problem("frontmatter", "", written=opening_line)]
     new_body, problems = _rewrite(text[closing.end() :], index, source)
     return text[: closing.end()] + new_body, problems
+
+
+# --- re-key support for propagate (§5.2 callers, item 2) ------------------------
+
+
+def names_note(target: str, key: str, *, source: str) -> bool:
+    """Whether a link target names ``literature/<key>.md`` in any spelling
+    Obsidian or a person writes: the bare key, ``literature/<key>``, with or
+    without ``.md``, ``/``-led, or relative to ``source``. A markdown
+    destination that is a URI is the caller's to skip (``is_external``); a
+    wikilink target never is one, so a key holding a ``:`` is still named."""
+    raw = urllib.parse.unquote(target.strip()).replace("\\", "/")
+    if not raw:
+        return False
+    if raw.startswith(("./", "../")):
+        raw = posixpath.normpath(posixpath.join(posixpath.dirname(source), raw))
+    raw = raw.lstrip("/")
+    raw = raw.removesuffix(".md")
+    return raw in {key, f"literature/{key}"}
+
+
+def rewrite_key(text: str, old: str, new: str, *, source: str) -> str:
+    """Rename every link naming ``old``: a wikilink keeps its form, a markdown
+    link is re-pointed at ``/literature/<new>.md`` with its subpath, and a
+    display text equal to the old key becomes the new one."""
+    pieces: list[str] = []
+    cursor = 0
+    for link in find_links(text):
+        if (
+            link.start < cursor
+            or is_external(link)
+            or not names_note(link.target, old, source=source)
+        ):
+            continue
+        bang = "!" if link.embed else ""
+        if link.kind == "wiki":
+            alias = f"|{link.alias}" if link.alias is not None else ""
+            replacement = f"{bang}[[{new}{link.subpath}{alias}]]"
+        else:
+            shown = new if link.alias == old else (link.alias or "")
+            replacement = (
+                f"{bang}[{shown}](/literature/{_encode(new)}.md{_encode(link.subpath)})"
+            )
+        pieces.append(text[cursor : link.start])
+        pieces.append(replacement)
+        cursor = link.end
+    pieces.append(text[cursor:])
+    return "".join(pieces)

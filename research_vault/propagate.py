@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import NamedTuple
 
-from . import capture, lifecycle, literature_notes, structure
+from . import capture, lifecycle, links, literature_notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 from .zotero import ZoteroError
@@ -46,16 +46,20 @@ class Plan(NamedTuple):
     surfaces: tuple[Surface, ...]
 
 
-def _patterns(old: str) -> list[tuple[re.Pattern[str], str]]:
-    key = re.escape(old)
-    return [
-        (re.compile(rf"\[@{key}(?=[\],\s])"), "[@{new}"),
-        (re.compile(rf"\[\[{key}(?=[\]#|])"), "[[{new}"),
-    ]
+def _cite_pattern(old: str) -> tuple[re.Pattern[str], str]:
+    return re.compile(rf"\[@{re.escape(old)}(?=[\],\s])"), "[@{new}"
 
 
-def _names(text: str, old: str) -> bool:
-    return any(pattern.search(text) for pattern, _ in _patterns(old))
+def _names(text: str, old: str, source: str) -> bool:
+    """Whether ``text``, read as the surface ``source``, cites ``old`` or links
+    the note in any spelling ``links.names_note`` reads; a markdown URI
+    (``links.is_external``) names no note."""
+    pattern, _template = _cite_pattern(old)
+    return pattern.search(text) is not None or any(
+        not links.is_external(link)
+        and links.names_note(link.target, old, source=source)
+        for link in links.find_links(text)
+    )
 
 
 def _surfaces(vault: Path) -> Iterator[tuple[Path, str]]:
@@ -220,7 +224,7 @@ def plan(
     for path, relative in _surfaces(vault):
         data = path.read_bytes()
         text = data.decode("utf-8", errors="surrogateescape")
-        if not any(_names(text, old) for old in mapping):
+        if not any(_names(text, old, relative) for old in mapping):
             continue
         try:
             relative.encode("utf-8")
@@ -292,9 +296,9 @@ def rewrite_surfaces(vault_root, old: str, new: str) -> list[str]:
             "r", encoding="utf-8", errors="surrogateescape", newline=""
         ) as handle:
             text = handle.read()
-        rewritten = text
-        for pattern, template in _patterns(old):
-            rewritten = pattern.sub(template.format(new=new), rewritten)
+        pattern, template = _cite_pattern(old)
+        rewritten = pattern.sub(template.format(new=new), text)
+        rewritten = links.rewrite_key(rewritten, old, new, source=relative)
         if rewritten != text:
             with path.open(
                 "w", encoding="utf-8", errors="surrogateescape", newline=""
@@ -476,6 +480,6 @@ def lint_propagation(vault_root) -> list[Outcome]:
         outcomes.extend(
             _stale(relative, old, new, operation_id)
             for relative, text in texts
-            if _names(text, old)
+            if _names(text, old, relative)
         )
     return outcomes or [Outcome(CHECK, RECORD_DIR, Result.MATCHED, "matched")]

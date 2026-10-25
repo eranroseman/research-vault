@@ -5,7 +5,7 @@ description: Use when creating or editing pages of the compiled layer under wiki
 
 # Conventions for the compiled layer
 
-The compiled layer lives under `wiki/` — per-source pages under `wiki/sources/`, cross-source pages under `wiki/concepts/` — and is written by the adopted compile tool (claude-obsidian) through its transaction engine. It asserts arrangement, not evidence: nothing under `wiki/` passes an evidence gate, which is why the folder is the boundary. The evidence underneath it never moves: every page cites its source as `[[<citation key>]]`, which resolves to `literature/<citation key>.md`, and a page may cite only a source capture wrote — the `captured-set` check fails a commit otherwise.
+The compiled layer lives under `wiki/` — per-source pages under `wiki/sources/`, cross-source pages under `wiki/concepts/` — and is written by the adopted compile tool (claude-obsidian) through its transaction engine. It asserts arrangement, not evidence: nothing under `wiki/` passes an evidence gate, which is why the folder is the boundary. The evidence underneath it never moves: every page links its source as `[<citation key>](/literature/<citation key>.md)` — the markdown form with a `/`-led vault path, which the commit hook's fixer keeps (research-vault's link form; OKF §6.1), and a page may cite only a source capture wrote — the `captured-set` check fails a commit otherwise.
 
 ## Never write the layer by hand
 
@@ -21,7 +21,7 @@ A concept page earns its existence at two or more captured sources on the same t
 
 ## Minimum-link discipline
 
-Every concept page carries at least two outgoing wikilinks, at least one of them a `[[<citation key>]]`. The tool's wiki-lint reports orphans (no incoming link) and dead links; the vault never runs the tool's checkpoint, so nothing blocks on them there — the vault's own commit gate closes on `captured-set`, `okf-frontmatter` and `okf-structure`, not on the tool's lint.
+Every concept page carries at least two outgoing wikilinks, at least one of them a `[<citation key>](/literature/<citation key>.md)`. The tool's wiki-lint reports orphans (no incoming link) and dead links; the vault never runs the tool's checkpoint, so nothing blocks on them there — the vault's own commit gate closes on `captured-set`, `okf-frontmatter` and `okf-structure`, not on the tool's lint.
 
 ## Frontmatter
 

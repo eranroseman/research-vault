@@ -51,7 +51,7 @@ Run `python3 -m research_vault verify --vault PATH` with the network on after a 
 
 ## 4. Propagate a citation-key change: `propagate`
 
-A `re-keyed` finding means the source's *name* changed while its identity (the item key) did not. Until propagation runs, the note's filename contradicts its recorded key and every `[@old]` and `[[old]]` dangles. Propagation is the one command here that rewrites what a person wrote, so it is planned, shown, and applied only against the plan you showed:
+A `re-keyed` finding means the source's *name* changed while its identity (the item key) did not. Until propagation runs, the note's filename contradicts its recorded key and every `[@old]` citation and every link to `literature/old.md` dangles. Propagation is the one command here that rewrites what a person wrote, so it is planned, shown, and applied only against the plan you showed:
 
 ```sh
 python3 -m research_vault propagate --vault PATH                    # plan: every re-keyed note the linter reports
@@ -59,7 +59,7 @@ python3 -m research_vault propagate --vault PATH --map OLD=NEW      # plan from 
 python3 -m research_vault propagate --vault PATH --plan FILE --approved-plan-sha256 SHA   # apply, exactly as printed
 ```
 
-The plan lists the rename, the item key and every file it will rewrite, and ends with the apply line carrying the plan's hash; show it to the person and run that line unchanged. If anything the plan named moved in between, apply refuses with `mismatch — plan changed`: plan again. Apply renames the note, rewrites `[@key]` and `[[key]]` in drafts and wiki pages, re-captures the item, and keeps the applied plan under `system/propagations/` — the record a reader follows an old key forward through. The review queue is never rewritten; acknowledgments on the renamed note lapse by scope, as they do for any content change. The `propagation` check fails a commit while any surface still names a key an applied plan mapped away.
+The plan lists the rename, the item key and every file it will rewrite, and ends with the apply line carrying the plan's hash; show it to the person and run that line unchanged. If anything the plan named moved in between, apply refuses with `mismatch — plan changed`: plan again. Apply renames the note, rewrites `[@key]` citations and the links that name the note in drafts and wiki pages, re-captures the item, and keeps the applied plan under `system/propagations/` — the record a reader follows an old key forward through. The review queue is never rewritten; acknowledgments on the renamed note lapse by scope, as they do for any content change. The `propagation` check fails a commit while any surface still names a key an applied plan mapped away.
 
 ## 5. Compile: `compile`
 
@@ -71,7 +71,7 @@ python3 -m research_vault compile --all --vault PATH                # the whole 
 python3 -m research_vault compile --vault PATH --bundle BUNDLE --approved-plan-sha256 SHA
 ```
 
-Show the person the plan before applying. Two hash-approved bundles gate compile: the wrapper's ledger record (this approval hash) and wiki-ingest's page bundle (the tool's own transaction gate); the tool's model reads `fulltext/<attachment key>.md`, which is not on wiki-ingest's own input list — the wrapper registers it. Then run the tool's wiki-ingest skill on the registered `fulltext/<attachment key>.md` files; the pages it writes cite the literature note as `[[<citation key>]]`. Then run the tool's wiki-lint skill over `wiki/` — orphans, dead links, frontmatter — then `verify`. Then run `capture KEY` again (or `capture --all`): the note now embeds the compiled page, `![[<page path>]]`, from the ledger's `pages[]`. Until that second capture the embed is absent — expected, not an error. A note whose text changed after compile is reported `recompile-needed` by `verify`.
+Show the person the plan before applying. Two hash-approved bundles gate compile: the wrapper's ledger record (this approval hash) and wiki-ingest's page bundle (the tool's own transaction gate); the tool's model reads `fulltext/<attachment key>.md`, which is not on wiki-ingest's own input list — the wrapper registers it. Then run the tool's wiki-ingest skill on the registered `fulltext/<attachment key>.md` files; the pages it writes cite the literature note as `[[<citation key>]]`. Then run the tool's wiki-lint skill over `wiki/` — orphans, dead links, frontmatter — then `verify`. Then run `capture KEY` again (or `capture --all`): the note now embeds the compiled page, `![](/<page path>)`, from the ledger's `pages[]`. Until that second capture the embed is absent — expected, not an error. A note whose text changed after compile is reported `recompile-needed` by `verify`.
 
 ## Four-state honesty
 

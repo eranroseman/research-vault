@@ -449,7 +449,7 @@ def test_normalize_reads_a_colon_wikilink_as_a_name_and_skips_only_a_url(tmp_pat
 
 def test_normalize_leaves_the_seed_index_folder_links_alone_and_unreported(tmp_path):
     """A target ending in `/` is a folder: read as `log.md`, the seed index's
-    `[log/](log/)` would be re-pointed at the root log, and the other five
+    `[log/](log/)` would be re-pointed at the root log, and the other six
     would be dead at every commit that stages `index.md`."""
     for relative in (
         "log.md",
@@ -463,7 +463,7 @@ def test_normalize_leaves_the_seed_index_folder_links_alone_and_unreported(tmp_p
     index = links.Index.build(tmp_path, literature={}, names={})
     seed = (Path(links.__file__).parent / "templates/vault/index.md").read_text()
     folders = [link for link in links.find_links(seed) if links.is_folder(link.target)]
-    assert len(folders) == 6
+    assert len(folders) == 7
     out, problems = links.normalize(seed + "[[wiki/]]\n", index, source="index.md")
     for link in folders:
         assert seed[link.start : link.end] in out
@@ -584,3 +584,45 @@ def test_normalize_reads_a_backslashed_relative_target_as_resolve_does(tmp_path)
     out, problems = links.normalize(text, index, source="wiki/concepts/Other.md")
     assert out == text
     assert [(p.kind, p.target) for p in problems] == [("dead", ".\\nowhere.md")]
+
+
+@pytest.mark.parametrize(
+    ("target", "named"),
+    [
+        ("old2020", True),
+        ("literature/old2020", True),
+        ("literature/old2020.md", True),
+        ("/literature/old2020.md", True),
+        ("../../literature/old2020.md", True),  # from wiki/sources/A.md
+        ("../literature/old2020.md", False),  # wiki/literature/old2020.md from there
+        ("old2020a", False),
+        ("concepts/old2020", False),
+        ("https://x.org/old2020", False),
+    ],
+)
+def test_names_note_recognises_every_spelling_of_a_literature_link(target, named):
+    assert links.names_note(target, "old2020", source="wiki/sources/A.md") is named
+
+
+def test_rewrite_key_renames_wiki_and_markdown_links_and_display_text():
+    text = (
+        "[[old2020]] [[old2020#^c-1]] [[old2020|alias]] [old2020](/literature/old2020.md) "
+        "[shown](literature/old2020.md#^c-1) [x](../../literature/old2020.md) "
+        "[[old2020a]] [other](/literature/other2020.md) ![[old2020]]\n"
+    )
+    assert links.rewrite_key(
+        text, "old2020", "new2020", source="wiki/sources/A.md"
+    ) == (
+        "[[new2020]] [[new2020#^c-1]] [[new2020|alias]] [new2020](/literature/new2020.md) "
+        "[shown](/literature/new2020.md#^c-1) [x](/literature/new2020.md) "
+        "[[old2020a]] [other](/literature/other2020.md) ![[new2020]]\n"
+    )
+
+
+def test_rewrite_key_reads_a_colon_key_as_a_name_only_in_a_wikilink():
+    """A captured-set key may hold a `:`: `[[re:2020]]` names it, while a
+    markdown destination `re:2020` is a URI (`is_external`), never a note."""
+    text = "[[re:2020]] [x](re:2020)\n"
+    assert links.rewrite_key(text, "re:2020", "re2021", source="index.md") == (
+        "[[re2021]] [x](re:2020)\n"
+    )

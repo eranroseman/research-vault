@@ -130,7 +130,7 @@ def test_refresh_after_compile_embeds_the_page_and_completes_the_note(
         outcomes[0].reason == "matched"
     )  # the second write is what completes the note
     assert (
-        "## Compiled\n\n![[wiki/sources/Co-Writing.md]]\n\n## Item\n"
+        "## Compiled\n\n![](/wiki/sources/Co-Writing.md)\n\n## Item\n"
         in note.read_text()
     )
     snapshot = {

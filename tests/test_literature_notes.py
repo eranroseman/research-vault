@@ -468,7 +468,7 @@ def test_body_renders_only_what_frontmatter_cannot_carry():
         "- [Open in Zotero](zotero://select/library/items/E352DFS8)\n\n"
         "## Attachments\n\n"
         "- [Jakesch et al. - 2023.pdf](zotero://open-pdf/library/items/D7EJ9FTG) "
-        "— application/pdf, md5 aa59569ae4f4b3a7c546158d4771c738, text layer [[fulltext/D7EJ9FTG]]\n\n"
+        "— application/pdf, md5 aa59569ae4f4b3a7c546158d4771c738, text layer [D7EJ9FTG](/fulltext/D7EJ9FTG.md)\n\n"
         "## Zotero notes\n\n"
         "Read for the method.\n\nSecond paragraph.\n"
     )
@@ -481,7 +481,7 @@ def test_body_embeds_the_compiled_page_by_ledger_path_when_one_exists():
         _render(pages=["wiki/sources/Co-Writing with Opinionated Language Models.md"])
     )
     assert body.startswith(
-        "## Compiled\n\n![[wiki/sources/Co-Writing with Opinionated Language Models.md]]\n\n## Item\n\n"
+        "## Compiled\n\n![](/wiki/sources/Co-Writing%20with%20Opinionated%20Language%20Models.md)\n\n## Item\n\n"
     )
 
 

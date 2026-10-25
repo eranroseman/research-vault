@@ -40,7 +40,7 @@ def test_capture_source_keeps_the_kept_rules():
         "Two hash-approved bundles",
         "fulltext/<attachment key>.md",
         "recompile-needed",
-        "![[<page path>]]",
+        "![](/<page path>)",
     ):
         assert needle in text, needle
     assert "import-note" not in text
@@ -57,7 +57,7 @@ def test_synthesis_conventions_names_the_tool_and_the_seam():
         "wiki-ingest",
         "wiki-lint",
         "`captured-set`",
-        "[[<citation key>]]",
+        "[<citation key>](/literature/<citation key>.md)",
         "wiki/index.md",
         "two or more captured sources",
         "python3 -m research_vault compile",

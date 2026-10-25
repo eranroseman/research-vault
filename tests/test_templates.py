@@ -91,14 +91,15 @@ def test_markdown_templates_match_canonical_content():
         "- [wiki/](wiki/) — compiled layer: per-source pages under `wiki/sources/`, "
         "cross-source pages under `wiki/concepts/`, written by the adopted compile tool\n"
         "- [projects/](projects/) — manuscripts and deliverables\n"
-        "- [log/](log/) — daily activity log (summary: [[log]])\n"
+        "- [log/](log/) — daily activity log (summary: [log](/log.md))\n"
+        "- [daily/](daily/) — the person's diary: Obsidian's Daily notes write here\n"
         "- [inbox/](inbox/) — fleeting notes and the review queue\n"
         "- [system/](system/) — support artifacts: templates, bases, the CSL file, "
         "the applied propagation plans\n\n"
         "Literature notes, for trust-tier review:\n\n"
-        "![[system/bases/trust-tier.base]]\n\n"
+        "![](/system/bases/trust-tier.base)\n\n"
         "Concept pages, flagged where they contain an open-question:\n\n"
-        "![[system/bases/open-questions.base]]\n"
+        "![](/system/bases/open-questions.base)\n"
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
     # The machine-surface rule says "raise a finding", never "fail the gate":
@@ -210,8 +211,11 @@ def test_bases_and_machine_example_match_canonical_shapes():
 # Anchored (leading "/") gitignore-style form, as research_vault/lints.py's
 # _is_append_only_path names the append-only three (log/, inbox/review-queue.md,
 # projects/*/search-log.md) plus system/bibliography.json (capture's CSL
-# render), literature/ (the evidence layer), and fulltext/ (capture's
-# derived text layer, hash-tracked by the literature note it belongs to).
+# render), literature/ (the evidence layer), fulltext/ (capture's
+# derived text layer, hash-tracked by the literature note it belongs to),
+# system/propagations/ (the write-once applied plans), wiki/ (the compile
+# tool's pages, sealed by hash), root log.md (the fixer's render) and
+# system/compiled-pages.json (the compiled-page record) (spec §4.5).
 # Anchoring matters: an unanchored "log/" also matches a nested
 # projects/<name>/log/, silently widening what a formatter skips.
 _MACHINE_SURFACES = (
@@ -222,12 +226,15 @@ _MACHINE_SURFACES = (
     "/projects/*/search-log.md",
     "/fulltext/",
     "/system/propagations/",
+    "/wiki/",
+    "/log.md",
+    "/system/compiled-pages.json",
 )
 
 
 def test_formatter_ignores_cover_every_machine_surface():
     # prettier and markdownlint both read gitignore-style patterns, so their
-    # ignore files list the seven machine surfaces as plain, anchored
+    # ignore files list the ten machine surfaces as plain, anchored
     # gitignore lines.
     for name in ("vault/prettierignore", "vault/markdownlintignore"):
         text = asset(name).read_text()
@@ -235,22 +242,30 @@ def test_formatter_ignores_cover_every_machine_surface():
             assert surface in text, (name, surface)
 
     # .editorconfig has no gitignore-style ignore mechanism, and ships no
-    # [*] section -- it defends only the seven machine surfaces and makes
+    # [*] section -- it defends only the ten machine surfaces and makes
     # no claim about any other vault file. `false` is the active override
     # for the two boolean properties: it wins even against a user's own
     # editor-wide setting, unlike `unset` or omission, either of which
     # yields to that global config (spec.editorconfig.org, "unset").
     # charset/end_of_line have no boolean "off" and are deliberately
     # absent: with no [*] section, there is nothing left in scope for
-    # `unset` to undo, so it would be inert. EditorConfig glob sections
-    # have no gitignore-style leading-slash syntax; an interior "/" is
-    # what anchors them to this file's own directory.
+    # `unset` to undo, so it would be inert. A "/" in an EditorConfig glob
+    # anchors it to this file's own directory: an interior one for a nested
+    # path, a leading one for a root file, which a bare name would match at
+    # every depth (spec.editorconfig.org, "Glob Expressions").
     editorconfig = asset("vault/editorconfig").read_text()
     assert "root = true" in editorconfig
     assert "[*]" not in editorconfig.splitlines()
     for surface in _MACHINE_SURFACES:
         relative = surface.removeprefix("/")
-        glob = f"{relative}**" if relative.endswith("/") else relative
+        if relative.endswith("/"):
+            glob = f"{relative}**"
+        elif "/" in relative:
+            glob = relative
+        else:
+            glob = (
+                surface  # a root file keeps its leading slash: that is what anchors it
+            )
         assert f"[{glob}]" in editorconfig, (surface, glob)
     assert "= unset" not in editorconfig
     assert "charset =" not in editorconfig

@@ -39,7 +39,7 @@ Report every doctor probe, not only failures — every row doctor prints — plu
 
 ## Rename by hand
 
-A vault scaffolded on or before 2026-09-18 keeps its evidence layer under one of the stale names: `literatures/`. Doctor's `tree` row reports it (`UNMATCHED tree — stray literatures/: rename to literature/ by hand, then run capture --all`) and creates nothing while the old root stands; no verb renames a machine surface. The person runs `git mv literatures literature` in the vault, commits, then `python3 -m research_vault capture --all --vault PATH` — the notes re-render under the new root and `system/bibliography.json` regenerates. Every `[[<citation key>]]` link resolves as before; nothing else in the vault names the directory.
+A vault scaffolded on or before 2026-09-18 keeps its evidence layer under one of the stale names: `literatures/`. Doctor's `tree` row reports it (`UNMATCHED tree — stray literatures/: rename to literature/ by hand, then run capture --all`) and creates nothing while the old root stands; no verb renames a machine surface. The person runs `git mv literatures literature` in the vault, commits, then `python3 -m research_vault capture --all --vault PATH` — the notes re-render under the new root and `system/bibliography.json` regenerates. Every `[<citation key>](/literature/<citation key>.md)` link resolves as before; nothing else in the vault names the directory.
 
 ## Provision companions
 

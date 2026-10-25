@@ -417,12 +417,19 @@ def compiled_pages(vault_root, provenance: Provenance) -> list[str]:
 
 
 def render_body(provenance: Provenance, children, child_notes, pages=()) -> str:
-    """The three mechanical pointers and the child notes (decision 27), in order."""
+    """The three mechanical pointers and the child notes (decision 27), in order.
+
+    Its vault links take the markdown form with a ``/``-led path (§5.2):
+    the normaliser skips ``literature/``, so the note is rendered in that
+    form, never rewritten into it."""
+    # Imported here: links imports structure, which imports this module.
+    from . import links
+
     cached = {entry["attachment-key"] for entry in provenance.fulltext}
     lines: list[str] = []
     if pages:
         lines.append("## Compiled\n")
-        lines.extend(f"![[{page}]]" for page in pages)
+        lines.extend(f"![](/{links._encode(page)})" for page in pages)
         lines.append("")
     lines.append("## Item\n")
     lines.append(
@@ -437,7 +444,7 @@ def render_body(provenance: Provenance, children, child_notes, pages=()) -> str:
         for child in attachments:
             line = _attachment_line(child)
             if child.get("key") in cached:
-                line += f", text layer [[fulltext/{child['key']}]]"
+                line += f", text layer [{child['key']}](/fulltext/{child['key']}.md)"
             lines.append(line)
         lines.append("")
     notes_text = [html_to_text(n.get("data", {}).get("note", "")) for n in child_notes]
