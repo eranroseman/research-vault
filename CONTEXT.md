@@ -8,7 +8,7 @@ Trust-first academic research on a personal knowledge vault: every claim traceab
 
 **Vault**: A private git repository of markdown notes — the researcher's durable knowledge store, built to outlive its tools (ADR 0001) as an OKF bundle.
 
-**Type (OKF)**: A note's kind, derived from its folder — `literature/` → literature, `log/` → log, `daily/` → daily, `inbox/` → fleeting, and only `projects/<name>/draft.md` → project. `wiki/` derives none: the compile tool writes its own `type` values (source, concept, entity, meta). `fulltext/` notes carry `type: fulltext` by construction. Notes under `system/` and at the vault root carry any non-empty type, freely chosen.
+**Type (OKF)**: A note's kind, derived from its folder — `literature/` → literature, `log/` → log, `daily/` → daily, `inbox/` → fleeting, and only `projects/<name>/draft.md` → project. `wiki/` derives none: the compile tool writes its own `type` values (source, concept, entity, meta). `fulltext/` notes carry `type: fulltext` by construction, and that type is reserved for them: a text file moved anywhere else is refused at commit. Notes under `system/` and at the vault root carry any non-empty type, freely chosen.
 
 **Evidence layer**: The vault's machine-projected record of captured sources (`literature/`); never free-written.
 

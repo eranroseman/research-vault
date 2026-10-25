@@ -753,3 +753,100 @@ def test_stamp_leaves_reserved_names_untouched_anywhere(tmp_path):
     stamped, _reported = stamp.stamp_types(tmp_path)
     assert stamped == []
     assert (tmp_path / "log" / "log.md").read_text() == "bare\n"
+
+
+def test_check_tree_reports_a_stray_file_under_literature(tmp_path):
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    (tmp_path / "literature" / "smith2020.pdf").write_bytes(b"%PDF")
+    (tmp_path / "literature" / "notes.txt").write_text("x\n")
+    (tmp_path / "literature" / "bad key.md").write_text("x\n")
+    (tmp_path / "literature" / "smith2020.md").write_text(
+        '---\ntype: "literature"\n---\n'
+    )
+    (tmp_path / "literature" / ".DS_Store").write_bytes(b"\0")
+    rows = [
+        (o.target, o.reason)
+        for o in structure.check_tree(tmp_path)
+        if o.result is Result.UNMATCHED
+    ]
+    assert rows == [
+        (
+            "path-bytes:literature/bad%20key.md",
+            "schema-violation — literature/ holds only <citation key>.md and .gitkeep: literature/bad key.md",
+        ),
+        (
+            "path-bytes:literature/notes.txt",
+            "schema-violation — literature/ holds only <citation key>.md and .gitkeep: literature/notes.txt",
+        ),
+        (
+            "path-bytes:literature/smith2020.pdf",
+            "schema-violation — literature/ holds only <citation key>.md and .gitkeep: literature/smith2020.pdf",
+        ),
+    ]
+
+
+def test_a_dot_named_stray_under_literature_is_a_row_too(tmp_vault):
+    """literature/ is a machine surface, so a force-added dot-named file is a
+    stray, as it is in log/: every reader skips it, so it is a literature note
+    nowhere. OS litter and a sync tool's dot-directory (#194) are no entry."""
+    literature = tmp_vault / "literature"
+    (literature / ".x.md").write_text('---\ntype: "literature"\n---\n')
+    (literature / ".notes.pdf").write_bytes(b"%PDF")
+    (literature / "._smith2020.md").write_bytes(b"\x00\x05\x16\x07")
+    (literature / ".DS_Store").write_bytes(b"\0")
+    (literature / "desktop.ini").write_bytes(b"[.ShellClassInfo]\r\n")
+    (literature / ".stversions").mkdir()
+    assert [
+        o.target
+        for o in structure.check_tree(tmp_vault)
+        if o.result is Result.UNMATCHED
+    ] == ["path-bytes:literature/.notes.pdf", "path-bytes:literature/.x.md"]
+
+
+def test_stray_file_in_literature_closes_the_commit(tmp_path):
+    from research_vault import scaffold, verify
+
+    scaffold.scaffold_vault(tmp_path)
+    (tmp_path / "literature" / "paper.pdf").write_bytes(b"%PDF")
+    _report, effective, _hashes, warning = verify.verify_state(
+        tmp_path, network=False, git_candidate="worktree"
+    )
+    decision, blockers = verify.surface_decision("commit", effective, warning)
+    assert decision == 1
+    assert any(
+        "literature/paper.pdf" in b and b.startswith("UNMATCHED tree") for b in blockers
+    )
+
+
+@pytest.mark.parametrize(
+    "relative", ["wiki/x.md", "inbox/moved.md", "projects/p/text.md", "D7EJ9FTG.md"]
+)
+def test_type_fulltext_is_reserved_for_the_text_layer(tmp_path, relative):
+    """§5.5: a text file an Obsidian rename or Auto Note Mover carried out of
+    fulltext/ is refused, before inbox/'s fleeting exemption (Q26)."""
+    path = _write(
+        tmp_path,
+        relative,
+        '---\ntype: "fulltext"\nzotero-attachment-key: "D7EJ9FTG"\n---\ntext\n',
+    )
+    (outcome,) = structure.check_note_frontmatter(tmp_path, path)
+    assert outcome.result is Result.UNMATCHED
+    assert (
+        outcome.reason == "schema-violation — type 'fulltext' is reserved for fulltext/"
+    )
+
+
+def test_a_text_file_in_its_own_layer_still_passes(tmp_path):
+    path = _write(
+        tmp_path, "fulltext/D7EJ9FTG.md", '---\ntype: "fulltext"\n---\ntext\n'
+    )
+    (outcome,) = structure.check_note_frontmatter(tmp_path, path)
+    assert outcome.result is Result.MATCHED
+    assert (
+        structure.check_note_frontmatter(
+            tmp_path, _write(tmp_path, "inbox/idea.md", "bare\n")
+        )
+        == []
+    )

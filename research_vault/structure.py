@@ -2,8 +2,9 @@
 
 The vault rule: a note's ``type`` is determined by its folder. ``system/``
 and root-level concepts carry any non-empty type. ``inbox/`` captures other
-than the review queue are the recorded fleeting exemption — never checked
-here; the fixer converges them when they are staged (§5.1).
+than the review queue are the recorded fleeting exemption — checked here only
+for the reserved ``type: fulltext`` (§5.5); the fixer converges them when they
+are staged (§5.1).
 
 ``projects/`` is narrower than the other folders: ``publish.project_note()``
 requires exactly one ``type: "project"`` note per project directory, found
@@ -22,7 +23,7 @@ import os
 import re
 from pathlib import Path
 
-from . import frontmatter
+from . import frontmatter, literature_notes
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
@@ -124,11 +125,11 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
     """Rules 1 and 2 plus the folder-type vault rule, for one non-reserved file."""
     vault = Path(vault_root)
     relative = Path(path).relative_to(vault).as_posix()
-    if is_fleeting(relative):
-        return []
     try:
         data, _body = frontmatter.read_okf(Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
+        if is_fleeting(relative):
+            return []
         return [
             Outcome(
                 "okf-frontmatter",
@@ -137,6 +138,19 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
                 f"schema-violation — frontmatter unparseable ({error})",
             )
         ]
+    # §5.5: `type: fulltext` belongs to fulltext/ alone, and the test comes
+    # before inbox/'s exemption so a moved text file is refused anywhere (Q26).
+    if data.get("type") == "fulltext" and not relative.startswith("fulltext/"):
+        return [
+            Outcome(
+                "okf-frontmatter",
+                _repo_path(relative),
+                Result.UNMATCHED,
+                "schema-violation — type 'fulltext' is reserved for fulltext/",
+            )
+        ]
+    if is_fleeting(relative):
+        return []
     if not frontmatter.okf_type(data):
         return [
             Outcome(
@@ -367,7 +381,8 @@ def check_tree(vault_root) -> list[Outcome]:
     tree row, plus one row per directory nested under `literature/`: every
     reader of the evidence layer globs it flat (decision 08), so a note in a
     nested directory is a literature note nowhere — reported here rather than
-    typed by folder and forgotten.
+    typed by folder and forgotten. So is every file there but `.gitkeep` and
+    `<citation key>.md` (#211): a PDF, a text file, a name no key gives.
     """
     from . import scaffold
 
@@ -383,14 +398,43 @@ def check_tree(vault_root) -> list[Outcome]:
     literature = vault / "literature"
     if literature.is_dir():
         for child in sorted(literature.iterdir()):
-            if child.is_dir() and not is_excluded(child, vault):
-                relative = f"literature/{child.name}/"
+            # As in log/, only the sentinel and OS litter are no entry: a
+            # machine surface's dot-named file is a stray (#211), one every
+            # reader skips. A dot-directory is a sync tool's store (#194).
+            if child.name == ".gitkeep" or is_os_litter(child.name):
+                continue
+            excluded = is_excluded(child, vault)
+            relative = f"literature/{child.name}"
+            if child.is_dir():
+                if not excluded:
+                    rows.append(
+                        Outcome(
+                            "tree",
+                            f"{relative}/",
+                            Result.UNMATCHED,
+                            f"schema-violation — literature/ is flat: {relative}/",
+                        )
+                    )
+                continue
+            if excluded or not _is_citation_key_note(vault, child):
                 rows.append(
                     Outcome(
                         "tree",
-                        relative,
+                        _repo_path(relative),
                         Result.UNMATCHED,
-                        f"schema-violation — literature/ is flat: {relative}",
+                        "schema-violation — literature/ holds only "
+                        f"<citation key>.md and .gitkeep: {relative}",
                     )
                 )
     return rows
+
+
+def _is_citation_key_note(vault: Path, path: Path) -> bool:
+    """`<key>.md` for a key capture could have written (`note_path`'s rule)."""
+    if path.suffix != ".md":
+        return False
+    try:
+        literature_notes.note_path(vault, path.stem)
+    except literature_notes.InvalidCitationKeyError:
+        return False
+    return True
