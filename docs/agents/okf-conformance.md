@@ -20,7 +20,7 @@ Beyond §11, the vault adopts OKF's optional families wherever adoption is addit
 
 By code and a pin, not by intention:
 
-- `research_vault/structure.py` — `check_note_frontmatter` (rules 1 and 2 and the folder-type rule), `check_reserved` (rule 3) and `check_tree`; every `verify` run reports them under the check ids `okf-frontmatter`, `okf-structure` and `tree`, and the commit and publish surfaces close on all three. Rules 1 and 2 are read through `research_vault/frontmatter.py`'s `read_okf`, PyYAML under OKF's reference-loader rules (#194); the flat parser stays capture's own grammar.
+- `research_vault/structure.py` — `check_note_frontmatter` (rules 1 and 2 and the folder-type rule), `check_reserved` (rule 3), `check_log_dir` (the `log/` day files root `log.md` is rendered from) and `check_tree`; every `verify` run reports them under the check ids `okf-frontmatter`, `okf-structure` and `tree`, and the commit and publish surfaces close on all three. Rules 1 and 2 are read through `research_vault/frontmatter.py`'s `read_okf`, PyYAML under OKF's reference-loader rules (#194); the flat parser stays capture's own grammar.
 - `research_vault/stamp.py` — the fixer half of rule 2: stamps a derivable `type` on a file that lacks one, through the one fixer, `stamp-type` — run by the commit hook on every fully staged file and by `publish` on the day file it writes. It reads "lacks one" through `read_okf` and rule 2's own test, as `check_note_frontmatter` does, so every missing type the check reports is one it can stamp.
 - `research_vault/okf.py` — regenerates `log.md` in OKF §9's shape.
 - doctor's `tree` probe repairs the scaffold before observing it.

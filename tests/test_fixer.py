@@ -237,6 +237,29 @@ def test_an_unwritable_root_log_is_reported_not_raised(tmp_vault, monkeypatch):
     assert not (tmp_vault / "log.md").exists()
 
 
+def test_a_symlinked_root_log_is_reported_never_written_through(tmp_path):
+    """#107 for the fixer's own write: a root `log.md` that links outside the
+    vault is refused as a symlink, and the file it points at is untouched."""
+    vault = tmp_path / "vault"
+    outside = _page(tmp_path, "outside/target.md", "not the vault's\n")
+    _page(
+        vault,
+        "log/2026-10-24.md",
+        '---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — captured x\n',
+    )
+    (vault / "log.md").symlink_to(outside)
+    report = fixer.fix(vault, paths=[])
+    assert report.log_regenerated is False
+    assert report.reported == [("log.md", "symlink")]
+    assert outside.read_text() == "not the vault's\n"
+    assert (vault / "log.md").is_symlink()
+    (vault / "log.md").unlink()
+    absent = tmp_path / "outside" / "absent.md"
+    (vault / "log.md").symlink_to(absent)  # dangling: a write would create it
+    assert fixer.fix(vault, paths=[]).reported == [("log.md", "symlink")]
+    assert not absent.exists()
+
+
 def test_a_listed_path_outside_the_vault_reaches_stamp_and_an_excluded_one_does_not(
     tmp_path,
 ):

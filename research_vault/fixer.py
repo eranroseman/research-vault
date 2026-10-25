@@ -115,6 +115,13 @@ def _normalise(vault: Path, paths, report: FixReport) -> None:
 
 def _regenerate_root_log(vault: Path, report: FixReport) -> bool:
     target = vault / "log.md"
+    if target.is_symlink():
+        # #107: stamp skips the reserved name before its own symlink check, so
+        # this write refuses the link itself; following it could write a file
+        # outside the vault. A direct child of the vault that is not a link
+        # cannot resolve outside it.
+        report.reported.append(("log.md", "symlink"))
+        return False
     if not target.exists() and not okf.day_files(vault):
         return False
     rendered = okf.render_log(vault)

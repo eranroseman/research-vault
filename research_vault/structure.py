@@ -185,12 +185,21 @@ def _log_shape_problems(text: str) -> list[str]:
 
 def _index_shape_problems(body: str) -> list[str]:
     """§8 index shape: headings carrying lists of entries; an empty body is
-    valid (Q22). Prose outside a heading or a list item is the finding."""
+    valid (Q22). Prose outside a heading or a list item is the finding; an
+    indented line under a list entry is that entry's continuation."""
+    in_list = False
     for line in body.splitlines():
         stripped = line.strip()
-        if not stripped or stripped.startswith("#") or _LIST_LINE.match(stripped):
+        if not stripped:
             continue
-        return [f"index body line is neither a heading nor a list entry: {stripped!r}"]
+        if stripped.startswith("#"):
+            in_list = False
+        elif _LIST_LINE.match(stripped):
+            in_list = True
+        elif not (in_list and line[0] in " \t"):
+            return [
+                f"index body line is neither a heading nor a list entry: {stripped!r}"
+            ]
     return []
 
 
@@ -216,7 +225,9 @@ def check_log_dir(vault_root) -> list[Outcome]:
         return []
     rows: list[Outcome] = []
     for child in sorted(log_dir.iterdir()):
-        if is_excluded(child, vault) and child.name != ".gitkeep":
+        # Not `is_excluded`: a dot-named stray is a stray too (#204); only the
+        # sentinel and OS litter are no entry at all.
+        if child.name == ".gitkeep" or is_os_litter(child.name):
             continue
         relative = f"log/{child.name}"
         if child.is_dir():
@@ -228,8 +239,6 @@ def check_log_dir(vault_root) -> list[Outcome]:
                     f"schema-violation — log/ is flat: {relative}/",
                 )
             )
-            continue
-        if child.name == ".gitkeep":
             continue
         if child.suffix != ".md" or not is_day_stem(child.stem):
             rows.append(
@@ -252,7 +261,9 @@ def check_log_dir(vault_root) -> list[Outcome]:
                 _okf_structure(relative, "frontmatter is not the writer's flat form")
             )
             continue
-        for number, line in enumerate(body.splitlines(), start=1):
+        # The file's own line numbers: the body starts below the block.
+        first = text.count("\n", 0, len(text) - len(body)) + 1
+        for number, line in enumerate(body.splitlines(), start=first):
             if line.strip() and not okf.WRITER_LINE.match(line):
                 rows.append(
                     _okf_structure(
@@ -288,8 +299,8 @@ def check_reserved(vault_root) -> list[Outcome]:
                     (
                         relative,
                         (
-                            "root log.md differs from its render; "
-                            "run stamp-type, which regenerates it"
+                            "root log.md differs from its render; run stamp-type, "
+                            "which regenerates it, and stage log.md"
                         ),
                     )
                 )
@@ -334,12 +345,12 @@ def check_reserved(vault_root) -> list[Outcome]:
         except frontmatter.FrontmatterError as error:
             problems.append((relative, f"frontmatter block does not parse ({error})"))
             continue
+        has_block = frontmatter._FRONTMATTER_OPEN.match(text) is not None
         if path.name == "index.md":
-            if data:
+            if has_block:  # an empty block too: §8 wants none at all
                 problems.append((relative, "nested index.md must be frontmatter-free"))
             problems.extend((relative, p) for p in _index_shape_problems(body))
         else:
-            has_block = frontmatter._FRONTMATTER_OPEN.match(text) is not None
             if has_block and not frontmatter.okf_type(data):
                 problems.append((relative, "missing type (OKF §11 rule 2)"))
             problems.extend((relative, p) for p in _log_shape_problems(text))

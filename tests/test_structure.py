@@ -110,7 +110,7 @@ def test_reserved_root_index_carries_only_okf_version(tmp_path):
     )
 
 
-def test_reserved_check_exempts_wiki_index_only(tmp_path):
+def test_reserved_check_passes_only_the_compile_tools_files_under_wiki(tmp_path):
     _write(tmp_path, "index.md", '---\nokf_version: "0.2"\n---\n# Root\n')
     _write(
         tmp_path,
@@ -397,6 +397,7 @@ _NOT_NOTE_WALKS = {
     "scaffold.py::_template_files": "the package's own template tree, not a vault",
     "scaffold.py::_add_empty_root_sentinels": "asks only whether a root is empty, to seed .gitkeep",
     "scaffold.py::_preflight_conflicts": "the same emptiness question, asked before any write",
+    "structure.py::check_log_dir": "log/ is a machine surface; its stray inventory is not a note walk",
 }
 _WALK_CALLS = frozenset({"glob", "rglob", "iterdir", "walk"})
 _SCOPES = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp, ast.stmt)
@@ -523,10 +524,11 @@ def _rows(vault, check=None):
 
 
 def test_log_dir_reports_strays_under_their_own_paths_never_under_log_md(tmp_path):
-    """#204: a non-date file, a compact date, an impossible date, a stray
-    heading and a hand-typed line are each a row on their own file; so is a
-    day file whose frontmatter only the OKF reader accepts, which the render
-    drops whole."""
+    """#204: a non-date file, a dot-named file, a compact date, an impossible
+    date, a stray heading and a hand-typed line are each a row on their own
+    file, numbered by the file's own lines; so is a day file whose frontmatter
+    only the OKF reader accepts, which the render drops whole. OS litter and
+    `.gitkeep` are no entry."""
     from research_vault import okf
 
     _scaffold_min(tmp_path)
@@ -550,18 +552,25 @@ def test_log_dir_reports_strays_under_their_own_paths_never_under_log_md(tmp_pat
     )
     (log / "nested").mkdir()
     (log / ".gitkeep").touch()
+    _write(tmp_path, "log/.x.md", "- a force-added dot-named stray\n")
+    (log / ".DS_Store").write_bytes(b"\x00\x05\x16\x07")  # OS litter: no entry
     okf.regenerate_log(tmp_path)
     rows = _rows(tmp_path)
     assert rows == [
         (
             "okf-structure",
-            "path-bytes:log/2026-10-01.md",
-            "schema-violation — line 1 is not in the writer's format: '## Agenda'",
+            "path-bytes:log/.x.md",
+            "schema-violation — log/ holds only <YYYY-MM-DD>.md day files and .gitkeep",
         ),
         (
             "okf-structure",
             "path-bytes:log/2026-10-01.md",
-            "schema-violation — line 3 is not in the writer's format: '- hand-typed'",
+            "schema-violation — line 4 is not in the writer's format: '## Agenda'",
+        ),
+        (
+            "okf-structure",
+            "path-bytes:log/2026-10-01.md",
+            "schema-violation — line 6 is not in the writer's format: '- hand-typed'",
         ),
         (
             "okf-structure",
@@ -603,6 +612,17 @@ _TOOL_INDEX = (
         ("system/propagations/index.md", "", True),
         ("projects/p/index.md", "Some prose that is not a heading or a list.\n", True),
         ("projects/p/index.md", "# Project\n\n- [draft](draft.md)\n", False),
+        # a list entry's indented continuation line
+        (
+            "projects/p/index.md",
+            "# P\n\n- [draft](draft.md)\n  the current draft\n",
+            False,
+        ),
+        # indented prose under no list entry
+        ("projects/p/index.md", "# P\n\n  indented prose\n", True),
+        # a nested index carries no frontmatter (OKF §8), an empty block included
+        ("projects/p/index.md", '---\ntype: "index"\n---\n# P\n', True),
+        ("projects/p/index.md", "---\n\n---\n# P\n", True),
         # an empty nested index is valid (OKF §8, Q22)
         ("daily/index.md", "", False),
         ("daily/log.md", "", False),
@@ -633,7 +653,7 @@ def test_nested_reserved_names_follow_one_shape_rule(tmp_path, relative, text, r
 
 _LOG_DIFFERS = (
     "schema-violation — root log.md differs from its render; run stamp-type, "
-    "which regenerates it"
+    "which regenerates it, and stage log.md"
 )
 
 
