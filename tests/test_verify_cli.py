@@ -843,6 +843,96 @@ def test_stamp_type_prints_each_report_reason_on_its_own_line(tmp_path, capsys):
         assert sum(other in line for _, other in reported) == 1, line
 
 
+def test_stamp_type_exits_2_on_an_unreadable_paths_file(tmp_path, capsys):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    missing = tmp_path / "no-such-listing"
+    assert (
+        main(["stamp-type", "--vault", str(vault), "--paths-file", str(missing)]) == 2
+    )
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith("stamp-type: cannot read --paths-file: ")
+
+
+@pytest.mark.parametrize(
+    "sources",
+    [
+        ["--paths", "inbox/a.md", "--staged"],
+        ["--paths-file", "listing", "--staged"],
+        ["--paths", "inbox/a.md", "--paths-file", "listing"],
+    ],
+    ids=["paths+staged", "paths-file+staged", "paths+paths-file"],
+)
+def test_stamp_type_takes_one_path_source(tmp_path, capsys, sources):
+    with pytest.raises(SystemExit) as caught:
+        main(["stamp-type", "--vault", str(tmp_path), *sources])
+    assert caught.value.code == 2
+    assert "--paths, --paths-file and --staged are exclusive" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("fault", ["no repository", "no git"])
+def test_stamp_type_staged_without_git_is_a_named_exit_2(
+    tmp_path, monkeypatch, capsys, fault
+):
+    """`--staged` reads git; a vault outside a repository, or a machine with
+    no git, is "could not run" with one line, not a traceback."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+    if fault == "no git":
+        monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    assert main(["stamp-type", "--vault", str(vault), "--staged"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert len(captured.err.splitlines()) == 1
+    assert captured.err.startswith("stamp-type unavailable: ")
+    expected = "not a git repository" if fault == "no repository" else "'git'"
+    assert expected in captured.err
+
+
+def test_stamp_type_staged_names_only_partially_staged_notes(tmp_path, capsys):
+    """A partially staged canvas, `.base` or `.obsidian/` file is no note the
+    fixer would touch, so it is not reported as one to restage."""
+    vault = tmp_path / "vault"
+    assert main(["scaffold", "--vault", str(vault)]) == 0
+    capsys.readouterr()
+    files = ["inbox/x.canvas", "inbox/reading.base", ".obsidian/app.json"]
+    files.append("inbox/note.md")
+    for relative in files:
+        (vault / relative).parent.mkdir(parents=True, exist_ok=True)
+        (vault / relative).write_text("one\n")
+    subprocess.run(["git", "add", "-f", *files], cwd=vault, check=True)
+    for relative in files:
+        (vault / relative).write_text("one\ntwo\n")
+    assert main(["stamp-type", "--vault", str(vault), "--staged"]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "skipped inbox/note.md — partially staged; stage the whole file or none of it"
+    ]
+
+
+def test_stamp_type_reports_an_unwritable_root_log_and_exits_0(
+    tmp_path, monkeypatch, capsys
+):
+    """#174 for root `log.md`: an unwritable one is a report line, not exit 1."""
+    from research_vault import okf
+
+    vault = tmp_path / "vault"
+    (vault / "log").mkdir(parents=True)
+    (vault / "log" / "2026-10-24.md").write_text(
+        '---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — captured x\n'
+    )
+
+    def failing(_vault, _text):
+        raise OSError(30, "Read-only file system")
+
+    monkeypatch.setattr(okf, "write_log", failing)
+    assert main(["stamp-type", "--vault", str(vault)]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "skipped log.md — file could not be written"
+    ]
+
+
 def test_verify_passes_every_flag_through_and_prints_sorted_counts(
     net_vault, monkeypatch, capsys, tmp_path
 ):

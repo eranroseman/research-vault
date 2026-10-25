@@ -740,11 +740,19 @@ def cmd_scaffold(args):
 def cmd_stamp_type(args):
     """The one fixer (spec §5.1), not a gate: stamp what is fully determined,
     normalise links, regenerate root log.md; report the rest; exit 0 — or 4,
-    from `main`, when the OKF reader's PyYAML is missing (§5.6)."""
+    from `main`, when the OKF reader's PyYAML is missing (§5.6), or 2 when
+    its path list cannot be read (no git repository for `--staged`)."""
     paths = None
     partial: list[str] = []
     if args.staged:
-        paths, partial = fixer.staged_paths(args.vault)
+        try:
+            paths, partial = fixer.staged_paths(args.vault)
+        except _NAMED_FAILURES as error:
+            print(f"stamp-type unavailable: {error}", file=sys.stderr)
+            return 2
+        # A partially staged canvas or `.obsidian/` file is no note the
+        # fixer would touch, so it is no reason to restage.
+        partial = [path for path in partial if fixer.is_note(Path(args.vault), path)]
     elif args.paths_file:
         try:
             raw = Path(args.paths_file).read_bytes()
