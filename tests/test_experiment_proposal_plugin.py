@@ -165,6 +165,16 @@ def test_skill_has_codex_metadata_that_forbids_implicit_invocation(skill_dir):
     assert meta["interface"]["short_description"].strip()
 
 
+def test_lit_search_codex_prompt_names_the_wrapper():
+    meta = yaml.safe_load(
+        (SKILLS_DIR / "lit-search" / "agents" / "openai.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "litsearch.py" in meta["interface"]["default_prompt"]
+    assert "lit-search-judged.txt" in meta["interface"]["default_prompt"]
+
+
 # --------------------------------------------------------------------------
 # Vendored files: provenance headers, local edits, notices
 # --------------------------------------------------------------------------
@@ -739,12 +749,9 @@ def test_lit_search_names_every_environment_name_and_key_file_the_scripts_read()
     assert "~/.config/thesis-proposal/api-keys.env" in text
 
 
-def test_lit_search_checks_python_names_the_indexes_the_target_and_writes_nothing():
+def test_lit_search_names_the_wrapper_the_judged_file_the_indexes_and_the_target():
     text = _skill_text("lit-search")
     assert "3.11" in text
-    assert "${CLAUDE_PLUGIN_ROOT}/skills/lit-search/scripts/search.py" in text
-    assert "${CLAUDE_PLUGIN_ROOT}/skills/lit-search/scripts/snowball.py" in text
-    assert "writes nothing" in text
     assert "adds no kept source" in text  # the stop rule
     assert "the claim it" in text  # keep a source only with a named claim
     assert "item 5.2" in text
@@ -768,6 +775,33 @@ def test_lit_search_checks_python_names_the_indexes_the_target_and_writes_nothin
     ):
         assert index in text
     assert text.count("Done when") >= 4
+    assert "${CLAUDE_PLUGIN_ROOT}/skills/lit-search/scripts/litsearch.py" in text
+    assert "scripts/search.py" not in text
+    assert "scripts/snowball.py" not in text
+    assert "proposal/notes/lit-search-judged.txt" in text
+    assert "--exclude" in text
+    assert "--out" in text
+    assert "--dblp-query" in text
+    assert "`<DOI or title> | <kept or rejected> | <one-line reason>`" in text
+    assert (
+        "semantic_scholar: skipped (HTTP 429); snowball's graph endpoints cover it"
+        in text
+    )
+    assert "every kept seed has been expanded once" in text
+    assert "in the context that ran the round" in text
+    assert "never by redirecting output" in text
+    assert "## Agent run" in text
+    assert text.index("## Agent run") < text.index("## Steps")
+    assert "$ARGUMENTS" in text
+    assert "the token `agent`" in text
+    assert '"no human will answer"' in text
+    steps = text.split("## Steps", 1)[1]
+    numbered = re.split(r"\n(?=\d+\. \*\*)", steps)
+    waits = {
+        n: "(an agent run does not wait; see Agent run)" in numbered[n]
+        for n in range(1, 5)
+    }
+    assert waits == {1: True, 2: False, 3: True, 4: False}
 
 
 def test_readme_states_the_lens_the_mechanics_the_prerequisites_and_the_vendored_facts():
