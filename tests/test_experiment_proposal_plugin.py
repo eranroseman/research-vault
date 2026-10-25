@@ -156,7 +156,8 @@ def test_skill_frontmatter_is_callable_by_name_and_triggered_by_nothing(skill_di
 
 @pytest.mark.parametrize("skill_dir", SKILL_DIRS, ids=lambda p: p.name)
 def test_skill_has_codex_metadata_that_forbids_implicit_invocation(skill_dir):
-    """Codex reads agents/openai.yaml instead of disable-model-invocation."""
+    """Codex reads agents/openai.yaml; implicit invocation stays off until the
+    Codex test (spec section 5) says otherwise."""
     meta_path = skill_dir / "agents" / "openai.yaml"
     assert meta_path.is_file(), f"{skill_dir.name} lacks agents/openai.yaml"
     meta = yaml.safe_load(meta_path.read_text(encoding="utf-8"))
@@ -379,6 +380,10 @@ def test_vendored_file_bytes_are_pinned(relative):
     )
 
 
+def test_every_vendored_file_has_a_pinned_hash():
+    assert set(VENDORED_SHA256) == set(VENDORED)
+
+
 def test_the_vendored_scripts_are_v0_9_0():
     """The gains the spec names: the candidates line, the one-seed default,
     arXiv over https through http_xml, UTF-8 output."""
@@ -392,9 +397,8 @@ def test_the_vendored_scripts_are_v0_9_0():
     assert "def http_xml(" in common
     assert "def utf8_output(" in common
     assert 'BASE_URL = "https://export.arxiv.org/api/query"' in arxiv
-    assert (
-        "def _yaml_scalar(" in common
-    )  # still unquoted on a newline: the wrapper owns the YAML
+    # still unquoted on a newline: the wrapper owns the YAML
+    assert "def _yaml_scalar(" in common
 
 
 # --------------------------------------------------------------------------
@@ -940,7 +944,9 @@ def test_design_is_steps_that_point_at_the_shape_the_checker_and_the_subagent():
     for status in ("settled", "pilot settles", "provisional", "weak", "missing"):
         assert status in text
     assert "## Agent run" in text
+    assert text.index("## Files") < text.index("## Agent run")
     assert text.index("## Agent run") < text.index("## Steps")
+    assert "no numbered question is printed" in text
     assert "$ARGUMENTS" in text
     assert "the token `agent`" in text
     assert '"no human will answer"' in text
@@ -953,10 +959,16 @@ def test_design_is_steps_that_point_at_the_shape_the_checker_and_the_subagent():
     assert "write no recommended research question" in text
     assert "/oss:research-grill idea" in text
     assert "research-grill install not checked." in text
+    assert (
+        'an agent run treats it as absent and prints "research-grill install not checked." first'
+        in text
+    )
     assert "never a direction of your own" in text
     assert "rejoins the frontier as `weak`" in text
     steps = text.split("## Steps", 1)[1]
     numbered = re.split(r"\n(?=\d+\. \*\*)", steps)
+    # step 8 without the closing paragraph
+    numbered[-1] = numbered[-1].split("\n\n", 1)[0]
     waits = {
         n: "(an agent run does not wait; see Agent run)" in numbered[n]
         for n in range(1, 9)
