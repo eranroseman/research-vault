@@ -744,9 +744,11 @@ def cmd_stamp_type(args):
     its path list cannot be read (no git repository for `--staged`)."""
     paths = None
     partial: list[str] = []
+    log: bool | str = True
     if args.staged:
         try:
             paths, partial = fixer.staged_paths(args.vault)
+            log = fixer.staged_log(args.vault, paths, partial)
         except _NAMED_FAILURES as error:
             print(f"stamp-type unavailable: {error}", file=sys.stderr)
             return 2
@@ -762,7 +764,7 @@ def cmd_stamp_type(args):
         paths = [os.fsdecode(name) for name in raw.split(b"\0") if name]
     elif args.paths:
         paths = list(args.paths)
-    report = fixer.fix(args.vault, paths)
+    report = fixer.fix(args.vault, paths, log=log)
     for path in report.stamped:
         print(f"stamped {path}")
     for path in report.normalised:
@@ -786,6 +788,11 @@ def cmd_stamp_type(args):
             )
         elif reason == "unwritable":
             print(f"skipped {path} — file could not be written")
+        elif reason == "unstaged-day-file":
+            print(
+                f"skipped {path} — a log/ day file is untracked or has unstaged"
+                " changes; the log is rendered only from staged day files"
+            )
         else:
             print(f"skipped {path} — no type could be derived")
     for path, problem in report.problems:

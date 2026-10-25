@@ -269,7 +269,7 @@ def test_precommit_hook_is_executable_and_has_exact_contract():
     )
     assert 'python3 -m research_vault stamp-type --vault "$vault" --staged' in text
     assert "git add" not in text
-    assert "run the same commit again" in text
+    assert "pathspec) and commit again" in text
     assert 'git_base="$(git rev-parse --verify HEAD 2>/dev/null)"' in text
     assert "git hash-object -w -t tree /dev/null" in text
     assert 'git cat-file -e "$git_base^{tree}"' in text

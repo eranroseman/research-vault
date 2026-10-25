@@ -1967,9 +1967,6 @@ def test_stop_gate_matches_direct_publish_state_and_effects(
     assert projected_state(hook_vault) == projected_state(direct_vault)
 
 
-REPO = Path(__file__).resolve().parents[1]
-
-
 def _hook_env(tmp_path: Path) -> dict[str, str]:
     bin_dir = tmp_path / "hook-bin"
     bin_dir.mkdir()
@@ -2020,7 +2017,7 @@ def _fingerprint(path: Path) -> tuple[bytes, int]:
 def test_real_hook_never_stages_untracked_files(tmp_path):
     vault, env = _hook_vault(tmp_path)
     strays = {
-        "log/x.md": "- a hand-typed line\n",
+        "log/2026-10-25.md": "- a hand-typed line\n",
         "inbox/s.md": "a thought\n",
         "literature/stray.md": "no frontmatter\n",
     }
@@ -2130,3 +2127,27 @@ def test_real_hook_regenerates_root_log_and_names_it(tmp_path):
     assert "a line" in (vault / "log.md").read_text()
     subprocess.run(["git", "add", "log.md"], cwd=vault, env=env, check=True)
     assert _commit(vault, env).returncode == 0
+
+
+def test_real_hook_names_the_log_a_day_file_pathspec_commit_must_add(tmp_path):
+    """The log.md the fixer regenerates lies outside `git commit --
+    log/<day>.md`, so staging it cannot reach that commit's temporary index:
+    the refusal says to add it to the pathspec, and the widened commit passes."""
+    vault, env = _hook_vault(tmp_path)
+    day = vault / "log" / "2026-10-24.md"
+    day.write_text('---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — a line\n')
+    subprocess.run(["git", "add", "log/2026-10-24.md"], cwd=vault, env=env, check=True)
+    refused = _commit(vault, env, "--", "log/2026-10-24.md")
+    assert refused.returncode == 1
+    assert "  log.md\n" in refused.stderr
+    assert "pathspec) and commit again" in refused.stderr
+    assert _commit(vault, env, "--", "log/2026-10-24.md", "log.md").returncode == 0
+    shown = subprocess.run(
+        ["git", "show", "HEAD:log.md"],
+        cwd=vault,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "a line" in shown

@@ -3,8 +3,9 @@
 Writers call it on the paths they wrote; the commit hook calls it with
 ``--staged`` on the fully staged files and refuses the commit when it changed
 any (#203). It never stages. Under ``--staged`` it is given only the files
-whose worktree copy equals the staged blob; root ``log.md`` it regenerates
-whatever its staging state.
+whose worktree copy equals the staged blob, and `staged_log` decides root
+``log.md``: rendered only when one of them is a ``log/`` day file or
+``log.md``, and never from a day file that differs from the index.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
 from . import captured, gitstate, links, okf, stamp, structure
@@ -131,16 +132,53 @@ def _regenerate_root_log(vault: Path, report: FixReport) -> bool:
     return True
 
 
-def fix(vault_root, paths: Iterable[str] | None = None) -> FixReport:
-    """Stamp, normalise, regenerate — on ``paths`` or the whole vault."""
+def fix(
+    vault_root, paths: Iterable[str] | None = None, *, log: bool | str = True
+) -> FixReport:
+    """Stamp, normalise, regenerate — on ``paths`` or the whole vault.
+
+    ``log`` is root ``log.md``'s fate: regenerated (True), left alone
+    (False), or left alone and reported under that reason (`staged_log`'s).
+    """
     vault = Path(vault_root)
     listed = None if paths is None else [p for p in paths if is_note(vault, p)]
     stamped, reported = stamp.stamp_types(vault, listed)
     report = FixReport(stamped=list(stamped), reported=list(reported))
     _normalise(vault, listed, report)
-    report.log_regenerated = _regenerate_root_log(vault, report)
+    if isinstance(log, str):
+        report.reported.append(("log.md", log))
+    elif log:
+        report.log_regenerated = _regenerate_root_log(vault, report)
     report.reported.sort()
     return report
+
+
+def _is_day_file(listed: str) -> bool:
+    path = PurePosixPath(listed)
+    return (
+        path.parent == PurePosixPath("log")
+        and path.suffix == ".md"
+        and structure.is_day_stem(path.stem)
+    )
+
+
+def staged_log(vault_root, staged, partial, env=None) -> bool | str:
+    """``fix``'s ``log`` under ``--staged`` (#203): render root ``log.md`` only
+    when a fully staged path is a day file or ``log.md`` itself. Never while
+    ``log.md`` is partially staged (already reported as such), and never from
+    a day file the index does not hold as it stands — untracked, or with an
+    unstaged edit or deletion — which is reported instead."""
+    if "log.md" in partial or not any(
+        path == "log.md" or _is_day_file(path) for path in staged
+    ):
+        return False
+    vault = Path(vault_root)
+    indexed = set(_git_names(vault, "ls-files", env=env))
+    dirty = _git_names(vault, "diff", "--name-only", "--no-renames", env=env)
+    rendered = {path.relative_to(vault).as_posix() for path in okf.day_files(vault)}
+    if rendered - indexed or any(_is_day_file(path) for path in dirty):
+        return "unstaged-day-file"
+    return True
 
 
 def _git_names(vault: Path, *args: str, env=None) -> list[str]:

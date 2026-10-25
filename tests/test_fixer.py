@@ -275,3 +275,71 @@ def test_fix_with_no_paths_touches_only_the_root_log(tmp_vault):
     assert note.read_text() == "a thought\n"
     assert draft.read_text() == "See [[Only Here]].\n"
     assert (tmp_vault / "log.md").read_text() == okf.render_log(tmp_vault)
+
+
+def _staged(vault, capsys):
+    from research_vault.__main__ import main
+
+    assert main(["stamp-type", "--vault", str(vault), "--staged"]) == 0
+    return capsys.readouterr().out.splitlines()
+
+
+_DAY = '---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — captured {}\n'
+_UNSTAGED_DAY = (
+    "skipped log.md — a log/ day file is untracked or has unstaged changes;"
+    " the log is rendered only from staged day files"
+)
+
+
+def test_staged_never_renders_the_log_from_an_untracked_day_file(tmp_path, capsys):
+    """#203 under `--staged`: root log.md is rendered only when a fully staged
+    path is a log/ day file or log.md, and never from a day file the index
+    does not hold; bare `stamp-type` still renders the worktree's log/."""
+    from research_vault import scaffold
+
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault)
+    log = (vault / "log.md").read_bytes()
+    _page(vault, "log/2026-10-25.md", _DAY.format("untracked"))
+    _page(vault, "projects/p/n.md", '---\ntype: "note"\n---\nbody\n')
+    _git(vault, "add", "projects/p/n.md")
+    assert _staged(vault, capsys) == []
+    assert (vault / "log.md").read_bytes() == log
+    _page(vault, "log/2026-10-24.md", _DAY.format("staged"))
+    _git(vault, "add", "log/2026-10-24.md")
+    assert _staged(vault, capsys) == [_UNSTAGED_DAY]
+    assert (vault / "log.md").read_bytes() == log
+    _git(vault, "add", "log/2026-10-25.md")
+    assert _staged(vault, capsys) == ["regenerated log.md"]
+    assert "captured untracked" in (vault / "log.md").read_text()
+    assert (vault / "log.md").read_text() == okf.render_log(vault)
+
+
+def test_staged_leaves_the_log_while_a_day_file_or_the_log_has_unstaged_changes(
+    tmp_path, capsys
+):
+    """An unstaged edit or deletion of a tracked day file blocks the render
+    like an untracked one; a partially staged log.md is reported once, as
+    partially staged, and never rewritten."""
+    from research_vault import scaffold
+
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault)
+    old = _page(vault, "log/2026-10-23.md", _DAY.format("old"))
+    _git(vault, "add", "log/2026-10-23.md")
+    _git(vault, "commit", "-q", "--no-verify", "-m", "day")
+    log = (vault / "log.md").read_bytes()
+    _page(vault, "log/2026-10-24.md", _DAY.format("staged"))
+    _git(vault, "add", "log/2026-10-24.md")
+    old.write_text(_DAY.format("edited"))
+    assert _staged(vault, capsys) == [_UNSTAGED_DAY]
+    old.unlink()
+    assert _staged(vault, capsys) == [_UNSTAGED_DAY]
+    _git(vault, "checkout", "--", "log/2026-10-23.md")
+    (vault / "log.md").write_text("# Log\n")
+    _git(vault, "add", "log.md")
+    (vault / "log.md").write_bytes(log)
+    assert _staged(vault, capsys) == [
+        "skipped log.md — partially staged; stage the whole file or none of it"
+    ]
+    assert (vault / "log.md").read_bytes() == log

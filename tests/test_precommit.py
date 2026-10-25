@@ -145,9 +145,18 @@ def test_hook_refuses_when_the_fixer_changed_a_file_and_never_stages(
         "FIXER_OUTPUT": fixer_output,
         "FIXER_STATUS": str(fixer_status),
     }
+    # Every path the fixer names exists untracked, and one other file is
+    # staged: a hook that staged anything would change this listing.
+    for path in ("daily/d.md", "projects/p/draft.md", "log.md", "inbox/x.md"):
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo / path).write_text("changed by the fixer\n")
+    (repo / "staged.md").write_text("staged\n")
+    _git(repo, "add", "staged.md")
+    staged_before = _git(repo, "diff", "--cached", "--name-only")
     completed = subprocess.run(
         [str(hook)], cwd=repo, env=env, capture_output=True, text=True, check=False
     )
+    assert _git(repo, "diff", "--cached", "--name-only") == staged_before
     assert completed.returncode == expected
     assert args_file.exists() is verify_ran
     if expected == 1:
@@ -155,9 +164,17 @@ def test_hook_refuses_when_the_fixer_changed_a_file_and_never_stages(
             if path in fixer_output:
                 # once each: a file both stamped and normalised is one re-stage
                 assert completed.stderr.count(path) == 1, path
-        assert "run the same commit again" in completed.stderr
+        assert (
+            "stage them (or add them to the commit's `--` pathspec) and commit again"
+            in completed.stderr
+        )
     if fixer_output.startswith(("skipped", "unresolved")):
         assert fixer_output.strip() in completed.stderr
+    if fixer_status == 4:
+        assert (
+            "pre-commit: the OKF reader's dependency is missing (PyYAML); refusing an unverified commit."
+            in completed.stderr
+        )
 
 
 def test_hook_documents_escape_hatch_and_replay_and_is_executable():
