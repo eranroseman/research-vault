@@ -354,3 +354,45 @@ def test_an_unknown_source_and_a_missing_exclude_file_are_exit_2(
         wrapper.main(["search", "q", "--exclude", str(tmp_path / "missing.txt")]) == 2
     )
     assert "cannot read" in capsys.readouterr().err
+
+
+def test_a_title_lookup_keeps_the_paper_searched_for_despite_the_exclude(
+    monkeypatch, capsys, tmp_path
+):
+    """Step 3 gets a DOI for a kept source by searching its title, with the
+    judged file as --exclude, and the judged file holds that source by title:
+    the record whose normalized title is the query's is kept, with a note; any
+    other title the file holds is still dropped."""
+    wanted = {
+        "type": "article-journal",
+        "title": "Invisible Impact of Empathy on Behavioral Change",
+        "_source": "crossref",
+        "DOI": "10.1000/wanted",
+    }
+    other = {
+        "type": "article-journal",
+        "title": "An Unrelated Paper",
+        "_source": "openalex",
+        "DOI": "10.1000/other",
+    }
+    monkeypatch.setattr(
+        wrapper.search, "federate", lambda query, limit, sources: [wanted, other]
+    )
+    judged = tmp_path / "lit-search-judged.txt"
+    judged.write_text(
+        "Invisible impact of empathy on behavioral change | kept | already in the draft\n"
+        "An unrelated paper | rejected | off topic\n",
+        encoding="utf-8",
+    )
+    query = "invisible impact of empathy on behavioral change:"
+    assert wrapper.main(["search", query, "--exclude", str(judged)]) == 0
+    out, err = capsys.readouterr()
+    assert yaml.safe_load(out) == [{"title": wanted["title"], "DOI": "10.1000/wanted"}]
+    assert (
+        'kept "Invisible Impact of Empathy on Behavioral Change" despite the'
+        " exclude: it is the title searched for"
+    ) in err
+    assert "An Unrelated Paper" not in err
+    assert "candidates: 2 (after exclude: 1)" in err
+    assert wrapper.main(["search", "empathy", "--exclude", str(judged)]) == 1
+    assert "despite the exclude" not in capsys.readouterr().err

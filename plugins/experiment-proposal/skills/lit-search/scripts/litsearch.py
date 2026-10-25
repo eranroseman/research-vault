@@ -16,13 +16,17 @@ a title holds; compact by default (title, author surnames, year, venue, DOI,
 abstract cut to 300 characters), --full adds given names, URL, type and source
 and cuts the abstract at 1,500. --exclude names the judged file, one record per
 line `<DOI or title> | <kept or rejected> | <reason>`, of which only the first
-field is read; every record whose DOI or title it holds is dropped. --out writes
-the records to that file instead.
+field is read; every record whose DOI or title it holds is dropped, except, in
+search mode, a record whose title is the query itself (compared normalized):
+that search is the title lookup for a source's DOI, and the source is in the
+judged file by its title. --out writes the records to that file instead.
 
 Stderr carries the vendored scripts' own notes verbatim, then one line per
 index `<index>(<returned>, <kept>) query="<query>"`, the line
 `semantic_scholar: skipped (HTTP 429); snowball's graph endpoints cover it`
-when that index refused a search, and `candidates: N (after exclude: M)`.
+when that index refused a search, `kept "<title>" despite the exclude: it is
+the title searched for` for each record the exception keeps, and
+`candidates: N (after exclude: M)`.
 
 Exit 0: records printed or written. Exit 1: no record left, the round added
 nothing. Exit 2: a file could not be read or written, the arguments were
@@ -56,6 +60,7 @@ ABSTRACT_COMPACT = 300
 ABSTRACT_FULL = 1500
 DEGRADED_429 = "note: source degraded — semantic_scholar: HTTP 429"
 SKIP_429 = "semantic_scholar: skipped (HTTP 429); snowball's graph endpoints cover it"
+KEPT_SEARCHED = 'kept "{title}" despite the exclude: it is the title searched for'
 DEFAULT_SOURCES = [name for name in search.SEARCH_SOURCES if name != "dblp"]
 # What JSON leaves raw and a YAML parser refuses or alters: the characters
 # outside YAML's printable set (DEL, the C1 controls, U+FFFE, U+FFFF) and the
@@ -107,6 +112,23 @@ def excluded(record: dict, dois: set[str], titles: set[str]) -> bool:
     doi = common.clean_doi(record.get("DOI"))
     title = common.normalize_title(record.get("title", ""))
     return (doi is not None and doi in dois) or (bool(title) and title in titles)
+
+
+def apply_exclude(
+    records: Sequence[dict], dois: set[str], titles: set[str], searched: str
+) -> tuple[list[dict], list[dict]]:
+    """The records the exclude leaves, and among them those it names but keeps:
+    a record whose normalized title is `searched`, the normalized query of a
+    search (empty for a snowball), is the paper a title lookup is for."""
+    kept: list[dict] = []
+    despite: list[dict] = []
+    for record in records:
+        if not excluded(record, dois, titles):
+            kept.append(record)
+        elif searched and common.normalize_title(record.get("title", "")) == searched:
+            kept.append(record)
+            despite.append(record)
+    return kept, despite
 
 
 def sources_of(record: dict) -> list[str]:
@@ -287,12 +309,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         records, queries = (
             run_search(args) if args.command == "search" else run_snowball(args)
         )
-    kept = [record for record in records if not excluded(record, dois, titles)]
+    searched = common.normalize_title(args.query) if args.command == "search" else ""
+    kept, despite = apply_exclude(records, dois, titles, searched)
     default_query = args.query if args.command == "search" else args.doi
     for line in source_lines(queries, records, kept, default_query):
         print(line, file=sys.stderr)
     if args.command == "search" and DEGRADED_429 in tee.copy.getvalue():
         print(SKIP_429, file=sys.stderr)
+    for record in despite:
+        title = " ".join(str(record.get("title", "")).split())
+        print(KEPT_SEARCHED.format(title=title), file=sys.stderr)
     print(f"candidates: {len(records)} (after exclude: {len(kept)})", file=sys.stderr)
     if not kept:
         print("no candidates left this round", file=sys.stderr)
