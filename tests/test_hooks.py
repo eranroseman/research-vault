@@ -1973,10 +1973,15 @@ def _hook_env(tmp_path: Path) -> dict[str, str]:
     shim = bin_dir / "python3"
     shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
     shim.chmod(0o755)
+    # REPO is prepended, never a replacement: a mutation-gate run puts its
+    # mutmut shims on PYTHONPATH (scripts/mutmut_shims/sitecustomize.py), and
+    # without them the hook's python cannot import mutmut's copy from the
+    # vault, its cwd, so the hook would exit 0 at its import probe.
+    inherited = os.environ.get("PYTHONPATH")
     return {
         **os.environ,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
-        "PYTHONPATH": str(REPO),
+        "PYTHONPATH": os.pathsep.join([str(REPO), *([inherited] if inherited else [])]),
     }
 
 
@@ -1997,15 +2002,18 @@ def _hook_vault(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     vault = tmp_path / "vault"
     scaffold.scaffold_vault(vault)
     env = _hook_env(tmp_path)
-    # The import probe must find research_vault: a hook that cannot import it
-    # exits 0 before any assertion below could fail.
+    # The import probe must find research_vault from the vault, the hook's own
+    # cwd: a hook that cannot import it exits 0 before any assertion below
+    # could fail.
     probe = subprocess.run(
         ["python3", "-c", "import research_vault, sys; print(research_vault.__file__)"],
+        cwd=vault,
         env=env,
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
+    assert probe.returncode == 0, probe.stderr
     assert probe.stdout.startswith(str(REPO))
     return vault, env
 
