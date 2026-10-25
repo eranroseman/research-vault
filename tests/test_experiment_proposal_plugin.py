@@ -885,6 +885,41 @@ def test_design_is_steps_that_point_at_the_shape_the_checker_and_the_subagent():
     assert "blocked" not in lowered
     for status in ("settled", "pilot settles", "provisional", "weak", "missing"):
         assert status in text
+    assert "## Agent run" in text
+    assert text.index("## Agent run") < text.index("## Steps")
+    assert "$ARGUMENTS" in text
+    assert "the token `agent`" in text
+    assert '"no human will answer"' in text
+    assert "Source: agent run, <date>" in text
+    assert (
+        "brief open, N provisional; the user freezes it with /experiment-proposal:design"
+        in text
+    )
+    assert "frozen brief; amendments need the user" in text
+    assert "write no recommended research question" in text
+    assert "/oss:research-grill idea" in text
+    assert "research-grill install not checked." in text
+    assert "never a direction of your own" in text
+    assert "rejoins the frontier as `weak`" in text
+    steps = text.split("## Steps", 1)[1]
+    numbered = re.split(r"\n(?=\d+\. \*\*)", steps)
+    waits = {
+        n: "(an agent run does not wait; see Agent run)" in numbered[n]
+        for n in range(1, 9)
+    }
+    assert waits == {
+        1: False,
+        2: False,
+        3: True,
+        4: False,
+        5: False,
+        6: False,
+        7: True,
+        8: True,
+    }
+    assert "an agent run stops here; see Agent run" in numbered[2]
+    assert "an agent run ends here with its closing line; see Agent run" in numbered[6]
+    assert "name it rather than doing its work here" in text
 
 
 def test_the_subagent_runs_nothing():
