@@ -1,6 +1,6 @@
 # Design: cost tuning for paper-critical-analysis
 
-Date: 2026-10-04. Status: draft, awaiting review — supersedes nothing; amends the merged skill at `89f3a8c`. Branch: `paper-critical-analysis-cost-tuning`.
+Date: 2026-10-04. Status: implemented on main at 062a4d6; A/B result in the evals README (2026-10-24) — supersedes nothing; amends the merged skill at `89f3a8c`. Branch: `paper-critical-analysis-cost-tuning`.
 
 ## Goal
 

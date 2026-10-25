@@ -260,4 +260,90 @@ two stages the merge added or widened — the editor (31 and 49 minutes;
   unmeasured; disposition of the quality-pass/cost-over outcome is the
   user's call, recorded here when made.
 
+### Cost-tuning A/B (CheckIfExist, 2026-10-24, skill at 062a4d6)
+
+One run, same prompt and pre-registered key as 2026-10-04, after the
+cost-tuning spec
+(`docs/superpowers/specs/2026-10-04-paper-critical-analysis-cost-tuning-design.md`):
+editor without its stylistic pass, verifier as three parallel checks, judge
+handed only cited page renders, excerpt rule for code and data. The runner
+and the judge ran on Opus, the editor and the three verifiers on Sonnet.
+Artifacts local and git-ignored in `sources/checkifexist-run2/` (prompt,
+rater prompt and return, run log, scoring note).
+
+**Score: 13.5 of 15** on the key. Three independent Opus scorers, kept
+blind to the 2026-10-04 scorecard, scored it, and one adjudicator settled
+the three items they split on. They used the 2026-10-04 conventions,
+including same-class credit (as that run's B1). Per-item changes against
+2026-10-04's 13.5:
+
+- A3 ✗ → ✓: OpenAlex aggregating CrossRef, grounded in Section 3.
+- B2 ½ → ✓: Simple Text Query is now a W-backed body finding; in 2026-10-04
+  it was a Recalled line.
+- A2 ✓ → ✗: the evidence file transcribes Algorithm 1's
+  two-confirmed-author gate but never draws the single-author exclusion.
+- B6 ✓ → ½: the commercial-pricing source's full text returned 403, and the
+  report holds that attribution "unconfirmed rather than refuted".
+
+The render-walk confound is null. The judge received the pp. 4–7 renders,
+p. 4 (Algorithm 1) included, the same pages as 2026-10-04. A2 is absent
+from the judge's return and from the draft alike, so it is a judge-depth
+miss that none of the tuning changes explains. B6 is the claim-strength
+discipline at work, recorded as calibration rather than regression.
+
+Both floor margins are thin. A1 kept its credit only through a same-class
+instance: a later pseudocode line using a binding that one branch sets. The
+key's line-14 instance is absent, and one scorer of three gave 0; scored by
+named instance alone, the total is 12.5, below the floor of 13. Pair-rating
+verifiability landed exactly on the bar of 8. D1–D4: all pass. Pair rating:
+overall 8, verifiability 8, calibration 7. It found 12 trust-lowering items,
+all of the class the 2026-10-04 re-rating named: a sentence a notch firmer
+than its entry in scope, time or effect. Verifier check 3 had already fixed
+seven such sentences in the run.
+
+**Cost:** 4.77M fresh input tokens against 13.4M. By agent: main 2.30M,
+judge 1.75M, editor 0.24M, verifiers 0.11M + 0.23M + 0.15M. Mined with
+`mine_tokens.py`, which was smoke-tested on the 2026-10-04 runner
+transcript; it reads that transcript as 7,299,128, run3-setup.md's 7.30M.
+Cache reads were 87M against 241M. Wall time was 1 h 09 m against
+2 h 49 m: dispatched 18:30 CDT; stages met at 0 18:40, 1 18:58, 2 19:01,
+3 19:22, 4 19:26, 5 19:31, 6 19:32, 7 19:39. Targets: ≤ 8M and about
+2 h. Both met.
+
+**Verifier counts:**
+
+- locators, quotes and numbers: 140 checked, 3 failed;
+- W entries: 42 checked, 0 failed;
+- claims: about 115 checked, 7 failed (the new claim-strength check);
+- change-list items: 17 checked, 0 failed.
+
+All ten failures were fixed. Checker: ok, no warnings.
+
+Write-scope audit: not clean, a regression on 2026-10-04's single
+`.mypy_cache`. Every candidate was attributed from the six agents' own tool
+calls:
+
+- verifier 2 ran its tools from `/tmp` and left twelve files there
+  (re-fetched W sources and two of the tool's source files);
+- the editor left four scratch files;
+- the runner left one probe response.
+
+None of it was participant data. The judge and verifiers 1 and 3 wrote
+nothing outside the output folder, and no `.mypy_cache` came from the run.
+The new tools clause did not bind on the two subagents moved to the smaller
+model. The next rung is a mechanism, tracked in #243.
+
+Two run-log decisions are worth a sentence each:
+
+- The runner cloned the released repository and read it by excerpt. It did
+  not execute or port the tool (D13). The 2026-10-04 run had executed it.
+  The excerpt rule traded that measurement for a code reading, a replay of
+  the code's request URLs (W34) and one ported function (W36).
+- The first Crossref probe carried the user's contact address as its
+  `mailto` parameter, once (D6). No later request did, and the address
+  appears in no run file.
+
+**Disposition:** the floor holds, so SKILL.md's cost sentence is re-set to
+the measured numbers and the spec is marked implemented.
+
 Deferred review findings for these runs to walk: issues #218 (C and W prefix collisions), #219 (evidence-template and Key-line gaps), #220 (brief, test and attribution polish).

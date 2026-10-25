@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Critiquing a paper
 
-The report is the one the critical-analysis guide asks a human to write: context, summary, and a discussion of importance, credibility, novelty, applicability, generalizability, scalability, assumptions, readability and ethics. The process is built around the failures agents actually show — satisficing instead of exhaustive checking, anchoring on the authors' framing, recall presented as evidence, padding kept by its own author, locator slips — so it reads the paper once, into the evidence file, and spends its depth on checking. One depth, no fast or deep mode; on a 33-page paper expect about 8M fresh tokens and about 2 hours.
+The report is the one the critical-analysis guide asks a human to write: context, summary, and a discussion of importance, credibility, novelty, applicability, generalizability, scalability, assumptions, readability and ethics. The process is built around the failures agents actually show — satisficing instead of exhaustive checking, anchoring on the authors' framing, recall presented as evidence, padding kept by its own author, locator slips — so it reads the paper once, into the evidence file, and spends its depth on checking. One depth, no fast or deep mode; on a 9-page paper with released code expect about 5M fresh tokens and about an hour; a 33-page paper with released code ran 22M and 3½ hours before the 2026-10 cost tuning.
 
 ## Input and output
 
