@@ -380,7 +380,11 @@ def read_records(vault_root) -> list[Plan]:
     directory = Path(vault_root) / RECORD_DIR
     if not directory.is_dir():
         return []
-    return [read_plan(path) for path in sorted(directory.glob("*.json"))]
+    return [
+        read_plan(path)
+        for path in sorted(directory.glob("*.json"))
+        if not structure.is_excluded(path, Path(vault_root))
+    ]
 
 
 def _stale_keys(records: list[Plan]) -> dict[str, tuple[str, str, str | None]]:

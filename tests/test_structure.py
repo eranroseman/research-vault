@@ -1,6 +1,10 @@
+import ast
+from pathlib import Path
+
 import pytest
 
 from research_vault import Result, structure
+from tests.conftest import package_ast
 
 
 def _write(tmp_path, relative, text):
@@ -244,24 +248,194 @@ def test_is_excluded_leaves_ordinary_paths_alone(tmp_path, relative):
     assert not structure.is_excluded(tmp_path / relative, tmp_path)
 
 
-def test_every_walker_in_the_package_uses_the_one_predicate():
-    """#194: the predicate is only a mechanism if every walker calls it. A
-    `rglob("*.md")` whose loop body does not call `structure.is_excluded`
-    is a walker that reaches `.obsidian/`."""
-    import re
-    from pathlib import Path
+@pytest.mark.parametrize(
+    ("name", "litter"),
+    [
+        ("._x", True),
+        (".DS_Store", True),
+        ("desktop.ini", True),
+        ("Desktop.ini", True),
+        ("notes.md", False),
+    ],
+)
+def test_is_os_litter_names_each_upstream_pattern(name, litter):
+    """Q25: every arm on its own — inside `is_excluded` the dot rule would hide
+    the AppleDouble prefix and `.DS_Store`."""
+    assert structure.is_os_litter(name) is litter
 
+
+def test_check_tree_leaves_a_dot_directory_under_literature_alone(tmp_vault):
+    """#194: a sync tool's `.stversions/` under `literature/` is no nested
+    literature directory; a real one still is."""
+    (tmp_vault / "literature" / ".stversions").mkdir()
+    (tmp_vault / "literature" / "nested").mkdir()
+    assert [
+        (o.target, o.reason)
+        for o in structure.check_tree(tmp_vault)
+        if o.result is Result.UNMATCHED
+    ] == [
+        (
+            "literature/nested/",
+            "schema-violation — literature/ is flat: literature/nested/",
+        )
+    ]
+
+
+# An AppleDouble header (magic, version, `Mac OS X` filler) and resource bytes
+# that are not UTF-8: what macOS leaves beside a note copied to a FAT or SMB volume.
+_APPLE_DOUBLE = (
+    b"\x00\x05\x16\x07\x00\x02\x00\x00Mac OS X        \x00\x02\x00\x00\x00\t"
+    b"\x00\x00\x002\x00\x00\x0e\xb0\x00\x00\x00\x02\x00\x00\x0e\xe2\xff\xfe"
+)
+# Litter that carries a real note's bytes, so a walker that reads it would
+# take it for a second copy of that note.
+_LITTER_COPIES = {
+    "literature/._smith2020.md": "literature/smith2020.md",
+    "literature/.stversions/smith2020.md": "literature/smith2020.md",
+    "log/._2026-08-16.md": "log/2026-08-16.md",
+    "wiki/concepts/._mortality-trends.md": "wiki/concepts/mortality-trends.md",
+    "wiki/.trash/mortality-trends.md": "wiki/concepts/mortality-trends.md",
+    "projects/brief/._draft.md": "projects/brief/draft.md",
+    "projects/brief/.hot/draft.md": "projects/brief/draft.md",
+    ".obsidian/plugins/dataview/README.md": "wiki/concepts/mortality-trends.md",
+}
+_LITTER_BYTES = {
+    "literature/._gone2019.md": _APPLE_DOUBLE,
+    "log/._2026-01-01.md": _APPLE_DOUBLE,
+    "wiki/._p.md": _APPLE_DOUBLE,
+    "projects/brief/._notes.md": _APPLE_DOUBLE,
+    "system/propagations/._propagate-x.json": _APPLE_DOUBLE,
+    "literature/.DS_Store": _APPLE_DOUBLE,
+    "projects/brief/desktop.ini": b"[.ShellClassInfo]\r\n",
+    "projects/brief/Desktop.ini": b"[.ShellClassInfo]\r\n",
+}
+
+
+def _drop_litter(vault):
+    for relative, source in _LITTER_COPIES.items():
+        (vault / relative).parent.mkdir(parents=True, exist_ok=True)
+        (vault / relative).write_bytes((vault / source).read_bytes())
+    for relative, data in _LITTER_BYTES.items():
+        (vault / relative).parent.mkdir(parents=True, exist_ok=True)
+        (vault / relative).write_bytes(data)
+
+
+def _walkers():
+    from research_vault import (
+        capture,
+        captured,
+        lifecycle,
+        lints,
+        markers,
+        okf,
+        propagate,
+        publish,
+        stamp,
+        verify,
+    )
+    from research_vault import compile as compile_mod
+
+    return {
+        "captured-set": lambda v: captured.lint_captured_set(v, as_of="2026-10-24"),
+        "captured-notes": captured._read_notes,
+        "captured-page-names": captured._page_names,
+        "capture-all": capture._every_note,
+        "lifecycle": lifecycle._provenances,
+        "compile": lambda v: list(
+            compile_mod._selected_notes(v, {"smith2020", "gone2019"})
+        ),
+        "markers": markers._claim_notes,
+        # Each run appends `verified:` markers, so claim line numbers (in
+        # `extra`) move between reads. `evidence-layer` is left out: it judges
+        # the git snapshot's path set (`lints._literature_files`), not a walk.
+        "verify": lambda v: [
+            (o.check, o.target, o.result, o.reason)
+            for o in verify.verify_state(v, network=False, git_candidate="worktree")[1]
+            if o.check != "evidence-layer"
+        ],
+        "okf-log": okf.regenerate_log,
+        "stamp": lambda v: list(stamp._candidate_paths(v, None)),
+        "publish": lambda v: publish.project_note(v, "brief"),
+        "disputed-links": lints.disputed_claim_links,
+        "published-paths": lambda v: lints._current_paths(v, "projects"),
+        "propagate-surfaces": lambda v: list(propagate._surfaces(v)),
+        "propagate-records": propagate.lint_propagation,
+        "reserved": structure.check_reserved,
+        "tree": structure.check_tree,
+    }
+
+
+@pytest.mark.parametrize("walker", sorted(_walkers()))
+def test_a_littered_vault_reads_the_same_to_every_walker(fixture_vault, walker):
+    """#194, Q25: AppleDouble files, `.DS_Store`, `desktop.ini` and dot-directory
+    copies of real notes change nothing any walker reports."""
+    read = _walkers()[walker]
+    read(fixture_vault)  # the first read writes: verify's markers, okf's `log.md`
+    before = read(fixture_vault)
+    _drop_litter(fixture_vault)
+    assert read(fixture_vault) == before
+
+
+# Walks over paths that hold no vault note, keyed by module and enclosing
+# function (line numbers drift); each says why the predicate has nothing to
+# exclude there. A stale entry fails the test below, so none outlives its walk.
+_NOT_NOTE_WALKS = {
+    "scaffold.py::_template_files": "the package's own template tree, not a vault",
+    "scaffold.py::_add_empty_root_sentinels": "asks only whether a root is empty, to seed .gitkeep",
+    "scaffold.py::_preflight_conflicts": "the same emptiness question, asked before any write",
+}
+_WALK_CALLS = frozenset({"glob", "rglob", "iterdir"})
+_SCOPES = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp, ast.stmt)
+
+
+def _calls_is_excluded(node: ast.AST) -> bool:
+    return any(
+        isinstance(sub, ast.Call)
+        and (
+            (isinstance(sub.func, ast.Name) and sub.func.id == "is_excluded")
+            or (isinstance(sub.func, ast.Attribute) and sub.func.attr == "is_excluded")
+        )
+        for sub in ast.walk(node)
+    )
+
+
+def test_every_walker_in_the_package_uses_the_one_predicate():
+    """#194: the predicate is only a mechanism if every walker calls it. Every
+    `glob`, `rglob` and `iterdir` in the package must call `is_excluded` in its
+    nearest enclosing comprehension, else its statement (a `for` loop's body
+    included), or be listed in `_NOT_NOTE_WALKS`. `gitstate`'s `os.scandir` and
+    `os.listdir` are not scanned: a content-identity snapshot hashes every node."""
     root = Path(__file__).resolve().parents[1] / "research_vault"
-    offenders = []
+    offenders, allowed = [], set()
     for module in sorted(root.glob("*.py")):
-        text = module.read_text(encoding="utf-8")
-        for match in re.finditer(r'\.rglob\("\*\.md"\)', text):
-            window = text[match.end() : match.end() + 400]
-            if "is_excluded(" not in window and module.name != "structure.py":
-                offenders.append(
-                    f"{module.name}:{text[: match.start()].count(chr(10)) + 1}"
-                )
+        tree = package_ast(module)
+        parents = {
+            child: node
+            for node in ast.walk(tree)
+            for child in ast.iter_child_nodes(node)
+        }
+        for call in ast.walk(tree):
+            if not (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr in _WALK_CALLS
+            ):
+                continue
+            scope: ast.AST = parents[call]
+            while not isinstance(scope, _SCOPES):
+                scope = parents[scope]
+            function: ast.AST = scope
+            while function in parents and not isinstance(
+                function, (ast.FunctionDef, ast.AsyncFunctionDef)
+            ):
+                function = parents[function]
+            key = f"{module.name}::{getattr(function, 'name', '<module>')}"
+            if key in _NOT_NOTE_WALKS:
+                allowed.add(key)
+            elif not _calls_is_excluded(scope):
+                offenders.append(f"{module.name}:{call.lineno}")
     assert offenders == [], offenders
+    assert allowed == set(_NOT_NOTE_WALKS), set(_NOT_NOTE_WALKS) - allowed
 
 
 def test_a_plugin_readme_under_the_config_dir_is_not_checked(tmp_path):

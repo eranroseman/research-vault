@@ -339,7 +339,11 @@ def _current_paths(vault_root: Path, prefix: str) -> set[bytes]:
     base = vault_root / prefix
     if not base.is_dir():
         return set()
-    return {_relative(vault_root, path) for path in base.rglob("*") if path.is_file()}
+    return {
+        _relative(vault_root, path)
+        for path in base.rglob("*")
+        if path.is_file() and not structure.is_excluded(path, vault_root)
+    }
 
 
 def _project_status(
