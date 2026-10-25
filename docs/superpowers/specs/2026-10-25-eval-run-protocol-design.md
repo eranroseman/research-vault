@@ -1,4 +1,4 @@
-# Design: closing-keyword guard, eval run protocol, and landing a branch
+# Design: closing-keyword guard, eval run protocol, landing a branch, and two review guardrails
 
 Date: 2026-10-25. Status: draft, awaiting review. Branch: `eval-run-protocol`. Size: small change; the short design.
 
@@ -12,6 +12,8 @@ Three mechanisms from the retrospectives of the 2026-10-24 cost-tuning session, 
 - One command, run after an eval run, reports each agent's role, model and tokens, and every file the run wrote outside its run root.
 - A second dispatch against the same run root fails before it starts.
 - One command lands a green branch on `main` from its worktree; AGENTS.md shows the commit, worktree and landing forms that work from a worktree.
+- The one form-and-lint command is safe in a shared checkout: it refuses to run while another session's unstaged work could be stashed. README and AGENTS.md point at it.
+- The cross-surface review check (a concept restated in SKILL.md, a brief, a template and the checker, where one copy changed and another went stale) is written down once, and the review step reaches it.
 
 ## Non-goals
 
@@ -26,6 +28,7 @@ Three mechanisms from the retrospectives of the 2026-10-24 cost-tuning session, 
 - A ledger that skips an agent whose transcript shape it does not understand — it reports the agent as unparsed, with the path.
 - A dispatch claim that a second session can take over by touching a file.
 - A landing command that pushes when the branch's check is red, missing, or ran on a different sha.
+- A review doc nobody loads: the pointer sits in AGENTS.md and in the review step's prompt, or the doc is dead weight.
 
 ## Constraints
 
@@ -45,6 +48,10 @@ Dispatch claim: `mkdir` is the one sensible way; `touch` cannot claim.
 
 Landing a branch: (C1) `scripts/land.py <branch>`, one command that waits for green and fast-forwards `main` by ref push — chosen; the recipe was retyped by two sessions in one day, and a script cannot be misread. (C2) rewrite the prose recipe in AGENTS.md only — cheaper, but a recipe drifts and each reader re-derives the worktree-safe form. The commit-form and worktree-first lines stay prose: a git hook is out by #130, and no checker sees flag order or where a file was first written.
 
+The pre-commit stash hazard: `pre-commit run` stashes unstaged changes to tracked files before running hooks, other sessions' unsaved work included; `.pre-commit-config.yaml`'s header says so, README line 133 still instructs the bare command, and AGENTS.md has no pointer. (D1) `scripts/check.py`, a wrapper that exits 1 naming the dirty paths when `git status --porcelain` shows unstaged changes to tracked files, else runs `pre-commit run --all-files` — chosen; cannot be misread, and README and AGENTS.md point at one command. (D2) fix README and add a rule line — cheaper, drifts, and the next contributor still types the bare command from habit.
+
+The cross-surface review lens: mechanism first — the three stale-copy regressions get tests on #220 — then prose for what a test cannot anticipate, since deciding that two passages express one concept is a judgement call: (E1) a short `docs/agents/review.md` with a pointer in AGENTS.md and in the review step — chosen. (E2) a line in each skill file saying which other files restate it — scatters the rule across the copies it guards.
+
 ## Decided
 
 - `scripts/closing_keywords.py`: fails (exit 1) on any commit message in `origin/main..HEAD` matching a closing keyword (`close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved`) followed by an issue reference — `#N`, `#N's`, a colon form, `owner/repo#N`; prints the commit, the line, and "write `see #N` or `#N's item`". Exits 2 with a message if `origin/main` does not resolve. Conventional-commit types (`fix(skills):`) do not match: no `#` follows them. Tests use the three real messages that caused closes (81cd392, 71dc2ea, dbe85ec) and a control set.
@@ -54,6 +61,8 @@ Landing a branch: (C1) `scripts/land.py <branch>`, one command that waits for gr
 - The evals README gains a short "Run protocol" section: claim by `mkdir`; dispatch from the session whose user approved the spend, never on relayed approval; after the run, `run_ledger.py` for roles, tokens and stray files; roles are read from `meta.json`, never inferred from timing.
 - Comment on #243 pointing at the ledger as its post-run check.
 - `scripts/land.py <branch>`: `git fetch origin`; resolve the branch head on origin; find the `quality` run for exactly that sha (`gh run list --commit <sha> --workflow quality`), waiting while it is queued or in progress, exiting 1 with the run URL if it is red or absent after a bounded wait; then `git push origin <branch>:main`; then `git -C <shared checkout> pull --ff-only origin main`, reporting rather than failing if that pull is refused by another session's uncommitted work. A non-fast-forward push refusal prints the rebase instruction and exits 1. Stdlib plus `git` and `gh` subprocesses.
+- `scripts/check.py`: refuses with exit 1 and the list of dirty tracked paths when the tree holds unstaged changes to tracked files (untracked files are fine: pre-commit leaves them alone); otherwise runs `pre-commit run --all-files` and passes its exit status through. README line 133 and AGENTS.md's testing pointer name `python scripts/check.py` as the one form-and-lint command; `.pre-commit-config.yaml`'s header keeps the reason.
+- `docs/agents/review.md`, about ten lines: when a diff changes a concept on one surface, grep the other surfaces for the same concept and report each stale copy with both locations; a brief is its subagent's whole context, so a rule living only in a template or SKILL.md has not reached the subagent; each confirmed finding lands with a test. AGENTS.md's Agent skills list gains a one-line pointer; the review prompt used by the repo's review step (the `/code-review` and workflow-lens invocations in `docs/agents/`, or the plan's review step) names the file.
 - AGENTS.md: the commit line becomes `git commit -m "<message>" -- <files>` with the reason (after `--`, every word is a pathspec); the Git section becomes: create the branch worktree before writing the first file, the shared checkout stays on `main`; push the branch; land it with `python scripts/land.py <branch>`; a branch behind `main` cannot fast-forward — rebase, push, land again; fetch before claiming something is absent from the remote.
 
 ## Drive-bys on the same branch
@@ -62,4 +71,4 @@ Two one-line edits to `docs/research/2026-09-20-paper-critical-analysis-evals/RE
 
 ## Left to the builder
 
-The exact regex and its tests; the transcript tool-use record shape for Bash, Write and Edit (read one real transcript to pin it, and test against a fixture cut from one); whether `--since` reads the stamp's mtime or an ISO time; table formatting; how `land.py` is tested without a network (a fake `git` and `gh` on `PATH` in a subprocess test, or an injected runner), and its wait bound.
+The exact regex and its tests; the transcript tool-use record shape for Bash, Write and Edit (read one real transcript to pin it, and test against a fixture cut from one); whether `--since` reads the stamp's mtime or an ISO time; table formatting; how `land.py` is tested without a network (a fake `git` and `gh` on `PATH` in a subprocess test, or an injected runner), and its wait bound; `check.py`'s test (a temp repo with one dirty tracked file refuses, a clean one runs a stub `pre-commit`); the exact wording of `review.md` within its ten lines, and where the review-step pointer goes once the builder finds the repo's review entry point.
