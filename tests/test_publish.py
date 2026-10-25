@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from research_vault import Result, events, frontmatter, inbox, lints, publish
+from research_vault import Result, events, frontmatter, inbox, lints, okf, publish
 from research_vault.__main__ import main
 from research_vault.outcome import Outcome
 from research_vault.verify import _projection_identity
@@ -625,6 +625,15 @@ def test_a_dated_disposition_refuses_a_bad_date_before_writing_anything(
     assert sorted((green_vault / "log").glob("*.md")) == []
 
 
+@pytest.mark.parametrize("supplied", [20260801, b"2026-08-01", ["2026-08-01"]])
+def test_a_non_string_date_is_refused_as_a_bad_date(supplied):
+    """`structure.is_day_stem` takes a string; `_resolved_date` refuses any
+    other value with the same message, as its own round trip did."""
+    now = datetime_lib.datetime(2026, 9, 7, 10, 0, tzinfo=datetime_lib.UTC)
+    with pytest.raises(publish.PublishError, match="YYYY-MM-DD calendar date"):
+        publish._resolved_date(supplied, now=now)
+
+
 def test_append_log_writes_the_day_header_once_and_keeps_every_line(green_vault):
     """Two appends to one day: one `type: log` header, both lines in order,
     and a missing log/ directory is created rather than refused."""
@@ -740,6 +749,28 @@ def test_mark_withdrawn_writes_status_and_logs_without_deleting_the_tag(
     assert frontmatter.parse(logged)[0] == {"type": "log"}
     assert "withdrew projects/brief" in logged
     assert "withdrew projects/brief" in (green_vault / "log.md").read_text()
+
+
+def test_mark_withdrawn_stands_when_root_log_md_cannot_be_written(
+    green_vault, monkeypatch
+):
+    """#174 through a writer: the fixer reports an unwritable root `log.md`
+    rather than raise, so the withdrawal and its day line stand."""
+    _tag_clock(monkeypatch, "090000", "140000")
+    publish.mark_published(green_vault, "brief", date="2026-08-01")
+    before = (green_vault / "log.md").read_bytes()
+
+    def failing(_vault, _text):
+        raise OSError(30, "Read-only file system")
+
+    monkeypatch.setattr(okf, "write_log", failing)
+    assert main(["mark-withdrawn", "brief", "--vault", str(green_vault)]) == 0
+
+    text = _note(green_vault).read_text()
+    assert frontmatter.parse(text)[0]["status"] == "withdrawn"
+    logged = "".join(day.read_text() for day in (green_vault / "log").glob("*.md"))
+    assert "withdrew projects/brief" in logged
+    assert (green_vault / "log.md").read_bytes() == before
 
 
 # --- ack -------------------------------------------------------------------

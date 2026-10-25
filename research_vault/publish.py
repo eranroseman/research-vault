@@ -84,13 +84,9 @@ def _resolved_date(date, *, now: datetime.datetime) -> str:
     """
     if date is None:
         return now.date().isoformat()
-    refusal = f"date must be a YYYY-MM-DD calendar date: {date!r}"
-    try:
-        parsed = datetime.date.fromisoformat(date)
-    except (TypeError, ValueError) as error:
-        raise PublishError(refusal) from error
-    if parsed.isoformat() != date:
-        raise PublishError(refusal)
+    # `is_day_stem` is the one calendar-date test (#204); it takes a string.
+    if not (isinstance(date, str) and structure.is_day_stem(date)):
+        raise PublishError(f"date must be a YYYY-MM-DD calendar date: {date!r}")
     return date
 
 
