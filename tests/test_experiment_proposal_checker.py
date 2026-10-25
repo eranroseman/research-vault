@@ -109,6 +109,48 @@ def test_json_output_lists_defects(tmp_path):
     assert defects[0]["message"] == "header: no `Draft: <path>` line"
 
 
+SUFFIX = re.compile(r" \[(?P<rule>[a-z]+(?:-[a-z]+)*); item (?P<item>[0-9.]+|none)\]$")
+
+
+def message_of(line: str) -> str:
+    """The text of a defect line between the location and the rule suffix."""
+    return SUFFIX.sub("", line.split(": ", 1)[1])
+
+
+def test_every_defect_carries_a_rule_and_an_item(tmp_path):
+    """Text lines end ` [<rule>; item <ID or none>]`; JSON carries the two keys,
+    `item` null for a shape defect no item owns and the entry's ID for an
+    entry defect. The JSON message stays bare so the skills can quote it."""
+    text = mutate(valid_brief(), "Draft: proposal/draft.md\n", "")
+    text = mutate(text, "- Status: settled\n", "- Status: done\n")
+    path = tmp_path / "brief.md"
+    path.write_text(text, encoding="utf-8")
+    lines = run("brief", str(path)).stdout.splitlines()
+    assert lines[0].endswith(" [header-draft; item none]"), lines[0]
+    assert any(line.endswith(" [entry-status; item 1.1]") for line in lines), lines
+    defects = json.loads(run("--json", "brief", str(path)).stdout)
+    for defect in defects:
+        assert set(defect) == {"path", "line", "message", "rule", "item"}
+        assert re.fullmatch(r"[a-z]+(?:-[a-z]+)*", defect["rule"]), defect
+        assert not SUFFIX.search(defect["message"])
+    assert defects[0]["rule"] == "header-draft"
+    assert defects[0]["item"] is None
+    status = next(d for d in defects if d["rule"] == "entry-status")
+    assert status["item"] == "1.1"
+
+
+def test_draft_defects_name_the_owning_item(tmp_path):
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(reference_count=14), encoding="utf-8")
+    out = run("draft", str(path)).stdout
+    assert "[references-count; item 5.1]" in out
+    path.write_text(
+        mutate(valid_draft(), "- an estimate;\n- a test;\n- a program.\n", "none.\n"),
+        encoding="utf-8",
+    )
+    assert "[contributions; item 4.3]" in run("draft", str(path)).stdout
+
+
 def test_a_duplicated_checklist_item_exits_2(tmp_path):
     """The checker reads the checklist beside itself; a repeated item ID is a
     defect of that file, reported as unreadable (exit 2) with the file named."""
@@ -1048,7 +1090,7 @@ def test_the_draft_fixture_fails_exactly_the_three_planted_mechanics():
         "the course instructor",
     )
     assert result.returncode == 1
-    messages = [line.split(": ", 1)[1] for line in result.stdout.splitlines()]
+    messages = [message_of(line) for line in result.stdout.splitlines()]
     assert messages == [
         "references: 14 entries; the template asks for 15 to 20",
         "introduction: no bullet list of contributions",

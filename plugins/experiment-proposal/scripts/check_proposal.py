@@ -11,6 +11,11 @@ Exit 0: clean. Exit 1: defects, one per line as `<file>:<line>: <message>`
 (a JSON list with --json). Exit 2: a file could not be read, the arguments
 were malformed, or the interpreter is older than 3.11.
 
+Each defect line ends ` [<rule>; item <ID>]`, the rule a short slug and the
+ID the checklist item that owns it (`none` for a shape rule); --json carries
+them as the keys rule and item. Informational lines go to stderr and never
+into --json.
+
 This script is the single source of truth for the three shapes. The files
 references/brief.md and references/review.md describe the same shapes in
 prose for the skills that write them. The item set comes from the checklist
@@ -23,9 +28,12 @@ import argparse
 import json
 import re
 import sys
-from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 CHECKLIST = Path(__file__).resolve().parents[1] / "references" / "checklist.md"
 
@@ -137,12 +145,18 @@ class Defect:
     path: str
     line: int
     message: str
+    rule: str  # a short slug naming the rule the line breaks
+    item: str | None  # the checklist item that owns the rule; None for a shape rule
 
     def render(self) -> str:
-        return f"{self.path}:{self.line}: {self.message}"
+        owner = "none" if self.item is None else self.item
+        return f"{self.path}:{self.line}: {self.message} [{self.rule}; item {owner}]"
 
 
-Adder = Callable[[int, str], None]
+class Adder(Protocol):
+    def __call__(
+        self, line: int, message: str, rule: str, item: str | None = None
+    ) -> None: ...
 
 
 def clean(line: str) -> str:
@@ -210,7 +224,12 @@ def blocks_of(
 
 
 def labelled_lines(
-    add: Adder, body: Iterable[tuple[int, str]], labels: Sequence[str], where: str
+    add: Adder,
+    body: Iterable[tuple[int, str]],
+    labels: Sequence[str],
+    where: str,
+    rules: tuple[str, str],
+    item: str | None,
 ) -> dict[str, tuple[int, str]]:
     """The dash lines of a block are exactly `- <label>:` for the labels, in
     order; blank lines are allowed; any other line is reported. Returns
@@ -222,6 +241,8 @@ def labelled_lines(
             add(
                 n,
                 f"{where}: unexpected line (a block is its labelled lines only): {line[:60]}",
+                rules[0],
+                item,
             )
     expected = [f"- {label}:" for label in labels]
     found = [line.split(":", 1)[0] + ":" for _, line in dashes]
@@ -230,6 +251,8 @@ def labelled_lines(
         add(
             at,
             f"{where}: lines must be exactly {', '.join(expected)} in that order; found {', '.join(found) or 'none'}",
+            rules[1],
+            item,
         )
     values: dict[str, tuple[int, str]] = {}
     for n, line in dashes:
@@ -248,12 +271,20 @@ def header_of(
 def header_defects(add: Adder, header: Sequence[str]) -> re.Match[str] | None:
     """The three header lines. Returns the match of the Status line, or None."""
     if not any(HEADER_DRAFT.match(line) for line in header):
-        add(1, "header: no `Draft: <path>` line")
+        add(1, "header: no `Draft: <path>` line", "header-draft")
     status = next((m for line in header if (m := HEADER_STATUS.match(line))), None)
     if status is None:
-        add(1, "header: no `Status: open` or `Status: frozen YYYY-MM-DD` line")
+        add(
+            1,
+            "header: no `Status: open` or `Status: frozen YYYY-MM-DD` line",
+            "header-status",
+        )
     if not any(HEADER_VERSION.match(line) for line in header):
-        add(1, "header: no `Checklist: experiment-proposal <version>` line")
+        add(
+            1,
+            "header: no `Checklist: experiment-proposal <version>` line",
+            "header-version",
+        )
     return status
 
 
@@ -281,22 +312,45 @@ def decisions_of(
     for number, heading, body in blocks_of(lines, start, end):
         match = ENTRY.match("### " + heading)
         if match is None:
-            add(number, f"entry heading must be `### <ID> <title>`: {heading[:60]}")
+            add(
+                number,
+                f"entry heading must be `### <ID> <title>`: {heading[:60]}",
+                "entry-heading",
+            )
             continue
         item_id = match.group(1)
         if item_id not in design_tree:
-            add(number, f"entry {item_id} is not a design-tree item")
+            add(
+                number,
+                f"entry {item_id} is not a design-tree item",
+                "entry-not-design-tree",
+                item_id,
+            )
         if item_id in entries:
-            add(number, f"entry {item_id} appears twice")
-        values = labelled_lines(add, body, ENTRY_LINES, f"entry {item_id}")
+            add(number, f"entry {item_id} appears twice", "entry-duplicate", item_id)
+        values = labelled_lines(
+            add,
+            body,
+            ENTRY_LINES,
+            f"entry {item_id}",
+            ("entry-extra-line", "entry-lines"),
+            item_id,
+        )
         for label in ENTRY_LINES:
             if label in values and not values[label][1]:
-                add(values[label][0], f"entry {item_id}: {label} is empty")
+                add(
+                    values[label][0],
+                    f"entry {item_id}: {label} is empty",
+                    "entry-empty",
+                    item_id,
+                )
         status_line, status_value = values.get("Status", (number, ""))
         if status_value not in STATUSES:
             add(
                 status_line,
                 f"entry {item_id}: Status must be settled, pilot settles or provisional; found {status_value!r}",
+                "entry-status",
+                item_id,
             )
         if "Decision" in values:
             decision_line, decision = values["Decision"]
@@ -305,10 +359,12 @@ def decisions_of(
                 add(
                     decision_line,
                     f"entry {item_id}: Decision line is {length} characters; at most {DECISION_MAX}",
+                    "decision-length",
+                    item_id,
                 )
         entries[item_id] = status_value
     if list(entries) != sorted(entries, key=item_key):
-        add(start, "entries are not in checklist order")
+        add(start, "entries are not in checklist order", "entry-order")
     return entries
 
 
@@ -336,19 +392,33 @@ def open_items_defects(
         item_id = ref.group(1)
         referenced.add(item_id)
         if seen_command:
-            add(number, "Open items: provisional items come before the commands")
+            add(
+                number,
+                "Open items: provisional items come before the commands",
+                "open-order",
+                item_id,
+            )
         if item_id not in entries:
-            add(number, f"Open items names item {item_id}, which has no entry")
+            add(
+                number,
+                f"Open items names item {item_id}, which has no entry",
+                "open-no-entry",
+                item_id,
+            )
         elif entries[item_id] != "provisional":
             add(
                 number,
                 f"Open items names item {item_id}, whose entry is {entries[item_id]}, not provisional",
+                "open-not-provisional",
+                item_id,
             )
     for item_id, entry_status in entries.items():
         if entry_status == "provisional" and item_id not in referenced:
             add(
                 start,
                 f"entry {item_id} is provisional but not listed under Open items",
+                "open-missing",
+                item_id,
             )
 
 
@@ -360,16 +430,24 @@ def amendment_defects(add: Adder, lines: Sequence[str], span: tuple[int, int]) -
             add(
                 number,
                 f"amendment heading must be `### YYYY-MM-DD, item <ID>, <title>`: {heading[:60]}",
+                "amendment-heading",
             )
-        labelled_lines(add, body, AMENDMENT_LINES, f"amendment at line {number}")
+        labelled_lines(
+            add,
+            body,
+            AMENDMENT_LINES,
+            f"amendment at line {number}",
+            ("amendment-extra-line", "amendment-lines"),
+            None,
+        )
 
 
 def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
     lines = path.read_text(encoding="utf-8").splitlines()
     defects: list[Defect] = []
 
-    def add(line: int, message: str) -> None:
-        defects.append(Defect(str(path), line, message))
+    def add(line: int, message: str, rule: str, item: str | None = None) -> None:
+        defects.append(Defect(str(path), line, message, rule, item))
 
     sections = sections_of(lines)
     names = [name for name, _, _ in sections]
@@ -393,16 +471,19 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
             add(
                 start,
                 f"section `## {name}` is not one of Decisions, Looked up, Open items, Amendments",
+                "section-unknown",
             )
     if [n for n in names if n in BRIEF_SECTIONS] != list(BRIEF_SECTIONS):
         add(
             first,
             "sections must be Decisions, Looked up, Open items, in that order (Amendments optional, last)",
+            "section-order",
         )
     if "Amendments" in names and names[-1] != "Amendments":
         add(
             sections[names.index("Amendments")][1],
             "Amendments must be the last section",
+            "amendments-last",
         )
     design_tree = {i for i, it in items.items() if it.scope == "design-tree"}
     entries: dict[str, str] = {}
@@ -412,7 +493,12 @@ def check_brief(path: Path, items: dict[str, Item]) -> list[Defect]:
         open_items_defects(add, lines, by_name["Open items"], entries)
     if frozen:
         for item_id in sorted(design_tree - set(entries), key=item_key):
-            add(1, f"frozen brief has no entry for design-tree item {item_id}")
+            add(
+                1,
+                f"frozen brief has no entry for design-tree item {item_id}",
+                "frozen-missing",
+                item_id,
+            )
     if "Amendments" in by_name:
         amendment_defects(add, lines, by_name["Amendments"])
     return defects
@@ -438,6 +524,7 @@ def _review_rows(
             add(
                 number,
                 f"row does not fit `- **<ID>** <result>[ (fix N applied)][: ...]`: {line[:60]}",
+                "row-shape",
             )
             continue
         item_id, result, _fix, rest = (
@@ -449,38 +536,46 @@ def _review_rows(
         found.append(item_id)
         item = items.get(item_id)
         if item is None:
-            add(number, f"row {item_id} is not a checklist item")
+            add(number, f"row {item_id} is not a checklist item", "row-not-item")
             continue
         results[item_id] = result
         if item.kind == "defend-stage" and result != "not checked":
             add(
                 number,
                 f"row {item_id} is a defend-stage item and must read `not checked`",
+                "row-defend",
+                item_id,
             )
         if item.kind != "defend-stage" and result == "not checked":
             add(
                 number,
                 f"row {item_id} reads `not checked`; only items 13.2 and 13.3 may",
+                "row-not-checked",
+                item_id,
             )
         if result in ("pass", "pass narrowly"):
             if item.kind == "draft-checked" and QUOTE.search(rest) is None:
                 add(
                     number,
                     f"row {item_id} passes without a quoted passage and its location",
+                    "row-quote",
+                    item_id,
                 )
             if item.kind == "attested" and CONFIRMED.search(rest) is None:
                 add(
                     number,
                     f"row {item_id} passes without `confirmed by the user, <date>`",
+                    "row-confirmed",
+                    item_id,
                 )
     missing = [i for i in expected if i not in found]
     extra = [i for i in found if i not in expected]
     if missing:
-        add(start, f"{name}: missing rows for {', '.join(missing)}")
+        add(start, f"{name}: missing rows for {', '.join(missing)}", "rows-missing")
     if extra:
-        add(start, f"{name}: unexpected rows {', '.join(extra)}")
+        add(start, f"{name}: unexpected rows {', '.join(extra)}", "rows-extra")
     if not missing and not extra and found != list(expected):
-        add(start, f"{name}: rows are not in checklist order")
+        add(start, f"{name}: rows are not in checklist order", "rows-order")
 
 
 QUOTED = re.compile(r'"[^"]*"')
@@ -504,6 +599,7 @@ def _fix_numbers(add: Adder, lines: Sequence[str]) -> int:
                 add(
                     number,
                     f"fix {value} appears before fix {missing}; fixes are numbered in order of appearance",
+                    "fix-order",
                 )
             else:
                 seen_max = max(seen_max, value)
@@ -519,8 +615,8 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
     lines = path.read_text(encoding="utf-8").splitlines()
     defects: list[Defect] = []
 
-    def add(line: int, message: str) -> None:
-        defects.append(Defect(str(path), line, message))
+    def add(line: int, message: str, rule: str, item: str | None = None) -> None:
+        defects.append(Defect(str(path), line, message, rule, item))
 
     sections = sections_of(lines)
     names = [name for name, _, _ in sections]
@@ -528,11 +624,12 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
     header = header_of(lines, sections)
     for prefix in REVIEW_HEADER:
         if not any(line.startswith(prefix) for line in header):
-            add(1, f"header: no `{prefix}` line")
+            add(1, f"header: no `{prefix}` line", "header-line")
     if names != list(REVIEW_SECTIONS):
         add(
             first,
             "sections must be Items, Cross-section consistency, Brief against draft, Substance tests, Summary, Waivers, Hand-off, in that order",
+            "sections",
         )
     by_name = {name: (start, end) for name, start, end in sections}
     results: dict[str, str] = {}
@@ -588,11 +685,15 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
             add(
                 by_name["Waivers"][0],
                 f"row {item_id} is waived but has no Waivers entry",
+                "waiver-entry",
+                item_id,
             )
         for item_id in sorted(waived_entries - waived_rows, key=item_key):
             add(
                 by_name["Waivers"][0],
                 f"Waivers names {item_id}, whose row is not `fail (waived)`",
+                "waiver-row",
+                item_id,
             )
     if "Summary" in by_name:
         start, end = by_name["Summary"]
@@ -608,6 +709,7 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
             add(
                 start,
                 "Summary: no line of the shape `Items checked: N. Pass: N. Fail: N. Not checked (defend-stage): N. Consistency and brief findings: N. Fixes proposed: N. Waivers: N.`",
+                "summary-shape",
             )
         else:
             number, match = summary
@@ -627,6 +729,7 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
                     add(
                         number,
                         f"Summary: {label} says {stated}, the rows give {expected_value}",
+                        "summary-count",
                     )
     if "Hand-off" in by_name:
         text = "\n".join(_lines_in(lines, by_name["Hand-off"]))
@@ -634,6 +737,7 @@ def check_review(path: Path, items: dict[str, Item]) -> list[Defect]:
             add(
                 by_name["Hand-off"][0],
                 "Hand-off: neither the defend command nor both install commands are present",
+                "handoff",
             )
     return defects
 
@@ -648,8 +752,8 @@ def check_draft(
     lines = path.read_text(encoding="utf-8").splitlines()
     defects: list[Defect] = []
 
-    def add(line: int, message: str) -> None:
-        defects.append(Defect(str(path), line, message))
+    def add(line: int, message: str, rule: str, item: str | None = None) -> None:
+        defects.append(Defect(str(path), line, message, rule, item))
 
     heads: list[tuple[str, int, int]] = []  # (text, line number, level)
     for number, raw in enumerate(lines, 1):
@@ -682,6 +786,8 @@ def check_draft(
             add(
                 heads[position - 1][1] if position else 1,
                 f"sections: `{name}` not found after `{previous}`",
+                "sections",
+                "3.2",
             )
         else:
             position = index + 1
@@ -705,9 +811,11 @@ def check_draft(
         add(
             1,
             f"words: the body has {count} words; the template asks for {words[0]} to {words[1]}",
+            "words",
+            "13.5",
         )
     if references_index is None:
-        add(1, "references: no `References` heading")
+        add(1, "references: no `References` heading", "references-heading", "5.1")
     else:
         start, end = block(references_index)
         entry_lines = [clean(lines[n - 1]) for n in range(start + 1, end + 1)]
@@ -722,6 +830,8 @@ def check_draft(
             add(
                 heads[references_index][1],
                 f"references: {found_refs} entries; the template asks for {references[0]} to {references[1]}",
+                "references-count",
+                "5.1",
             )
     intro = find("introduction")
     if intro is not None:
@@ -730,7 +840,12 @@ def check_draft(
             clean(lines[n - 1]).startswith(("- ", "* "))
             for n in range(start + 1, end + 1)
         ):
-            add(start, "introduction: no bullet list of contributions")
+            add(
+                start,
+                "introduction: no bullet list of contributions",
+                "contributions",
+                "4.3",
+            )
     appendix_text = re.sub(
         r"\s+",
         " ",
@@ -745,11 +860,15 @@ def check_draft(
         add(
             1,
             "appendix: no consent sentence saying the study is under the supervision of the instructor",
+            "supervision",
+            "12.3",
         )
     elif supervisor and supervisor.lower() not in match.group(1).lower():
         add(
             1,
             f"appendix: the supervision sentence names {match.group(1).strip()!r}, not {supervisor!r}",
+            "supervisor-name",
+            "12.3",
         )
     return defects
 
