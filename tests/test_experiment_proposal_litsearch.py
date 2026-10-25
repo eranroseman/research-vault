@@ -109,11 +109,14 @@ def test_characters_yaml_cannot_hold_raw_round_trip_and_a_lone_surrogate_becomes
     monkeypatch, capsys, tmp_path, load
 ):
     """JSON leaves DEL, the C1 controls (a cp1252 apostrophe \\x92 among them),
-    NEL and the noncharacters raw, and YAML refuses or folds them; a lone
-    surrogate (from a \\ud800 escape in a server's JSON) is no character at all."""
+    NEL, the line and paragraph separators U+2028 and U+2029 (YAML folds them
+    with the spaces beside them) and the noncharacters raw, and YAML refuses or
+    folds them; a lone surrogate (from a \\ud800 escape in a server's JSON) is
+    no character at all."""
     odd = {
         "type": "article-journal",
-        "title": "It\x92s a \x7f title, \x85 folded, \ufffe\uffff, \x1b, tab\t, é 😀",
+        "title": "It\x92s a \x7f title, \x85 folded, \ufffe\uffff, \x1b, tab\t, é 😀"
+        " \u2028  and \u2029  kept",
         "_source": "crossref",
         "DOI": "10.1000/odd",
         "author": [{"family": "O\x92Brien", "given": "\x7fJ."}],
@@ -241,6 +244,7 @@ def test_dblp_runs_separately_on_its_own_short_query(federate, monkeypatch, caps
     assert "dblp" not in federate[0][2]
     assert 'dblp(1, 1) query="health coach"' in err
     assert 'crossref(1, 1) query="health coach empathy response length"' in err
+    assert 'semantic_scholar(0, 0) query="health coach empathy response length"' in err
     assert "From DBLP" in out
 
 
@@ -260,7 +264,7 @@ def test_a_dblp_challenge_carries_the_vendored_browser_hint(
     hint = wrapper.search.BROWSER_HINT.format(source="dblp")
     assert f"note: source degraded — {message}. {hint}\n" in err
     assert 'see "If a source asks for browser verification"' in err
-    assert "dblp(" not in err
+    assert 'dblp(0, 0) query="short"' in err
 
 
 def test_a_dblp_degradation_of_another_kind_and_an_unexpected_error_are_noted(
@@ -324,6 +328,8 @@ def test_snowball_uses_the_vendored_expand_and_enrichment_and_drops_the_seed(
     # the enriched record keeps the tag of the index that found it
     assert 'opencitations(1, 1) query="https://doi.org/10.1000/SEED"' in err
     assert 'crossref(1, 1) query="https://doi.org/10.1000/SEED"' in err
+    # every graph index the seed was sent to gets its line, an empty one too
+    assert 'semantic_scholar(0, 0) query="https://doi.org/10.1000/SEED"' in err
     assert f"{wrapper.DEGRADED_429}\n" in err
     assert "semantic_scholar: skipped" not in err
 

@@ -10,13 +10,14 @@ Usage:
                  [--exclude FILE] [--compact | --full] [--out FILE]
 
 The records go to stdout as CSL-YAML with every string a double-quoted JSON
-scalar, each character outside YAML's printable set escaped and a lone surrogate
-made U+FFFD, valid YAML whatever a title holds; compact by default (title, author
-surnames, year, venue, DOI, abstract cut to 300 characters), --full adds given
-names, URL, type and source and cuts the abstract at 1,500. --exclude names the
-judged file, one record per line `<DOI or title> | <kept or rejected> |
-<reason>`, of which only the first field is read; every record whose DOI or
-title it holds is dropped. --out writes the records to that file instead.
+scalar, each character outside YAML's printable set, and the line breaks NEL,
+U+2028 and U+2029, escaped and a lone surrogate made U+FFFD, valid YAML whatever
+a title holds; compact by default (title, author surnames, year, venue, DOI,
+abstract cut to 300 characters), --full adds given names, URL, type and source
+and cuts the abstract at 1,500. --exclude names the judged file, one record per
+line `<DOI or title> | <kept or rejected> | <reason>`, of which only the first
+field is read; every record whose DOI or title it holds is dropped. --out writes
+the records to that file instead.
 
 Stderr carries the vendored scripts' own notes verbatim, then one line per
 index `<index>(<returned>, <kept>) query="<query>"`, the line
@@ -57,10 +58,11 @@ DEGRADED_429 = "note: source degraded — semantic_scholar: HTTP 429"
 SKIP_429 = "semantic_scholar: skipped (HTTP 429); snowball's graph endpoints cover it"
 DEFAULT_SOURCES = [name for name in search.SEARCH_SOURCES if name != "dblp"]
 # What JSON leaves raw and a YAML parser refuses or alters: the characters
-# outside YAML's printable set (DEL, the C1 controls, U+FFFE, U+FFFF) and NEL
-# (U+0085), a line break YAML folds to a space. Each is escaped as \uXXXX.
+# outside YAML's printable set (DEL, the C1 controls, U+FFFE, U+FFFF) and the
+# line breaks NEL (U+0085), U+2028 and U+2029, which YAML folds together with
+# the spaces beside them. Each is escaped as \uXXXX.
 NOT_YAML_PRINTABLE = re.compile(
-    r"[^\t\n\r\x20-\x7e\xa0-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]"
+    r"[^\t\n\r\x20-\x7e\xa0-\u2027\u202a-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]"
 )
 # Half a UTF-16 pair, from a \ud800-style escape in a server's JSON: no
 # character, so no UTF-8 file and no YAML parser holds it; it becomes U+FFFD.
@@ -117,10 +119,10 @@ def source_lines(
     kept: Sequence[dict],
     default_query: str,
 ) -> list[str]:
-    """`<index>(<returned>, <kept>) query="..."` for every index with a record;
+    """`<index>(<returned>, <kept>) query="..."` for every queried index;
     returned counts the records carrying the index's tag after the vendored
     de-duplication, kept those left after the exclude."""
-    counts: dict[str, list[int]] = {}
+    counts: dict[str, list[int]] = {tag: [0, 0] for tag in queries}
     for record in records:
         for tag in sources_of(record):
             counts.setdefault(tag, [0, 0])[0] += 1
@@ -212,7 +214,8 @@ def run_snowball(args: argparse.Namespace) -> tuple[list[dict], dict[str, str]]:
             record["_source"] = tag
     merged = common.dedupe(enriched)
     seed = common.clean_doi(args.doi)
-    return [record for record in merged if record.get("DOI") != seed], {}
+    left = [record for record in merged if record.get("DOI") != seed]
+    return left, dict.fromkeys(snowball.GRAPH_SOURCES, args.doi)
 
 
 def build_parser() -> argparse.ArgumentParser:
