@@ -807,6 +807,9 @@ def test_lit_search_names_the_wrapper_the_judged_file_the_indexes_and_the_target
     assert text.index("## Agent run") < text.index("## Steps")
     assert "$ARGUMENTS" in text
     assert "the token `agent`" in text
+    # a need such as "conversational agent empathy" is no agent run
+    assert "the token `agent` as first argument" in text
+    assert 'or the Skill tool with `args: "agent"`' in text
     assert '"no human will answer"' in text
     steps = text.split("## Steps", 1)[1]
     numbered = re.split(r"\n(?=\d+\. \*\*)", steps)
@@ -966,6 +969,8 @@ def test_design_is_steps_that_point_at_the_shape_the_checker_and_the_subagent():
     assert "no numbered question is printed" in text
     assert "$ARGUMENTS" in text
     assert "the token `agent`" in text
+    assert "whose first argument is the token `agent`" in text
+    assert 'or the Skill tool with `args: "agent"`' in text
     assert '"no human will answer"' in text
     assert "Source: agent run, <date>" in text
     assert (
@@ -1071,6 +1076,8 @@ def test_review_is_steps_that_run_the_checker_and_keep_the_evidence_rule():
     assert text.index("## Agent run") < text.index("## Steps")
     assert "$ARGUMENTS" in text
     assert "the token `agent`" in text
+    assert "whose first argument is the token `agent`" in text
+    assert 'or the Skill tool with `args: "agent"`' in text
     assert '"no human will answer"' in text
     assert "`not confirmed`, never `pass`" in text
     assert "the user picks fixes with /experiment-proposal:review" in text

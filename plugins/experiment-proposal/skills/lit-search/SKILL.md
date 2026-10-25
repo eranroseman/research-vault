@@ -30,7 +30,7 @@ The scripts read `OPENALEX_API_KEY` (OpenAlex is skipped without it; free at htt
 
 ## Agent run
 
-The arguments are `$ARGUMENTS`; the token `agent` (`/experiment-proposal:lit-search agent "<the need>"`) marks an agent run, and any other argument is the need; on a host that passes no arguments (Codex), the phrase "no human will answer" in the invoking message means the same. In an agent run no step waits: without a need in the arguments or the brief's Open items, step 1 stops with a one-line ask; without a seed, step 3 skips snowballing and says so; the run ends with the step 4 report. Steps 1 and 3 wait for the user and say so.
+The arguments are `$ARGUMENTS`; the token `agent` as first argument (`/experiment-proposal:lit-search agent "<the need>"`, or the Skill tool with `args: "agent"`) marks an agent run, and any other argument is the need; on a host that passes no arguments (Codex), the phrase "no human will answer" in the invoking message means the same. In an agent run no step waits: without a need in the arguments or the brief's Open items, step 1 stops with a one-line ask; without a seed, step 3 skips snowballing and says so; the run ends with the step 4 report. Steps 1 and 3 wait for the user and say so.
 
 ## Steps
 
