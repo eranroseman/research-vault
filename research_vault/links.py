@@ -322,8 +322,8 @@ NORMALISER_SKIPS: tuple[str, ...] = (
 # with it errs safe. A backtick fence's info string holds no backtick
 # (CommonMark), so a line led by ```x``` is a code span, not a fence that
 # would mask the rest of the file.
-_CONTAINER = r"^(?:[ \t]*(?:>|[-+*][ \t]|\d{1,9}[.)][ \t]))*[ \t]*"
-_FENCE = re.compile(_CONTAINER + r"(`{3,}(?!.*`)|~{3,})")
+_CONTAINER = r"(?:[ \t]*(?:>|[-+*][ \t]|\d{1,9}[.)][ \t]))*[ \t]*"
+_FENCE = re.compile(rf"({_CONTAINER})(`{{3,}}(?!.*`)|~{{3,}})")
 # A code span ends at a blank line, a blockquote's bare `>` line included
 # (CommonMark: a span never crosses a paragraph).
 _BLANK_LINE = r"\r?\n(?:[ \t]*>)*[ \t]*\r?\n"
@@ -359,24 +359,37 @@ def is_normalised_surface(relative: str) -> bool:
     )
 
 
+def _closes(opening: re.Match[str], line: str) -> bool:
+    """``line`` ends the fence ``opening`` opened: a run of its character at
+    least as long, alone on the line, behind a container of the same `>` depth
+    indented at most three columns away from the opener's (CommonMark). A
+    fence quoted or indented inside the code is content, not a closer."""
+    prefix, run = opening.groups()
+    closing = re.match(
+        rf"({_CONTAINER}){re.escape(run[0])}{{{len(run)},}}[ \t]*$", line
+    )
+    return (
+        closing is not None
+        and closing.group(1).count(">") == prefix.count(">")
+        and abs(len(closing.group(1)) - len(prefix)) <= 3
+    )
+
+
 def _fence_spans(text: str) -> list[tuple[int, int]]:
     spans: list[tuple[int, int]] = []
-    fence: tuple[str, int, int] | None = None  # character, length, where it opened
+    fence: tuple[re.Match[str], int] | None = None  # its opener, where it opened
     offset = 0
     for line in text.splitlines(keepends=True):
         stripped = line.rstrip("\r\n")
         if fence is None:
             opening = _FENCE.match(stripped)
-            if opening:
-                fence = (opening.group(1)[0], len(opening.group(1)), offset)
-        elif re.match(
-            rf"{_CONTAINER}{re.escape(fence[0])}{{{fence[1]},}}[ \t]*$", stripped
-        ):
-            spans.append((fence[2], offset + len(line)))
+            fence = (opening, offset) if opening else None
+        elif _closes(fence[0], stripped):
+            spans.append((fence[1], offset + len(line)))
             fence = None
         offset += len(line)
     if fence is not None:
-        spans.append((fence[2], len(text)))
+        spans.append((fence[1], len(text)))
     return spans
 
 
