@@ -23,7 +23,7 @@ import os
 import posixpath
 import re
 import urllib.parse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -99,11 +99,16 @@ def is_external(link: Link) -> bool:
     return link.kind == "markdown" and is_uri(link.target)
 
 
+def _fold(target: str) -> str:
+    """A target as resolution reads it: trimmed, with each ``\\`` as ``/``."""
+    return target.strip().replace("\\", "/")
+
+
 def is_folder(target: str) -> bool:
     """A target ending in ``/`` (``[log/](log/)``, ``[[wiki/]]``, ``/``) names a
     folder, not a file: ``Index.resolve`` gives it no hit, and a caller leaves
     it alone and unreported rather than calling it dead."""
-    return target.strip().endswith(("/", "\\"))
+    return _fold(target).endswith("/")
 
 
 def _extension(target: str) -> str | None:
@@ -242,7 +247,7 @@ class Index:
         captured-set key, then as a recorded title or alias, and only then by
         trailing components; a name whose dot starts no ``md`` or attachment
         extension is tried as written and then as ``<name>.md``."""
-        raw = target.strip().replace("\\", "/")
+        raw = _fold(target)
         if not raw:
             return [source]
         if is_folder(raw):
@@ -312,21 +317,39 @@ NORMALISER_SKIPS: tuple[str, ...] = (
     "wiki/",
     "fulltext/",
 )
-_FENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
-_INLINE_CODE = re.compile(r"(?<!`)(`+)(?!`).+?(?<!`)\1(?!`)", re.DOTALL)
-_HTML_COMMENT = re.compile(r"<!--.*?(?:-->|\Z)", re.DOTALL)
-_OBSIDIAN_COMMENT = re.compile(r"%%.*?(?:%%|\Z)", re.DOTALL)
+# A fence may stand behind a container prefix: a blockquote or callout (`>`),
+# a list marker (`-`, `1.`) or any indent. Masking an indented code block
+# with it errs safe. A backtick fence's info string holds no backtick
+# (CommonMark), so a line led by ```x``` is a code span, not a fence that
+# would mask the rest of the file.
+_CONTAINER = r"^(?:[ \t]*(?:>|[-+*][ \t]|\d{1,9}[.)][ \t]))*[ \t]*"
+_FENCE = re.compile(_CONTAINER + r"(`{3,}(?!.*`)|~{3,})")
+# A code span ends at a blank line, a blockquote's bare `>` line included
+# (CommonMark: a span never crosses a paragraph).
+_BLANK_LINE = r"\r?\n(?:[ \t]*>)*[ \t]*\r?\n"
+_CODE_SPAN = rf"(?<!`)(?P<ticks>`+)(?!`)(?:(?!{_BLANK_LINE}).)+?(?<!`)(?P=ticks)(?!`)"
+_HTML_COMMENT = r"<!--.*?(?:-->|\Z)"
+_OBSIDIAN_COMMENT = r"%%.*?(?:%%|\Z)"
+# One pattern, so the leftmost opener wins: a `%%` in a code span is code,
+# a backtick in a comment is comment. It runs with the fences blanked out.
+_INLINE_MASK = re.compile(
+    f"{_CODE_SPAN}|{_HTML_COMMENT}|{_OBSIDIAN_COMMENT}", re.DOTALL
+)
+_NOT_LINE_END = re.compile(r"[^\r\n]")
 
 
 @dataclass(frozen=True)
 class Problem:
     """A link the normaliser left as written for a person to resolve: its target
     names no file (``dead``) or several (``ambiguous``, with the candidates), or
-    its rewrite would leave the frontmatter unreadable (``frontmatter``)."""
+    it sits in a frontmatter block kept as written (``frontmatter``: a rewrite
+    would leave the block unreadable, or the block has no closing ``---``).
+    ``written`` is the link's span exactly as the text holds it."""
 
     kind: Literal["dead", "ambiguous", "frontmatter"]
     target: str
     candidates: tuple[str, ...] = ()
+    written: str = field(kw_only=True)
 
 
 def is_normalised_surface(relative: str) -> bool:
@@ -347,7 +370,7 @@ def _fence_spans(text: str) -> list[tuple[int, int]]:
             if opening:
                 fence = (opening.group(1)[0], len(opening.group(1)), offset)
         elif re.match(
-            rf"^[ ]{{0,3}}{re.escape(fence[0])}{{{fence[1]},}}[ \t]*$", stripped
+            rf"{_CONTAINER}{re.escape(fence[0])}{{{fence[1]},}}[ \t]*$", stripped
         ):
             spans.append((fence[2], offset + len(line)))
             fence = None
@@ -357,18 +380,31 @@ def _fence_spans(text: str) -> list[tuple[int, int]]:
     return spans
 
 
+def _blanked(text: str, spans: list[tuple[int, int]]) -> str:
+    """``text`` with every character of ``spans`` but its line ends turned to a
+    space: offsets hold, no token inside a span survives, and each of its
+    lines reads as blank."""
+    pieces: list[str] = []
+    cursor = 0
+    for start, end in spans:
+        pieces += [text[cursor:start], _NOT_LINE_END.sub(" ", text[start:end])]
+        cursor = end
+    pieces.append(text[cursor:])
+    return "".join(pieces)
+
+
 def _protected_spans(text: str) -> list[tuple[int, int]]:
-    """Code fences, inline code, HTML and Obsidian comments, anchored claim
-    blocks whole (Q19: their bytes are frozen by claim-immutability), and
-    `[k:: …]` field spans on every other line (Dataview reads only `[[…]]`
-    inside a field)."""
+    """Code fences, then inline code and HTML and Obsidian comments outside
+    them, anchored claim blocks whole (Q19: their bytes are frozen by
+    claim-immutability), and `[k:: …]` field spans on every other line
+    (Dataview reads only `[[…]]` inside a field)."""
     # Imported here: lints is the verify layer above this module, and must
     # stay free to import links (through literature_notes) without a cycle.
     from . import lints
 
     spans = _fence_spans(text)
-    for pattern in (_INLINE_CODE, _HTML_COMMENT, _OBSIDIAN_COMMENT):
-        spans.extend((m.start(), m.end()) for m in pattern.finditer(text))
+    unfenced = _blanked(text, spans)
+    spans.extend((m.start(), m.end()) for m in _INLINE_MASK.finditer(unfenced))
     for block in lints._claim_blocks(text).values():
         start = text.find(block)
         while start != -1:
@@ -393,7 +429,7 @@ def _unresolvable(link: Link) -> bool:
 def _kept_as_written(link: Link) -> bool:
     """A relative target in either form (§5.2), or a markdown destination that
     is already `/`-led: resolved, and so reported if dead, but never rewritten."""
-    target = link.target.strip().replace("\\", "/")
+    target = _fold(link.target)
     return target.startswith(("./", "../")) or (
         link.kind == "markdown" and target.startswith("/")
     )
@@ -414,7 +450,12 @@ def _rewrite(
         hits = index.resolve(link.target, source=source)
         if len(hits) != 1:
             problems.append(
-                Problem("ambiguous" if hits else "dead", link.target, tuple(hits))
+                Problem(
+                    "ambiguous" if hits else "dead",
+                    link.target,
+                    tuple(hits),
+                    written=text[link.start : link.end],
+                )
             )
             continue
         if _kept_as_written(link):
@@ -433,20 +474,23 @@ def normalize(text: str, index: Index, *, source: str) -> tuple[str, list[Proble
     to a bare markdown destination that resolves to one file; leave URIs,
     folders, same-page anchors, relative forms, dead and ambiguous targets
     alone, and report every dead and ambiguous one. The frontmatter block is
-    rewritten only if the result still reads as YAML. What is reported is
+    rewritten only if the result still reads as YAML; one with no closing
+    `---` line is never rewritten. What is reported is
     the caller's to print, not a review-queue row: outside `wiki/` a link to
     a note not yet written is an ordinary act, never a refused commit."""
     opening = frontmatter._FRONTMATTER_OPEN.match(text)
-    closing = (
-        frontmatter._FRONTMATTER_CLOSE.search(text, opening.end()) if opening else None
-    )
-    if opening is None or closing is None:
+    if opening is None:
         new_text, problems, _ = _rewrite(text, index, source)
         return new_text, problems
+    closing = frontmatter._FRONTMATTER_CLOSE.search(text, opening.end())
+    # With no closing `---` line (none at all, or a last one with no newline
+    # after it) the rest of the file is the would-be block and there is no
+    # body: read_okf refuses the block as unterminated, so it is kept whole.
+    end, after = closing.span() if closing else (len(text), len(text))
     head = text[: opening.end()]
-    block = text[opening.end() : closing.start()]
-    delimiter = text[closing.start() : closing.end()]
-    new_body, problems, _ = _rewrite(text[closing.end() :], index, source)
+    block = text[opening.end() : end]
+    delimiter = text[end:after]
+    new_body, problems, _ = _rewrite(text[after:], index, source)
     new_block, block_problems, rewritten = _rewrite(block, index, source)
     if rewritten:
         try:
@@ -455,6 +499,11 @@ def normalize(text: str, index: Index, *, source: str) -> tuple[str, list[Proble
             # An unquoted `related: [[x]]` would become `related: [x](/p/x.md)`,
             # a flow sequence followed by junk: the block is kept as written and
             # every link that would have been rewritten is reported with it.
-            kept = [Problem("frontmatter", link.target) for link in rewritten]
+            kept = [
+                Problem(
+                    "frontmatter", link.target, written=block[link.start : link.end]
+                )
+                for link in rewritten
+            ]
             return head + block + delimiter + new_body, kept + block_problems + problems
     return head + new_block + delimiter + new_body, block_problems + problems

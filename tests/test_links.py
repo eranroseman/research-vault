@@ -479,3 +479,100 @@ def test_normalize_reports_the_other_links_of_a_refused_frontmatter_rewrite(tmp_
         ("frontmatter", "Only Here"),
         ("ambiguous", "Foo"),
     ]
+
+
+_AFTER = "\nafter [[Only Here]]\n"
+_AFTER_NORMAL = "\nafter [Only Here](/wiki/concepts/Only%20Here.md)\n"
+
+
+@pytest.mark.parametrize(
+    "fenced",
+    [
+        "> ~~~\n> [[Only Here]] [[nowhere]]\n> ~~~\n",
+        "> [!note]\n> ```\n> [[Only Here]]\n>\n> [[Only Here]] [[nowhere]]\n> ```\n",
+        "1. a\n    1. b\n        ~~~\n        [[Only Here]] [[nowhere]]\n        ~~~\n",
+        "- ~~~\n  [[Only Here]] [[nowhere]]\n  ~~~\n",
+    ],
+    ids=["blockquote", "callout-with-blank-line", "nested-list", "list-marker-line"],
+)
+def test_normalize_masks_a_fence_in_a_blockquote_callout_or_list_item(tmp_path, fenced):
+    """A fence opens and closes behind any container prefix: the code inside
+    is left as written and unreported, and the link after it is rewritten."""
+    index = _index(tmp_path)
+    out, problems = links.normalize(
+        fenced + _AFTER, index, source="projects/brief/draft.md"
+    )
+    assert out == fenced + _AFTER_NORMAL
+    assert problems == []
+
+
+def test_normalize_masks_no_comment_inside_code_and_no_span_across_a_blank_line(
+    tmp_path,
+):
+    """A `%%` or `<!--` inside a fence or a code span is code, not a comment
+    running to the end of the file; a code span never crosses a blank line;
+    and a line holding ```x``` is a code span, not a fence."""
+    index = _index(tmp_path)
+    text = (
+        "```sql\nSELECT a %% b\n```\n"
+        "~~~\n%% <!-- c\n~~~\n"
+        "one [[Only Here]] and `%%` and `<!--`\n\n"
+        "a `b\n\n"
+        "two [[Only Here]]\n\n"
+        "```x``` then three [[Only Here]]\n\n"
+        "later `c` d\n"
+    )
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert out == text.replace(
+        "[[Only Here]]", "[Only Here](/wiki/concepts/Only%20Here.md)"
+    )
+    assert problems == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "---\nrelated: [[Only Here]]\nup: [[nowhere]]\n---",
+        "---\nrelated: [[Only Here]]\nup: [[nowhere]]\n",
+    ],
+    ids=["closed-at-eof-without-newline", "unterminated"],
+)
+def test_normalize_never_rewrites_inside_an_unterminated_frontmatter_block(
+    tmp_path, text
+):
+    """With no closing `---` line read_okf would accept, the rest of the file
+    is the would-be block: kept as written, its links reported as for a
+    refused rewrite."""
+    index = _index(tmp_path)
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert out == text
+    assert [(p.kind, p.target) for p in problems] == [
+        ("frontmatter", "Only Here"),
+        ("dead", "nowhere"),
+    ]
+
+
+def test_normalize_reports_each_problem_with_its_link_as_written(tmp_path):
+    index = _index(tmp_path)
+    text = (
+        "---\nrelated: [[Only Here|here]]\n---\n"
+        "[g](nowhere.md) ![[x.png]] [[Foo|B]] [y](/wiki/gone.md)\n"
+    )
+    _, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert [(p.kind, p.target, p.written) for p in problems] == [
+        ("frontmatter", "Only Here", "[[Only Here|here]]"),
+        ("dead", "nowhere.md", "[g](nowhere.md)"),
+        ("dead", "x.png", "![[x.png]]"),
+        ("ambiguous", "Foo", "[[Foo|B]]"),
+        ("dead", "/wiki/gone.md", "[y](/wiki/gone.md)"),
+    ]
+
+
+def test_normalize_reads_a_backslashed_relative_target_as_resolve_does(tmp_path):
+    """One fold serves resolving and keeping: `..\\sources\\Foo` resolves as
+    relative, so it is kept as written like `../sources/Foo`."""
+    index = _index(tmp_path)
+    text = "[[..\\sources\\Foo|src]] [x](.\\nowhere.md)\n"
+    out, problems = links.normalize(text, index, source="wiki/concepts/Other.md")
+    assert out == text
+    assert [(p.kind, p.target) for p in problems] == [("dead", ".\\nowhere.md")]
