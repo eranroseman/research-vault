@@ -108,6 +108,8 @@ def test_hook_resolves_one_verified_tree_and_invokes_exact_index_contract(
         ("stamped daily/d.md\n", 0, 1, False),
         ("normalised projects/p/draft.md\nregenerated log.md\n", 0, 1, False),
         ("stamped daily/d.md\nnormalised daily/d.md\n", 0, 1, False),
+        ("unfixed inbox/x.md\n", 0, 1, False),
+        ("stamped daily/d.md\nunfixed inbox/x.md\n", 0, 1, False),
         (
             "skipped inbox/x.md — partially staged; stage the whole file or none of it\n",
             0,
@@ -159,13 +161,25 @@ def test_hook_refuses_when_the_fixer_changed_a_file_and_never_stages(
     assert _git(repo, "diff", "--cached", "--name-only") == staged_before
     assert completed.returncode == expected
     assert args_file.exists() is verify_ran
-    if expected == 1:
+    changed = any(
+        line.startswith(("stamped ", "normalised ", "regenerated "))
+        for line in fixer_output.splitlines()
+    )
+    if changed:
         for path in ("daily/d.md", "projects/p/draft.md", "log.md"):
             if path in fixer_output:
                 # once each: a file both stamped and normalised is one re-stage
                 assert completed.stderr.count(path) == 1, path
         assert (
             "stage them (or add them to the commit's `--` pathspec) and commit again"
+            in completed.stderr
+        )
+    if "unfixed " in fixer_output:
+        # R1: a partially staged note whose staged copy the fixer would
+        # change, named once, in the hook's words, never as the bare line.
+        assert completed.stderr.count("inbox/x.md") == 1
+        assert (
+            "pre-commit: the staged copy is not fixed — stage it: inbox/x.md\n"
             in completed.stderr
         )
     if fixer_output.startswith(("skipped", "unresolved")):

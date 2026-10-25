@@ -738,15 +738,17 @@ def test_stamp_type_takes_paths_a_paths_file_and_staged(tmp_path, capsys):
     assert capsys.readouterr().out.splitlines() == ["stamped inbox/b.md"]
     (vault / "inbox" / "c.md").write_text("c\n")
     subprocess.run(["git", "add", "inbox/c.md"], cwd=vault, check=True)
-    (vault / "inbox" / "d.md").write_text("d\n")
+    # A staged copy the fixer would leave as it is: a plain partial stage.
+    typed = '---\ntype: "fleeting"\n---\nd\n'
+    (vault / "inbox" / "d.md").write_text(typed)
     subprocess.run(["git", "add", "inbox/d.md"], cwd=vault, check=True)
-    (vault / "inbox" / "d.md").write_text("d\nmore\n")
+    (vault / "inbox" / "d.md").write_text(typed + "more\n")
     assert main(["stamp-type", "--vault", str(vault), "--staged"]) == 0
     assert capsys.readouterr().out.splitlines() == [
         "stamped inbox/c.md",
         "skipped inbox/d.md — partially staged; stage the whole file or none of it",
     ]
-    assert (vault / "inbox" / "d.md").read_text() == "d\nmore\n"
+    assert (vault / "inbox" / "d.md").read_text() == typed + "more\n"
 
 
 def test_stamp_type_exits_4_without_pyyaml(tmp_path, monkeypatch, capsys):
@@ -893,7 +895,8 @@ def test_stamp_type_staged_without_git_is_a_named_exit_2(
 
 def test_stamp_type_staged_names_only_partially_staged_notes(tmp_path, capsys):
     """A partially staged canvas, `.base` or `.obsidian/` file is no note the
-    fixer would touch, so it is not reported as one to restage."""
+    fixer would touch, so it is not reported as one to restage, nor is its
+    staged copy judged: only the note's bare staged copy is named unfixed."""
     vault = tmp_path / "vault"
     assert main(["scaffold", "--vault", str(vault)]) == 0
     capsys.readouterr()
@@ -906,9 +909,7 @@ def test_stamp_type_staged_names_only_partially_staged_notes(tmp_path, capsys):
     for relative in files:
         (vault / relative).write_text("one\ntwo\n")
     assert main(["stamp-type", "--vault", str(vault), "--staged"]) == 0
-    assert capsys.readouterr().out.splitlines() == [
-        "skipped inbox/note.md — partially staged; stage the whole file or none of it"
-    ]
+    assert capsys.readouterr().out.splitlines() == ["unfixed inbox/note.md"]
 
 
 def test_stamp_type_reports_an_unwritable_root_log_and_exits_0(

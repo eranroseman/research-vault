@@ -2104,6 +2104,9 @@ def test_real_hook_under_a_pathspec_commit_passes_on_the_second_run(tmp_path):
 
 
 def test_real_hook_reports_a_partially_staged_file_and_leaves_it(tmp_path):
+    """A partially staged note is never rewritten. Its staged copy is judged:
+    one the fixer would change refuses the commit before verify; one it
+    would leave commits as staged (`git add -p`, Q1), worktree untouched."""
     vault, env = _hook_vault(tmp_path)
     note = vault / "daily" / "d.md"
     note.write_text("a\n")
@@ -2111,9 +2114,71 @@ def test_real_hook_reports_a_partially_staged_file_and_leaves_it(tmp_path):
     note.write_text("a\nb\n")
     refused = _commit(vault, env)
     assert refused.returncode == 1
-    assert "partially staged" in refused.stderr
-    assert "commit-closing verification failed" in refused.stderr  # the bare index copy
+    assert (
+        "pre-commit: the staged copy is not fixed — stage it: daily/d.md\n"
+        in refused.stderr
+    )
+    assert "commit-closing verification failed" not in refused.stderr
     assert note.read_text() == "a\nb\n"
+    note.write_text('---\ntype: "daily"\n---\na\n')
+    subprocess.run(["git", "add", "daily/d.md"], cwd=vault, env=env, check=True)
+    note.write_text('---\ntype: "daily"\n---\na\nb\n')
+    passed = _commit(vault, env)
+    assert passed.returncode == 0, passed.stderr
+    assert "partially staged" in passed.stderr
+    shown = subprocess.run(
+        ["git", "show", "HEAD:daily/d.md"],
+        cwd=vault,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert shown == '---\ntype: "daily"\n---\na\n'
+    assert note.read_text() == '---\ntype: "daily"\n---\na\nb\n'
+
+
+def test_real_hook_refuses_a_retry_until_the_fixed_copy_is_staged(tmp_path):
+    """R1: after a refused commit the fixer's own rewrite leaves the note
+    partially staged, so a retry with no `git add` must not commit the
+    unfixed staged copy; staging it lets the commit through with the fix."""
+    vault, env = _hook_vault(tmp_path)
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=vault,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+
+    (vault / "daily" / "2026-10-26.md").write_text('---\ntype: "daily"\n---\na day\n')
+    git("add", "daily/2026-10-26.md")
+    git("commit", "-q", "--no-verify", "-m", "day")
+    head = git("rev-parse", "HEAD")
+    idea = vault / "projects" / "p" / "idea.md"
+    idea.parent.mkdir(parents=True)
+    idea.write_text('---\ntype: "note"\n---\nsee [[2026-10-26]]\n')
+    git("add", "projects/p/idea.md")
+    first = _commit(vault, env)
+    assert first.returncode == 1
+    fixed = '---\ntype: "note"\n---\nsee [2026-10-26](/daily/2026-10-26.md)\n'
+    assert idea.read_text() == fixed
+    retry = _commit(vault, env)
+    assert retry.returncode == 1
+    assert (
+        "pre-commit: the staged copy is not fixed — stage it: projects/p/idea.md\n"
+        in retry.stderr
+    )
+    assert git("rev-parse", "HEAD") == head
+    assert idea.read_text() == fixed
+    git("add", "projects/p/idea.md")
+    passed = _commit(vault, env)
+    assert passed.returncode == 0, passed.stderr
+    assert git("show", "HEAD:projects/p/idea.md") == fixed
+    assert git("status", "--porcelain", "--", "projects") == ""
 
 
 def test_real_hook_regenerates_root_log_and_names_it(tmp_path):

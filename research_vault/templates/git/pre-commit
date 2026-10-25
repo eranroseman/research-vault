@@ -7,7 +7,10 @@
 # file or log.md itself and no log/ day file is untracked or has unstaged
 # changes. It refuses the commit when the fixer changed a file (log.md among
 # them, staged or not): stage it (or add it to the commit's `--` pathspec)
-# and commit again. A partially staged file is reported, never rewritten.
+# and commit again. A partially staged file is reported, never rewritten;
+# when its staged copy is one the fixer would change (the fixer's own rewrite
+# after a refused commit reads as a partial stage), the commit is refused
+# until it is staged, so a retry never commits the unfixed copy.
 # Under `git commit -- <paths>` the fixer sees the temporary index git names
 # in GIT_INDEX_FILE.
 # The lifecycle leg is held — verify --offline reports it UNREACHABLE and
@@ -45,11 +48,17 @@ case "$fixer_code" in
     exit "$fixer_code"
     ;;
 esac
-printf '%s\n' "$fixed" | grep -v -e '^stamped ' -e '^normalised ' -e '^regenerated ' -e '^$' >&2
+printf '%s\n' "$fixed" | grep -v -e '^stamped ' -e '^normalised ' -e '^regenerated ' -e '^unfixed ' -e '^$' >&2
 changed="$(printf '%s\n' "$fixed" | sed -n -e 's/^stamped //p' -e 's/^normalised //p' -e 's/^regenerated //p' | awk '!seen[$0]++')"
+unfixed="$(printf '%s\n' "$fixed" | sed -n -e 's/^unfixed //p')"
 if [ -n "$changed" ]; then
   echo "pre-commit: the fixer changed these files; stage them (or add them to the commit's \`--\` pathspec) and commit again:" >&2
   printf '%s\n' "$changed" | sed 's/^/  /' >&2
+fi
+if [ -n "$unfixed" ]; then
+  printf '%s\n' "$unfixed" | sed 's/^/pre-commit: the staged copy is not fixed — stage it: /' >&2
+fi
+if [ -n "$changed" ] || [ -n "$unfixed" ]; then
   exit 1
 fi
 

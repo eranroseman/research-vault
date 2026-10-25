@@ -82,6 +82,69 @@ def _reported_name(path: Path, vault: Path) -> str:
         return str(path)
 
 
+def stamp_text(relative: str, text: str) -> tuple[str | None, str | None]:
+    """The stamp decision for one note's text, nothing read or written:
+    ``(stamped text, None)``; ``(None, reason)`` for a note reported,
+    ``"unparseable"`` or ``"no-type"``; ``(None, None)`` for one whose type
+    is already set. ``stamp_types`` writes what it returns, and the fixer
+    asks it of a staged blob (``fixer.unfixed_staged``)."""
+    has_delimiter = _has_delimiter(text)
+    try:
+        data, body = frontmatter.parse(text)
+        # Q18: "type missing" is decided by the structure check's own
+        # reader and test, never by the flat parser's view of the value,
+        # so every missing type the check reports is one stamp repairs.
+        # A missing PyYAML is not content: it propagates (§5.6).
+        okf_data, _ = frontmatter.read_okf(text)
+    except frontmatter.FrontmatterError:
+        return None, "unparseable"
+    if frontmatter.okf_type(okf_data):
+        return None, None
+
+    if has_delimiter:
+        # Ambiguous block: only the folder derivation applies, not the
+        # fleeting fallback (see module docstring).
+        derived = structure.expected_type(relative)
+    else:
+        derived = structure.expected_type(relative)
+        if derived is None and structure.is_fleeting(relative):
+            derived = "fleeting"
+
+    if derived is None:
+        return None, "no-type"
+
+    newline = events._first_line_ending(text)
+
+    if has_delimiter:
+        # Q18: the insert rewrites the block from the flat parser's view,
+        # so that view must have the keys the OKF reader reads, in order.
+        # Otherwise the rewrite drops or invents a key: a repeated key
+        # (a plain spread collapses it to last-write-wins), a key YAML
+        # reads as other than its text (`yes`, `1`, `.nan`, a quoted
+        # `"type"`), or a double-quoted value that runs onto a line the
+        # flat parser takes for a key (`a: "x` / `a: y"`).
+        keys = [key for key, _value in frontmatter._mapping_items(data)]
+        if keys != list(okf_data):
+            return None, "unparseable"
+        rest = {k: v for k, v in frontmatter._mapping_items(data) if k != "type"}
+        block = frontmatter.serialize({"type": derived, **rest})
+        # After the insert, the block must read back as {type, **data}
+        # under the OKF reader. With the keys agreeing, a value can still
+        # re-emit as something YAML refuses: the flat parser reads an
+        # empty `{}` as `{"": ""}`, which serializes as `{: ""}`.
+        try:
+            reparsed, _ = frontmatter.read_okf(block + body)
+        except frontmatter.FrontmatterError:
+            return None, "unparseable"
+        if reparsed.get("type") != derived or set(reparsed) != {"type", *rest}:
+            return None, "unparseable"
+    else:
+        block = f'---\ntype: "{derived}"\n---\n'
+    if newline == "\r\n":
+        block = block.replace("\n", newline)
+    return block + body, None
+
+
 def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]]]:
     """Stamp what's fully determined; report the rest. Never raises for content.
 
@@ -119,66 +182,12 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
         except UnicodeError:
             reported.append((relative, "not-utf-8"))
             continue
-        has_delimiter = _has_delimiter(text)
-        try:
-            data, body = frontmatter.parse(text)
-            # Q18: "type missing" is decided by the structure check's own
-            # reader and test, never by the flat parser's view of the value,
-            # so every missing type the check reports is one stamp repairs.
-            # A missing PyYAML is not content: it propagates (§5.6).
-            okf_data, _ = frontmatter.read_okf(text)
-        except frontmatter.FrontmatterError:
-            reported.append((relative, "unparseable"))
+        new_text, reason = stamp_text(relative, text)
+        if reason is not None:
+            reported.append((relative, reason))
             continue
-        if frontmatter.okf_type(okf_data):
+        if new_text is None:
             continue
-
-        if has_delimiter:
-            # Ambiguous block: only the folder derivation applies, not the
-            # fleeting fallback (see module docstring).
-            derived = structure.expected_type(relative)
-        else:
-            derived = structure.expected_type(relative)
-            if derived is None and structure.is_fleeting(relative):
-                derived = "fleeting"
-
-        if derived is None:
-            reported.append((relative, "no-type"))
-            continue
-
-        newline = events._first_line_ending(text)
-
-        if has_delimiter:
-            # Q18: the insert rewrites the block from the flat parser's view,
-            # so that view must have the keys the OKF reader reads, in order.
-            # Otherwise the rewrite drops or invents a key: a repeated key
-            # (a plain spread collapses it to last-write-wins), a key YAML
-            # reads as other than its text (`yes`, `1`, `.nan`, a quoted
-            # `"type"`), or a double-quoted value that runs onto a line the
-            # flat parser takes for a key (`a: "x` / `a: y"`).
-            keys = [key for key, _value in frontmatter._mapping_items(data)]
-            if keys != list(okf_data):
-                reported.append((relative, "unparseable"))
-                continue
-            rest = {k: v for k, v in frontmatter._mapping_items(data) if k != "type"}
-            block = frontmatter.serialize({"type": derived, **rest})
-            # After the insert, the block must read back as {type, **data}
-            # under the OKF reader. With the keys agreeing, a value can still
-            # re-emit as something YAML refuses: the flat parser reads an
-            # empty `{}` as `{"": ""}`, which serializes as `{: ""}`.
-            try:
-                reparsed, _ = frontmatter.read_okf(block + body)
-            except frontmatter.FrontmatterError:
-                reported.append((relative, "unparseable"))
-                continue
-            if reparsed.get("type") != derived or set(reparsed) != {"type", *rest}:
-                reported.append((relative, "unparseable"))
-                continue
-        else:
-            block = f'---\ntype: "{derived}"\n---\n'
-        if newline == "\r\n":
-            block = block.replace("\n", newline)
-        new_text = block + body
         try:
             _write_text(path, new_text)
         except OSError:

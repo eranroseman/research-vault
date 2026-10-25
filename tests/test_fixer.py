@@ -366,3 +366,77 @@ def test_staged_leaves_the_log_while_a_day_file_or_the_log_has_unstaged_changes(
         "skipped log.md — partially staged; stage the whole file or none of it"
     ]
     assert (vault / "log.md").read_bytes() == log
+
+
+def test_unfixed_staged_judges_each_partial_notes_staged_blob(tmp_vault, tmp_path):
+    """R1: a partially staged note's staged blob gets the fixer's own stamp and
+    normalise decision in memory. One it would change is named (the fixer's
+    rewrite of the worktree after a refused commit looks like a partial
+    stage); one it would leave is not (`git add -p`, Q1); an index entry that
+    is a symlink is never the fixer's to write; nothing is written."""
+    _page(tmp_vault, "wiki/concepts/Only Here.md", "---\ntype: concept\n---\n")
+    linked = "See [Only Here](/wiki/concepts/Only%20Here.md).\n"
+    notes = _page(tmp_vault, "projects/brief/notes.md", "See [[Only Here]].\n")
+    bare = _page(tmp_vault, "inbox/bare.md", "a thought\n")
+    typed = '---\ntype: "fleeting"\n---\n' + linked
+    fixed = _page(tmp_vault, "inbox/fixed.md", typed)
+    (tmp_vault / "inbox" / "link.md").symlink_to("bare.md")
+    _git(tmp_vault, "add", "projects", "inbox")
+    notes.write_text(linked)  # what the refused commit's fixer wrote
+    bare.write_text("a thought\nmore\n")
+    fixed.write_text(typed + "more\n")
+    (tmp_vault / "inbox" / "link.md").unlink()
+    (tmp_vault / "inbox" / "link.md").write_text("a thought\n")
+    _staged_now, partial = fixer.staged_paths(tmp_vault)
+    assert partial == [
+        "inbox/bare.md",
+        "inbox/fixed.md",
+        "inbox/link.md",
+        "projects/brief/notes.md",
+    ]
+    worktree = {path: path.read_bytes() for path in tmp_vault.rglob("*.md")}
+    index = _git(tmp_vault, "ls-files", "-s")
+    assert fixer.unfixed_staged(tmp_vault, partial) == [
+        "inbox/bare.md",
+        "projects/brief/notes.md",
+    ]
+    assert {path: path.read_bytes() for path in tmp_vault.rglob("*.md")} == worktree
+    assert _git(tmp_vault, "ls-files", "-s") == index
+    assert fixer.unfixed_staged(tmp_vault, []) == []
+
+
+def test_unfixed_staged_reads_the_index_git_names(tmp_vault, tmp_path):
+    """Under `git commit -- <paths>` the staged blob is the temporary index's."""
+    _git(tmp_vault, "init", "-q")
+    note = _page(tmp_vault, "inbox/a.md", "a\n")
+    private = tmp_path / "private-index"
+    env = {**os.environ, "GIT_INDEX_FILE": str(private)}
+    _git(tmp_vault, "add", "inbox/a.md", env=env)
+    note.write_text('---\ntype: "fleeting"\n---\na\n')
+    assert fixer.unfixed_staged(tmp_vault, ["inbox/a.md"], env=env) == ["inbox/a.md"]
+    _git(tmp_vault, "add", "inbox/a.md")
+    assert fixer.unfixed_staged(tmp_vault, ["inbox/a.md"]) == []
+
+
+def test_staged_names_the_unfixed_staged_copy_a_retry_would_commit(tmp_path, capsys):
+    """R1, the repro: the first run rewrites the worktree; a retry with no
+    `git add` finds the note partially staged and names it as unfixed rather
+    than skipping it, writing nothing; once staged, nothing is left to fix."""
+    from research_vault import scaffold
+
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault)
+    _page(vault, "daily/2026-10-26.md", '---\ntype: "daily"\n---\na day\n')
+    idea = _page(
+        vault, "projects/p/idea.md", '---\ntype: "note"\n---\nsee [[2026-10-26]]\n'
+    )
+    _git(vault, "add", "daily/2026-10-26.md", "projects/p/idea.md")
+    assert _staged(vault, capsys) == ["normalised projects/p/idea.md"]
+    fixed = idea.read_bytes()
+    assert fixed == b'---\ntype: "note"\n---\nsee [2026-10-26](/daily/2026-10-26.md)\n'
+    assert _staged(vault, capsys) == ["unfixed projects/p/idea.md"]
+    assert idea.read_bytes() == fixed
+    staged = _git(vault, "show", ":projects/p/idea.md")
+    assert staged == '---\ntype: "note"\n---\nsee [[2026-10-26]]\n'
+    _git(vault, "add", "projects/p/idea.md")
+    assert _staged(vault, capsys) == []

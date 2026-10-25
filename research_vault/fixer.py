@@ -5,7 +5,9 @@ Writers call it on the paths they wrote; the commit hook calls it with
 any (#203). It never stages. Under ``--staged`` it is given only the files
 whose worktree copy equals the staged blob, and `staged_log` decides root
 ``log.md``: rendered only when one of them is a ``log/`` day file or
-``log.md``, and never from a day file that differs from the index.
+``log.md``, and never from a day file that differs from the index. A
+partially staged note is never written; `unfixed_staged` names the ones
+whose staged blob it would change, so a retried commit cannot commit it.
 """
 
 from __future__ import annotations
@@ -65,6 +67,11 @@ def is_note(vault: Path, listed: str) -> bool:
     return not structure.is_excluded(path, root)
 
 
+def _normalisable(relative: str) -> bool:
+    """A note the normaliser reads: Markdown on a normalised surface."""
+    return relative.endswith(".md") and links.is_normalised_surface(relative)
+
+
 def _normalise(vault: Path, paths, report: FixReport) -> None:
     index: links.Index | None = None
     root = vault.resolve()
@@ -77,8 +84,7 @@ def _normalise(vault: Path, paths, report: FixReport) -> None:
             relative in skipped
             or path.is_symlink()
             or not path.is_file()
-            or not relative.endswith(".md")
-            or not links.is_normalised_surface(relative)
+            or not _normalisable(relative)
         ):
             continue
         try:
@@ -232,3 +238,71 @@ def staged_paths(vault_root, env=None) -> tuple[list[str], list[str]]:
         [path for path in staged if path not in dirty],
         [path for path in staged if path in dirty],
     )
+
+
+def _fixed_text(relative: str, text: str, index) -> str:
+    """What ``fix`` would leave of a listed note holding ``text``, nothing
+    read or written: stamp's own decision (none for a reserved name, which
+    stamp never reads), then the normaliser, which leaves alone a note
+    stamp reports unparseable. ``index`` builds the link index on demand."""
+    if not structure.is_reserved(relative):
+        stamped, reason = stamp.stamp_text(relative, text)
+        if reason in _LEFT_ALONE:
+            return text
+        if stamped is not None:
+            text = stamped
+    if _normalisable(relative):
+        text, _problems = links.normalize(text, index(), source=relative)
+    return text
+
+
+def unfixed_staged(vault_root, partial, env=None) -> list[str]:
+    """The partially staged notes whose staged copy the fixer would change.
+
+    A refused commit leaves the fixer's rewrite in the worktree and the
+    unfixed blob staged, which reads as a partial stage; a retry with no
+    ``git add`` would commit that blob. So each staged blob (the index's,
+    honouring ``GIT_INDEX_FILE``) gets ``fix``'s stamp and normalise
+    decision in memory. One it would change is named, to be staged; one it
+    would leave is not (``git add -p``, Q1). An index entry that is a
+    symlink, or a blob that is not UTF-8, is no note the fixer writes.
+    Nothing is written.
+    """
+    if not partial:
+        return []
+    vault = Path(vault_root)
+    entries: dict[str, str] = {}
+    for entry in _git_names(vault, "ls-files", "--stage", env=env):
+        meta, _, path = entry.partition("\t")
+        mode, blob, stage = meta.split()
+        if stage == "0" and mode in {"100644", "100755"}:
+            entries[path] = blob
+    built: list[links.Index] = []
+
+    def index() -> links.Index:
+        if not built:
+            built.append(captured.link_index(vault))
+        return built[0]
+
+    unfixed: list[str] = []
+    for relative in partial:
+        if relative not in entries:
+            continue
+        completed = subprocess.run(
+            ["git", "cat-file", "blob", entries[relative]],
+            cwd=vault,
+            check=False,
+            capture_output=True,
+            env=env,
+        )
+        if completed.returncode != 0:
+            raise gitstate.GitStateError(
+                f"git cat-file failed with status {completed.returncode}"
+            )
+        try:
+            text = completed.stdout.decode("utf-8")
+        except UnicodeError:
+            continue
+        if _fixed_text(relative, text, index) != text:
+            unfixed.append(relative)
+    return unfixed
