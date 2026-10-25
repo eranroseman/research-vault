@@ -7,10 +7,16 @@ Usage:
     check_proposal.py [--json] draft proposal/draft.md [--sections "A, B, ..."]
         [--words 2000-4000] [--references 15-20] [--review-section "<heading>"]
         [--supervisor "<name>"]
+    check_proposal.py [--json] draft proposal/draft.md --numbers
+    check_proposal.py [--json] draft proposal/draft.md --placeholders [--placeholder-list "<heading>"]
 
 Exit 0: clean. Exit 1: defects, one per line as `<file>:<line>: <message>`
 (a JSON list with --json). Exit 2: a file could not be read, the arguments
 were malformed, or the interpreter is older than 3.11.
+
+The two reports judge nothing, skip the mechanics and exit 0; --json gives
+{"numbers": [...]} and
+{"placeholders": [...], "unlisted": [...], "unused": [...]}.
 
 --references bounds the citations in the section --review-section names
 (default "Literature review"): a [n] list by the numbers cited there, any
@@ -115,6 +121,14 @@ SUPERVISION = re.compile(
     r"under\s+the\s+supervision\s+of\s+([^\n]{1,60})", re.IGNORECASE
 )
 NUMBERING = re.compile(r"^\d+(?:\.\d+)*\.?\s*")
+PLACEHOLDER = re.compile(r"\[[A-Z][A-Z0-9 _-]*\]|\bTODO\b|\bTBD\b")
+INLINE_CODE = re.compile(r"`[^`]*`")
+HEADING_NUMBER = re.compile(r"^(#{1,6} )((?:\d+|[A-Z])(?:\.\d+)*\.?\s*)")
+MONEY = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?")
+PERCENT = re.compile(r"\d[\d,]*(?:\.\d+)?\s?%")
+INTEGER = re.compile(r"(?<![\w.,])\d{1,3}(?:,\d{3})+(?![\w.])|(?<![\w.,])\d+(?![\w.,])")
+NUMBERS_YEAR = (1900, 2099)
+WINDOW = 6  # words either side of a reported number
 
 
 def _norm(text: str) -> str:
@@ -977,12 +991,18 @@ def check_draft(
                 "contributions",
                 "4.3",
             )
+    consent_blocks = [
+        block(i)
+        for i, (text, number, _) in enumerate(heads)
+        if "consent" in text.lower() and in_appendix(number)
+    ]
+    searched = consent_blocks or appendix_ranges
     appendix_text = re.sub(
         r"\s+",
         " ",
         "\n".join(
             clean(lines[n - 1])
-            for start, end in appendix_ranges
+            for start, end in searched
             for n in range(start, end + 1)
         ),
     )
@@ -994,14 +1014,182 @@ def check_draft(
             "supervision",
             "12.3",
         )
-    elif supervisor and supervisor.lower() not in match.group(1).lower():
-        add(
-            1,
-            f"appendix: the supervision sentence names {match.group(1).strip()!r}, not {supervisor!r}",
-            "supervisor-name",
-            "12.3",
-        )
+    else:
+        if not consent_blocks:
+            print(
+                "supervision sentence found outside a consent-headed appendix",
+                file=sys.stderr,
+            )
+        if supervisor and supervisor.lower() not in match.group(1).lower():
+            add(
+                1,
+                f"appendix: the supervision sentence names {match.group(1).strip()!r}, not {supervisor!r}",
+                "supervisor-name",
+                "12.3",
+            )
     return defects
+
+
+def _headings(lines: Sequence[str]) -> list[tuple[str, int, int]]:
+    """(text, line number, level) of every heading, numbering as written."""
+    return [
+        (clean(m.group(2)), number, len(m.group(1)))
+        for number, raw in enumerate(lines, 1)
+        if (m := HEADING.match(clean(raw)))
+    ]
+
+
+def _block_of(
+    heads: Sequence[tuple[str, int, int]], index: int, last: int
+) -> tuple[int, int]:
+    """A section runs to the next heading at its own level or higher."""
+    start, level = heads[index][1], heads[index][2]
+    for _text, number, other_level in heads[index + 1 :]:
+        if other_level <= level:
+            return start, number - 1
+    return start, last
+
+
+def _heading_of(heads: Sequence[tuple[str, int, int]], line: int) -> str:
+    text = "(no heading)"
+    for heading, number, _ in heads:
+        if number > line:
+            break
+        text = heading
+    return text
+
+
+def _blank(text: str, pattern: re.Pattern[str]) -> str:
+    """The text with every match replaced by spaces, so offsets stay put."""
+    return pattern.sub(lambda m: " " * len(m.group(0)), text)
+
+
+def _window(text: str, start: int, end: int) -> str:
+    before = text[:start].split()[-WINDOW:]
+    after = text[end:].split()[:WINDOW]
+    return " ".join([*before, text[start:end], *after])
+
+
+def numbers_report(lines: Sequence[str]) -> list[dict]:
+    """Every money and percent figure, and every non-year integer of two or
+    more digits that occurs twice or more, outside the References section,
+    grouped by value in order of first occurrence, each occurrence with its
+    heading, line and the six words either side. Citation brackets, inline
+    code and a heading's own number are blanked first."""
+    heads = _headings(lines)
+    skip: tuple[int, int] = (0, -1)
+    for index, (text, _, _) in enumerate(heads):
+        if _matches(text, "references"):
+            skip = _block_of(heads, index, len(lines))
+            break
+    groups: dict[str, list[dict]] = {}
+    always: set[str] = set()
+
+    def record(value: str, number: int, line: str, start: int, end: int) -> None:
+        groups.setdefault(value, []).append(
+            {
+                "heading": _heading_of(heads, number),
+                "line": number,
+                "text": _window(line, start, end),
+            }
+        )
+
+    for number, raw in enumerate(lines, 1):
+        if skip[0] <= number <= skip[1]:
+            continue
+        line = clean(raw)
+        masked = _blank(_blank(line, CITATION), INLINE_CODE)
+        heading = HEADING_NUMBER.match(masked)
+        if heading is not None:
+            masked = (
+                masked[: heading.start(2)]
+                + " " * len(heading.group(2))
+                + masked[heading.end(2) :]
+            )
+        for pattern, suffix in ((MONEY, ""), (PERCENT, "%")):
+            for m in pattern.finditer(masked):
+                digits = re.sub(r"[\s,%$]", "", m.group(0))
+                value = ("$" if pattern is MONEY else "") + digits + suffix
+                always.add(value)
+                record(value, number, line, m.start(), m.end())
+            masked = _blank(masked, pattern)
+        for m in INTEGER.finditer(masked):
+            digits = m.group(0).replace(",", "")
+            if len(digits) < 2:
+                continue
+            if (
+                "," not in m.group(0)
+                and len(digits) == 4
+                and NUMBERS_YEAR[0] <= int(digits) <= NUMBERS_YEAR[1]
+            ):
+                continue
+            record(digits, number, line, m.start(), m.end())
+    return [
+        {"value": value, "locations": locations}
+        for value, locations in groups.items()
+        if value in always or len(locations) >= 2
+    ]
+
+
+def render_numbers(report: Sequence[dict]) -> list[str]:
+    out: list[str] = []
+    for group in report:
+        out.append(f"{group['value']}: {len(group['locations'])} occurrences")
+        out.extend(
+            f"  {loc['heading']} (line {loc['line']}): {loc['text']}"
+            for loc in group["locations"]
+        )
+    return out
+
+
+def placeholders_report(lines: Sequence[str], list_heading: str | None) -> dict:
+    """Every placeholder with its heading and line; with a list heading, the
+    placeholders used outside that block and not listed in it, and the
+    reverse."""
+    heads = _headings(lines)
+    listing: tuple[int, int] | None = None
+    if list_heading is not None:
+        for index, (text, _, _) in enumerate(heads):
+            if _matches(text, list_heading):
+                listing = _block_of(heads, index, len(lines))
+                break
+        if listing is None:
+            print(
+                f"placeholder list heading `{list_heading}` not found", file=sys.stderr
+            )
+    occurrences: list[dict] = []
+    used: set[str] = set()
+    listed: set[str] = set()
+    for number, raw in enumerate(lines, 1):
+        line = clean(raw)
+        for m in PLACEHOLDER.finditer(line):
+            occurrences.append(
+                {
+                    "text": m.group(0),
+                    "heading": _heading_of(heads, number),
+                    "line": number,
+                }
+            )
+            in_listing = listing is not None and listing[0] <= number <= listing[1]
+            (listed if in_listing else used).add(m.group(0))
+    if list_heading is None:
+        return {"placeholders": occurrences, "unlisted": [], "unused": []}
+    return {
+        "placeholders": occurrences,
+        "unlisted": sorted(used - listed),
+        "unused": sorted(listed - used),
+    }
+
+
+def render_placeholders(report: dict, listed: bool) -> list[str]:
+    out = [
+        f"{p['text']}: {p['heading']} (line {p['line']})"
+        for p in report["placeholders"]
+    ]
+    if listed:
+        out.append("used but not listed: " + (", ".join(report["unlisted"]) or "none"))
+        out.append("listed but unused: " + (", ".join(report["unused"]) or "none"))
+    return out
 
 
 DEFAULT_SECTIONS = (
@@ -1021,6 +1209,15 @@ def parse_range(text: str) -> tuple[int, int]:
     return int(low), int(high)
 
 
+def add_draft_options(parser: argparse.ArgumentParser) -> None:
+    """The `draft` options a review's `Checker:` line may carry."""
+    parser.add_argument("--sections", default=", ".join(DEFAULT_SECTIONS))
+    parser.add_argument("--words", default="2000-4000")
+    parser.add_argument("--references", default="15-20")
+    parser.add_argument("--review-section", default=DEFAULT_REVIEW_SECTION)
+    parser.add_argument("--supervisor")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     # The script runs standalone on whatever python3 the user has, below the repo floor.
     if sys.version_info < (3, 11):  # noqa: UP036
@@ -1037,11 +1234,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         commands.add_parser(name).add_argument("path")
     draft = commands.add_parser("draft")
     draft.add_argument("path")
-    draft.add_argument("--sections", default=", ".join(DEFAULT_SECTIONS))
-    draft.add_argument("--words", default="2000-4000")
-    draft.add_argument("--references", default="15-20")
-    draft.add_argument("--supervisor")
-    draft.add_argument("--review-section", default=DEFAULT_REVIEW_SECTION)
+    add_draft_options(draft)
+    reports = draft.add_mutually_exclusive_group()
+    reports.add_argument(
+        "--numbers", action="store_true", help="report repeated numbers; judges nothing"
+    )
+    reports.add_argument(
+        "--placeholders",
+        action="store_true",
+        help="report placeholders; judges nothing",
+    )
+    draft.add_argument(
+        "--placeholder-list", help="the heading of the draft's own placeholder list"
+    )
     args = parser.parse_args(argv)
     path = Path(args.path)
     try:
@@ -1061,6 +1266,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         defects = check_brief(path, items)
     elif args.command == "review":
         defects = check_review(path, items)
+    elif args.numbers or args.placeholders:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if args.numbers:
+            numbers = numbers_report(lines)
+            text = (
+                json.dumps({"numbers": numbers}, indent=2, ensure_ascii=False)
+                if args.json
+                else "\n".join(render_numbers(numbers))
+            )
+        else:
+            report = placeholders_report(lines, args.placeholder_list)
+            text = (
+                json.dumps(report, indent=2, ensure_ascii=False)
+                if args.json
+                else "\n".join(
+                    render_placeholders(report, args.placeholder_list is not None)
+                )
+            )
+        print(text)
+        return 0
     else:
         try:
             words, references = parse_range(args.words), parse_range(args.references)

@@ -1238,6 +1238,134 @@ def test_a_consent_form_wrapped_between_the_title_and_the_name_passes(tmp_path):
     assert result.returncode == 0, result.stdout
 
 
+def test_the_supervision_sentence_is_sought_in_the_consent_appendix_first(tmp_path):
+    """With a consent-headed appendix the sentence must be there; with none,
+    every appendix is searched and stderr says so."""
+    path = tmp_path / "draft.md"
+    path.write_text(valid_draft(), encoding="utf-8")
+    clean_run = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert clean_run.returncode == 0, clean_run.stdout
+    assert "outside a consent-headed appendix" not in clean_run.stderr
+    moved = mutate(
+        valid_draft(),
+        "## Appendix B: consent form\n\nThis study is run by the author under the supervision of Dr. Example as a course project. You may stop at any time.\n\n"
+        "## Appendix C: session script\n\nWelcome.\n",
+        "## Appendix B: consent form\n\nYou may stop at any time.\n\n"
+        "## Appendix C: session script\n\nWelcome. This study is run under the supervision of Dr. Example.\n",
+    )
+    path.write_text(moved, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 1
+    assert (
+        "appendix: no consent sentence saying the study is under the supervision of the instructor [supervision; item 12.3]"
+        in result.stdout
+    )
+    no_consent_heading = moved.replace(
+        "## Appendix B: consent form\n", "## Appendix B: participant information\n"
+    )
+    path.write_text(no_consent_heading, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 0, result.stdout
+    assert (
+        "supervision sentence found outside a consent-headed appendix" in result.stderr
+    )
+
+
+def _numbers_fixture() -> str:
+    """52 twice in prose, 36 once in the body and once in a consent-headed
+    appendix, 45 once, a citation bracket `[52]` beside "participants", a
+    heading `## 36 Consent form`, a dollar figure, a percentage, inline code."""
+    text = valid_draft()
+    text = mutate(
+        text,
+        "## Participants\n\n",
+        "## Participants\n\nWe will recruit N = 52 participants, about 36 in the full study, paying $847 in all; power is not computed. ",
+    )
+    text = mutate(
+        text,
+        "## Procedure\n\n",
+        "## Procedure\n\nEach of the 52 sessions lasts a 45-minute slot; participants [52] agree; completion was 93% in `run_52.py`. ",
+    )
+    return mutate(
+        text,
+        "## Appendix B: consent form\n\n",
+        "## 36 Consent form\n\nAbout 36 participants take part, as the 2026 plan says. ",
+    )
+
+
+def test_numbers_groups_repeated_values_and_masks_citations_code_and_heading_numbers(
+    tmp_path,
+):
+    path = tmp_path / "draft.md"
+    path.write_text(_numbers_fixture(), encoding="utf-8")
+    result = run("--json", "draft", str(path), "--numbers")
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)["numbers"]
+    by_value = {group["value"]: group["locations"] for group in report}
+    assert set(by_value) == {"52", "36", "$847", "93%"}, by_value
+    assert len(by_value["52"]) == 2
+    assert len(by_value["36"]) == 2
+    assert {loc["heading"] for loc in by_value["36"]} == {
+        "Participants",
+        "36 Consent form",
+    }
+    assert all("52" in loc["text"] for loc in by_value["52"])
+    assert [loc["heading"] for loc in by_value["52"]] == ["Participants", "Procedure"]
+    assert "45" not in by_value
+    assert "2026" not in by_value
+    for loc in by_value["52"]:
+        assert isinstance(loc["line"], int)
+        assert len(loc["text"].split()) <= 13
+    text_mode = run("draft", str(path), "--numbers")
+    assert text_mode.returncode == 0
+    assert "52: 2 occurrences\n  Participants (line " in text_mode.stdout
+    # the report mode judges nothing: the mechanics of the same draft would fail
+    assert run("draft", str(path), "--words", "1-2").returncode == 1
+
+
+def test_placeholders_lists_todo_and_bracketed_names_and_compares_with_the_list(
+    tmp_path,
+):
+    text = mutate(
+        valid_draft(),
+        "## Materials\n\n",
+        "## Materials\n\nThe device is [NAME]; TODO decide the display. ",
+    )
+    text = mutate(
+        text,
+        "## Appendix C: session script\n\nWelcome.\n",
+        "## Appendix C: session script\n\nWelcome.\n\n## Appendix H: Placeholders\n\n- [VENUE]: where the sessions run.\n",
+    )
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    plain = json.loads(run("--json", "draft", str(path), "--placeholders").stdout)
+    assert [p["text"] for p in plain["placeholders"]] == ["[NAME]", "TODO", "[VENUE]"]
+    assert plain["placeholders"][0]["heading"] == "Materials"
+    assert plain["unlisted"] == []
+    assert plain["unused"] == []
+    listed = json.loads(
+        run(
+            "--json",
+            "draft",
+            str(path),
+            "--placeholders",
+            "--placeholder-list",
+            "Appendix H",
+        ).stdout
+    )
+    assert listed["unlisted"] == ["TODO", "[NAME]"]
+    assert listed["unused"] == ["[VENUE]"]
+    text_mode = run(
+        "draft", str(path), "--placeholders", "--placeholder-list", "Appendix H"
+    )
+    assert text_mode.returncode == 0
+    assert "[NAME]: Materials (line " in text_mode.stdout
+    assert "used but not listed: TODO, [NAME]" in text_mode.stdout
+    assert "listed but unused: [VENUE]" in text_mode.stdout
+    both = run("draft", str(path), "--numbers", "--placeholders")
+    assert both.returncode == 2
+
+
 # --------------------------------------------------------------------------
 # The evaluation fixtures agree with the checker
 # --------------------------------------------------------------------------
