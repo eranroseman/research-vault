@@ -525,18 +525,24 @@ def normalize(text: str, index: Index, *, source: str) -> tuple[str, list[Proble
 
 def names_note(target: str, key: str, *, source: str) -> bool:
     """Whether a link target names ``literature/<key>.md`` in any spelling
-    Obsidian or a person writes: the bare key, ``literature/<key>``, with or
-    without ``.md``, ``/``-led, or relative to ``source``. A markdown
-    destination that is a URI is the caller's to skip (``is_external``); a
-    wikilink target never is one, so a key holding a ``:`` is still named."""
+    Obsidian or a person writes, each with or without ``.md``: the bare key
+    or ``literature/<key>``, or a ``/``-led or relative path to
+    ``literature/<key>``. A path form is read as ``Index.resolve`` reads it,
+    exactly, from ``source``: ``/<key>.md`` is the root file, not the note.
+    A markdown destination that is a URI is the caller's to skip
+    (``is_external``); a wikilink target never is one, so a key holding a
+    ``:`` is still named."""
     raw = urllib.parse.unquote(target.strip()).replace("\\", "/")
     if not raw:
         return False
-    if raw.startswith(("./", "../")):
+    named = {f"literature/{key}"}
+    if raw.startswith("/"):
+        raw = posixpath.normpath(raw.lstrip("/"))
+    elif raw.startswith(("./", "../")):
         raw = posixpath.normpath(posixpath.join(posixpath.dirname(source), raw))
-    raw = raw.lstrip("/")
-    raw = raw.removesuffix(".md")
-    return raw in {key, f"literature/{key}"}
+    else:
+        named.add(key)
+    return raw.removesuffix(".md") in named
 
 
 def rewrite_key(text: str, old: str, new: str, *, source: str) -> str:

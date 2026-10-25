@@ -334,7 +334,8 @@ def test_plan_and_lint_read_a_markdown_link_from_the_surface_that_holds_it(
     surface: `../../literature/old2020.md` names the note from
     `projects/brief/`, so it is planned, rewritten and, written again
     afterwards, residue; `../literature/old2020.md` from there names
-    `projects/literature/old2020.md` and is none of these."""
+    `projects/literature/old2020.md`, and `/old2020.md` from the root names
+    the root file `old2020.md`: neither is any of these."""
     _seed(tmp_vault)
     client = _zotero(monkeypatch)
     monkeypatch.setattr(
@@ -342,12 +343,17 @@ def test_plan_and_lint_read_a_markdown_link_from_the_surface_that_holds_it(
     )
     notes = tmp_vault / "projects" / "brief" / "notes.md"
     notes.write_text("[n](../../literature/old2020.md) [m](../literature/old2020.md)\n")
+    # From the root, each of these is the root file `old2020.md`, not the note.
+    root = tmp_vault / "root-note.md"
+    root.write_text("[r](/old2020.md) [s](./old2020.md) [t](../old2020.md)\n")
     planned, path, digest = _planned(tmp_vault, client)
     assert "projects/brief/notes.md" in [s.path for s in planned.surfaces]
+    assert "root-note.md" not in [s.path for s in planned.surfaces]
     propagate.apply(tmp_vault, client, path, digest)
     assert notes.read_text() == (
         "[n](/literature/new2020.md) [m](../literature/old2020.md)\n"
     )
+    assert root.read_text() == "[r](/old2020.md) [s](./old2020.md) [t](../old2020.md)\n"
     (clean,) = propagate.lint_propagation(tmp_vault)
     assert clean.result is Result.MATCHED, clean
     (tmp_vault / "projects" / "brief" / "late.md").write_text(

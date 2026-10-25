@@ -604,6 +604,26 @@ def test_names_note_recognises_every_spelling_of_a_literature_link(target, named
     assert links.names_note(target, "old2020", source="wiki/sources/A.md") is named
 
 
+@pytest.mark.parametrize(
+    ("target", "named"),
+    [
+        ("/old2020.md", False),
+        ("./old2020.md", False),
+        ("../old2020.md", False),
+        ("/old2020", False),
+        ("/literature/old2020.md", True),
+        ("./literature/old2020.md", True),
+        ("old2020.md", True),
+        ("old2020", True),
+    ],
+)
+def test_names_note_reads_a_led_path_only_as_the_literature_path(target, named):
+    """A `/`-led, `./` or `../` target is a path, resolved from its source as
+    `Index.resolve` reads it: from a root note `/old2020.md` is the root file
+    `old2020.md`, never the note. Only a target led by neither is a key form."""
+    assert links.names_note(target, "old2020", source="index.md") is named
+
+
 def test_rewrite_key_renames_wiki_and_markdown_links_and_display_text():
     text = (
         "[[old2020]] [[old2020#^c-1]] [[old2020|alias]] [old2020](/literature/old2020.md) "
