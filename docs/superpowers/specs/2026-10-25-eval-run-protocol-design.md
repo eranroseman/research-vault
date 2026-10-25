@@ -56,6 +56,10 @@ Landing a branch: (C1) `scripts/land.py <branch>`, one command that waits for gr
 - `scripts/land.py <branch>`: `git fetch origin`; resolve the branch head on origin; find the `quality` run for exactly that sha (`gh run list --commit <sha> --workflow quality`), waiting while it is queued or in progress, exiting 1 with the run URL if it is red or absent after a bounded wait; then `git push origin <branch>:main`; then `git -C <shared checkout> pull --ff-only origin main`, reporting rather than failing if that pull is refused by another session's uncommitted work. A non-fast-forward push refusal prints the rebase instruction and exits 1. Stdlib plus `git` and `gh` subprocesses.
 - AGENTS.md: the commit line becomes `git commit -m "<message>" -- <files>` with the reason (after `--`, every word is a pathspec); the Git section becomes: create the branch worktree before writing the first file, the shared checkout stays on `main`; push the branch; land it with `python scripts/land.py <branch>`; a branch behind `main` cannot fast-forward — rebase, push, land again; fetch before claiming something is absent from the remote.
 
+## Drive-bys on the same branch
+
+Two one-line edits to `docs/research/2026-09-20-paper-critical-analysis-evals/README.md`, outside the design but riding the branch: the 2026-10-24 A/B entry gains the like-for-like pair rating of the 2026-10-04 report (same prompt, fresh Opus rater, 2026-10-25: overall 8, verifiability 7, calibration 7, 17 trust-lowering items, against the new report's 8, 8, 7 and 12; return saved beside that run), and the 2026-10-04 Results paragraph's wrapped line "+ 51 checks on Bloom…" is rejoined so "283 + 32 + 51 checks" reads as one figure instead of a stray bullet.
+
 ## Left to the builder
 
 The exact regex and its tests; the transcript tool-use record shape for Bash, Write and Edit (read one real transcript to pin it, and test against a fixture cut from one); whether `--since` reads the stamp's mtime or an ISO time; table formatting; how `land.py` is tested without a network (a fake `git` and `gh` on `PATH` in a subprocess test, or an injected runner), and its wait bound.
