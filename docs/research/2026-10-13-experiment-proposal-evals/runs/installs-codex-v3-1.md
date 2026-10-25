@@ -45,7 +45,7 @@ name: review
 
 with the whole `SKILL.md` after the path (the other three skills the same, with their names). The load is that record.
 
-Admission was judged by the spec's rule (section 1): the mention loads the skill, read here as Codex inserting the `SKILL.md` into the session at record 10, and no tool call before that load names a path under the plugin cache. The brief's decisive line was kept as a check that the loaded skill ran, not as the load point. Taken as the load point, it would put cache-path calls before the load: 5 for review (whose first call `cat`s the cache's `SKILL.md`), 3 for design, 1 for the ethics board and 0 for lit-search. Those calls are the skill's own steps after the inserted load, not a search for the skill, so they do not disqualify it.
+Admission was judged by the spec's rule (section 1): the mention loads the skill, read here as Codex inserting the `SKILL.md` into the session at record 10, and no tool call before that load names a path under the plugin cache. The brief's decisive line was kept as a check that the loaded skill ran, not as the load point. Taken as the load point at its first appearance, it would put cache-path calls before the load: 3 for review (whose first call `cat`s the cache's `SKILL.md`; 5 counting to the final message), 3 for design, 1 for the ethics board and 0 for lit-search. Those calls are the skill's own steps after the inserted load, not a search for the skill, so they do not disqualify it.
 
 A tool call naming a path under the plugin cache was counted when its input named `<scratch codex home>` or `plugins/cache`. The counts are taken from each attempt's root session rollout. Every such call came after the load: the skill's own follow-ups, which read `SKILL.md` and `references/checklist.md` and run `scripts/check_proposal.py` or `litsearch.py` by cache path, because `${CLAUDE_PLUGIN_ROOT}` stays literal in Codex (as the 0.1.0 record found). No attempt ran `rg`, `find`, `ls` or `cat` over the cache before the load. The brief's `grep -c 'plugins/cache'` over a whole stream gives 10, 6, 2 and 2 lines (review, design, lit-search, ethics board), all after the load.
 
@@ -118,7 +118,7 @@ The user picks fixes with `/experiment-proposal:review`
 /oss:research-grill defend proposal/draft.md
 ```
 
-Codex printed the closing line as "The user picks fixes with `/experiment-proposal:review`", capitalised and with the command in a code span. That differs from the pinned text, "the user picks fixes with /experiment-proposal:review". Admission rests on the `not confirmed` rows, not on the closing line.
+Codex printed the closing line as "The user picks fixes with `/experiment-proposal:review`", capitalised and with the command in a code span. That differs from the pinned text, "the user picks fixes with /experiment-proposal:review". The decisive-line check rests on the `not confirmed` rows, not on the closing line.
 
 `proposal/review.md` holds 67 rows with those four `not confirmed`, and `check_proposal.py review` exits 0 on it. The model's first write failed the checker with four defects (two passes without a quoted passage, and the Summary's Pass and Fail counts each off by one), and it corrected them before finishing. The draft is unchanged: `git diff` is empty, and `git status --porcelain` shows only `?? proposal/review.md`. Step 7 read `~/.claude/plugins/installed_plugins.json` (read-only), found an `oss@` key, and printed the installed form of the hand-off.
 
