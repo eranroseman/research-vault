@@ -126,7 +126,9 @@ INLINE_CODE = re.compile(r"`[^`]*`")
 HEADING_NUMBER = re.compile(r"^(#{1,6} )((?:\d+|[A-Z])(?:\.\d+)*\.?\s*)")
 MONEY = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?")
 PERCENT = re.compile(r"\d[\d,]*(?:\.\d+)?\s?%")
-INTEGER = re.compile(r"(?<![\w.,])\d{1,3}(?:,\d{3})+(?![\w.])|(?<![\w.,])\d+(?![\w.,])")
+INTEGER = re.compile(
+    r"(?<![\w.,])\d{1,3}(?:,\d{3})+(?!\w|[.,]\d)|(?<![\w.,])\d+(?!\w|[.,]\d)"
+)
 NUMBERS_YEAR = (1900, 2099)
 WINDOW = 6  # words either side of a reported number
 
@@ -881,22 +883,10 @@ def check_draft(
     def add(line: int, message: str, rule: str, item: str | None = None) -> None:
         defects.append(Defect(str(path), line, message, rule, item))
 
-    heads: list[tuple[str, int, int]] = []  # (text, line number, level)
-    for number, raw in enumerate(lines, 1):
-        match = HEADING.match(clean(raw))
-        if match is not None:
-            heads.append((clean(match.group(2)), number, len(match.group(1))))
+    heads = _headings(lines)
 
     def block(index: int) -> tuple[int, int]:
-        """A section runs to the next heading at its own level or higher, so a
-        `###` subheading stays inside its `##` section."""
-        start, level = heads[index][1], heads[index][2]
-        end = len(lines)
-        for _text, number, other_level in heads[index + 1 :]:
-            if other_level <= level:
-                end = number - 1
-                break
-        return start, end
+        return _block_of(heads, index, len(lines))
 
     def find(prefix: str, from_index: int = 0) -> int | None:
         for index in range(from_index, len(heads)):
@@ -1042,7 +1032,8 @@ def _headings(lines: Sequence[str]) -> list[tuple[str, int, int]]:
 def _block_of(
     heads: Sequence[tuple[str, int, int]], index: int, last: int
 ) -> tuple[int, int]:
-    """A section runs to the next heading at its own level or higher."""
+    """A section runs to the next heading at its own level or higher, so a
+    `###` subheading stays inside its `##` section."""
     start, level = heads[index][1], heads[index][2]
     for _text, number, other_level in heads[index + 1 :]:
         if other_level <= level:

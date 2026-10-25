@@ -1274,22 +1274,25 @@ def test_the_supervision_sentence_is_sought_in_the_consent_appendix_first(tmp_pa
 def _numbers_fixture() -> str:
     """52 twice in prose, 36 once in the body and once in a consent-headed
     appendix, 45 once, a citation bracket `[52]` beside "participants", a
-    heading `## 36 Consent form`, a dollar figure, a percentage, inline code."""
+    heading `## 36 Consent form`, a dollar figure, a percentage, inline code.
+    The Participants 52 is followed by a comma and the appendix 36 ends a
+    sentence, so punctuation after an integer keeps it; the decimal 52.5 is
+    not a 52."""
     text = valid_draft()
     text = mutate(
         text,
         "## Participants\n\n",
-        "## Participants\n\nWe will recruit N = 52 participants, about 36 in the full study, paying $847 in all; power is not computed. ",
+        "## Participants\n\nWe will recruit N = 52, about 36 in the full study, paying $847 in all; power is not computed. ",
     )
     text = mutate(
         text,
         "## Procedure\n\n",
-        "## Procedure\n\nEach of the 52 sessions lasts a 45-minute slot; participants [52] agree; completion was 93% in `run_52.py`. ",
+        "## Procedure\n\nEach of the 52 sessions lasts a 45-minute slot of 52.5 trials on average; participants [52] agree; completion was 93% in `run_52.py`. ",
     )
     return mutate(
         text,
         "## Appendix B: consent form\n\n",
-        "## 36 Consent form\n\nAbout 36 participants take part, as the 2026 plan says. ",
+        "## 36 Consent form\n\nAs the 2026 plan says, the participants number about 36. ",
     )
 
 
@@ -1305,6 +1308,7 @@ def test_numbers_groups_repeated_values_and_masks_citations_code_and_heading_num
     assert set(by_value) == {"52", "36", "$847", "93%"}, by_value
     # document order, within a line too: `52` and `36` precede `$847` on one line
     assert [group["value"] for group in report] == ["52", "36", "$847", "93%"]
+    # the comma-followed 52 and the sentence-final 36 count; the decimal 52.5 does not
     assert len(by_value["52"]) == 2
     assert len(by_value["36"]) == 2
     assert {loc["heading"] for loc in by_value["36"]} == {
