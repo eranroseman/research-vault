@@ -1,6 +1,6 @@
 ---
 name: lit-search
-description: "Invoked by name: searches scholarly indexes and snowballs from seed DOIs for a literature review's sources; appends judged records to proposal/notes/lit-search-judged.txt. Not for unprompted use."
+description: "Invoke by name only."
 argument-hint: "[agent] [path or need]"
 ---
 

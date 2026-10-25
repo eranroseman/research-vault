@@ -1,7 +1,7 @@
 ---
 name: the-ethics-board
 # local edit (experiment-proposal): description replaced by a name-only line; the upstream text is at the archived revision named below
-description: "Invoked by name: rehearses an ethics-committee review of the study and writes proposal/ethics-review.md. Not for unprompted use."
+description: "Invoke by name only."
 ---
 
 <!--

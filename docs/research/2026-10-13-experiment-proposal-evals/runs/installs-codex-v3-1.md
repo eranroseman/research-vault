@@ -159,6 +159,8 @@ Home b held six rollout files after its three attempts. That matches the three a
 
 Every skill is admitted. `allow_implicit_invocation` stays `false` in the four `agents/openai.yaml`, the flip is not applied, and the README is unchanged.
 
+Note, 2026-10-25: after this run the four skills' descriptions changed to "Invoke by name only.", because the 0.3.0 routing set loaded the skill in 10 of its 12 description-paraphrase negative runs. Codex admission does not read them: the explicit mention loads the `SKILL.md` (record 10 above).
+
 ## Cleanup
 
 No `codex plugin remove` or `codex plugin marketplace remove` was run, because the install existed only in scratch Codex homes a and b (the probe home had nothing installed). All three scratch homes were deleted when their scripts exited: an exit trap in each, and a deletion line in the logs of a and b. Nothing was removed from the operator's Codex home, and its `research-vault` marketplace and 0.2.0 install stay as they were.

@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Invoked by name: checks a written experiment proposal against its frozen design brief and the checklist, writes proposal/review.md. Not for unprompted use."
+description: "Invoke by name only."
 argument-hint: "[agent] [path or need]"
 ---
 

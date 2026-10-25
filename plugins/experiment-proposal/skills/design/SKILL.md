@@ -1,6 +1,6 @@
 ---
 name: design
-description: "Invoked by name: settles a controlled experiment's design decisions in numbered rounds and freezes them in proposal/design-brief.md. Not for unprompted use."
+description: "Invoke by name only."
 argument-hint: "[agent] [path or need]"
 ---
 

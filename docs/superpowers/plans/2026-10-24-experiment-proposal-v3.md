@@ -21,11 +21,11 @@ Every task's requirements implicitly include these, copied from the spec and fro
 - **Vendored files** (`skills/lit-search/scripts/*.py` except `litsearch.py`, `skills/the-ethics-board/SKILL.md`, `agents/hci-researcher.md`) change only by re-vendoring, by marked local edits named in their provenance headers, and by mdformat; never by ruff. A SHA-256 test (Task 6) pins their bytes; a hand edit fails it.
 - **Word budgets** (tests hold them, `<=`): `skills/design/SKILL.md` 1,500; `skills/review/SKILL.md` 1,300; `skills/lit-search/SKILL.md` 900; `references/brief.md` 700; `references/review.md` 950. The texts in Tasks 4, 9, 10 and 11 were counted with the test's rule while this plan was written (1,444; 1,298; 900; 531; 946) and sit within a few words of their budgets: make each file byte-identical to its block after mdformat, and do not add a word; a text that cannot fit is a spec conflict to report, not a budget to exceed.
 - **The agent-run signal.** The fixed argument token `agent`, read from `$ARGUMENTS` by `design`, `review` and `lit-search` (the ethics board reads the `ARGUMENTS:` line Claude Code appends); where a host passes no arguments (Codex), the phrase "no human will answer" in the invoking message. The closing lines, verbatim: design, "brief open, N provisional; the user freezes it with /experiment-proposal:design" and, on a frozen brief, "frozen brief; amendments need the user"; review, "the user picks fixes with /experiment-proposal:review"; the hand-off's agent-run first line, "research-grill install not checked.".
-- **The four descriptions, verbatim**, each a double-quoted one-line YAML scalar:
-  - design: `"Invoked by name: settles a controlled experiment's design decisions in numbered rounds and freezes them in proposal/design-brief.md. Not for unprompted use."`
-  - review: `"Invoked by name: checks a written experiment proposal against its frozen design brief and the checklist, writes proposal/review.md. Not for unprompted use."`
-  - lit-search: `"Invoked by name: searches scholarly indexes and snowballs from seed DOIs for a literature review's sources; appends judged records to proposal/notes/lit-search-judged.txt. Not for unprompted use."`
-  - the-ethics-board: `"Invoked by name: rehearses an ethics-committee review of the study and writes proposal/ethics-review.md. Not for unprompted use."`
+- **The four descriptions, verbatim**, each a double-quoted one-line YAML scalar (amended 2026-10-25 after the 0.3.0 routing set: 10 of the 12 description-paraphrase negative runs loaded the skill, so the description carries no product clause):
+  - design: `"Invoke by name only."`
+  - review: `"Invoke by name only."`
+  - lit-search: `"Invoke by name only."`
+  - the-ethics-board: `"Invoke by name only."`
 - **Version and tag.** `plugin.json` 0.3.0 (one writer; the reference files' example `Checklist:` lines read `experiment-proposal 0.3.0`; no version string enters the README). Tag `experiment-proposal--v0.3.0`, minted by `claude plugin tag` after landing.
 - **Upstream pin.** hutzelmann/thesis-proposal-skills at `1666e690e7b2f0659531253d319d41ebf0a310d7` (v0.9.0), cloned at `/tmp/upstream/thesis-proposal-skills` on the author's machine (re-clone with `git clone https://github.com/hutzelmann/thesis-proposal-skills /tmp/upstream/thesis-proposal-skills` if absent). pm-claude-skills at `f93fee7459e2bf452ec9bc43163004812efba51f`, unreachable on 2026-10-24 (`gh api` 404 for repository and user), archived as `swh:1:rev:f93fee7459e2bf452ec9bc43163004812efba51f`.
 - **The lens.** Anything that does not directly produce the proposal is dropped. The skills write only `proposal/design-brief.md`, `proposal/review.md`, (review, picked fixes only) the draft, `proposal/notes/lit-search-judged.txt`, a lit-search `--out` file under `proposal/notes/`, and (the ethics board) `proposal/ethics-review.md`.
@@ -2274,32 +2274,27 @@ Replace `test_skill_frontmatter_names_itself_and_is_name_only` with:
 
 ```python
 OWN_SKILLS = {"design", "review", "lit-search"}
-DESCRIPTIONS = {
-    "design": "Invoked by name: settles a controlled experiment's design decisions in numbered rounds and freezes them in proposal/design-brief.md. Not for unprompted use.",
-    "review": "Invoked by name: checks a written experiment proposal against its frozen design brief and the checklist, writes proposal/review.md. Not for unprompted use.",
-    "lit-search": "Invoked by name: searches scholarly indexes and snowballs from seed DOIs for a literature review's sources; appends judged records to proposal/notes/lit-search-judged.txt. Not for unprompted use.",
-    "the-ethics-board": "Invoked by name: rehearses an ethics-committee review of the study and writes proposal/ethics-review.md. Not for unprompted use.",
-}
+# 0.3.0 routing set: 10 of the 12 description-paraphrase negative runs loaded
+# the skill, so no description names the skill or what it produces.
+DESCRIPTION = "Invoke by name only."
 ARGUMENT_HINT = "[agent] [path or need]"
 
 
 @pytest.mark.parametrize("skill_dir", SKILL_DIRS, ids=lambda p: p.name)
 def test_skill_frontmatter_is_callable_by_name_and_triggered_by_nothing(skill_dir):
     """0.3.0: no disable-model-invocation (an agent may call the skill by
-    name); the description a double-quoted one-line scalar that opens
-    "Invoked by name:", names what the skill produces, carries no trigger
-    phrase and ends "Not for unprompted use."; an argument-hint on the three
-    skills we own, none on the vendored ethics board."""
+    name); the description the double-quoted one-line scalar "Invoke by name
+    only." on all four, with no product clause to paraphrase; an
+    argument-hint on the three skills we own, none on the vendored ethics
+    board."""
     skill_md = skill_dir / "SKILL.md"
     data = _frontmatter(skill_md)
     assert data.get("name") == skill_dir.name
     assert "disable-model-invocation" not in data
-    assert data["description"] == DESCRIPTIONS[skill_dir.name]
+    assert data["description"] == DESCRIPTION
     raw = {line.partition(":")[0].strip(): line for line in _raw_frontmatter_lines(skill_md)}
     assert raw["description"].partition(":")[2].strip().startswith('"'), "description is not double-quoted"
     assert raw["description"].rstrip().endswith('"')
-    for phrase in ("Use when", "use when", "Trigger", "trigger"):
-        assert phrase not in data["description"]
     if skill_dir.name in OWN_SKILLS:
         assert data.get("argument-hint") == ARGUMENT_HINT
         assert set(data) == {"name", "description", "argument-hint"}
@@ -2370,7 +2365,7 @@ Each of `skills/design/SKILL.md`, `skills/review/SKILL.md`, `skills/lit-search/S
 ```yaml
 ---
 name: design
-description: "Invoked by name: settles a controlled experiment's design decisions in numbered rounds and freezes them in proposal/design-brief.md. Not for unprompted use."
+description: "Invoke by name only."
 argument-hint: "[agent] [path or need]"
 ---
 ```
@@ -2378,7 +2373,7 @@ argument-hint: "[agent] [path or need]"
 ```yaml
 ---
 name: review
-description: "Invoked by name: checks a written experiment proposal against its frozen design brief and the checklist, writes proposal/review.md. Not for unprompted use."
+description: "Invoke by name only."
 argument-hint: "[agent] [path or need]"
 ---
 ```
@@ -2386,7 +2381,7 @@ argument-hint: "[agent] [path or need]"
 ```yaml
 ---
 name: lit-search
-description: "Invoked by name: searches scholarly indexes and snowballs from seed DOIs for a literature review's sources; appends judged records to proposal/notes/lit-search-judged.txt. Not for unprompted use."
+description: "Invoke by name only."
 argument-hint: "[agent] [path or need]"
 ---
 ```
@@ -2401,7 +2396,7 @@ Frontmatter (replacing lines 1 to 6):
 ---
 name: the-ethics-board
 # local edit (experiment-proposal): description replaced by a name-only line; the upstream text is at the archived revision named below
-description: "Invoked by name: rehearses an ethics-committee review of the study and writes proposal/ethics-review.md. Not for unprompted use."
+description: "Invoke by name only."
 ---
 ```
 
