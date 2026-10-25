@@ -19,9 +19,9 @@ so ``[[ghost:2020]]`` resolves as a name.
 The normaliser rewrites a note's body only; its frontmatter block is never
 normalised. Dataview's frontmatter reader takes only ``[[…]]`` as a link, so
 a rewritten property would lose its Link type (the reason Q19 masks
-Dataview's inline fields in the body), while Obsidian core reads both forms there
-(app.js ``cD``, per the plan author's ruling of 2026-10-25), so nothing core
-is lost; and ``read_okf`` at seal is the YAML gate. This deviates from spec
+Dataview's inline fields in the body), while Obsidian core reads both forms
+there (app.js ``cD``, per the plan author's ruling of 2026-10-25), so nothing
+core is lost; and ``read_okf`` at seal is the YAML gate. This deviates from spec
 §5.2, which has the normaliser refuse a rewrite that leaves frontmatter
 unparseable: with no rewrite there is nothing to refuse.
 """
@@ -321,7 +321,10 @@ def encode_path(path: str) -> str:
 
 def render_markdown(link: Link, path: str) -> str:
     """``[[x]]`` → ``[basename](/p/x.md)``; alias and subpath carried; embeds
-    keep only their alias (a size such as ``480``) as the text."""
+    keep only their alias (a size such as ``480``) as the text. With no
+    alias, a target written as anything but the file's basename (with or
+    without ``.md``) — a title, an alias, another case, a path — stays the
+    text, so the link reads as it did."""
     destination = "/" + encode_path(path) + encode_path(link.subpath)
     if link.embed:
         return f"![{link.alias or ''}]({destination})"
@@ -329,7 +332,8 @@ def render_markdown(link: Link, path: str) -> str:
         text = link.alias
     else:
         base = posixpath.basename(path)
-        text = base.removesuffix(".md")
+        stem = base.removesuffix(".md")
+        text = stem if link.target in {base, stem} else link.target
         if link.subpath:
             text = f"{text} > {link.subpath[1:]}"
     return f"[{text}]({destination})"

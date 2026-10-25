@@ -237,7 +237,7 @@ def test_render_markdown_follows_generate_markdown_link(wiki, path, rendered):
 
 
 def test_render_encodes_only_backslash_space_and_controls():
-    (link,) = links.find_links("[[x]]")
+    (link,) = links.find_links("[[a\\b c\x01]]")  # the text is never encoded
     assert (
         links.render_markdown(link, "w/a\\b c\x01.md")
         == "[a\\b c\x01](/w/a%5Cb%20c%01.md)"
@@ -414,8 +414,9 @@ def test_normalize_never_rewrites_a_relative_target_and_reports_every_dead_one(
     out, problems = links.normalize(text, index, source="wiki/concepts/Other.md")
     assert out == (
         "[[./Foo]] [[../sources/Foo|src]] [[../Foo]] [x](./Missing.md) "
-        "[y](/wiki/gone.md) [z](../nope.md) [Only Here](/wiki/concepts/Only%20Here.md)\n"
-    )
+        "[y](/wiki/gone.md) [z](../nope.md) "
+        "[/wiki/concepts/Only Here](/wiki/concepts/Only%20Here.md)\n"
+    )  # a path-led target stays the text (R7)
     assert [(p.kind, p.target) for p in problems] == [
         ("dead", "../Foo"),
         ("dead", "./Missing.md"),
@@ -441,7 +442,7 @@ def test_normalize_reads_a_colon_wikilink_as_a_name_and_skips_only_a_url(tmp_pat
     text = "[[re:2020]] [[ghost:2020]] [m](mailto:a@b.c) ![u](https://x.org/a.png)\n"
     out, problems = links.normalize(text, index, source="projects/brief/draft.md")
     assert out == (
-        "[re2020](/literature/re2020.md) [[ghost:2020]] "
+        "[re:2020](/literature/re2020.md) [[ghost:2020]] "
         "[m](mailto:a@b.c) ![u](https://x.org/a.png)\n"
     )
     assert [(p.kind, p.target) for p in problems] == [("dead", "ghost:2020")]
@@ -756,3 +757,53 @@ def test_normalize_reads_no_field_where_dataview_reads_none(tmp_path):
     out, _ = links.normalize(text, index, source="projects/brief/draft.md")
     rendered = "[Only Here](/wiki/concepts/Only%20Here.md)"
     assert out == text.replace("[[Only Here]]", rendered)
+
+
+@pytest.mark.parametrize(
+    ("wiki", "path", "rendered"),
+    [
+        (
+            "[[Mortality decline]]",
+            "literature/smith2020.md",
+            "[Mortality decline](/literature/smith2020.md)",
+        ),
+        (
+            "[[Mortality decline#Methods]]",
+            "literature/smith2020.md",
+            "[Mortality decline > Methods](/literature/smith2020.md#Methods)",
+        ),
+        (
+            "[[only here]]",
+            "wiki/concepts/Only Here.md",
+            "[only here](/wiki/concepts/Only%20Here.md)",
+        ),
+        (
+            "[[concepts/Foo]]",
+            "wiki/concepts/Foo.md",
+            "[concepts/Foo](/wiki/concepts/Foo.md)",
+        ),
+        # The basename, with or without `.md`, renders as the bare name.
+        (
+            "[[Only Here]]",
+            "wiki/concepts/Only Here.md",
+            "[Only Here](/wiki/concepts/Only%20Here.md)",
+        ),
+        (
+            "[[Only Here.md]]",
+            "wiki/concepts/Only Here.md",
+            "[Only Here](/wiki/concepts/Only%20Here.md)",
+        ),
+        (
+            "[[smith2020#^c-1]]",
+            "literature/smith2020.md",
+            "[smith2020 > ^c-1](/literature/smith2020.md#^c-1)",
+        ),
+    ],
+)
+def test_render_keeps_the_written_target_as_the_text_unless_it_is_the_basename(
+    wiki, path, rendered
+):
+    """R7: a wikilink with no alias shows its target as written; a title,
+    alias, case-folded or path-led one must not turn into the file's name."""
+    (link,) = links.find_links(wiki)
+    assert links.render_markdown(link, path) == rendered
