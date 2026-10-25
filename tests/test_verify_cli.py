@@ -761,6 +761,58 @@ def test_stamp_type_exits_4_without_pyyaml(tmp_path, monkeypatch, capsys):
     assert "PyYAML" in capsys.readouterr().err
 
 
+def test_stamp_type_prints_every_line_the_hook_reads(tmp_path, monkeypatch, capsys):
+    """The output contract the commit hook parses (§5.1): `normalised` and
+    `regenerated` mean changed; an unwritable file, a dead or ambiguous link
+    (as written, either form) and an unterminated frontmatter block are
+    reported, each on its own line."""
+    from research_vault import stamp
+
+    vault = tmp_path / "vault"
+    pages = {
+        "wiki/concepts/Only Here.md": "---\ntype: concept\n---\n",
+        "wiki/concepts/Twin.md": "---\ntype: concept\n---\n",
+        "wiki/sources/Twin.md": "---\ntype: source\n---\n",
+        "projects/brief/draft.md": (
+            '---\ntype: "project"\n---\n[[Only Here]] [g](nowhere.md) [[Twin]]\n'
+        ),
+        "projects/brief/index.md": "---\nx: y\n[[Only Here]]\n",
+        "log/2026-10-24.md": (
+            '---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — captured x\n'
+        ),
+        "inbox/ro.md": "a thought\n",
+    }
+    for relative, text in pages.items():
+        (vault / relative).parent.mkdir(parents=True, exist_ok=True)
+        (vault / relative).write_text(text)
+    real = stamp._write_text
+
+    def failing(path, text):
+        if path.name == "ro.md":
+            raise OSError(30, "Read-only file system")
+        real(path, text)
+
+    monkeypatch.setattr(stamp, "_write_text", failing)
+    assert main(["stamp-type", "--vault", str(vault)]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "normalised projects/brief/draft.md",
+        "regenerated log.md",
+        "skipped inbox/ro.md — file could not be written",
+        (
+            "unresolved projects/brief/draft.md — [g](nowhere.md) no file matches;"
+            " resolve by hand"
+        ),
+        (
+            "unresolved projects/brief/draft.md — [[Twin]] 2 files match"
+            " (wiki/concepts/Twin.md, wiki/sources/Twin.md); resolve by hand"
+        ),
+        (
+            "skipped projects/brief/index.md — frontmatter is not terminated;"
+            " the note was not normalised"
+        ),
+    ]
+
+
 def test_stamp_type_prints_each_report_reason_on_its_own_line(tmp_path, capsys):
     """The three reasons stamp_types reports each get their own line, in walk
     order, after the stamped notes; the exit is 0 regardless. The branch,
