@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from . import frontmatter
+from . import frontmatter, structure
 
 
 def _day_lines(day_file: Path) -> list[str]:
@@ -25,6 +25,8 @@ def regenerate_log(vault_root, tail_entries: int = 20) -> str:
     body_lines = ["# Log"]
     remaining = tail_entries
     for day_file in day_files:
+        if structure.is_excluded(day_file, vault):
+            continue
         lines = _day_lines(day_file)
         take = lines[:remaining] if remaining > 0 else []
         body_lines.extend(["", f"## {day_file.stem}"])

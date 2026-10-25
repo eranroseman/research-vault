@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import claims as claims_mod
-from . import frontmatter, gitstate, literature_notes
+from . import frontmatter, gitstate, literature_notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
@@ -500,7 +500,11 @@ def _origin(
 def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
     disputed, outcomes = set(), []
     for path in (
-        sorted((vault_root / "wiki").rglob("*.md"))
+        [
+            page
+            for page in sorted((vault_root / "wiki").rglob("*.md"))
+            if not structure.is_excluded(page, vault_root)
+        ]
         if (vault_root / "wiki").is_dir()
         else []
     ):

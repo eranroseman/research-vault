@@ -35,7 +35,7 @@ from pathlib import Path
 from . import events, frontmatter, structure
 
 _SKIP_NAMES = {"index.md"}
-_SKIP_DIRS = structure.EXCLUDED_DIRS | {"fulltext"}
+_SKIP_DIRS = frozenset({"fulltext"})
 
 
 def _has_delimiter(text: str) -> bool:
@@ -49,7 +49,9 @@ def _candidate_paths(vault: Path, paths):
             yield candidate if candidate.is_absolute() else vault / candidate
         return
     for path in sorted(vault.rglob("*.md")):
-        if any(part in _SKIP_DIRS for part in path.relative_to(vault).parts):
+        if structure.is_excluded(path, vault) or any(
+            part in _SKIP_DIRS for part in path.relative_to(vault).parts
+        ):
             continue
         yield path
 

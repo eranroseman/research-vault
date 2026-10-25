@@ -22,6 +22,7 @@ from . import (
     literature_notes,
     okf,
     stamp,
+    structure,
 )
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
@@ -331,6 +332,8 @@ def _every_note(vault: Path) -> tuple[list[str], list[Outcome]]:
     keys: list[str] = []
     outcomes: list[Outcome] = []
     for path in sorted((vault / "literature").glob("*.md")):
+        if structure.is_excluded(path, vault):
+            continue
         target = RepoPath(os.fsencode(f"literature/{path.name}"))
         try:
             data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))

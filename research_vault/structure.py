@@ -32,8 +32,19 @@ _FOLDER_TYPES = {
 }
 # The compile tool's own stores (ingest spec §4.3): `.raw/` would hold a
 # duplicate of `fulltext/` if its capture were ever run, and `.vault-meta/` is
-# its runtime state. Both are gitignored and never walked.
+# its runtime state. Both are gitignored and never walked. Kept as a named set
+# for the readers that spell them (`stamp._SKIP_DIRS`); `is_excluded` below
+# covers them through the dot-component rule as well.
 EXCLUDED_DIRS = frozenset({".git", ".raw", ".vault-meta"})
+# #194: Obsidian itself skips any path with a component starting with a dot
+# (`validateConfigDir`, app.js 1.13.7), so a plugin's README.md under
+# `.obsidian/`, Claude Code's `.claude/`, Obsidian's `.trash/` and a
+# plugin's nested dotfile are never notes. The OS-litter names are the
+# three upstream gitignore templates spell (Q25): macOS `.DS_Store` and
+# AppleDouble `._*` (which match a `*.md` glob), and Windows `desktop.ini`
+# in both casings.
+OS_LITTER = frozenset({".DS_Store", "desktop.ini", "Desktop.ini"})
+_APPLE_DOUBLE_PREFIX = "._"
 # docs/agents/okf-conformance.md's register, first row: the adopted compile tool writes
 # `wiki/index.md` with frontmatter at a hard-coded path; OKF §8 forbids it on
 # a nested index and the tool's own lint requires it. The vault carries the
@@ -43,8 +54,22 @@ _EXEMPT_INDEXES = frozenset({"wiki/index.md"})
 _PROJECT_NOTE_NAME = "draft.md"
 
 
+def is_os_litter(name: str) -> bool:
+    return name in OS_LITTER or name.startswith(_APPLE_DOUBLE_PREFIX)
+
+
 def is_excluded(path: Path, vault: Path) -> bool:
-    return any(part in EXCLUDED_DIRS for part in path.relative_to(vault).parts)
+    """The one walker predicate (#194): dot-components, the excluded stores, OS litter.
+
+    Every walker in the package calls this; a test pins that no `rglob("*.md")`
+    loop body skips it. `.gitkeep` is a dot-name too, so a walker over every
+    file (not only `*.md`) treats the sentinel as excluded, which is right:
+    nothing reads it.
+    """
+    parts = path.relative_to(vault).parts
+    return any(part in EXCLUDED_DIRS or part.startswith(".") for part in parts) or (
+        bool(parts) and is_os_litter(parts[-1])
+    )
 
 
 def is_fleeting(relative: str) -> bool:

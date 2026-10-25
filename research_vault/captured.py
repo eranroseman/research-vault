@@ -33,6 +33,8 @@ def _read_notes(
     entries: list[tuple[dict, literature_notes.Provenance]] = []
     outcomes: list[Outcome] = []
     for path in sorted((vault / "literature").glob("*.md")):
+        if structure.is_excluded(path, vault):
+            continue
         target = RepoPath(os.fsencode(f"literature/{path.name}"))
         try:
             text = path.read_text(encoding="utf-8")

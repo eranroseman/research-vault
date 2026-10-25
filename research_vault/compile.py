@@ -14,7 +14,7 @@ import sys
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
-from . import captured, clock, frontmatter, literature_notes, paths
+from . import captured, clock, frontmatter, literature_notes, paths, structure
 from .outcome import Outcome, Result
 
 LEDGER_PATH = literature_notes.LEDGER_PATH
@@ -91,6 +91,8 @@ def tool_script(vault_root) -> Path:
 def _selected_notes(vault: Path, keys):
     wanted = set(keys)
     for path in sorted((vault / "literature").glob("*.md")):
+        if structure.is_excluded(path, vault):
+            continue
         try:
             # bytes.decode()'s default codec already is utf-8, so this carries
             # no literal codec name a mutation gate could flip with no effect.

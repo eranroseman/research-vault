@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import NamedTuple
 
-from . import fulltext, literature_notes
+from . import fulltext, literature_notes, structure
 from .outcome import Outcome, Result
 from .zotero import DatabaseChangedError, ZoteroClient, ZoteroError
 
@@ -146,6 +146,8 @@ def _drift_detail(
 def _provenances(vault: Path) -> list[tuple[Path, literature_notes.Provenance]]:
     found: list[tuple[Path, literature_notes.Provenance]] = []
     for path in sorted((vault / "literature").glob("*.md")):
+        if structure.is_excluded(path, vault):
+            continue
         try:
             provenance = literature_notes.read_provenance(
                 path.read_text(encoding="utf-8")

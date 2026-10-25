@@ -21,7 +21,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import AGENT_ACTOR, Result, frontmatter, gitstate, okf, stamp
+from . import AGENT_ACTOR, Result, frontmatter, gitstate, okf, stamp, structure
 from .events import record_pass
 from .lints import PUBLISHED_TAG
 from .markers import _read_note_text, _write_note_text
@@ -133,6 +133,8 @@ def project_note(vault, project) -> Path:
     directory = project_dir(vault, project)
     found = []
     for path in sorted(directory.rglob("*.md")):
+        if structure.is_excluded(path, Path(vault)):
+            continue
         try:
             data, _ = frontmatter.parse(_read_note_text(path))
         except (OSError, UnicodeError, frontmatter.FrontmatterError):

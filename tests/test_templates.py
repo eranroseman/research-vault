@@ -4,7 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from research_vault import frontmatter
+from research_vault import frontmatter, structure
 
 REPO = Path(__file__).resolve().parents[1]
 ROOT = Path(__file__).resolve().parents[1]
@@ -202,6 +202,9 @@ def test_bases_and_machine_example_match_canonical_shapes():
     gitignore = asset("vault/gitignore").read_text()
     assert ".research-vault/\n" in gitignore
     assert ".obsidian/workspace*\n" in gitignore
+    for litter in (".DS_Store\n", "._*\n", "[Dd]esktop.ini\n"):
+        assert litter in gitignore
+    assert set(structure.OS_LITTER) == {".DS_Store", "desktop.ini", "Desktop.ini"}
 
 
 # Anchored (leading "/") gitignore-style form, as research_vault/lints.py's

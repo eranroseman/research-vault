@@ -110,6 +110,7 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
     assert (vault / "log.md").read_text() == ('---\ntype: "log"\n---\n# Log\n')
     assert (vault / ".gitignore").read_text() == (
         ".research-vault/\n.obsidian/workspace*\n.raw/\n.vault-meta/\nfulltext/\n"
+        ".DS_Store\n._*\n[Dd]esktop.ini\n"
     )
     # Byte-pinned against the CANONICAL json.tool form the JSON owner produces
     # (tests/test_config_validity.py asserts the template itself equals it). Same

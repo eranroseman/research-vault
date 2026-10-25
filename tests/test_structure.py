@@ -1,3 +1,5 @@
+import pytest
+
 from research_vault import Result, structure
 
 
@@ -212,3 +214,67 @@ def test_check_tree_reports_each_nested_directory_under_literature(tmp_path):
             "schema-violation — literature/ is flat: literature/zzz/",
         ),
     ]
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        ".obsidian/plugins/dataview/README.md",
+        ".claude/settings.md",
+        "wiki/.trash/old.md",
+        "projects/brief/.hot/notes.md",
+        "literature/.DS_Store",
+        "literature/._smith2020.md",
+        "wiki/desktop.ini",
+        "wiki/Desktop.ini",
+        ".git/COMMIT_EDITMSG",
+        ".raw/x.md",
+        ".vault-meta/mode.json",
+    ],
+)
+def test_is_excluded_covers_every_dot_component_and_os_litter(tmp_path, relative):
+    assert structure.is_excluded(tmp_path / relative, tmp_path)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    ["wiki/a.md", "literature/smith2020.md", "projects/brief/draft.md", "dotless.md"],
+)
+def test_is_excluded_leaves_ordinary_paths_alone(tmp_path, relative):
+    assert not structure.is_excluded(tmp_path / relative, tmp_path)
+
+
+def test_every_walker_in_the_package_uses_the_one_predicate():
+    """#194: the predicate is only a mechanism if every walker calls it. A
+    `rglob("*.md")` whose loop body does not call `structure.is_excluded`
+    is a walker that reaches `.obsidian/`."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "research_vault"
+    offenders = []
+    for module in sorted(root.glob("*.py")):
+        text = module.read_text(encoding="utf-8")
+        for match in re.finditer(r'\.rglob\("\*\.md"\)', text):
+            window = text[match.end() : match.end() + 400]
+            if "is_excluded(" not in window and module.name != "structure.py":
+                offenders.append(
+                    f"{module.name}:{text[: match.start()].count(chr(10)) + 1}"
+                )
+    assert offenders == [], offenders
+
+
+def test_a_plugin_readme_under_the_config_dir_is_not_checked(tmp_path):
+    """The #194 report: a community plugin's `.md` under `.obsidian/` was held
+    to OKF §11 rules 1-2 and blocked the commit."""
+    from research_vault import scaffold, verify
+
+    scaffold.scaffold_vault(tmp_path)
+    readme = tmp_path / ".obsidian" / "plugins" / "dataview" / "README.md"
+    readme.parent.mkdir(parents=True)
+    readme.write_text("# Dataview\n\nNo frontmatter here.\n")
+    _report, effective, _hashes, warning = verify.verify_state(
+        tmp_path, network=False, git_candidate="worktree"
+    )
+    decision, blockers = verify.surface_decision("commit", effective, warning)
+    assert decision == 0, blockers

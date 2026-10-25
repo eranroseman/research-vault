@@ -12,7 +12,7 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
-from . import claims, gitstate
+from . import claims, gitstate, structure
 from .pathcodec import PathCodecError, decode_repo_path
 
 _ANY_VERIFY_MARKER = r"\[failed-verification:: [A-Za-z0-9-]+/\d{4}-\d{2}-\d{2}\]"
@@ -177,9 +177,12 @@ def _claim_notes(vault: Path) -> list[Path]:
 
     ``literature/`` flat, the same rule as every reader of it (decision 08).
     """
-    return sorted((vault / "projects").rglob("*.md")) + sorted(
-        (vault / "literature").glob("*.md")
-    )
+    return [
+        path
+        for path in sorted((vault / "projects").rglob("*.md"))
+        + sorted((vault / "literature").glob("*.md"))
+        if not structure.is_excluded(path, vault)
+    ]
 
 
 def clear_marker_for(vault_root, check: str, target: str) -> bool:

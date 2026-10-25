@@ -3,3 +3,6 @@
 .raw/
 .vault-meta/
 fulltext/
+.DS_Store
+._*
+[Dd]esktop.ini

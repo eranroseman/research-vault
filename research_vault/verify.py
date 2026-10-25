@@ -742,10 +742,15 @@ def _plan_state(
     # `literature/` flat, as every reader of it globs (`_claim_notes`, the
     # captured set, the linter, `--all`): a nested file is a literature note
     # nowhere, so nothing here stamps a claim `clear_marker_for` cannot reach.
-    note_files = sorted((vault / "literature").glob("*.md")) + [
+    note_files = [
+        path
+        for path in sorted((vault / "literature").glob("*.md"))
+        if not structure.is_excluded(path, vault)
+    ] + [
         path
         for folder in ("wiki", "projects")
         for path in sorted((vault / folder).rglob("*.md"))
+        if not structure.is_excluded(path, vault)
     ]
     for path in note_files:
         raw.extend(file_outcomes(vault, path, bibliography_universe))
