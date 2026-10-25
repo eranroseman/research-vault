@@ -12,7 +12,7 @@ from typing import AnyStr
 
 import pytest
 
-from research_vault import frontmatter, scaffold, zotero
+from research_vault import frontmatter, okf, scaffold, zotero
 
 
 def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyStr:
@@ -230,7 +230,6 @@ def _populate_fixture_vault(tmp_vault: Path, env: dict[str, str]) -> None:
     (tmp_vault / "index.md").write_text(
         '---\nokf_version: "0.2"\n---\n# Knowledge bundle\n'
     )
-    (tmp_vault / "log.md").write_text("# Log\n")
     literature = tmp_vault / "literature"
     (literature / "smith2020.md").write_text(
         _with_body_witness("""---
@@ -327,6 +326,7 @@ generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
     (tmp_vault / "log" / "2026-08-16.md").write_text(
         '---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — imported smith2020\n'
     )
+    okf.regenerate_log(tmp_vault)
     (tmp_vault / "inbox" / "review-queue.md").write_text(
         '---\ntype: "review-queue"\n---\n'
     )

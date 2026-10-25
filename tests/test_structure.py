@@ -1,4 +1,5 @@
 import ast
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -124,6 +125,10 @@ def test_reserved_check_exempts_wiki_index_only(tmp_path):
     problems = structure.check_reserved(tmp_path)
     assert problems[0].result is Result.UNMATCHED
     assert "wiki/concepts/index.md" in problems[0].target
+    assert problems[0].reason == (
+        "schema-violation — reserved name under wiki/ outside the compile tool's "
+        "files (wiki/index.md, wiki/log.md, wiki/canvases/index.md)"
+    )
 
 
 def test_reserved_check_skips_the_tool_stores(tmp_path):
@@ -138,7 +143,7 @@ def test_reserved_log_must_be_date_grouped_newest_first(tmp_path):
     _scaffold_min(tmp_path)
     _write(
         tmp_path,
-        "log.md",
+        "daily/log.md",
         '---\ntype: "log"\n---\n# Log\n\n## 2026-08-20\n- x\n\n## 2026-08-21\n- y\n',
     )
     problems = [
@@ -369,6 +374,7 @@ def _walkers():
         "propagate-surfaces": lambda v: list(propagate._surfaces(v)),
         "propagate-records": propagate.lint_propagation,
         "reserved": structure.check_reserved,
+        "log-dir": structure.check_log_dir,
         "tree": structure.check_tree,
     }
 
@@ -502,3 +508,228 @@ def test_root_index_with_a_boolean_key_is_reported_not_a_traceback(tmp_path):
     _write(tmp_path, "index.md", '---\nokf_version: "0.2"\nyes: 1\n---\n# x\n')
     rows = structure.check_reserved(tmp_path)
     assert any("carries keys beyond okf_version: ['True']" in o.reason for o in rows)
+
+
+WRITER = "research_vault/0.1.0"
+
+
+def _rows(vault, check=None):
+    rows = structure.check_reserved(vault) + structure.check_log_dir(vault)
+    return [
+        (o.check, o.target, o.reason)
+        for o in rows
+        if o.result is Result.UNMATCHED and (check is None or o.check == check)
+    ]
+
+
+def test_log_dir_reports_strays_under_their_own_paths_never_under_log_md(tmp_path):
+    """#204: a non-date file, a compact date, an impossible date, a stray
+    heading and a hand-typed line are each a row on their own file; so is a
+    day file whose frontmatter only the OKF reader accepts, which the render
+    drops whole."""
+    from research_vault import okf
+
+    _scaffold_min(tmp_path)
+    log = tmp_path / "log"
+    _write(tmp_path, "log/Untitled.md", "- stray\n")
+    _write(
+        tmp_path, "log/2026-13-45.md", f'---\ntype: "log"\n---\n- 09:00 {WRITER} — x\n'
+    )
+    _write(
+        tmp_path, "log/20261004.md", f'---\ntype: "log"\n---\n- 09:00 {WRITER} — x\n'
+    )
+    _write(
+        tmp_path,
+        "log/2026-10-01.md",
+        f'---\ntype: "log"\n---\n## Agenda\n- 09:00 {WRITER} — real\n- hand-typed\n',
+    )
+    _write(
+        tmp_path,
+        "log/2026-10-02.md",
+        "---\ntype: log\nmeta:\n  a: 1\n---\n- hand-typed\n",
+    )
+    (log / "nested").mkdir()
+    (log / ".gitkeep").touch()
+    okf.regenerate_log(tmp_path)
+    rows = _rows(tmp_path)
+    assert rows == [
+        (
+            "okf-structure",
+            "path-bytes:log/2026-10-01.md",
+            "schema-violation — line 1 is not in the writer's format: '## Agenda'",
+        ),
+        (
+            "okf-structure",
+            "path-bytes:log/2026-10-01.md",
+            "schema-violation — line 3 is not in the writer's format: '- hand-typed'",
+        ),
+        (
+            "okf-structure",
+            "path-bytes:log/2026-10-02.md",
+            "schema-violation — frontmatter is not the writer's flat form",
+        ),
+        (
+            "okf-structure",
+            "path-bytes:log/2026-13-45.md",
+            "schema-violation — log/ holds only <YYYY-MM-DD>.md day files and .gitkeep",
+        ),
+        (
+            "okf-structure",
+            "path-bytes:log/20261004.md",
+            "schema-violation — log/ holds only <YYYY-MM-DD>.md day files and .gitkeep",
+        ),
+        (
+            "okf-structure",
+            "path-bytes:log/Untitled.md",
+            "schema-violation — log/ holds only <YYYY-MM-DD>.md day files and .gitkeep",
+        ),
+        ("tree", "log/nested/", "schema-violation — log/ is flat: log/nested/"),
+    ]
+    assert not any("log.md" in target for _check, target, _reason in rows)
+
+
+_TOOL_INDEX = (
+    "---\ntype: meta\ntitle: W\nstatus: s\ncreated: 2026-01-01\n"
+    "updated: 2026-01-01\ntags:\n  - m\n---\n# W\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("relative", "text", "refused"),
+    [
+        # a reserved name under wiki/ outside the tool's files
+        ("wiki/topic/index.md", "", True),
+        ("wiki/other/log.md", "prose, no date headings\n", True),
+        ("system/propagations/index.md", "", True),
+        ("projects/p/index.md", "Some prose that is not a heading or a list.\n", True),
+        ("projects/p/index.md", "# Project\n\n- [draft](draft.md)\n", False),
+        # an empty nested index is valid (OKF §8, Q22)
+        ("daily/index.md", "", False),
+        ("daily/log.md", "", False),
+        ("daily/log.md", '---\ntype: "log"\n---\n## 2026-10-24\n- x\n', False),
+        # a heading that is no calendar date
+        ("daily/log.md", "## 2026-13-45\n- x\n", True),
+        # a block that does not parse
+        ("daily/log.md", "---\nnot a mapping\n---\n", True),
+        # rule 2 when a block is present
+        ("daily/log.md", "---\ntype: null\n---\n", True),
+        ("wiki/index.md", _TOOL_INDEX, False),
+        ("wiki/log.md", "Prose and bullets, the tool's own shape.\n- entry\n", False),
+        ("wiki/canvases/index.md", "---\ntype: meta\ntitle: C\n---\n# C\n", False),
+    ],
+)
+def test_nested_reserved_names_follow_one_shape_rule(tmp_path, relative, text, refused):
+    """#209: one body-shape rule for every person-owned folder; the compile
+    tool's three files pass by name; any other reserved name under wiki/ or
+    system/propagations/ is refused by name until #212's record lands (Q23)."""
+    from research_vault import okf
+
+    _scaffold_min(tmp_path)
+    _write(tmp_path, relative, text)
+    okf.regenerate_log(tmp_path)
+    rows = _rows(tmp_path, "okf-structure")
+    assert any(relative in target for _c, target, _r in rows) is refused, rows
+
+
+_LOG_DIFFERS = (
+    "schema-violation — root log.md differs from its render; run stamp-type, "
+    "which regenerates it"
+)
+
+
+def test_root_log_md_must_equal_its_render(tmp_path):
+    """#210: every edit to the root log — an entry, a removed entry, the
+    frontmatter, the heading order, an extra line, CRLF line endings — is
+    refused naming log.md, a missing log.md passes, and the fixer repairs it."""
+    from research_vault import fixer, okf
+
+    _scaffold_min(tmp_path)
+    _write(
+        tmp_path,
+        "log/2026-10-01.md",
+        f'---\ntype: "log"\n---\n- 09:00 {WRITER} — one\n',
+    )
+    _write(
+        tmp_path,
+        "log/2026-10-02.md",
+        f'---\ntype: "log"\n---\n- 09:00 {WRITER} — two\n',
+    )
+    rendered = okf.regenerate_log(tmp_path)
+    assert _rows(tmp_path) == []
+    for edit in (
+        rendered.replace("— one", "— won"),
+        rendered.replace(f"- 09:00 {WRITER} — one\n", ""),
+        rendered.replace('---\ntype: "log"\n---\n', ""),
+        rendered.replace("## 2026-10-02", "## 2026-10-03"),
+        rendered + "- a hand-typed line\n",
+        rendered.replace("\n", "\r\n"),  # byte for byte, not text for text
+    ):
+        assert edit != rendered
+        (tmp_path / "log.md").write_bytes(edit.encode("utf-8"))
+        rows = _rows(tmp_path)
+        assert rows == [("okf-structure", "path-bytes:log.md", _LOG_DIFFERS)], edit
+    report = fixer.fix(tmp_path, paths=[])
+    assert report.log_regenerated is True
+    assert _rows(tmp_path) == []
+    (tmp_path / "log.md").unlink()
+    assert _rows(tmp_path) == []
+
+
+_LOG_BLOCKER = f"UNMATCHED okf-structure path-bytes:log.md — {_LOG_DIFFERS}"
+
+
+def _staged_fixer_says(vault, capsys):
+    from research_vault.__main__ import main
+
+    assert main(["stamp-type", "--vault", str(vault), "--staged"]) == 0
+    return capsys.readouterr().out.splitlines()
+
+
+def _commit_blockers(vault, candidate):
+    from research_vault import verify
+
+    _report, effective, _hashes, warning = verify.verify_state(
+        vault, network=False, git_candidate=candidate
+    )
+    return verify.surface_decision("commit", effective, warning)[1]
+
+
+def test_a_staged_day_file_deletion_is_refused_at_commit(fixture_vault, capsys):
+    """The hook's fixer renders nothing on a staged deletion (#203), so the
+    commit surface compares the index's log.md with a render of the index's
+    day files: the deleted day's heading is still in the staged log."""
+    subprocess.run(
+        ["git", "rm", "-q", "log/2026-08-16.md"], cwd=fixture_vault, check=True
+    )
+    assert _staged_fixer_says(fixture_vault, capsys) == []
+    assert _LOG_BLOCKER in _commit_blockers(fixture_vault, "index")
+
+
+def test_a_stale_staged_log_beside_a_fresh_worktree_one_is_refused_at_commit(
+    fixture_vault, capsys
+):
+    """A day file staged without log.md: the worktree's log.md equals its
+    render, so the hook's fixer says nothing; the index's lacks the new day,
+    and the index is what the commit records."""
+    from research_vault import okf
+
+    _write(
+        fixture_vault,
+        "log/2026-08-17.md",
+        f'---\ntype: "log"\n---\n- 09:00 {WRITER} — staged\n',
+    )
+    subprocess.run(["git", "add", "log/2026-08-17.md"], cwd=fixture_vault, check=True)
+    okf.regenerate_log(fixture_vault)
+    assert _staged_fixer_says(fixture_vault, capsys) == []
+    assert _LOG_BLOCKER in _commit_blockers(fixture_vault, "index")
+    assert _LOG_BLOCKER not in _commit_blockers(fixture_vault, "worktree")
+
+
+def test_stamp_leaves_reserved_names_untouched_anywhere(tmp_path):
+    from research_vault import stamp
+
+    _write(tmp_path, "log/log.md", "bare\n")
+    _write(tmp_path, "projects/p/index.md", "bare\n")
+    stamped, _reported = stamp.stamp_types(tmp_path)
+    assert stamped == []
+    assert (tmp_path / "log" / "log.md").read_text() == "bare\n"

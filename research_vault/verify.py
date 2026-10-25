@@ -759,10 +759,11 @@ def _plan_state(
     for path in sorted(vault.rglob("*.md")):
         if structure.is_excluded(path, vault):
             continue
-        if path.name == "index.md" or path.name == "log.md":
+        if structure.is_reserved(path.relative_to(vault).as_posix()):
             continue
         raw.extend(structure.check_note_frontmatter(vault, path))
     raw.extend(structure.check_reserved(vault))
+    raw.extend(structure.check_log_dir(vault))
     raw.extend(structure.check_tree(vault))
     if network:
         raw.extend(lifecycle.lint_lifecycle(vault, ZoteroClient(base=base)))

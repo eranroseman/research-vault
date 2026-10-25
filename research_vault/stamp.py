@@ -42,7 +42,6 @@ from pathlib import Path
 
 from . import events, frontmatter, structure
 
-_SKIP_NAMES = {"index.md"}
 _SKIP_DIRS = frozenset({"fulltext"})
 
 
@@ -94,7 +93,7 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
     stamped: list[str] = []
     reported: list[tuple[str, str]] = []
     for path in _candidate_paths(vault, paths):
-        if ".git" in path.parts or path.name in _SKIP_NAMES:
+        if ".git" in path.parts or structure.is_reserved(path.name):
             continue
         if path.is_symlink():
             # Refuse to write through a symlink — the target could sit
@@ -112,9 +111,6 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
             reported.append((_reported_name(path, vault), "outside"))
             continue
         relative = _reported_name(path, vault)
-        if relative == "log.md":
-            continue
-
         try:
             text = _read_text(path)
         except OSError:

@@ -85,10 +85,11 @@ def _normalise(vault: Path, paths, report: FixReport) -> None:
             path.resolve().relative_to(root)
         except ValueError:
             # #107 for the names stamp skips before its own containment
-            # check (`index.md`): never write through to outside the vault.
+            # check (the reserved `index.md` and a nested `log.md`): never
+            # write through to outside the vault.
             report.reported.append((relative, "outside"))
             continue
-        # Only a name stamp never reads (`index.md`) can fail here: stamp
+        # Only a reserved name, which stamp never reads, can fail here: stamp
         # reported every other failed read, and `skipped` holds those.
         try:
             text = stamp._read_text(path)
