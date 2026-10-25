@@ -261,6 +261,20 @@ def test_third_party_notices_carry_the_mit_text_and_every_copyright_holder():
         assert f"Copyright (c) 2026 {holder}" in text, f"notices lack {holder}"
     assert "statistical-power" not in text
     assert "three marked local edits" in text
+    assert (
+        "closely paraphrased into `references/checklist.md` items 13.6 to 13.11" in text
+    )
+    assert "consulted and not copied" in text
+    hutzelmann_row = next(
+        line
+        for line in text.splitlines()
+        if "hutzelmann/thesis-proposal-skills" in line and line.startswith("|")
+    )
+    assert "six substance tests" in hutzelmann_row
+    research_grill = next(
+        p for p in text.split("\n\n") if "research-grill" in p and "CC BY-NC" in p
+    )
+    assert "hutzelmann" not in research_grill
 
 
 # --------------------------------------------------------------------------
@@ -507,6 +521,35 @@ def test_checklist_names_its_provenance_the_lens_and_its_deviations():
     assert not missing, (
         f"the checklist cites items that do not exist: {sorted(missing)}"
     )
+    assert (
+        "1666e690e7b2f0659531253d319d41ebf0a310d7" in text
+    )  # the substance tests' source commit
+    assert "shared/guidelines/guidelines.md" in text
+    assert "closely paraphrased" in text
+    assert "restated in our own words" not in text
+
+
+def test_items_5_1_and_13_8_read_as_the_v3_spec_says():
+    items = _checklist_items()
+    assert (
+        "the Literature Review cites the number of references the template asks for"
+        in items["5.1"]["text"]
+    )
+    assert (
+        "measurement papers cited only in Design or the appendices are extra"
+        in items["5.1"]["text"]
+    )
+    assert "the reference list holds" not in items["5.1"]["text"]
+    swap = items["13.8"]["text"]
+    for anchor in (
+        "is what the study is about",
+        "constrains the method",
+        "supplies data or access no comparable alternative offers",
+        "compares claims, not nouns",
+        "instruments and prior work are not judged",
+        "the title is in scope",
+    ):
+        assert anchor in swap, anchor
 
 
 # --------------------------------------------------------------------------

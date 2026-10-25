@@ -73,7 +73,10 @@ request.
 — MIT, © 2026 Thomas Hutzelmann, vendored at pin `a38b7b11`: the nine upstream
 proposal-lit-search scripts, unchanged apart from their headers, under
 `plugins/experiment-proposal/skills/lit-search/scripts/`. The `lit-search`
-SKILL.md over them is this repository's own.
+SKILL.md over them is this repository's own. The six substance tests of its
+`shared/guidelines/guidelines.md` are closely paraphrased, some clauses verbatim,
+into the plugin's `references/checklist.md` items 13.6 to 13.11 (read at `1666e690`,
+v0.9.0; text unchanged since `a38b7b1`).
 
 **[mohitagw15856/pm-claude-skills](https://github.com/mohitagw15856/pm-claude-skills)**
 — MIT, © 2026 Mohit Aggarwal, vendored at pin `f93fee74` into
@@ -109,9 +112,8 @@ the plugin's `THIRD-PARTY-NOTICES.md`.
 | --------------------------------------------------------- | ------------------------------ |
 | [mattpocock/skills](https://github.com/mattpocock/skills) | Copyright (c) 2026 Matt Pocock |
 
-Ideas only, no text reproduced: hutzelmann's proposal-supervise (MIT; the six
-substance tests) and scdenney's research-grill (CC BY-NC 4.0; the "why this
-matters" line, provisional answers and a written record) were consulted.
+Ideas only, no text reproduced: scdenney's research-grill (CC BY-NC 4.0; the "why this
+matters" line, provisional answers and a written record) was consulted and not copied.
 
 The guide the plugin's checklist derives from, `docs/guides/experiment-proposal-guide.md`,
 is the author's own, adapted from the Research Methods in HCI course materials

@@ -18,7 +18,7 @@ Each item is one line: `- **ID** (kind; scope; depends on IDs) holds-when text`.
 - The lens's mechanics are items the draft can show: the section list and order (item 3.2), the word bounds (item 13.5), the reference count (item 5.1), the bullet list of contributions (item 4.3) and the consent form's supervision sentence (item 12.3); item 3.1 records the template's values for them, with the course's values as defaults.
 - The plugin's `lit-search` skill replaces step 5's search tips; item 5.2 is attested.
 - research-grill's defend stage replaces "present to a critical listener" (item 13.2), and its written record serves the feedback item (item 13.3); `review` checks neither and hands off to the defend stage.
-- Additions: the six substance tests (items 13.6 to 13.11), restated in our own words from hutzelmann's proposal-supervise skill (MIT).
+- Additions: the six substance tests (items 13.6 to 13.11), closely paraphrased, some clauses verbatim, from hutzelmann/thesis-proposal-skills' `shared/guidelines/guidelines.md` (MIT; commit `1666e690e7b2f0659531253d319d41ebf0a310d7`, v0.9.0, text unchanged since `a38b7b1`), read through proposal-supervise's generated copy of it, in sentences split from research-grill's.
 - Three ideas restated from scdenney's research-grill (CC BY-NC 4.0, no text copied) shape `design`, not this list: the "why this matters" line, provisional answers, and a written record.
 
 ## Step 1: fit, ethics and data
@@ -51,7 +51,7 @@ Each item is one line: `- **ID** (kind; scope; depends on IDs) holds-when text`.
 
 ## Step 5: literature review
 
-- **5.1** (draft-checked; review-only; depends on none) The review cites work that motivates the problem, work that justifies the approach, and similar studies, and the reference list holds the number of references the template asks for.
+- **5.1** (draft-checked; review-only; depends on none) The review cites work that motivates the problem, work that justifies the approach, and similar studies, and the Literature Review cites the number of references the template asks for; measurement papers cited only in Design or the appendices are extra.
 - **5.2** (attested; review-only; depends on 5.1) Snowballing from at least one recent key article has stopped turning up new relevant work; the `lit-search` skill's stop rule is the usual evidence.
 - **5.3** (draft-checked; review-only; depends on 5.1) The review ends by stating the gap and how the study fills it.
 
@@ -119,7 +119,7 @@ Each item is one line: `- **ID** (kind; scope; depends on IDs) holds-when text`.
 - **13.5** (draft-checked; review-only; depends on 3.3) The draft to be submitted satisfies every item of steps 1 to 12, uses the required template with its section list in order, describes the full experiment rather than the pilot, follows the step 3 conventions (item 3.3) throughout, and is within the word bounds excluding references and appendices.
 - **13.6** (draft-checked; review-only; depends on 4.3, 5.3) Delta: the proposal states precisely what the study adds beyond the work it cites, what it confirms, refutes or extends; contributions that read as a feature list or restate the field fail.
 - **13.7** (draft-checked; review-only; depends on 6.2, 6.6) Falsifiability: every hypothesis and research question can come out negative; a question whose every conceivable outcome counts as success fails.
-- **13.8** (draft-checked; review-only; depends on 4.1, 6.2) Swap: the overview, the hypotheses and the contributions could not equally describe ten other studies in the area; text that stays plausible after swapping the technique, the task or the population fails, and so does a named device, system or domain the study does not depend on.
+- **13.8** (draft-checked; review-only; depends on 4.1, 6.2) Swap: the overview, the hypotheses and the contributions could not equally describe ten other studies in the area; text that stays plausible after swapping the technique, the task or the population fails; a named device, system or domain passes when it is what the study is about, constrains the method, or supplies data or access no comparable alternative offers, and fails otherwise; the test replaces or drops the name and compares claims, not nouns; instruments and prior work are not judged here; the title is in scope.
 - **13.9** (draft-checked; review-only; depends on 3.3) Necessity: every sentence, citation and technical term serves a hypothesis, the gap or the method; material that is true and well-sourced still fails if removing it would not weaken the argument.
 - **13.10** (draft-checked; review-only; depends on 7.6) Method fit: the Design, Materials and Procedure sections concretely answer each hypothesis and research question; method prose that never touches them is boilerplate and fails.
 - **13.11** (draft-checked; review-only; depends on 2.4) Executability: the proposal names the population, the task and the apparatus, states how each dependent variable is measured, fits the time available with its timeline (item 2.4), and makes clear what the author would do first; a choice the pilot can settle without changing a hypothesis does not fail it.
