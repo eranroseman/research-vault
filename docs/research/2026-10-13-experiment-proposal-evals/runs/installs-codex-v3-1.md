@@ -54,6 +54,25 @@ The three skills that read `$ARGUMENTS` got no arguments: Codex leaves the text 
 
 Each skill was admitted on its first attempt, so no second or third attempt ran.
 
+### Every cache-path tool call
+
+Here `<cache>` is `<scratch codex home>/plugins/cache/research-vault/experiment-proposal/0.3.0`, and the numbers count each attempt's tool calls in order. All of them come after the load.
+
+- design (3 of 5 calls):
+  - Call 1: `git rev-parse --show-toplevel`, then `sed -n` of `<cache>/references/checklist.md`, `<cache>/references/brief.md`, `<cache>/.claude-plugin/plugin.json` and `material.md`.
+  - Call 3: `python3 <cache>/scripts/check_proposal.py brief proposal/design-brief.md`.
+  - Call 5: the same checker call again, with `git status`, `git diff --check` and entry counts.
+- review (5 of 8 calls):
+  - Call 1: `cat` of `<cache>/skills/review/SKILL.md` (a re-read of the file the mention had injected), `<cache>/references/checklist.md`, `<cache>/references/review.md` and `<cache>/.claude-plugin/plugin.json`.
+  - Call 3: after reading the draft, `python3 <cache>/scripts/check_proposal.py draft proposal/draft.md --words 2000-4000 --references 15-20`, then the same with `--numbers` and with `--placeholders`.
+  - Call 4: `rg` counting the item lines of `<cache>/references/checklist.md`, then reading `~/.claude/plugins/installed_plugins.json`.
+  - Call 6: `python3 <cache>/scripts/check_proposal.py review proposal/review.md` (exit 1).
+  - Call 8: the same (exit 0), then `git diff` of the review and the draft.
+- lit-search (1 of 4 calls):
+  - Call 4: `python3 -B <cache>/skills/lit-search/scripts/litsearch.py search "modern mouse trackball target selection pointing device comparison movement time error rate" --exclude proposal/notes/lit-search-judged.txt --dblp-query "mouse trackball pointing" --out proposal/notes/lit-search-round-1.yaml`.
+- the-ethics-board (1 of 4 calls):
+  - Call 1: `sed -n` of `<cache>/skills/the-ethics-board/SKILL.md` (a re-read of the injected file), then of `proposal/draft.md`.
+
 ### design
 
 The extraction table, then the closing line, in the final message:
@@ -85,7 +104,7 @@ The user picks fixes with `/experiment-proposal:review`
 /oss:research-grill defend proposal/draft.md
 ```
 
-`proposal/review.md` holds 67 rows with those four `not confirmed`, and `check_proposal.py review` exits 0 on it. The model's first write failed the checker with three defects (two passes without a quoted passage, a Summary count off by one), and it corrected them before finishing. The draft is unchanged: `git diff` is empty, and `git status --porcelain` shows only `?? proposal/review.md`. Step 7 read `~/.claude/plugins/installed_plugins.json` (read-only), found an `oss@` key, and printed the installed form of the hand-off.
+`proposal/review.md` holds 67 rows with those four `not confirmed`, and `check_proposal.py review` exits 0 on it. The model's first write failed the checker with four defects (two passes without a quoted passage, and the Summary's Pass and Fail counts each off by one), and it corrected them before finishing. The draft is unchanged: `git diff` is empty, and `git status --porcelain` shows only `?? proposal/review.md`. Step 7 read `~/.claude/plugins/installed_plugins.json` (read-only), found an `oss@` key, and printed the installed form of the hand-off.
 
 ### lit-search
 
