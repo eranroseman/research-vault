@@ -19,7 +19,7 @@ so ``[[ghost:2020]]`` resolves as a name.
 The normaliser rewrites a note's body only; its frontmatter block is never
 normalised. Dataview's frontmatter reader takes only ``[[…]]`` as a link, so
 a rewritten property would lose its Link type (the reason Q19 masks
-``[k:: …]`` fields in the body), while Obsidian core reads both forms there
+Dataview's inline fields in the body), while Obsidian core reads both forms there
 (app.js ``cD``, per the plan author's ruling of 2026-10-25), so nothing core
 is lost; and ``read_okf`` at seal is the YAML gate. This deviates from spec
 §5.2, which has the normaliser refuse a rewrite that leaves frontmatter
@@ -374,6 +374,19 @@ _INLINE_MASK = re.compile(
     f"{_CODE_SPAN}|{_HTML_COMMENT}|{_OBSIDIAN_COMMENT}", re.DOTALL
 )
 _NOT_LINE_END = re.compile(r"[^\r\n]")
+# Dataview's inline fields, in all three of its syntaxes (Q19: Dataview reads
+# only `[[…]]` as a Link inside one): a line-leading `key:: value`, behind a
+# list marker too, to the end of its line; and a bracketed `[key:: value]` or
+# parenthesised `(key:: value)` anywhere, keys with spaces, digits and `_`.
+# A value may hold `[[…]]`, and a markdown link's brackets or parentheses
+# one level deep. `claims.FIELD_RE`, the claim readers' narrower spelling,
+# is frozen and masked beside these, never widened.
+_LINE_FIELD = r"^[ \t]*(?:[-*+][ \t]+|\d+[.)][ \t]+)?[^:\n\[\]()`]+?::[^\n]*"
+_BRACKET_FIELD = r"\[[^\[\]()`:\n]+::(?:[^\[\]\n]|\[\[[^\[\]\n]*\]\]|\[[^\[\]\n]*\])*\]"
+_PAREN_FIELD = r"\([^\[\]()`:\n]+::(?:[^()\n]|\([^()\n]*\))*\)"
+_INLINE_FIELD = re.compile(
+    f"{_LINE_FIELD}|{_BRACKET_FIELD}|{_PAREN_FIELD}", re.MULTILINE
+)
 
 
 @dataclass(frozen=True)
@@ -447,8 +460,9 @@ def _blanked(text: str, spans: list[tuple[int, int]]) -> str:
 def _protected_spans(text: str) -> list[tuple[int, int]]:
     """Code fences, then inline code and HTML and Obsidian comments outside
     them, anchored claim blocks whole (Q19: their bytes are frozen by
-    claim-immutability), and `[k:: …]` field spans on every other line
-    (Dataview reads only `[[…]]` inside a field)."""
+    claim-immutability), and Dataview's inline fields on every other line,
+    `claims.FIELD_RE`'s spans among them (Dataview reads only `[[…]]`
+    inside a field)."""
     # Imported here: lints is the verify layer above this module, and must
     # stay free to import links (through literature_notes) without a cycle.
     from . import lints
@@ -462,6 +476,7 @@ def _protected_spans(text: str) -> list[tuple[int, int]]:
             spans.append((start, start + len(block)))
             start = text.find(block, start + 1)
     spans.extend((m.start(), m.end()) for m in claims.FIELD_RE.finditer(text))
+    spans.extend((m.start(), m.end()) for m in _INLINE_FIELD.finditer(unfenced))
     return spans
 
 

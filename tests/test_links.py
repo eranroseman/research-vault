@@ -717,3 +717,42 @@ def test_rewrite_key_keeps_a_table_escaped_pipe_as_written():
     assert links.rewrite_key(text, "old2020", "new2020", source="index.md") == (
         "| [[new2020\\|Old]] | [[new2020#^c-1\\|q]] | [[new2020|x]] |\n"
     )
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "up:: [[Only Here]] and [[nowhere]]",
+        "- related:: [[Only Here]] [[nowhere]]",
+        "  * next :: [x](wiki/concepts/Only%20Here.md) [[nowhere]]",
+        "1. prev:: [[Only Here]], [[nowhere]]",
+        "Due Date 2:: [[Only Here]] [[nowhere]]",
+        "Prose (prev:: [[Only Here]]) and (next:: [[nowhere]]) end",
+        "Prose [due date:: [[Only Here]]] and [k_2:: [[nowhere]]] end",
+        "Prose [up:: [x](wiki/concepts/Only%20Here.md)] (up:: [y](nowhere.md)) end",
+    ],
+)
+def test_normalize_masks_every_dataview_inline_field(tmp_path, field):
+    """R3, Q19: Dataview reads only `[[…]]` as a Link inside an inline field,
+    in all three of its syntaxes — a line-leading `key:: value` (behind a
+    list marker too), `[key:: value]` and `(key:: value)`, keys with spaces,
+    digits and `_`. A link in one is neither rewritten nor reported."""
+    index = _index(tmp_path)
+    text = field + "\n"
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert (out, problems) == (text, [])
+
+
+def test_normalize_reads_no_field_where_dataview_reads_none(tmp_path):
+    """A single colon, a `::` behind other text and a claim line are no
+    line-leading field: their links are normalised as prose."""
+    index = _index(tmp_path)
+    text = (
+        "See: [[Only Here]]\n"
+        "- 09:00 met [[Only Here]]\n"
+        "Prose with [[Only Here]] then a (paren) and std::vector\n"
+        "- (inference) [[Only Here]] says x:: y [@smith2020]\n"
+    )
+    out, _ = links.normalize(text, index, source="projects/brief/draft.md")
+    rendered = "[Only Here](/wiki/concepts/Only%20Here.md)"
+    assert out == text.replace("[[Only Here]]", rendered)
