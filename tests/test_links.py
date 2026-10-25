@@ -10,6 +10,8 @@ def _vault(tmp_path: Path) -> Path:
         "wiki/concepts/Foo.md",
         "wiki/sources/Foo.md",
         "wiki/concepts/Only Here.md",
+        "wiki/concepts/Dr. Smith.md",
+        "wiki/concepts/v1.2 notes.md",
         "wiki/img.png",
         "system/bases/trust-tier.base",
         "projects/brief/draft.md",
@@ -26,8 +28,15 @@ def _vault(tmp_path: Path) -> Path:
 def _index(tmp_path: Path) -> links.Index:
     return links.Index.build(
         _vault(tmp_path),
-        literature={"smith2020": "literature/smith2020.md"},
-        names={"Mortality decline": "literature/smith2020.md"},
+        literature={
+            "smith2020": "literature/smith2020.md",
+            "smith.2020": "literature/smith.2020.md",
+            "re:2020": "literature/re2020.md",
+        },
+        names={
+            "Mortality decline": "literature/smith2020.md",
+            "Mortality in the U.S.": "literature/smith2020.md",
+        },
     )
 
 
@@ -53,10 +62,18 @@ def _index(tmp_path: Path) -> links.Index:
         ("junk", []),  # a literature file with no provenance resolves nowhere
         ("literature/junk.md", []),
         ("Mortality decline", ["literature/smith2020.md"]),  # a note's alias
+        # A dot that starts no `md` or attachment extension is part of the name.
+        ("Dr. Smith", ["wiki/concepts/Dr. Smith.md"]),
+        ("concepts/Dr. Smith", ["wiki/concepts/Dr. Smith.md"]),
+        ("/wiki/concepts/Dr. Smith", ["wiki/concepts/Dr. Smith.md"]),
+        ("Dr. Smith.md", ["wiki/concepts/Dr. Smith.md"]),
+        ("v1.2 notes", ["wiki/concepts/v1.2 notes.md"]),
+        ("smith.2020", ["literature/smith.2020.md"]),  # a dotted key
+        ("Mortality in the U.S.", ["literature/smith2020.md"]),  # a dotted alias
+        ("re:2020", ["literature/re2020.md"]),  # a `:` makes a name, not a URI
         ("README", []),  # excluded directories are not indexed
         ("nowhere", []),
-        ("https://example.org/x", []),
-        ("mailto:a@b.c", []),
+        ("Dr. Nobody", []),
     ],
 )
 def test_resolve_follows_obsidian_for_a_page_in_wiki(tmp_path, target, expected):
@@ -94,6 +111,70 @@ def test_a_folder_target_resolves_to_nothing_never_to_a_same_named_note(tmp_path
     (link,) = links.find_links("[log/](log/#today)")
     assert (link.target, link.subpath) == ("log/", "#today")
     assert links.is_folder(link.target)
+
+
+def test_only_a_markdown_destination_is_external():
+    """A scheme makes a markdown destination a URL the caller leaves alone; a
+    wikilink target is always a name, colon or not."""
+    found = links.find_links(
+        "[x](https://a.b) ![m](mailto:a@b.c) [[ghost:2020]] [[Re: Ghost]] [p](a/b.md)"
+    )
+    assert [(link.target, links.is_external(link)) for link in found] == [
+        ("https://a.b", True),
+        ("mailto:a@b.c", True),
+        ("ghost:2020", False),
+        ("Re: Ghost", False),
+        ("a/b.md", False),
+    ]
+
+
+def test_an_attachment_is_named_by_its_last_components_extension():
+    assert links.is_attachment("system/bases/trust-tier.base")
+    assert links.is_attachment("wiki/Figure.PNG")
+    for target in ("Dr. Smith", "v1.2/notes", "Foo.md", "trust-tier", "notes."):
+        assert not links.is_attachment(target), target
+
+
+def test_the_walk_prunes_excluded_directories_and_indexes_the_same_files(
+    tmp_path, monkeypatch
+):
+    """The index's walk never enters `.git/` or another dot-directory, and its
+    file set is still `rglob`'s filtered by `is_excluded`: a directory with an
+    OS-litter name is entered, since litter excludes a file by its own name."""
+    vault = _vault(tmp_path)
+    for relative in (
+        ".git/HEAD",
+        ".git/objects/ab/cdef0123",
+        "wiki/.trash/old.md",
+        "wiki/.DS_Store",
+        "wiki/._img.png",
+        "wiki/desktop.ini/kept.md",
+    ):
+        path = vault / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("x\n")
+    judged = []
+    real = links.structure.is_excluded
+
+    def recording(path, root):
+        judged.append(path.relative_to(root).as_posix())
+        return real(path, root)
+
+    monkeypatch.setattr(links.structure, "is_excluded", recording)
+    index = links.Index.build(vault, literature={}, names={})
+    assert ".git" in judged
+    assert not [path for path in judged if path.startswith((".git/", "wiki/.trash/"))]
+    assert sorted(index._exact.values()) == [
+        "projects/brief/draft.md",
+        "system/bases/trust-tier.base",
+        "wiki/concepts/Dr. Smith.md",
+        "wiki/concepts/Foo.md",
+        "wiki/concepts/Only Here.md",
+        "wiki/concepts/v1.2 notes.md",
+        "wiki/desktop.ini/kept.md",
+        "wiki/img.png",
+        "wiki/sources/Foo.md",
+    ]
 
 
 def test_find_links_parses_both_forms_with_subpath_alias_and_embed():

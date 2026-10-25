@@ -8,23 +8,29 @@ trailing-components match; path matching is case-insensitive; a name without
 a dot resolves only as ``<name>.md``. research-vault's extensions:
 ``literature/`` resolves only through the captured set (a key, a title or an
 alias, each matched exactly as recorded), and an unparseable literature file
-resolves nowhere; a target ending in ``/`` is a folder (``is_folder``), which
-resolves to no file and is never read as ``<name>.md``.
+resolves nowhere; a dot followed by neither ``md`` nor a registered attachment
+extension is part of the name (``Dr. Smith``, ``v1.2 notes``, ``smith.2020``),
+which is tried as written and as ``<name>.md``; a target ending in ``/`` is a
+folder (``is_folder``), which resolves to no file and is never read as
+``<name>.md``. Only a markdown destination can be a URI (``is_external``),
+and the caller skips one before resolving: a wikilink target never is one,
+so ``[[ghost:2020]]`` resolves as a name.
 """
 
 from __future__ import annotations
 
+import os
 import posixpath
 import re
 import urllib.parse
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from . import structure
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
-    from pathlib import Path
 
 # Obsidian 1.13.7's registered non-markdown extensions (image, audio, video,
 # pdf, canvas, base); a wikilink target ending in one is an attachment, and an
@@ -85,11 +91,46 @@ def is_uri(target: str) -> bool:
     return _URI.match(target.strip()) is not None
 
 
+def is_external(link: Link) -> bool:
+    """A markdown destination with a scheme (``[x](https://a.b)``): a URL, not a
+    vault file, so a caller neither resolves nor reports it. A wikilink target
+    never is one: ``[[Re: Ghost]]`` and ``[[ghost:2020]]`` are names, since a
+    captured-set key may hold a ``:``."""
+    return link.kind == "markdown" and is_uri(link.target)
+
+
 def is_folder(target: str) -> bool:
     """A target ending in ``/`` (``[log/](log/)``, ``[[wiki/]]``, ``/``) names a
     folder, not a file: ``Index.resolve`` gives it no hit, and a caller leaves
     it alone and unreported rather than calling it dead."""
     return target.strip().endswith(("/", "\\"))
+
+
+def _extension(target: str) -> str | None:
+    """What follows the last dot of the last component, lowercased; None for no dot."""
+    base = posixpath.basename(target)
+    return base.rpartition(".")[2].lower() if "." in base else None
+
+
+def is_attachment(target: str) -> bool:
+    """A target whose last component ends in one of ``ATTACHMENT_EXTENSIONS``."""
+    return _extension(target) in ATTACHMENT_EXTENSIONS
+
+
+def _forms(candidate: str) -> tuple[list[str], str | None]:
+    """The paths ``candidate`` may name, most literal first, and the bare name
+    the captured set may know it by (None for an attachment)."""
+    extension = _extension(candidate)
+    if extension is None:
+        return [f"{candidate}.md"], candidate
+    if extension == "md":
+        # Obsidian reads `[[Foo.md]]` as `[[Foo]]`: the stem is what the
+        # captured set and the names are keyed by.
+        return [candidate], candidate[: -len(".md")]
+    if extension in ATTACHMENT_EXTENSIONS:
+        return [candidate], None
+    # An unregistered "extension" is part of the name: `Dr. Smith`, `smith.2020`.
+    return [candidate, f"{candidate}.md"], candidate
 
 
 def _split_subpath(raw: str) -> tuple[str, str]:
@@ -162,15 +203,29 @@ class Index:
     def build(
         cls, vault: Path, literature: Mapping[str, str], names: Mapping[str, str]
     ) -> Index:
-        files = []
-        for path in sorted(vault.rglob("*")):
-            if not path.is_file() or structure.is_excluded(path, vault):
-                continue
-            relative = path.relative_to(vault)
-            if relative.parts[0] == "literature":
-                continue  # resolved through the captured set only
-            files.append(relative.as_posix())
-        return cls(files, literature, names)
+        files: list[Path] = []
+        for root, dirnames, filenames in os.walk(vault):
+            here = Path(root)
+            # Pruned in place, so the walk never enters `.git/` and its kin: on
+            # the commit hook's path, not one stat per object file. A directory
+            # is skipped whole only when every path under it is excluded; an
+            # OS-litter name excludes a file by its own name, so a directory
+            # called `desktop.ini` is still entered, as `rglob` entered it.
+            dirnames[:] = [
+                name
+                for name in dirnames
+                if structure.is_os_litter(name)
+                or not structure.is_excluded(here / name, vault)
+            ]
+            for name in filenames:
+                path = here / name
+                if structure.is_excluded(path, vault) or not path.is_file():
+                    continue
+                relative = path.relative_to(vault)
+                if relative.parts[0] == "literature":
+                    continue  # resolved through the captured set only
+                files.append(relative)
+        return cls((path.as_posix() for path in sorted(files)), literature, names)
 
     def _exact_hit(self, candidate: str) -> str | None:
         lowered = candidate.lower()
@@ -181,12 +236,13 @@ class Index:
 
         An empty target (`[see](#section)`, `[[#heading]]`) is the linking file
         itself, as Obsidian and the compile tool's lint both read it. A folder
-        target (``is_folder``) and a URI resolve to none. A bare name is tried
-        as an exact path, then as a captured-set key, then as a recorded title
-        or alias, and only then by trailing components."""
+        target (``is_folder``) resolves to none. A markdown destination that
+        is a URI (``is_external``) is the caller's to skip; a wikilink target
+        never is one. A bare name is tried as an exact path, then as a
+        captured-set key, then as a recorded title or alias, and only then by
+        trailing components; a name whose dot starts no ``md`` or attachment
+        extension is tried as written and then as ``<name>.md``."""
         raw = target.strip().replace("\\", "/")
-        if is_uri(raw):
-            return []
         if not raw:
             return [source]
         if is_folder(raw):
@@ -202,24 +258,21 @@ class Index:
             candidate, exact_only = posixpath.normpath(raw), False
         if candidate in {".", ""} or candidate.startswith("../"):
             return []
-        # Obsidian reads `[[Foo.md]]` as `[[Foo]]`: the stem is what the
-        # captured set and the names are keyed by.
-        stem = (
-            candidate[: -len(".md")] if candidate.lower().endswith(".md") else candidate
-        )
-        dotless = "." not in posixpath.basename(stem)
-        wanted = f"{stem}.md" if dotless else candidate
-        hit = self._exact_hit(wanted)
-        if hit is not None:
-            return [hit]
+        wanted, name = _forms(candidate)
+        for form in wanted:
+            hit = self._exact_hit(form)
+            if hit is not None:
+                return [hit]
         if exact_only:
             return []
-        if dotless and "/" not in stem:
-            if stem in self._literature:
-                return [self._literature[stem]]
-            if stem in self._names:
-                return [self._names[stem]]
-        return sorted(self._suffix.get(wanted.lower(), []))
+        if name is not None and "/" not in name:
+            if name in self._literature:
+                return [self._literature[name]]
+            if name in self._names:
+                return [self._names[name]]
+        return sorted(
+            path for form in wanted for path in self._suffix.get(form.lower(), [])
+        )
 
 
 def _encode(path: str) -> str:

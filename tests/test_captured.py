@@ -141,15 +141,17 @@ def test_an_unreadable_page_is_an_outage_row_and_the_walk_goes_on(
 
 
 def test_a_finding_names_the_link_as_written_and_can_be_written_to_the_queue(tmp_vault):
-    """Two faults in one row. [[Ghost.md]] must be reported as written, or grepping
-    the vault for the finding's text fails. And a byte surrogateescape kept alive as a
+    """Two faults in one row. [[Ghost.md]] must be reported as written, alias and
+    subpath included, or grepping the vault for the finding's text fails. And a byte surrogateescape kept alive as a
     lone surrogate must not reach inbox.append_entry's utf-8 stream, where it raises
     UnicodeEncodeError — a ValueError cmd_verify deliberately does not catch, so the
     run would die at the moment the finding was filed. lint_captured_set returns a
     fine-looking Outcome either way, which is why the pin is on the reason's *bytes*."""
     pages = tmp_vault / "wiki" / "sources"
     pages.mkdir(parents=True)
-    (pages / "A.md").write_bytes(b"---\ntype: source\n---\n[[Ghost.md]] [[Fo\xffo]]\n")
+    (pages / "A.md").write_bytes(
+        b"---\ntype: source\n---\n[[Ghost.md]] [[Fo\xffo]] [[Nobody#Here|shown]]\n"
+    )
     reasons = [
         o.reason
         for o in captured.lint_captured_set(tmp_vault)
@@ -163,6 +165,7 @@ def test_a_finding_names_the_link_as_written_and_can_be_written_to_the_queue(tmp
     assert reasons == [
         "not-captured — wiki/sources/A.md links [[Ghost.md]], not a page and not in the captured set",
         "not-captured — wiki/sources/A.md links [[Fo\ufffdo]], not a page and not in the captured set",
+        "not-captured — wiki/sources/A.md links [[Nobody#Here|shown]], not a page and not in the captured set",
     ]
 
 
@@ -209,7 +212,7 @@ def test_a_line_break_in_a_link_or_a_filename_stays_one_writable_row(tmp_vault):
         row.reason.encode("utf-8")
     assert [r.reason for r in rows] == [
         "not-captured — wiki/sources/A B.md links [[Gh ost]], not a page and not in the captured set",
-        "schema-violation — unterminated [[ on wiki/sources/A B.md",
+        "schema-violation — unterminated [[ on wiki/sources/A B.md line 4",
     ]
     assert decode_repo_path(rows[0].target) == b"wiki/sources/A\nB.md"
 
@@ -526,7 +529,9 @@ def test_read_notes_rows_each_note_it_cannot_take_and_keeps_reading(tmp_vault):
 
     entries, outcomes = captured._read_notes(tmp_vault)
 
-    assert [p.citation_key for _data, p in entries] == ["smith2020"]
+    assert [(p.citation_key, path) for _data, p, path in entries] == [
+        ("smith2020", "literature/smith2020.md")
+    ]
     rows = [(o.target, o.result, o.reason.split(" — ")[0]) for o in outcomes]
     assert rows == [
         ("path-bytes:literature/a-dir.md", Result.UNREACHABLE, "outage"),
@@ -578,7 +583,7 @@ def test_textual_half_walks_past_an_excluded_page_and_an_unreadable_one(tmp_vaul
     (wiki / "b-dir.md").mkdir()
     (wiki / "c.md").write_text("[[nowhere]] and [@ghost2020]\n")
     rows = [
-        (str(o.target), o.result, o.reason) for o in captured._textual(tmp_vault, set())
+        (str(o.target), o.result, o.reason) for o in captured._textual(tmp_vault, [])
     ]
     assert rows[0][:2] == ("path-bytes:wiki/b-dir.md", Result.UNREACHABLE)
     # The tail is the OS's; the path it names is the directory the test made.
@@ -649,14 +654,17 @@ def test_a_dead_embed_or_path_link_is_a_dead_link_row_not_a_not_captured_row(
     tmp_vault,
 ):
     """#208's split: a target with a `/` or an attachment extension, or an
-    unresolved markdown destination, is `dead-link` under its own check, so an
-    ack on it cannot hide a missing citation on the same page."""
+    unresolved markdown destination even without a `/`, is `dead-link` under
+    its own check, so an ack on it cannot hide a missing citation on the same
+    page. Each is reported as written, by its own form and verb: a markdown
+    destination keeps its percent-encoding, so grepping the vault for it works."""
     _note(tmp_vault, "smith2020", "SMITH001")
     pages = tmp_vault / "wiki" / "sources"
     pages.mkdir(parents=True)
     (pages / "A.md").write_text(
         "---\ntype: source\n---\n![[nowhere.png]] [[sources/Ghost]] "
-        "[text](concepts/Missing.md) [[ghost2020]] [u](https://example.org)\n"
+        "[text](concepts/Missing.md) [[ghost2020]] [u](https://example.org) "
+        "[bare](Missing%20Page.md) ![](/wiki/gone.png)\n"
     )
     rows = [
         o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
@@ -664,7 +672,7 @@ def test_a_dead_embed_or_path_link_is_a_dead_link_row_not_a_not_captured_row(
     assert [(o.check, o.reason) for o in rows] == [  # in link order
         (
             "dead-link",
-            "dead-link — wiki/sources/A.md embeds [[nowhere.png]], which no file matches",
+            "dead-link — wiki/sources/A.md embeds ![[nowhere.png]], which no file matches",
         ),
         (
             "dead-link",
@@ -672,11 +680,19 @@ def test_a_dead_embed_or_path_link_is_a_dead_link_row_not_a_not_captured_row(
         ),
         (
             "dead-link",
-            "dead-link — wiki/sources/A.md links to concepts/Missing.md, which no file matches",
+            "dead-link — wiki/sources/A.md links [text](concepts/Missing.md), which no file matches",
         ),
         (
             "captured-set",
             "not-captured — wiki/sources/A.md links [[ghost2020]], not a page and not in the captured set",
+        ),
+        (
+            "dead-link",
+            "dead-link — wiki/sources/A.md links [bare](Missing%20Page.md), which no file matches",
+        ),
+        (
+            "dead-link",
+            "dead-link — wiki/sources/A.md embeds ![](/wiki/gone.png), which no file matches",
         ),
     ]
     assert all(decode_repo_path(o.target) == b"wiki/sources/A.md" for o in rows)
@@ -688,18 +704,26 @@ def test_an_ambiguous_wikilink_is_a_resolve_by_hand_row(tmp_vault):
     (tmp_vault / "wiki" / "concepts").mkdir(exist_ok=True)
     (tmp_vault / "wiki" / "concepts" / "Foo.md").write_text("---\ntype: concept\n---\n")
     (pages / "Foo.md").write_text("---\ntype: source\n---\n")
-    (pages / "A.md").write_text("---\ntype: source\n---\n[[Foo]]\n")
+    (pages / "A.md").write_text(
+        "---\ntype: source\n---\n[[Foo]] ![[Foo|200]] [f](Foo.md)\n"
+    )
     rows = [
         o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
     ]
+    match = "which 2 files match (wiki/concepts/Foo.md, wiki/sources/Foo.md); resolve by hand"
     assert [(o.check, o.reason) for o in rows] == [
         (
             "captured-set",
-            (
-                "schema-violation — wiki/sources/A.md links [[Foo]], which 2 files match "
-                "(wiki/concepts/Foo.md, wiki/sources/Foo.md); resolve by hand"
-            ),
-        )
+            f"schema-violation — wiki/sources/A.md links [[Foo]], {match}",
+        ),
+        (
+            "captured-set",
+            f"schema-violation — wiki/sources/A.md embeds ![[Foo|200]], {match}",
+        ),
+        (
+            "captured-set",
+            f"schema-violation — wiki/sources/A.md links [f](Foo.md), {match}",
+        ),
     ]
 
 
@@ -717,7 +741,7 @@ def test_a_slash_led_markdown_link_to_a_literature_note_resolves_through_the_cap
         o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
     ]
     assert [o.reason for o in rows] == [
-        "dead-link — wiki/sources/A.md links to /literature/gone2020.md, which no file matches"
+        "dead-link — wiki/sources/A.md links [gone](/literature/gone2020.md), which no file matches"
     ]
 
 
@@ -737,23 +761,93 @@ def test_a_folder_link_on_a_wiki_page_is_no_row(tmp_vault):
     ] == []
 
 
-def test_an_unterminated_wikilink_is_one_row_per_line(tmp_vault):
-    """A line holding `[[` with no `]]` after it is one row, however many stray
-    `[[` it holds; a closed link earlier on the line does not hide it, and a
-    closed one is not a stray."""
+def test_a_dotted_page_name_resolves_by_its_bare_name(tmp_vault):
+    """A dot that starts no `md` or attachment extension is part of the name:
+    `[[Dr. Smith]]` is the page `Dr. Smith.md`, never a not-captured row that
+    would close the commit gate."""
+    (tmp_vault / "wiki" / "concepts").mkdir(parents=True, exist_ok=True)
+    (tmp_vault / "wiki" / "concepts" / "Dr. Smith.md").write_text("x\n")
     pages = tmp_vault / "wiki" / "sources"
     pages.mkdir(parents=True)
-    (tmp_vault / "wiki" / "Here.md").write_text("x\n")
+    (pages / "A.md").write_text("---\ntype: source\n---\n[[Dr. Smith]]\n")
+    assert [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ] == []
+
+
+def test_a_wikilink_with_a_colon_is_a_would_be_citation_not_a_uri(tmp_vault):
+    """Only a markdown destination can be a URL. `[[ghost:2020]]` names a key
+    `_CITATION` allows, and `[[Re: Ghost]]` a page, so each unresolved one is
+    a not-captured row; the markdown `[u](https://a.b)` beside them is none."""
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
     (pages / "A.md").write_text(
-        "---\ntype: source\n---\n[[Here]] then [[oops and [[again\n"
-        "[[Here]] fine\n![[half.png\n"
+        "---\ntype: source\n---\n[[ghost:2020]] [u](https://a.b) [[Re: Ghost]]\n"
     )
     rows = [
         o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
     ]
     assert [(o.check, o.reason) for o in rows] == [
-        ("captured-set", "schema-violation — unterminated [[ on wiki/sources/A.md"),
-        ("captured-set", "schema-violation — unterminated [[ on wiki/sources/A.md"),
+        (
+            "captured-set",
+            "not-captured — wiki/sources/A.md links [[ghost:2020]], not a page and not in the captured set",
+        ),
+        (
+            "captured-set",
+            "not-captured — wiki/sources/A.md links [[Re: Ghost]], not a page and not in the captured set",
+        ),
+    ]
+
+
+def test_the_lint_reads_each_literature_note_once(tmp_vault, monkeypatch):
+    """One reader: the keys behind `[@k]`, the index behind `[[k]]` and the
+    structural half's tuples all come from one read of `literature/`, so the
+    two halves cannot disagree about what is captured."""
+    _note(tmp_vault, "smith2020", "SMITH001", text_key="ATT00001", sha="a" * 64)
+    _ledger(tmp_vault, {})
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True, exist_ok=True)
+    (pages / "A.md").write_text("---\ntype: source\n---\n[[smith2020]] [@smith2020]\n")
+    reads = []
+    real = captured.Path.read_text
+
+    def counting(self, *args, **kwargs):
+        reads.append(self.name)
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(captured.Path, "read_text", counting)
+    rows = captured.lint_captured_set(tmp_vault, as_of="2026-09-07")
+    assert [o.result for o in rows] == [Result.MATCHED]
+    assert reads.count("smith2020.md") == 1
+
+
+def test_an_unterminated_wikilink_is_one_row_per_line(tmp_vault):
+    """A line holding `[[` with no `]]` after it is one row, however many stray
+    `[[` it holds; a closed link earlier on the line does not hide it, and a
+    closed one is not a stray. The row names its 1-based line in the file, so
+    two strays on one page are two rows a reader can tell apart. A stray `[[`
+    followed later on its line by a closed link (`[[oops [[Here]]`) is not
+    reported, by the rule's letter: it has a `]]` after it on the same line.
+    Obsidian links the `[[Here]]` it ends with, and the lint reads that link."""
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (tmp_vault / "wiki" / "Here.md").write_text("x\n")
+    (pages / "A.md").write_text(
+        "---\ntype: source\n---\n[[Here]] then [[oops and [[again\n"
+        "[[Here]] fine\n[[oops [[Here]] unreported\n![[half.png\n"
+    )
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert [(o.check, o.reason) for o in rows] == [
+        (
+            "captured-set",
+            "schema-violation — unterminated [[ on wiki/sources/A.md line 4",
+        ),
+        (
+            "captured-set",
+            "schema-violation — unterminated [[ on wiki/sources/A.md line 7",
+        ),
     ]
 
 

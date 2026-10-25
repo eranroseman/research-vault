@@ -392,7 +392,7 @@ _NOT_NOTE_WALKS = {
     "scaffold.py::_add_empty_root_sentinels": "asks only whether a root is empty, to seed .gitkeep",
     "scaffold.py::_preflight_conflicts": "the same emptiness question, asked before any write",
 }
-_WALK_CALLS = frozenset({"glob", "rglob", "iterdir"})
+_WALK_CALLS = frozenset({"glob", "rglob", "iterdir", "walk"})
 _SCOPES = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp, ast.stmt)
 
 
@@ -409,10 +409,11 @@ def _calls_is_excluded(node: ast.AST) -> bool:
 
 def test_every_walker_in_the_package_uses_the_one_predicate():
     """#194: the predicate is only a mechanism if every walker calls it. Every
-    `glob`, `rglob` and `iterdir` in the package must call `is_excluded` in its
-    nearest enclosing comprehension, else its statement (a `for` loop's body
-    included), or be listed in `_NOT_NOTE_WALKS`. `gitstate`'s `os.scandir` and
-    `os.listdir` are not scanned: a content-identity snapshot hashes every node."""
+    `glob`, `rglob`, `iterdir` and `walk` (`os.walk`, `Path.walk`) in the
+    package must call `is_excluded` in its nearest enclosing comprehension,
+    else its statement (a `for` loop's body included), or be listed in
+    `_NOT_NOTE_WALKS`. `gitstate`'s `os.scandir` and `os.listdir` are not
+    scanned: a content-identity snapshot hashes every node."""
     root = Path(__file__).resolve().parents[1] / "research_vault"
     offenders, allowed = [], set()
     for module in sorted(root.glob("*.py")):

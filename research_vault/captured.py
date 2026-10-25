@@ -19,26 +19,31 @@ LEDGER_PATH = literature_notes.LEDGER_PATH
 _CITATION = re.compile(r"\[@(?P<key>[A-Za-z0-9_.:-]+)")
 # A line holding `[[` with no `]]` after it: Obsidian reads no link there, so
 # `links.find_links` sees none; the first stray `[[` swallows the rest of its
-# line, so a line is one row however many it holds.
+# line, so a line is one row however many it holds. A stray `[[` with a closed
+# link later on its line (`[[oops [[Here]]`) has a `]]` after it, so it is not
+# reported; Obsidian links the `[[Here]]` and the vault reads that link.
 _UNTERMINATED = re.compile(r"\[\[(?:(?!\]\])[^\n])*$", re.MULTILINE)
 _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
+# A literature note the reader took: its frontmatter, its provenance tuple and
+# its vault-relative path.
+_Entry = tuple[dict, literature_notes.Provenance, str]
 
 
-def _read_notes(
-    vault: Path,
-) -> tuple[list[tuple[dict, literature_notes.Provenance]], list[Outcome]]:
-    """Every note under literature/ with its tuple — and a row for every note the reader cannot take.
+def _read_notes(vault: Path) -> tuple[list[_Entry], list[Outcome]]:
+    """Every note under literature/ with its tuple and path — and a row for every note the reader cannot take.
 
     lifecycle._provenances skips such a note silently, and capture reports it only when its key is
     requested; decision 08 then drops the key from the captured set and so from the CSL file. This
     lint is the mechanism that design relies on: the omission is reported here, never silent.
+    It is the one reader: the keys behind `[@k]` and the index behind `[[k]]` both come from it.
     """
-    entries: list[tuple[dict, literature_notes.Provenance]] = []
+    entries: list[_Entry] = []
     outcomes: list[Outcome] = []
     for path in sorted((vault / "literature").glob("*.md")):
         if structure.is_excluded(path, vault):
             continue
-        target = RepoPath(os.fsencode(f"literature/{path.name}"))
+        relative = f"literature/{path.name}"
+        target = RepoPath(os.fsencode(relative))
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as error:
@@ -74,16 +79,16 @@ def _read_notes(
                 )
             )
             continue
-        entries.append((data, provenance))
+        entries.append((data, provenance, relative))
     return entries, outcomes
 
 
-def _notes(vault: Path) -> list[tuple[dict, literature_notes.Provenance]]:
+def _notes(vault: Path) -> list[_Entry]:
     return _read_notes(vault)[0]
 
 
 def captured_set(vault_root) -> dict[str, str]:
-    return {p.citation_key: p.item_key for _data, p in _notes(Path(vault_root))}
+    return {p.citation_key: p.item_key for _data, p, _path in _notes(Path(vault_root))}
 
 
 DEAD_LINK = "dead-link"
@@ -96,21 +101,15 @@ def literature_paths(vault_root) -> tuple[dict[str, str], dict[str, str]]:
     `citationKey`, never the filename, so a re-keyed note awaiting propagation
     still resolves under the name its tuple records.
     """
-    vault = Path(vault_root)
+    return _literature_maps(_notes(Path(vault_root)))
+
+
+def _literature_maps(
+    entries: list[_Entry],
+) -> tuple[dict[str, str], dict[str, str]]:
     by_key: dict[str, str] = {}
     by_name: dict[str, str] = {}
-    for path in sorted((vault / "literature").glob("*.md")):
-        if structure.is_excluded(path, vault):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-            data, _body = frontmatter.parse(text)
-        except (OSError, UnicodeError, frontmatter.FrontmatterError):
-            continue
-        provenance = literature_notes.read_provenance(text)
-        if provenance is None:
-            continue
-        relative = f"literature/{path.name}"
+    for data, provenance, relative in entries:
         by_key[provenance.citation_key] = relative
         title = data.get("title")
         if isinstance(title, str) and title:
@@ -123,18 +122,36 @@ def literature_paths(vault_root) -> tuple[dict[str, str], dict[str, str]]:
 
 def link_index(vault_root) -> links.Index:
     vault = Path(vault_root)
-    by_key, by_name = literature_paths(vault)
-    return links.Index.build(vault, by_key, by_name)
+    return links.Index.build(vault, *literature_paths(vault))
 
 
 def _is_path_shaped(link: links.Link) -> bool:
-    """#208's split: a target with a `/` or an attachment extension names a file,
-    so an unresolved one is `dead-link`; anything else is a would-be citation."""
-    extension = link.target.rsplit(".", 1)[-1].lower() if "." in link.target else ""
+    """#208's split: a markdown destination, a target with a `/` or an attachment
+    extension names a file, so an unresolved one is `dead-link`; anything else is
+    a would-be citation."""
     return (
         link.kind == "markdown"
         or "/" in link.target
-        or extension in links.ATTACHMENT_EXTENSIONS
+        or links.is_attachment(link.target)
+    )
+
+
+def _unresolved(
+    link: links.Link, hits: list[str], page: str, written: str
+) -> tuple[str, str]:
+    """The check and reason for a link that resolves to no file or to several."""
+    verb = "embeds" if link.embed else "links"
+    if hits:
+        shown = ", ".join(_reportable(hit) for hit in hits)
+        return CHECK, (
+            f"schema-violation — {page} {verb} {written}, which {len(hits)} "
+            f"files match ({shown}); resolve by hand"
+        )
+    if _is_path_shaped(link):
+        return DEAD_LINK, f"dead-link — {page} {verb} {written}, which no file matches"
+    return CHECK, (
+        f"not-captured — {page} {verb} {written}, "
+        "not a page and not in the captured set"
     )
 
 
@@ -151,7 +168,7 @@ def _reportable(text: str) -> str:
     codec, so the byte is replaced rather than encoded.
 
     A line break fails earlier still: ``Outcome.__post_init__`` validates the reason at
-    construction, so an unterminated ``[[`` or a page named ``A\nB.md`` raises inside the
+    construction, so a link holding a ``\x0c`` or a page named ``A\nB.md`` raises inside the
     lint itself. ``literature_notes.display_text``'s idiom is used rather than a newline strip
     because it is total for every separator ``str.splitlines()`` honours.
     """
@@ -159,12 +176,13 @@ def _reportable(text: str) -> str:
     return " ".join(decoded.split())
 
 
-def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
+def _textual(vault: Path, entries: list[_Entry]) -> list[Outcome]:
     outcomes: list[Outcome] = []
     wiki = vault / "wiki"
     if not wiki.is_dir():
         return outcomes
-    index = link_index(vault)
+    keys = {p.citation_key for _data, p, _path in entries}
+    index = links.Index.build(vault, *_literature_maps(entries))
     for path in sorted(wiki.rglob("*.md")):
         if structure.is_excluded(path, vault):
             continue
@@ -196,69 +214,34 @@ def _textual(vault: Path, keys: set[str]) -> list[Outcome]:
                     )
                 )
         for link in links.find_links(text):
-            # A folder (`[log/](log/)`) names no file: neither dead nor a citation.
-            if links.is_uri(link.target) or links.is_folder(link.target):
+            # A URL is no vault file, but only a markdown destination is one:
+            # `[[ghost:2020]]` is a would-be citation. A folder (`[log/](log/)`)
+            # names no file: neither dead nor a citation.
+            if links.is_external(link) or links.is_folder(link.target):
                 continue
-            # Reported as written, so the finding's text is what the file says and
-            # grepping the vault for it succeeds.
-            written = _reportable(link.target)
-            verb = "embeds" if link.embed else "links"
             hits = index.resolve(link.target, source=relative)
             if len(hits) == 1:
                 continue
-            if len(hits) > 1:
-                shown = ", ".join(_reportable(hit) for hit in hits)
-                outcomes.append(
-                    Outcome(
-                        CHECK,
-                        target_path,
-                        Result.UNMATCHED,
-                        f"schema-violation — {reported} links [[{written}]], which "
-                        f"{len(hits)} files match ({shown}); resolve by hand",
-                    )
+            # Reported as written, alias, subpath and percent-encoding included,
+            # so the finding's text is what the file says and grepping the vault
+            # for it succeeds: `[[x|y]]`, `![[x.png]]`, `[t](x%20y.md)`.
+            written = _reportable(text[link.start : link.end])
+            check, reason = _unresolved(link, hits, reported, written)
+            outcomes.append(Outcome(check, target_path, Result.UNMATCHED, reason))
+        for match in _UNTERMINATED.finditer(text):
+            line = text.count("\n", 0, match.start()) + 1
+            outcomes.append(
+                Outcome(
+                    CHECK,
+                    target_path,
+                    Result.UNMATCHED,
+                    f"schema-violation — unterminated [[ on {reported} line {line}",
                 )
-                continue
-            if link.kind == "markdown":
-                outcomes.append(
-                    Outcome(
-                        DEAD_LINK,
-                        target_path,
-                        Result.UNMATCHED,
-                        f"dead-link — {reported} {verb} to {written}, which no file matches",
-                    )
-                )
-            elif _is_path_shaped(link):
-                outcomes.append(
-                    Outcome(
-                        DEAD_LINK,
-                        target_path,
-                        Result.UNMATCHED,
-                        f"dead-link — {reported} {verb} [[{written}]], which no file matches",
-                    )
-                )
-            else:
-                outcomes.append(
-                    Outcome(
-                        CHECK,
-                        target_path,
-                        Result.UNMATCHED,
-                        f"not-captured — {reported} links [[{written}]], "
-                        "not a page and not in the captured set",
-                    )
-                )
-        outcomes.extend(
-            Outcome(
-                CHECK,
-                target_path,
-                Result.UNMATCHED,
-                f"schema-violation — unterminated [[ on {reported}",
             )
-            for _line in _UNTERMINATED.finditer(text)
-        )
     return outcomes
 
 
-def _structural(vault: Path, as_of=None) -> list[Outcome]:
+def _structural(vault: Path, entries: list[_Entry], as_of=None) -> list[Outcome]:
     ledger = vault / LEDGER_PATH
     if not ledger.is_file():
         return [
@@ -293,7 +276,7 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
     except (ValueError, AttributeError):
         return [unreadable]
     written = {}
-    for _data, provenance in _notes(vault):
+    for _data, provenance, _path in entries:
         for entry in provenance.fulltext:
             written[entry.get("attachment-key")] = (
                 provenance.citation_key,
@@ -354,10 +337,9 @@ def _structural(vault: Path, as_of=None) -> list[Outcome]:
 
 def lint_captured_set(vault_root, as_of=None) -> list[Outcome]:
     vault = Path(vault_root)
-    entries, outcomes = _read_notes(vault)
-    keys = {p.citation_key for _data, p in entries}
-    outcomes += _textual(vault, keys)
-    outcomes += _structural(vault, as_of)
+    entries, outcomes = _read_notes(vault)  # read once, for both halves
+    outcomes += _textual(vault, entries)
+    outcomes += _structural(vault, entries, as_of)
     if all(o.result is Result.SKIPPED for o in outcomes):
         # One verdict per run: the summary row exists only when nothing failed or was
         # unreachable in either half, so a report never says matched and unmatched
