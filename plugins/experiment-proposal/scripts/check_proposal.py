@@ -278,8 +278,10 @@ def labelled_lines(
     item: str | None,
 ) -> dict[str, tuple[int, str]]:
     """The dash lines of a block are exactly `- <label>:` for the labels, in
-    order; blank lines are allowed; any other line is reported. Returns
-    label -> (line number, value)."""
+    order; blank lines are allowed; any other line is reported. `rules` is
+    (the rule for an unexpected line, the rule for a label mismatch); `item` is
+    the owning item or None; both go to `add`. Returns label -> (line number,
+    value)."""
     body = list(body)
     dashes = [(n, line) for n, line in body if line.startswith("- ")]
     for n, line in body:
@@ -892,7 +894,9 @@ def _listed_entries(entry_lines: Sequence[str]) -> list[str]:
     listed: list[str] = []
     continues = False
     for line in entry_lines:
-        if LIST_ITEM.match(line):
+        # inside a `[n]` list a wrapped line such as `1954. Title` continues its entry
+        wrapped = continues and NUMBERED_ENTRY.match(listed[0]) is not None
+        if LIST_ITEM.match(line) and not (wrapped and not NUMBERED_ENTRY.match(line)):
             listed.append(line)
             continues = True
         elif not line.strip():

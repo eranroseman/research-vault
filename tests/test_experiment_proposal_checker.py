@@ -1082,6 +1082,32 @@ def test_numbered_reference_lines_count_as_entries_and_the_review_citations_are_
     )
 
 
+def test_a_numbered_entry_wrapped_onto_a_year_line_stays_one_entry(tmp_path):
+    """An ACM entry whose author list fills a line wraps before its year, so
+    its continuation starts `2001. `; inside a `[n]` list that line continues
+    the entry, and the list stays numbered with the same total and count."""
+    wrapped = _numbered_draft(cited=14).replace(
+        "[1] Author 1. 2001. A paper", "[1] Author 1.\n2001. A paper", 1
+    )
+    assert "\n2001. A paper about pointing, number 1." in wrapped
+    path = tmp_path / "draft.md"
+    path.write_text(wrapped, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert "references: 28 entries in the list" in result.stderr
+    assert "without a surname and year" not in result.stderr
+    assert (
+        "references: the Literature review cites 14 of the list's 28 entries; the template asks for 15 to 20 [references-count; item 5.1]"
+        in result.stdout
+    )
+    assert checker._listed_entries(
+        [
+            "[1] Paul M. Fitts. The information capacity of the",
+            "1954. Journal.",
+            "[2] B.",
+        ]
+    ) == ["[1] Paul M. Fitts. The information capacity of the 1954. Journal.", "[2] B."]
+
+
 def test_a_citation_without_an_entry_is_a_defect_under_item_3_3(tmp_path):
     path = tmp_path / "draft.md"
     path.write_text(_numbered_draft(extra_citation=" and [29]"), encoding="utf-8")
