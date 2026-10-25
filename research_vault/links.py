@@ -1,4 +1,4 @@
-"""Links: parse, resolve and render Obsidian's two link forms (spec §5.2).
+"""Links: parse, resolve, render and normalise Obsidian's two link forms (spec §5.2).
 
 Resolution follows Obsidian 1.13.7's ``getLinkpathDest`` and rendering its
 ``generateMarkdownLink`` (app.js, read 2026-10-04; paraphrased, the app is
@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-from . import structure
+from . import claims, frontmatter, structure
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -293,3 +293,168 @@ def render_markdown(link: Link, path: str) -> str:
         if link.subpath:
             text = f"{text} > {link.subpath[1:]}"
     return f"[{text}]({destination})"
+
+
+# --- the normaliser (§5.2) -----------------------------------------------------
+
+# Never normalised: the machine surfaces capture, publish and the verifier own,
+# and the compiled layer (normalised at seal, §5.4) — §5.2's list — plus the
+# text layer `fulltext/`, whose files carry a `managed-sha256` a rewrite
+# would break (§5.5).
+# Everything else — projects/, inbox/, daily/, system/ outside the propagation
+# records, root files — is the person's and is kept in the markdown form.
+NORMALISER_SKIPS: tuple[str, ...] = (
+    "literature/",
+    "log/",
+    "log.md",
+    "inbox/review-queue.md",
+    "system/propagations/",
+    "wiki/",
+    "fulltext/",
+)
+_FENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
+_INLINE_CODE = re.compile(r"(?<!`)(`+)(?!`).+?(?<!`)\1(?!`)", re.DOTALL)
+_HTML_COMMENT = re.compile(r"<!--.*?(?:-->|\Z)", re.DOTALL)
+_OBSIDIAN_COMMENT = re.compile(r"%%.*?(?:%%|\Z)", re.DOTALL)
+
+
+@dataclass(frozen=True)
+class Problem:
+    """A link the normaliser left as written for a person to resolve: its target
+    names no file (``dead``) or several (``ambiguous``, with the candidates), or
+    its rewrite would leave the frontmatter unreadable (``frontmatter``)."""
+
+    kind: Literal["dead", "ambiguous", "frontmatter"]
+    target: str
+    candidates: tuple[str, ...] = ()
+
+
+def is_normalised_surface(relative: str) -> bool:
+    return not any(
+        relative == skip or (skip.endswith("/") and relative.startswith(skip))
+        for skip in NORMALISER_SKIPS
+    )
+
+
+def _fence_spans(text: str) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    fence: tuple[str, int, int] | None = None  # character, length, where it opened
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        stripped = line.rstrip("\r\n")
+        if fence is None:
+            opening = _FENCE.match(stripped)
+            if opening:
+                fence = (opening.group(1)[0], len(opening.group(1)), offset)
+        elif re.match(
+            rf"^[ ]{{0,3}}{re.escape(fence[0])}{{{fence[1]},}}[ \t]*$", stripped
+        ):
+            spans.append((fence[2], offset + len(line)))
+            fence = None
+        offset += len(line)
+    if fence is not None:
+        spans.append((fence[2], len(text)))
+    return spans
+
+
+def _protected_spans(text: str) -> list[tuple[int, int]]:
+    """Code fences, inline code, HTML and Obsidian comments, anchored claim
+    blocks whole (Q19: their bytes are frozen by claim-immutability), and
+    `[k:: …]` field spans on every other line (Dataview reads only `[[…]]`
+    inside a field)."""
+    # Imported here: lints is the verify layer above this module, and must
+    # stay free to import links (through literature_notes) without a cycle.
+    from . import lints
+
+    spans = _fence_spans(text)
+    for pattern in (_INLINE_CODE, _HTML_COMMENT, _OBSIDIAN_COMMENT):
+        spans.extend((m.start(), m.end()) for m in pattern.finditer(text))
+    for block in lints._claim_blocks(text).values():
+        start = text.find(block)
+        while start != -1:
+            spans.append((start, start + len(block)))
+            start = text.find(block, start + 1)
+    spans.extend((m.start(), m.end()) for m in claims.FIELD_RE.finditer(text))
+    return spans
+
+
+def _protected(spans: list[tuple[int, int]], link: Link) -> bool:
+    return any(
+        start <= link.start < end or start < link.end <= end for start, end in spans
+    )
+
+
+def _unresolvable(link: Link) -> bool:
+    """Not a vault file to resolve: a URL, a folder, or a same-page anchor —
+    the linking file itself, which as a `/`-led path would break on `git mv`."""
+    return is_external(link) or is_folder(link.target) or not link.target.strip()
+
+
+def _kept_as_written(link: Link) -> bool:
+    """A relative target in either form (§5.2), or a markdown destination that
+    is already `/`-led: resolved, and so reported if dead, but never rewritten."""
+    target = link.target.strip().replace("\\", "/")
+    return target.startswith(("./", "../")) or (
+        link.kind == "markdown" and target.startswith("/")
+    )
+
+
+def _rewrite(
+    text: str, index: Index, source: str
+) -> tuple[str, list[Problem], list[Link]]:
+    """``text`` normalised, the links left for a person, and the links rewritten."""
+    spans = _protected_spans(text)
+    problems: list[Problem] = []
+    rewritten: list[Link] = []
+    pieces: list[str] = []
+    cursor = 0
+    for link in find_links(text):
+        if link.start < cursor or _protected(spans, link) or _unresolvable(link):
+            continue
+        hits = index.resolve(link.target, source=source)
+        if len(hits) != 1:
+            problems.append(
+                Problem("ambiguous" if hits else "dead", link.target, tuple(hits))
+            )
+            continue
+        if _kept_as_written(link):
+            continue
+        # A markdown link's text is its alias, never None, so the renderer
+        # keeps it as written; only the destination changes.
+        pieces += [text[cursor : link.start], render_markdown(link, hits[0])]
+        rewritten.append(link)
+        cursor = link.end
+    pieces.append(text[cursor:])
+    return "".join(pieces), problems, rewritten
+
+
+def normalize(text: str, index: Index, *, source: str) -> tuple[str, list[Problem]]:
+    """Rewrite every resolvable wikilink to the markdown form and add the `/`
+    to a bare markdown destination that resolves to one file; leave URIs,
+    folders, same-page anchors, relative forms, dead and ambiguous targets
+    alone, and report every dead and ambiguous one. The frontmatter block is
+    rewritten only if the result still reads as YAML. What is reported is
+    the caller's to print, not a review-queue row: outside `wiki/` a link to
+    a note not yet written is an ordinary act, never a refused commit."""
+    opening = frontmatter._FRONTMATTER_OPEN.match(text)
+    closing = (
+        frontmatter._FRONTMATTER_CLOSE.search(text, opening.end()) if opening else None
+    )
+    if opening is None or closing is None:
+        new_text, problems, _ = _rewrite(text, index, source)
+        return new_text, problems
+    head = text[: opening.end()]
+    block = text[opening.end() : closing.start()]
+    delimiter = text[closing.start() : closing.end()]
+    new_body, problems, _ = _rewrite(text[closing.end() :], index, source)
+    new_block, block_problems, rewritten = _rewrite(block, index, source)
+    if rewritten:
+        try:
+            frontmatter.read_okf(head + new_block + delimiter)
+        except frontmatter.FrontmatterError:
+            # An unquoted `related: [[x]]` would become `related: [x](/p/x.md)`,
+            # a flow sequence followed by junk: the block is kept as written and
+            # every link that would have been rewritten is reported with it.
+            kept = [Problem("frontmatter", link.target) for link in rewritten]
+            return head + block + delimiter + new_body, kept + block_problems + problems
+    return head + new_block + delimiter + new_body, block_problems + problems

@@ -273,3 +273,209 @@ def test_attachment_extensions_are_obsidians_registered_set():
     ):
         assert extension in links.ATTACHMENT_EXTENSIONS
     assert "md" not in links.ATTACHMENT_EXTENSIONS
+
+
+def test_normalize_rewrites_every_resolvable_wikilink_and_is_idempotent(tmp_path):
+    index = _index(tmp_path)
+    text = "See [[Only Here]] and [[Foo#Heading|shown]] and ![[img.png|480]].\n"
+    out, problems = links.normalize(text, index, source="wiki/concepts/Other.md")
+    assert out == (
+        "See [Only Here](/wiki/concepts/Only%20Here.md) and "
+        "[[Foo#Heading|shown]] and ![480](/wiki/img.png).\n"
+    )  # Foo is ambiguous (two Foo.md), so its link stays as written
+    assert [(p.kind, p.target) for p in problems] == [("ambiguous", "Foo")]
+    again, _ = links.normalize(out, index, source="wiki/concepts/Other.md")
+    assert again == out
+
+
+def test_normalize_adds_the_slash_to_a_markdown_destination_that_resolves(tmp_path):
+    index = _index(tmp_path)
+    text = (
+        "[a](wiki/concepts/Only%20Here.md) [b](concepts/Foo.md#^c-1) "
+        "[c](./Foo.md) [d](../sources/Foo.md) [e](https://x.org/y) "
+        "[f](/wiki/img.png) [g](nowhere.md)\n"
+    )
+    out, problems = links.normalize(text, index, source="wiki/concepts/Other.md")
+    assert out == (
+        "[a](/wiki/concepts/Only%20Here.md) [b](/wiki/concepts/Foo.md#^c-1) "
+        "[c](./Foo.md) [d](../sources/Foo.md) [e](https://x.org/y) "
+        "[f](/wiki/img.png) [g](nowhere.md)\n"
+    )
+    assert [(p.kind, p.target) for p in problems] == [("dead", "nowhere.md")]
+
+
+def test_normalize_leaves_dead_and_ambiguous_targets_as_written(tmp_path):
+    index = _index(tmp_path)
+    text = "[[Foo]] [[nowhere]] ![[gone.png]]\n"
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert out == text
+    assert [(p.kind, p.target, p.candidates) for p in problems] == [
+        ("ambiguous", "Foo", ("wiki/concepts/Foo.md", "wiki/sources/Foo.md")),
+        ("dead", "nowhere", ()),
+        ("dead", "gone.png", ()),
+    ]
+
+
+def test_normalize_masks_code_fences_inline_code_and_comments(tmp_path):
+    index = _index(tmp_path)
+    text = (
+        "```\n[[Only Here]]\n```\n"
+        "~~~md\n[[Only Here]]\n~~~\n"
+        "inline `[[Only Here]]` here\n"
+        "<!-- [[Only Here]] -->\n"
+        "%% [[Only Here]] %%\n"
+        "real [[Only Here]]\n"
+    )
+    out, _ = links.normalize(text, index, source="projects/brief/draft.md")
+    assert out.count("[[Only Here]]") == 5
+    assert out.endswith("real [Only Here](/wiki/concepts/Only%20Here.md)\n")
+
+
+def test_normalize_skips_anchored_claim_blocks_whole_and_masks_inline_fields(tmp_path):
+    """Q19: a committed claim's bytes are frozen (claim-immutability), and
+    Dataview reads only `[[…]]` inside a `[k:: …]` field."""
+    index = _index(tmp_path)
+    text = (
+        "- (quote) Mortality fell [@smith2020, p. 3] [supports:: [[smith2020#^c-1]]] ^c-2\n"
+        "  > the quoted [[Only Here]] text\n"
+        "Prose with [[Only Here]] and a field [related:: [[Only Here]]] here.\n"
+    )
+    out, _ = links.normalize(text, index, source="projects/brief/draft.md")
+    assert out == (
+        "- (quote) Mortality fell [@smith2020, p. 3] [supports:: [[smith2020#^c-1]]] ^c-2\n"
+        "  > the quoted [[Only Here]] text\n"
+        "Prose with [Only Here](/wiki/concepts/Only%20Here.md) and a field "
+        "[related:: [[Only Here]]] here.\n"
+    )
+
+
+def test_normalize_refuses_a_rewrite_that_leaves_frontmatter_unparseable(tmp_path):
+    index = _index(tmp_path)
+    text = "---\ntype: note\nrelated: [[Only Here]]\n---\nbody [[Only Here]]\n"
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert (
+        out
+        == "---\ntype: note\nrelated: [[Only Here]]\n---\nbody [Only Here](/wiki/concepts/Only%20Here.md)\n"
+    )
+    assert [(p.kind, p.target) for p in problems] == [("frontmatter", "Only Here")]
+
+
+def test_normalize_rewrites_a_quoted_frontmatter_link_that_stays_valid(tmp_path):
+    index = _index(tmp_path)
+    text = '---\ntype: note\nrelated: "[[Only Here]]"\n---\n'
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert (
+        out
+        == '---\ntype: note\nrelated: "[Only Here](/wiki/concepts/Only%20Here.md)"\n---\n'
+    )
+    assert problems == []
+
+
+@pytest.mark.parametrize(
+    ("relative", "skipped"),
+    [
+        ("literature/smith2020.md", True),
+        ("log/2026-10-24.md", True),
+        ("log.md", True),
+        ("inbox/review-queue.md", True),
+        ("system/propagations/p.json", True),
+        ("wiki/concepts/Foo.md", True),
+        ("fulltext/ABCD1234.md", True),
+        ("projects/brief/draft.md", False),
+        ("inbox/idea.md", False),
+        ("daily/2026-10-24.md", False),
+        ("system/templates/project.md", False),
+        ("index.md", False),
+    ],
+)
+def test_normaliser_skips_the_surfaces_the_spec_names(relative, skipped):
+    assert links.is_normalised_surface(relative) is (not skipped)
+
+
+def test_normalize_never_rewrites_a_relative_target_and_reports_every_dead_one(
+    tmp_path,
+):
+    """`./` and `../` are left as written in both forms (§5.2); a `/`-led
+    destination is already normal and left alone. Every one of them is still
+    resolved, so a dead one is reported: outside `wiki/` the normaliser is the
+    only reader that would say so."""
+    index = _index(tmp_path)
+    text = (
+        "[[./Foo]] [[../sources/Foo|src]] [[../Foo]] [x](./Missing.md) "
+        "[y](/wiki/gone.md) [z](../nope.md) [[/wiki/concepts/Only Here]]\n"
+    )
+    out, problems = links.normalize(text, index, source="wiki/concepts/Other.md")
+    assert out == (
+        "[[./Foo]] [[../sources/Foo|src]] [[../Foo]] [x](./Missing.md) "
+        "[y](/wiki/gone.md) [z](../nope.md) [Only Here](/wiki/concepts/Only%20Here.md)\n"
+    )
+    assert [(p.kind, p.target) for p in problems] == [
+        ("dead", "../Foo"),
+        ("dead", "./Missing.md"),
+        ("dead", "/wiki/gone.md"),
+        ("dead", "../nope.md"),
+    ]
+
+
+def test_normalize_leaves_same_page_anchors_as_written(tmp_path):
+    """A same-page link names the linking file; written out as its `/`-led path
+    it would break on the file's first `git mv`."""
+    index = _index(tmp_path)
+    text = "[see](#section), [[#Heading]] and [[#^c-1|that claim]]\n"
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert out == text
+    assert problems == []
+
+
+def test_normalize_reads_a_colon_wikilink_as_a_name_and_skips_only_a_url(tmp_path):
+    """Only a markdown destination can be a URI: `[[re:2020]]` is a captured-set
+    key and `[[ghost:2020]]` a dead name, never a skipped URL."""
+    index = _index(tmp_path)
+    text = "[[re:2020]] [[ghost:2020]] [m](mailto:a@b.c) ![u](https://x.org/a.png)\n"
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert out == (
+        "[re2020](/literature/re2020.md) [[ghost:2020]] "
+        "[m](mailto:a@b.c) ![u](https://x.org/a.png)\n"
+    )
+    assert [(p.kind, p.target) for p in problems] == [("dead", "ghost:2020")]
+
+
+def test_normalize_leaves_the_seed_index_folder_links_alone_and_unreported(tmp_path):
+    """A target ending in `/` is a folder: read as `log.md`, the seed index's
+    `[log/](log/)` would be re-pointed at the root log, and the other five
+    would be dead at every commit that stages `index.md`."""
+    for relative in (
+        "log.md",
+        "log/2026-10-24.md",
+        "system/bases/trust-tier.base",
+        "system/bases/open-questions.base",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("x\n")
+    index = links.Index.build(tmp_path, literature={}, names={})
+    seed = (Path(links.__file__).parent / "templates/vault/index.md").read_text()
+    folders = [link for link in links.find_links(seed) if links.is_folder(link.target)]
+    assert len(folders) == 6
+    out, problems = links.normalize(seed + "[[wiki/]]\n", index, source="index.md")
+    for link in folders:
+        assert seed[link.start : link.end] in out
+    assert out.endswith("[[wiki/]]\n")
+    assert problems == []
+
+
+def test_normalize_reports_the_other_links_of_a_refused_frontmatter_rewrite(tmp_path):
+    """The block is kept whole when a rewrite would break its YAML; a link
+    that would have been rewritten is reported as such, an ambiguous one as
+    ambiguous, and an already-normal `/`-led one not at all."""
+    index = _index(tmp_path)
+    text = (
+        "---\nrelated: [[Only Here]]\nup: [[Foo]]\n"
+        'norm: "[x](/wiki/concepts/Foo.md)"\n---\n'
+    )
+    out, problems = links.normalize(text, index, source="projects/brief/draft.md")
+    assert out == text
+    assert [(p.kind, p.target) for p in problems] == [
+        ("frontmatter", "Only Here"),
+        ("ambiguous", "Foo"),
+    ]
