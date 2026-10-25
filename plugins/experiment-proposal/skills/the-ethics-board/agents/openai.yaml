@@ -3,6 +3,7 @@ interface:
   display_name: The ethics board
   short_description: Rehearse an ethics-committee review of a study with human participants
   default_prompt: Run the-ethics-board against the study and consent story the user
-    describes and return the review transcript, vulnerability map and revision list.
+    describes, write the review to proposal/ethics-review.md, and return the review
+    transcript, vulnerability map and revision list.
 policy:
   allow_implicit_invocation: false

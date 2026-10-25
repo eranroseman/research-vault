@@ -176,6 +176,15 @@ def test_lit_search_codex_prompt_names_the_wrapper():
     assert "lit-search-judged.txt" in meta["interface"]["default_prompt"]
 
 
+def test_ethics_board_codex_prompt_names_the_file_it_writes():
+    meta = yaml.safe_load(
+        (SKILLS_DIR / "the-ethics-board" / "agents" / "openai.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "proposal/ethics-review.md" in meta["interface"]["default_prompt"]
+
+
 # --------------------------------------------------------------------------
 # Vendored files: provenance headers, local edits, notices
 # --------------------------------------------------------------------------
