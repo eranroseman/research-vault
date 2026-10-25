@@ -321,12 +321,15 @@ NORMALISER_SKIPS: tuple[str, ...] = (
 # a list marker (`-`, `1.`) or any indent. Masking an indented code block
 # with it errs safe. A backtick fence's info string holds no backtick
 # (CommonMark), so a line led by ```x``` is a code span, not a fence that
-# would mask the rest of the file.
+# would mask the rest of the file. A closer stands behind quotes and indent
+# only: a list marker opens a new container, so a line led by one is content
+# (or an opener), never a closer.
 _CONTAINER = r"(?:[ \t]*(?:>|[-+*][ \t]|\d{1,9}[.)][ \t]))*[ \t]*"
+_QUOTES = r"(?:[ \t]*>)*[ \t]*"
 _FENCE = re.compile(rf"({_CONTAINER})(`{{3,}}(?!.*`)|~{{3,}})")
 # A code span ends at a blank line, a blockquote's bare `>` line included
 # (CommonMark: a span never crosses a paragraph).
-_BLANK_LINE = r"\r?\n(?:[ \t]*>)*[ \t]*\r?\n"
+_BLANK_LINE = rf"\r?\n{_QUOTES}\r?\n"
 _CODE_SPAN = rf"(?<!`)(?P<ticks>`+)(?!`)(?:(?!{_BLANK_LINE}).)+?(?<!`)(?P=ticks)(?!`)"
 _HTML_COMMENT = r"<!--.*?(?:-->|\Z)"
 _OBSIDIAN_COMMENT = r"%%.*?(?:%%|\Z)"
@@ -361,13 +364,12 @@ def is_normalised_surface(relative: str) -> bool:
 
 def _closes(opening: re.Match[str], line: str) -> bool:
     """``line`` ends the fence ``opening`` opened: a run of its character at
-    least as long, alone on the line, behind a container of the same `>` depth
+    least as long, alone on the line, behind quotes of the same `>` depth
     indented at most three columns away from the opener's (CommonMark). A
-    fence quoted or indented inside the code is content, not a closer."""
+    fence quoted, listed or indented inside the code is content, not a
+    closer."""
     prefix, run = opening.groups()
-    closing = re.match(
-        rf"({_CONTAINER}){re.escape(run[0])}{{{len(run)},}}[ \t]*$", line
-    )
+    closing = re.match(rf"({_QUOTES}){re.escape(run[0])}{{{len(run)},}}[ \t]*$", line)
     return (
         closing is not None
         and closing.group(1).count(">") == prefix.count(">")

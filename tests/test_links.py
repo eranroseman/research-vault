@@ -495,6 +495,8 @@ _AFTER_NORMAL = "\nafter [Only Here](/wiki/concepts/Only%20Here.md)\n"
         "```\n[[Only Here]] [[nowhere]]\n   ```\n",
         "```markdown\n    ```\n    [[Only Here]] [[nowhere]]\n    ```\n```\n",
         "```markdown\n> [!note]\n> ```python\n> [[Only Here]] [[nowhere]]\n> ```\n```\n",
+        "```\n* ```\n[[Only Here]] [[nowhere]]\n```\n",
+        "~~~\n1. ~~~\n   [[Only Here]] [[nowhere]]\n~~~\n",
     ],
     ids=[
         "blockquote",
@@ -504,13 +506,17 @@ _AFTER_NORMAL = "\nafter [Only Here](/wiki/concepts/Only%20Here.md)\n"
         "closer-indented-three",
         "indented-fence-in-a-fence",
         "callout-fence-in-a-fence",
+        "bullet-fence-in-a-fence",
+        "ordered-fence-in-a-fence",
     ],
 )
 def test_normalize_masks_a_fence_in_a_container_up_to_its_own_closer(tmp_path, fenced):
-    """A fence opens and closes behind any container prefix. Only a closer at
-    the opener's `>` depth, indented at most three columns away from it, ends
-    the fence: a fence quoted inside one is content. The code inside is left
-    as written and unreported, and the link after it is rewritten."""
+    """A fence opens behind any container prefix, a list marker included, but
+    closes only behind quotes and indent: a list marker opens a new container,
+    so a line led by one is content. Only a closer at the opener's `>` depth,
+    indented at most three columns away from it, ends the fence: a fence
+    quoted or listed inside one is content. The code inside is left as
+    written and unreported, and the link after it is rewritten."""
     index = _index(tmp_path)
     out, problems = links.normalize(
         fenced + _AFTER, index, source="projects/brief/draft.md"
