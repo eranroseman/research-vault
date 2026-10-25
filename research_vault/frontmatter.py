@@ -288,8 +288,9 @@ def read_okf(text: str) -> tuple[dict, str]:
 
     Returns ``({}, text)`` for a file with no block and ``({}, body)`` for an
     empty block (document.py:71-75). A non-mapping block, a duplicate key, an
-    unhashable key, a custom tag and any YAML syntax fault are
-    ``FrontmatterError``; a missing PyYAML is ``DependencyMissingError``.
+    unhashable key, a custom tag, a value its constructor cannot build
+    (``!!int abc``) and any YAML syntax fault are ``FrontmatterError``; a
+    missing PyYAML is ``DependencyMissingError``.
     """
     opening = _FRONTMATTER_OPEN.match(text)
     if opening is None:
@@ -314,6 +315,15 @@ def read_okf(text: str) -> tuple[dict, str]:
         first_line = text.count("\n", 0, opening.end()) + 1
         raise FrontmatterError(
             f"frontmatter is not valid YAML: {_yaml_fault(error, first_line)}"
+        ) from error
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError) as error:
+        # PyYAML's typed constructors raise plain Python errors, not YAMLError:
+        # `!!int abc` and an implicit `0b_` (int()), `!!bool abc` (a table
+        # lookup), `!!timestamp abc` (a regex that does not match), a bare
+        # `!!int` (an index), `!!map [a]` (an unpack). They are content.
+        raise FrontmatterError(
+            "frontmatter is not valid YAML: cannot construct a value "
+            f"({type(error).__name__}: {error})"
         ) from error
     if data is None:
         return {}, body

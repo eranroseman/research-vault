@@ -474,6 +474,21 @@ def test_check_note_frontmatter_reads_a_null_type_as_missing(tmp_path):
     assert outcome.reason == "schema-violation — missing type (OKF §11 rule 2)"
 
 
+def test_check_note_frontmatter_reports_an_unconstructable_value_not_a_traceback(
+    tmp_path,
+):
+    """`!!int abc` makes PyYAML's int constructor raise a plain ValueError;
+    the check reports it as unparseable frontmatter."""
+    path = _write(
+        tmp_path, "projects/brief/notes.md", "---\ntype: note\ntitle: !!int abc\n---\n"
+    )
+    (outcome,) = structure.check_note_frontmatter(tmp_path, path)
+    assert outcome.reason.startswith(
+        "schema-violation — frontmatter unparseable (frontmatter is not valid YAML: "
+        "cannot construct a value (ValueError: "
+    )
+
+
 def test_root_index_with_a_boolean_key_is_reported_not_a_traceback(tmp_path):
     """`yes: 1` gives a bool key under the YAML loader; `sorted()` over mixed
     keys raises TypeError without `key=str` (Q18)."""

@@ -388,3 +388,30 @@ def test_read_okf_reports_a_markless_fault_on_one_line():
     )
     assert "\n" not in message
     assert "position" not in message
+
+
+@pytest.mark.parametrize(
+    ("value", "error"),
+    [
+        pytest.param("!!int abc", "ValueError", id="int"),
+        pytest.param("!!float abc", "ValueError", id="float"),
+        pytest.param("!!bool abc", "KeyError", id="bool"),
+        pytest.param("!!timestamp abc", "AttributeError", id="timestamp"),
+        pytest.param("!!int", "IndexError", id="bare-int"),
+        pytest.param("!!map [a]", "TypeError", id="map-of-a-sequence"),
+        # No tag: the implicit int resolver matches `0b_`, which int() refuses.
+        pytest.param("0b_", "ValueError", id="implicit-binary"),
+    ],
+)
+def test_read_okf_refuses_a_value_its_constructor_cannot_build(value, error):
+    """PyYAML's typed constructors raise plain Python errors, not YAMLError
+    (`int("abc")`, a `!!bool` table lookup, a timestamp regex that does not
+    match): content, so a FrontmatterError on one line like any other
+    fault, never a traceback out of the structure check or stamp."""
+    with pytest.raises(frontmatter.FrontmatterError) as caught:
+        frontmatter.read_okf(f"---\ntitle: {value}\n---\nbody\n")
+    message = str(caught.value)
+    assert message.startswith(
+        f"frontmatter is not valid YAML: cannot construct a value ({error}: "
+    )
+    assert "\n" not in message

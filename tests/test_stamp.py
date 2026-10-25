@@ -286,19 +286,34 @@ def test_stamp_replaces_a_blank_type_line_and_never_raises_on_its_value(tmp_path
         # The flat parser reads `[a` as a key; the OKF reader that decides
         # whether a type is missing refuses the block.
         pytest.param("---\n[a: 1\n---\nbody\n", id="okf-reader-refuses"),
-        # The flat parser keeps a quoted key's quotes, so `"type"` is not the
-        # `type` it would replace: the stamped block would carry two, and the
-        # re-parse refuses the duplicate.
-        pytest.param('---\n"type": null\n---\nbody\n', id="stamped-block-unreadable"),
-        # `yes` reads back as the bool key True: the stamped block parses, but
-        # not as {type, **data}.
-        pytest.param("---\nyes: 1\n---\nbody\n", id="stamped-keys-differ"),
+        # The flat parser reads `!!int abc` as text; the OKF reader's int
+        # constructor raises a plain ValueError, which is content.
+        pytest.param(
+            "---\ntitle: !!int abc\n---\nbody\n", id="okf-constructor-refuses"
+        ),
+        # The rest are blocks both readers accept but read with different
+        # keys: the insert rewrites the block from the flat view, so it
+        # would rewrite a block the OKF reader reads otherwise.
+        # A quoted key keeps its quotes in the flat view: `"type"`, not `type`.
+        pytest.param('---\n"type": null\n---\nbody\n', id="quoted-type-key"),
+        # `yes` is the bool key True to YAML.
+        pytest.param("---\nyes: 1\n---\nbody\n", id="bool-key"),
+        # A double-quoted value continues onto a line the flat parser takes
+        # for a key: a repeated `a` (YAML reads one, 'x a: y'), and a `type`
+        # (YAML reads no type, and 'a type: b' as the title).
+        pytest.param('---\na: "x\na: y"\n---\nbody\n', id="continuation-repeats-a-key"),
+        pytest.param(
+            '---\ntitle: "a\ntype: b"\n---\nbody\n', id="continuation-reads-as-type"
+        ),
+        # The keys agree, but the stamped block does not read back: the flat
+        # parser reads `{}` as `{"": ""}`, which re-emits as `{: ""}`.
+        pytest.param("---\nmeta: {}\n---\nbody\n", id="stamped-block-unreadable"),
     ],
 )
 def test_stamp_reports_a_block_whose_insert_does_not_round_trip(tmp_path, before):
-    """After the insert, stamp re-parses; a block that does not read back as
-    `{type, **data}` is reported `unparseable`, never written. Each case is
-    the one fixture that reaches its own refusal."""
+    """A block the stamped rewrite would not carry over as the OKF reader
+    reads it is reported `unparseable`, never written: one the flat parser
+    or the OKF reader refuses, or one the two read with different keys."""
     (tmp_path / "literature").mkdir()
     note = tmp_path / "literature" / "x.md"
     note.write_text(before)
