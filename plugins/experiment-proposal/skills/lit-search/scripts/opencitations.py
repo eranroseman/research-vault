@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Vendored from https://github.com/hutzelmann/thesis-proposal-skills @ a38b7b117513b9e4e50f08770d0049aae3e75398
+# Vendored from https://github.com/hutzelmann/thesis-proposal-skills @ 1666e690e7b2f0659531253d319d41ebf0a310d7
 # (skills/proposal-lit-search/scripts/opencitations.py), license MIT (© 2026 Thomas Hutzelmann).
 # Renamed into the experiment-proposal plugin as skills/lit-search/scripts/opencitations.py.
 # Do not hand-edit this file; re-vendor from upstream to update it.

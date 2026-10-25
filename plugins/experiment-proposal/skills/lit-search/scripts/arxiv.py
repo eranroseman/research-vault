@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-# Vendored from https://github.com/hutzelmann/thesis-proposal-skills @ a38b7b117513b9e4e50f08770d0049aae3e75398
+# Vendored from https://github.com/hutzelmann/thesis-proposal-skills @ 1666e690e7b2f0659531253d319d41ebf0a310d7
 # (skills/proposal-lit-search/scripts/arxiv.py), license MIT (© 2026 Thomas Hutzelmann).
 # Renamed into the experiment-proposal plugin as skills/lit-search/scripts/arxiv.py.
 # Do not hand-edit this file; re-vendor from upstream to update it.
 """arXiv source client (search-only).
 
-API base URL: http://export.arxiv.org/api/query (Atom XML feed).
+API base URL: https://export.arxiv.org/api/query (Atom XML feed). The plain-HTTP
+address only redirects here, after sending the query in cleartext.
 Key policy: no API key required; arXiv asks for a courtesy delay of ~3 seconds
 between requests, enforced here via min_interval=3.0.
+Answers go through common.http_xml: anything but arXiv's Atom feed — an HTML
+page, other XML, a verification page — raises a classified SourceError, so a
+broken answer degrades arXiv instead of counting as zero hits.
 """
 
 from __future__ import annotations
@@ -17,11 +21,12 @@ import xml.etree.ElementTree as ET
 
 import common
 
-BASE_URL = "http://export.arxiv.org/api/query"
+BASE_URL = "https://export.arxiv.org/api/query"
 NS = {
     "atom": "http://www.w3.org/2005/Atom",
     "arxiv": "http://arxiv.org/schemas/atom",
 }
+FEED = "{http://www.w3.org/2005/Atom}feed"
 MIN_INTERVAL = 3.0
 
 
@@ -64,20 +69,13 @@ def _parse_entry(node: ET.Element) -> dict:
     )
 
 
-def _parse_feed(xml_text: str) -> list[dict]:
-    try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError as exc:
-        raise common.SourceError(f"arxiv: invalid Atom XML ({exc})") from exc
-    return [_parse_entry(node) for node in root.findall("atom:entry", NS)]
-
-
 def search(query: str, limit: int = 10) -> list[dict]:
     """Search arXiv across all fields; returns CSL-shaped preprint entries."""
-    xml_text = common.http_text(
+    feed = common.http_xml(
         BASE_URL,
         params={"search_query": f"all:{query}", "max_results": limit},
         source="arxiv",
         min_interval=MIN_INTERVAL,
+        root=FEED,
     )
-    return _parse_feed(xml_text)
+    return [_parse_entry(node) for node in feed.findall("atom:entry", NS)]

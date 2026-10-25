@@ -12,6 +12,7 @@ name and the vendored scripts.
 """
 
 import ast
+import hashlib
 import importlib.util
 import json
 import re
@@ -153,7 +154,7 @@ KDENSE = (
 )
 HUTZELMANN = (
     "https://github.com/hutzelmann/thesis-proposal-skills",
-    "a38b7b117513b9e4e50f08770d0049aae3e75398",
+    "1666e690e7b2f0659531253d319d41ebf0a310d7",
     "Thomas Hutzelmann",
 )
 PM_SKILLS = (
@@ -275,6 +276,53 @@ def test_third_party_notices_carry_the_mit_text_and_every_copyright_holder():
         p for p in text.split("\n\n") if "research-grill" in p and "CC BY-NC" in p
     )
     assert "hutzelmann" not in research_grill
+
+
+# SHA-256 of each vendored file as shipped (provenance header and marked edits
+# included). A hand edit fails here; a re-vendor or a new marked edit updates
+# the constant in the same commit. Print them with:
+#   python3 -c 'import hashlib,sys; [print(repr(p), hashlib.sha256(open(p,"rb").read()).hexdigest()) for p in sys.argv[1:]]' <files>
+VENDORED_SHA256 = {
+    "agents/hci-researcher.md": "490c0e596a7bfeb3737ecbd7b3b5d24513fb330dc0050b99f45955ac7c88b212",
+    "skills/the-ethics-board/SKILL.md": "599ead76ccacc70912e7df45f4aa1dfe926f321eb3d869c8fcdea644e21c354e",
+    "skills/lit-search/scripts/arxiv.py": "01c5a1787ef5c6f4cb5b544e854301da3c63ed0d89fd3ff1f6889ed24e1d96a4",
+    "skills/lit-search/scripts/common.py": "b81d648e027d83289c42d97615d60ebef3cac7ca465912482c8fa353250f499d",
+    "skills/lit-search/scripts/crossref.py": "5d160214bfb902e8260947099886720b22e5b8fc2a92acff59c9b8200e4120f8",
+    "skills/lit-search/scripts/dblp.py": "e81866d6eb2b692ee9efa1d62d97ee26492352a6309f301dddcb9490e4028348",
+    "skills/lit-search/scripts/openalex.py": "15e20ec8933e7504d7915d3c62aa3e9aeaeeb75ceb474ca2c230e67ad9520d7b",
+    "skills/lit-search/scripts/opencitations.py": "3c10c180e749e94b401e913d06cc6ef2f04fc4081d60332cbc10d840125a39d6",
+    "skills/lit-search/scripts/search.py": "344b1e67e48268d17ac3d90ce17b07c1a982fcd450da86ed75d09028e1ef84e9",
+    "skills/lit-search/scripts/semantic_scholar.py": "fd86a81a0a3e41f09ba2e8056786f18a4ff79950e2634349043bc17374f11a82",
+    "skills/lit-search/scripts/snowball.py": "6011f67d995d0f6c8530a3ecc77340cb5012d440b081cdfac6b050620f9bc9de",
+}
+
+
+@pytest.mark.parametrize(
+    "relative", sorted(VENDORED_SHA256), ids=lambda s: s.rsplit("/", 1)[-1]
+)
+def test_vendored_file_bytes_are_pinned(relative):
+    digest = hashlib.sha256((PLUGIN / relative).read_bytes()).hexdigest()
+    assert digest == VENDORED_SHA256[relative], (
+        f"{relative} changed; re-vendor or record the marked edit, then update VENDORED_SHA256"
+    )
+
+
+def test_the_vendored_scripts_are_v0_9_0():
+    """The gains the spec names: the candidates line, the one-seed default,
+    arXiv over https through http_xml, UTF-8 output."""
+    search = (SCRIPTS / "search.py").read_text(encoding="utf-8")
+    snowball = (SCRIPTS / "snowball.py").read_text(encoding="utf-8")
+    common = (SCRIPTS / "common.py").read_text(encoding="utf-8")
+    arxiv = (SCRIPTS / "arxiv.py").read_text(encoding="utf-8")
+    assert "def count_line(" in search
+    assert "def count_line(" in snowball
+    assert "DEFAULT_PER_SEED = 5" in snowball
+    assert "def http_xml(" in common
+    assert "def utf8_output(" in common
+    assert 'BASE_URL = "https://export.arxiv.org/api/query"' in arxiv
+    assert (
+        "def _yaml_scalar(" in common
+    )  # still unquoted on a newline: the wrapper owns the YAML
 
 
 # --------------------------------------------------------------------------

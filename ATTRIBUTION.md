@@ -70,7 +70,7 @@ upstream README and `CITATION.cff` ask to be cited; the plugin README repeats th
 request.
 
 **[hutzelmann/thesis-proposal-skills](https://github.com/hutzelmann/thesis-proposal-skills)**
-— MIT, © 2026 Thomas Hutzelmann, vendored at pin `a38b7b11`: the nine upstream
+— MIT, © 2026 Thomas Hutzelmann, vendored at pin `1666e690` (v0.9.0): the nine upstream
 proposal-lit-search scripts, unchanged apart from their headers, under
 `plugins/experiment-proposal/skills/lit-search/scripts/`. The `lit-search`
 SKILL.md over them is this repository's own. The six substance tests of its
