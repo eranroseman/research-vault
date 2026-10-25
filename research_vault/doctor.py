@@ -1,4 +1,4 @@
-"""The doctor: repair the scoped vault substrate, then thirteen ordered probes (assembly spec §9).
+"""The doctor: repair the scoped vault substrate, then the ordered probes (assembly spec §9).
 
 Scaffolding (`scaffold.py`) creates and commits; this module observes. It
 calls only `scaffold_vault`, `VAULT_DIRS` and `_git` from the other side.
@@ -446,8 +446,25 @@ def _bbt_probe(client, zotero_probe: Probe) -> Probe:
     return Probe("bbt", Result.MATCHED, bbt_version.strip())
 
 
+def _pyyaml_probe() -> Probe:
+    """The OKF reader's dependency (#194, §5.6): `verify` exits 4 without it."""
+    try:
+        import yaml
+    except ImportError:
+        return Probe(
+            "pyyaml",
+            Result.UNMATCHED,
+            "PyYAML is not importable — verify exits 4 and the commit hook refuses; "
+            "pip install PyYAML into the environment that runs research_vault",
+        )
+    loader = "C" if hasattr(yaml, "CSafeLoader") else "pure"
+    return Probe(
+        "pyyaml", Result.MATCHED, f"PyYAML {yaml.__version__} ({loader} loader)"
+    )
+
+
 def doctor(vault_root, client=None) -> list[Probe]:
-    """Repair the scoped vault substrate and return its thirteen ordered probes (§5)."""
+    """Repair the scoped vault substrate and return its ordered probes (§5)."""
     vault = Path(vault_root)
     tree = _tree_probe(vault)
     config, machine = _machine_config(vault)
@@ -467,6 +484,7 @@ def doctor(vault_root, client=None) -> list[Probe]:
         _path_shim_probe(client, skip, vault),
         _translator_formats_probe(client, skip),
         _compile_tool_probe(),
+        _pyyaml_probe(),
         _remote_probe(vault),
         _backup_probe(config),
     ]

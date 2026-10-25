@@ -263,3 +263,92 @@ def test_m8_the_boundary_grammar_is_exact_and_shared_with_the_writers(fence):
     unterminated = f'---\ntype: "x"\n{fence}\nbody\n'
     with pytest.raises(frontmatter.FrontmatterError, match="unterminated"):
         frontmatter.parse(unterminated)  # not a closing either
+
+
+def test_read_okf_reads_nested_yaml_the_flat_parser_refuses():
+    text = (
+        "---\ntitle: A page\ntype: concept\ntags:\n  - a\n  - b\n"
+        "meta:\n  nested: 1\n---\nbody\n"
+    )
+    data, body = frontmatter.read_okf(text)
+    assert data == {
+        "title": "A page",
+        "type": "concept",
+        "tags": ["a", "b"],
+        "meta": {"nested": 1},
+    }
+    assert body == "body\n"
+
+
+def test_read_okf_splits_on_the_same_delimiters_as_parse():
+    text = "---\r\ntype: concept\r\n---\r\nbody\r\n"
+    assert frontmatter.read_okf(text)[1] == frontmatter.parse(text)[1] == "body\r\n"
+    assert frontmatter.read_okf("no block\n") == ({}, "no block\n")
+    with pytest.raises(frontmatter.FrontmatterError, match="unterminated"):
+        frontmatter.read_okf("---\ntype: concept\nbody\n")
+
+
+@pytest.mark.parametrize("value", ["null", "~", "NULL", "Null", ""])
+def test_read_okf_rule_2_reads_every_null_spelling_as_missing(value):
+    """OKF's reference reader tests `not fm.get("type")`; BaseLoader would read
+    `null` as the string "null" and pass it (Q18)."""
+    data, _ = frontmatter.read_okf(f"---\ntype: {value}\n---\n")
+    assert not frontmatter.okf_type(data)
+
+
+def test_read_okf_keeps_a_quoted_null_as_present():
+    data, _ = frontmatter.read_okf('---\ntype: "null"\n---\n')
+    assert frontmatter.okf_type(data)
+
+
+def test_read_okf_leaves_a_date_shaped_scalar_as_text():
+    """The reference loader removes the timestamp resolver: `2026-13-45` is text,
+    not a ValueError and not a datetime."""
+    data, _ = frontmatter.read_okf(
+        "---\ntype: daily\nday: 2026-13-45\nreal: 2026-10-24\n---\n"
+    )
+    assert data["day"] == "2026-13-45"
+    assert data["real"] == "2026-10-24"
+
+
+def test_read_okf_refuses_a_duplicate_key_and_a_non_mapping_block():
+    with pytest.raises(frontmatter.FrontmatterError, match="duplicate key 'type'"):
+        frontmatter.read_okf("---\ntype: a\ntype: b\n---\n")
+    with pytest.raises(frontmatter.FrontmatterError, match="not a mapping"):
+        frontmatter.read_okf("---\n- a\n- b\n---\n")
+    with pytest.raises(frontmatter.FrontmatterError, match="not a mapping"):
+        frontmatter.read_okf("---\njust a scalar\n---\n")
+
+
+def test_read_okf_turns_an_unhashable_key_into_a_frontmatter_error():
+    """`date: {{date}}` is a Templater placeholder; without a hashability check the
+    duplicate-key constructor raises a bare TypeError (Q18)."""
+    with pytest.raises(frontmatter.FrontmatterError):
+        frontmatter.read_okf("---\ndate: {{date}}\n---\n")
+
+
+def test_read_okf_refuses_a_custom_tag_and_an_unquoted_colon_title():
+    with pytest.raises(frontmatter.FrontmatterError):
+        frontmatter.read_okf("---\ntype: !custom x\n---\n")
+    with pytest.raises(frontmatter.FrontmatterError):
+        frontmatter.read_okf("---\ntitle: A: B\ntype: concept\n---\n")
+
+
+def test_read_okf_reads_an_empty_block_as_an_empty_mapping():
+    assert frontmatter.read_okf("---\n\n---\nbody\n") == ({}, "body\n")
+
+
+def test_read_okf_names_a_missing_pyyaml_as_its_own_error(monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def refuse(name, *args, **kwargs):
+        if name == "yaml":
+            raise ImportError("No module named 'yaml'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", refuse)
+    monkeypatch.setattr(frontmatter, "_LOADER", None)
+    with pytest.raises(frontmatter.DependencyMissingError, match="PyYAML"):
+        frontmatter.read_okf("---\ntype: a\n---\n")

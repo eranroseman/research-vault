@@ -89,6 +89,7 @@ def test_doctor_is_substrate_and_posture_only(tmp_path):
         "path-shim",
         "translator-formats",
         "compile-tool",
+        "pyyaml",
         "remote",
         "backup",
     ]

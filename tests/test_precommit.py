@@ -29,7 +29,9 @@ def _fake_python(tmp_path):
     return bin_dir
 
 
-@pytest.mark.parametrize(("status", "expected"), [(0, 0), (1, 1), (3, 0), (2, 2)])
+@pytest.mark.parametrize(
+    ("status", "expected"), [(0, 0), (1, 1), (3, 0), (2, 2), (4, 4)]
+)
 @pytest.mark.parametrize("unborn", [False, True])
 def test_hook_resolves_one_verified_tree_and_invokes_exact_index_contract(
     tmp_path, status, expected, unborn

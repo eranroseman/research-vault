@@ -5182,3 +5182,17 @@ def test_network_outcomes_uses_an_uppercase_doi_to_skip_the_synthetic_outage(
     (outcome,) = verify._network_outcomes(net_vault, entry, "2026-09-07", None)
     assert seen == [entry]
     assert outcome.result is Result.MATCHED
+
+
+def test_verify_exits_4_when_pyyaml_is_missing(net_vault, monkeypatch, capsys):
+    """§5.6: fail closed. The hook's `*)` branch refuses 4; exit 3 would let the
+    commit through as an outage."""
+    import research_vault.__main__ as cli
+
+    def missing(*_args, **_kwargs):
+        raise frontmatter.DependencyMissingError("PyYAML is not installed")
+
+    monkeypatch.setattr(cli, "verify_state", missing)
+    code = cli.main(["verify", "--vault", str(net_vault), "--offline"])
+    assert code == cli.EXIT_DEPENDENCY_MISSING == 4
+    assert "PyYAML" in capsys.readouterr().err

@@ -180,3 +180,131 @@ def parse(text: str) -> tuple[dict, str]:
                 current_list = None
             source_items.append((key, value))
     return _mapping_from_items(source_items), body
+
+
+# --- the OKF reader (#194): PyYAML, the reference loader's rules -----------------
+#
+# `parse` above is capture's own grammar: flat, quoted, one spelling per value,
+# used for every surface capture or verify writes. OKF §11 rules 1-2 are judged
+# against YAML, which is what the reference implementation reads
+# (open-knowledge-format/okf-ref, document.py), so the structure checks read
+# through this function instead. The two readers split the block on the same
+# delimiters (`_FRONTMATTER_OPEN`, `_FRONTMATTER_CLOSE`) so they never disagree
+# about where a body starts.
+
+
+class DependencyMissingError(RuntimeError):
+    """PyYAML cannot be imported: the OKF reader cannot run, and nothing that
+    depends on it may read as a pass. `cmd_verify` maps this to exit 4, which
+    the vault's pre-commit hook refuses (its `*)` branch), and doctor's
+    `pyyaml` row names the repair."""
+
+
+_LOADER = None
+
+
+def _loader():
+    """The reference loader: SafeLoader (C when available) minus the timestamp
+    resolver, with a duplicate-key constructor that checks hashability first."""
+    global _LOADER  # noqa: PLW0603 — one lazily built loader class per process
+    if _LOADER is not None:
+        return _LOADER
+    try:
+        import yaml
+    except ImportError as error:
+        raise DependencyMissingError(
+            "PyYAML is not installed; the OKF frontmatter reader cannot run "
+            "(pip install PyYAML)"
+        ) from error
+
+    base = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
+    class _OkfLoader(base):  # type: ignore[misc,valid-type]
+        pass
+
+    # OKF's reference loader keeps every implicit resolver except timestamps:
+    # a date-shaped scalar stays text, so `2026-13-45` is neither a datetime
+    # nor a ValueError, and a calendar date compares as the string it is.
+    _OkfLoader.yaml_implicit_resolvers = {
+        first: [
+            (tag, regexp)
+            for tag, regexp in resolvers
+            if tag != "tag:yaml.org,2002:timestamp"
+        ]
+        for first, resolvers in base.yaml_implicit_resolvers.items()
+    }
+
+    def construct_mapping(self, node, deep=False):
+        mapping = {}
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            try:
+                hash(key)
+            except TypeError as error:
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    f"found unhashable key {key!r}",
+                    key_node.start_mark,
+                ) from error
+            if key in mapping:
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    f"found duplicate key {key!r}",
+                    key_node.start_mark,
+                )
+            mapping[key] = self.construct_object(value_node, deep=deep)
+        return mapping
+
+    _OkfLoader.add_constructor("tag:yaml.org,2002:map", construct_mapping)
+    _LOADER = _OkfLoader
+    return _LOADER
+
+
+def read_okf(text: str) -> tuple[dict, str]:
+    """OKF §11's reader: YAML frontmatter as the reference implementation reads it.
+
+    Returns ``({}, text)`` for a file with no block and ``({}, body)`` for an
+    empty block (document.py:71-75). A non-mapping block, a duplicate key, an
+    unhashable key, a custom tag and any YAML syntax fault are
+    ``FrontmatterError``; a missing PyYAML is ``DependencyMissingError``.
+    """
+    opening = _FRONTMATTER_OPEN.match(text)
+    if opening is None:
+        return {}, text
+    closing = _FRONTMATTER_CLOSE.search(text, opening.end())
+    if closing is None:
+        raise FrontmatterError("unterminated frontmatter")
+    block = text[opening.end() : closing.start()]
+    body = text[closing.end() :]
+    # `_loader()` raises DependencyMissingError before any `yaml` name is
+    # touched; once it has returned, the import below cannot fail.
+    loader = _loader()
+    import yaml
+
+    try:
+        # The loader is a SafeLoader (C or pure) subclass that only narrows the
+        # resolver table and tightens the mapping constructor: `safe_load`
+        # itself is `load(stream, SafeLoader)`, and no constructor here builds
+        # an arbitrary Python object.
+        data = yaml.load(block, Loader=loader)  # noqa: S506
+    except yaml.YAMLError as error:
+        message = str(error).splitlines()
+        detail = next(
+            (line.strip() for line in message if "duplicate key" in line), None
+        ) or " ".join(line.strip() for line in message[:2])
+        raise FrontmatterError(f"frontmatter is not valid YAML: {detail}") from error
+    if data is None:
+        return {}, body
+    if not isinstance(data, dict):
+        raise FrontmatterError("frontmatter block is not a mapping")
+    return data, body
+
+
+def okf_type(data) -> bool:
+    """OKF §11 rule 2 as the reference tests it: ``not fm.get("type")`` is a
+    missing type. A whitespace-only string is also missing — the one divergence,
+    in the strict direction, that `check_note_frontmatter` already made."""
+    value = data.get("type") if isinstance(data, dict) else None
+    return bool(value) and not (isinstance(value, str) and not value.strip())

@@ -101,7 +101,7 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
     if is_fleeting(relative):
         return []
     try:
-        data, _body = frontmatter.parse(Path(path).read_text(encoding="utf-8"))
+        data, _body = frontmatter.read_okf(Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
         return [
             Outcome(
@@ -111,8 +111,7 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
                 f"schema-violation — frontmatter unparseable ({error})",
             )
         ]
-    okf_type = data.get("type")
-    if not isinstance(okf_type, str) or not okf_type.strip():
+    if not frontmatter.okf_type(data):
         return [
             Outcome(
                 "okf-frontmatter",
@@ -121,6 +120,7 @@ def check_note_frontmatter(vault_root, path) -> list[Outcome]:
                 "schema-violation — missing type (OKF §11 rule 2)",
             )
         ]
+    okf_type = data["type"]
     derived = expected_type(relative)
     if derived is not None and okf_type != derived:
         return [
@@ -140,7 +140,7 @@ _DATE_HEADING = re.compile(r"## (\d{4}-\d{2}-\d{2})\s*$")
 def _log_shape_problems(text: str) -> list[str]:
     """§9 log shape: only ``## YYYY-MM-DD`` second-level headings, newest first."""
     try:
-        _data, body = frontmatter.parse(text)
+        _data, body = frontmatter.read_okf(text)
     except frontmatter.FrontmatterError:
         # frontmatter on log.md is legal but optional (§8 names index.md only)
         body = text
@@ -166,12 +166,14 @@ def check_reserved(vault_root) -> list[Outcome]:
         relative = path.relative_to(vault).as_posix()
         if path.name == "index.md":
             try:
-                data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))
+                data, _body = frontmatter.read_okf(path.read_text(encoding="utf-8"))
             except (OSError, UnicodeError, frontmatter.FrontmatterError) as error:
                 problems.append((relative, f"unreadable ({error})"))
                 continue
             if relative == "index.md":
-                extra = sorted(set(data) - {"okf_version"})
+                extra = sorted(
+                    (str(key) for key in set(data) - {"okf_version"}), key=str
+                )
                 if extra:
                     problems.append(
                         (

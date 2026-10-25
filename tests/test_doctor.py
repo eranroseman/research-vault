@@ -26,6 +26,7 @@ PROBE_NAMES = [
     "path-shim",
     "translator-formats",
     "compile-tool",
+    "pyyaml",
     "remote",
     "backup",
 ]
@@ -37,6 +38,7 @@ WARN_ONLY = [
     "bbt-git",
     "translator-formats",
     "compile-tool",
+    "pyyaml",
     "fulltext-sync",
     "path-shim",
 ]
@@ -939,7 +941,7 @@ def test_doctor_base_routes_before_and_after_subcommand(
 
     assert cli.main(argv) == 0
     assert bases == [expected]
-    assert len(capsys.readouterr().out.splitlines()) == 13
+    assert len(capsys.readouterr().out.splitlines()) == len(PROBE_NAMES)
 
 
 # --- boundaries pinned against mutation survivors -----------------------------
@@ -1168,3 +1170,24 @@ def test_doctor_plugins_reports_a_malformed_addon_declaration(
     by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
     assert by["plugins"].result is Result.UNMATCHED
     assert by["plugins"].reason.startswith("add-on declaration malformed: ")
+
+
+def test_pyyaml_row_reports_the_import_state(monkeypatch):
+    probe = doctor._pyyaml_probe()
+    assert probe.check == "pyyaml"
+    assert probe.result is Result.MATCHED
+    assert probe.reason.startswith("PyYAML ")
+
+    import builtins
+
+    real_import = builtins.__import__
+
+    def refuse(name, *args, **kwargs):
+        if name == "yaml":
+            raise ImportError("No module named 'yaml'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", refuse)
+    probe = doctor._pyyaml_probe()
+    assert probe.result is Result.UNMATCHED
+    assert "pip install" in probe.reason

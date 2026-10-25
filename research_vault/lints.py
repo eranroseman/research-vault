@@ -535,7 +535,11 @@ def disputed_claim_links(vault_root: Path) -> tuple[set[str], list[Outcome]]:
                 )
             )
             continue
-        data, parsed = _parse_frontmatter(text)
+        try:
+            data, _ = frontmatter.read_okf(text)
+            parsed = True
+        except frontmatter.FrontmatterError:
+            data, parsed = {}, False
         if not parsed:
             outcomes.append(_schema_outcome("disputed-claim", RepoPath(rel)))
         page_key = data.get("citationKey") if parsed else None

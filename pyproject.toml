@@ -20,6 +20,11 @@ dependencies = [
   # the vendored find-sources scripts parse via stdlib by upstream's choice, recorded
   # in that skill's vendoring notes).
   "defusedxml==0.7.1",
+  # The OKF frontmatter reader (`frontmatter.read_okf`, #194): the flat parser
+  # stays for capture's own writes; OKF §11 is judged by a YAML reader. A floor
+  # by design — the loader API has not moved since 5.1; the C loader is used
+  # when the wheel carries it and the pure loader otherwise.
+  "pyyaml>=6.0",
 ]
 [project.optional-dependencies]
 # A floor by design: a user-installed, feature-detected extra, not a dev-lane tool.
@@ -202,6 +207,12 @@ ignore_missing_imports = true
 # third-party set, which this lane deliberately does not install.
 [[tool.mypy.overrides]]
 module = "defusedxml.*"
+ignore_missing_imports = true
+
+# PyYAML ships no py.typed (verified 6.0.3); types-PyYAML lives in typeshed's
+# third-party set, which this lane deliberately does not install.
+[[tool.mypy.overrides]]
+module = [ "yaml", "yaml.*" ]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

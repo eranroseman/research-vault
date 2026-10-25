@@ -454,3 +454,29 @@ def test_a_plugin_readme_under_the_config_dir_is_not_checked(tmp_path):
     )
     decision, blockers = verify.surface_decision("commit", effective, warning)
     assert decision == 0, blockers
+
+
+def test_check_note_frontmatter_reads_nested_yaml(tmp_path):
+    """#194's second half: a Pandoc or Templater note with nested YAML is a note,
+    not a schema violation."""
+    path = _write(
+        tmp_path,
+        "projects/brief/notes.md",
+        "---\ntitle: Notes\ntype: note\nmeta:\n  nested: 1\n---\nbody\n",
+    )
+    (outcome,) = structure.check_note_frontmatter(tmp_path, path)
+    assert outcome.result is Result.MATCHED
+
+
+def test_check_note_frontmatter_reads_a_null_type_as_missing(tmp_path):
+    path = _write(tmp_path, "projects/brief/notes.md", "---\ntype: null\n---\n")
+    (outcome,) = structure.check_note_frontmatter(tmp_path, path)
+    assert outcome.reason == "schema-violation — missing type (OKF §11 rule 2)"
+
+
+def test_root_index_with_a_boolean_key_is_reported_not_a_traceback(tmp_path):
+    """`yes: 1` gives a bool key under the YAML loader; `sorted()` over mixed
+    keys raises TypeError without `key=str` (Q18)."""
+    _write(tmp_path, "index.md", '---\nokf_version: "0.2"\nyes: 1\n---\n# x\n')
+    rows = structure.check_reserved(tmp_path)
+    assert any("carries keys beyond okf_version: ['True']" in o.reason for o in rows)

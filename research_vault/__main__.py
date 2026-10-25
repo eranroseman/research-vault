@@ -54,6 +54,7 @@ DOCTOR_WARN_ONLY = {
     "bbt-git",
     "translator-formats",
     "compile-tool",
+    "pyyaml",
     "fulltext-sync",
     "path-shim",
 }
@@ -72,6 +73,10 @@ _NAMED_FAILURES = (
     paths.PathError,
     OSError,
 )
+# §5.6: the OKF reader's dependency is missing. Not 3 (an outage the hook
+# lets through for CI replay) and not 2 (could not run): a distinct code the
+# hook's `*)` branch refuses, so a vault with no PyYAML never commits unchecked.
+EXIT_DEPENDENCY_MISSING = 4
 
 
 def cmd_probe(args):
@@ -277,6 +282,9 @@ def cmd_verify(args):
             changed_paths_file=args.changed_paths_file,
             commit_projected=args.commit_projected,
         )
+    except frontmatter.DependencyMissingError as error:
+        print(f"verification cannot run: {error}", file=sys.stderr)
+        return EXIT_DEPENDENCY_MISSING
     except _NAMED_FAILURES as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
         return 2

@@ -10,21 +10,24 @@ cannot parse. Two shapes are stamped:
   (`structure.expected_type`), falling back to the recorded `inbox/`
   fleeting exemption (`structure.is_fleeting`) since that exemption is
   deliberately excluded from `expected_type` itself — prepend a fresh block.
-- A parseable block missing `type`, with `structure.expected_type` deriving
-  one (the fleeting fallback does *not* apply here — a file that already
-  carries hand-written frontmatter keys but no `type` is ambiguous, not a
-  bare capture) — insert `type` as the first key, otherwise byte-for-byte,
-  including the file's original line-ending style (CRLF is preserved, never
-  flattened to LF).
+- A parseable block missing `type`, or carrying a null one (a blank
+  `type:`, `null`, `~`, `NULL`, `Null`: its line is replaced, never a second
+  added), with `structure.expected_type` deriving one (the fleeting fallback
+  does *not* apply here — a file that already carries hand-written
+  frontmatter keys but no `type` is ambiguous, not a bare capture) — insert
+  `type` as the first key, otherwise byte-for-byte, including the file's
+  original line-ending style (CRLF is preserved, never flattened to LF).
 
 Everything else is reported, never edited: a human decides those. Each
 reported path carries a reason — `"symlink"` (the path itself is a symlink;
 writing through it could escape the vault boundary), `"unparseable"`
-(unparseable YAML-shaped frontmatter, or frontmatter with a duplicate
+(unparseable YAML-shaped frontmatter, frontmatter with a duplicate
 top-level key — `frontmatter._DuplicateKeyMapping` — since a plain
 `{"type": derived, **data}` spread would silently collapse the repeats to
-last-write-wins), `"outage"` (the file could not be read at all), `"not-utf-8"`
-(the file is not UTF-8, so no frontmatter could be parsed from it),
+last-write-wins, or a block whose stamped form does not read back as
+`{type, **data}` under `frontmatter.read_okf`), `"outage"` (the file could
+not be read at all), `"not-utf-8"` (the file is not UTF-8, so no
+frontmatter could be parsed from it),
 `"outside"` (the path resolves outside the vault: a symlinked ancestor, an
 absolute path elsewhere, a `..` that lexically passes), or `"no-type"` (no
 derivation at all — `system/`, root files, non-canonical `projects/` files).
@@ -122,7 +125,12 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
             reported.append((relative, "unparseable"))
             continue
 
-        if "type" in data:
+        value = data.get("type")
+        null = value == [] or (
+            isinstance(value, str)
+            and (not value.strip() or value in {"null", "~", "NULL", "Null"})
+        )
+        if "type" in data and not null:
             continue
 
         if has_delimiter:
@@ -147,7 +155,20 @@ def stamp_types(vault_root, paths=None) -> tuple[list[str], list[tuple[str, str]
                 # don't edit, same as unparseable YAML above.
                 reported.append((relative, "unparseable"))
                 continue
-            block = frontmatter.serialize({"type": derived, **data})
+            rest = {k: v for k, v in frontmatter._mapping_items(data) if k != "type"}
+            block = frontmatter.serialize({"type": derived, **rest})
+            # Q18: after the insert, the block must read back as {type, **data}
+            # under the OKF reader; a key the flat parser passes as text but
+            # YAML reads otherwise (`yes`, `1`, `[a`) would otherwise be
+            # rewritten into a block the structure check reads differently.
+            try:
+                reparsed, _ = frontmatter.read_okf(block + body)
+            except frontmatter.FrontmatterError:
+                reported.append((relative, "unparseable"))
+                continue
+            if reparsed.get("type") != derived or set(reparsed) != {"type", *rest}:
+                reported.append((relative, "unparseable"))
+                continue
         else:
             block = f'---\ntype: "{derived}"\n---\n'
         if newline == "\r\n":

@@ -253,3 +253,39 @@ def test_the_reported_string_stays_the_unresolved_one(tmp_path):
     (vault / "inbox" / "idea.md").write_text("a thought\n")
     stamped, reported = stamp.stamp_types(vault, paths=["inbox/./idea.md"])
     assert (stamped, reported) == (["inbox/idea.md"], [])
+
+
+def test_stamp_replaces_a_null_type_line_rather_than_adding_a_second(tmp_path):
+    (tmp_path / "literature").mkdir()
+    note = tmp_path / "literature" / "x.md"
+    note.write_text("---\ntype: null\ntitle: x\n---\nbody\n")
+    stamped, reported = stamp.stamp_types(tmp_path)
+    assert stamped == ["literature/x.md"]
+    assert reported == []
+    assert note.read_text() == '---\ntype: "literature"\ntitle: "x"\n---\nbody\n'
+
+
+def test_stamp_replaces_a_blank_type_line_and_never_raises_on_its_value(tmp_path):
+    """The flat parser reads a blank `type:` as an empty list: the most common
+    null spelling, and unhashable, so the skip must not test set membership on
+    it."""
+    (tmp_path / "literature").mkdir()
+    note = tmp_path / "literature" / "x.md"
+    note.write_text("---\ntype:\ntitle: x\n---\nbody\n")
+    stamped, reported = stamp.stamp_types(tmp_path)
+    assert stamped == ["literature/x.md"]
+    assert reported == []
+    assert note.read_text() == '---\ntype: "literature"\ntitle: "x"\n---\nbody\n'
+
+
+def test_stamp_reports_a_block_whose_insert_does_not_round_trip(tmp_path):
+    """After the insert, stamp re-parses; a block that does not read back as
+    `{type, **data}` is reported `unparseable`, never written."""
+    (tmp_path / "literature").mkdir()
+    note = tmp_path / "literature" / "x.md"
+    before = "---\nmeta:\n  nested: 1\n---\nbody\n"
+    note.write_text(before)
+    stamped, reported = stamp.stamp_types(tmp_path)
+    assert stamped == []
+    assert reported == [("literature/x.md", "unparseable")]
+    assert note.read_text() == before
