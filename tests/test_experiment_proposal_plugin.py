@@ -1006,6 +1006,9 @@ def test_review_is_steps_that_run_the_checker_and_keep_the_evidence_rule():
     }
     assert waits == {1: False, 2: True, 3: True, 4: False, 5: False, 6: True, 7: True}
     assert "is named, not done here" in text
+    agent_run = text.split("## Agent run", 1)[1].split("## Steps", 1)[0]
+    assert "step 6 is skipped, so no fix is applied" in agent_run
+    assert "every count, duration and variable name identical" in numbered[4]
 
 
 def test_review_names_the_attested_items_and_the_defaults():
