@@ -108,7 +108,7 @@ NUMBERED_ENTRY = re.compile(r"^\[(\d+)\] ")
 CITATION = re.compile(r"\[(\d+(?:\s*[,\u2013-]\s*\d+)*)\]")
 RANGE = re.compile(r"^(\d+)\s*[\u2013-]\s*(\d+)$")
 RANGE_MAX = 200  # `[1-999]` is a typo, not nine hundred entries
-YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
+YEAR = re.compile(r"\b(?:19|20)\d{2}[a-z]?\b")
 SURNAME = re.compile(r"^\s*([^,(]+?)\s*(?:,|\()")
 DEFAULT_REVIEW_SECTION = "Literature review"
 SUPERVISION = re.compile(
@@ -787,6 +787,23 @@ def mentions(text: str, token: str) -> bool:
     return re.search(rf"(?<!\w){re.escape(token)}(?!\w)", text) is not None
 
 
+def _listed_entries(entry_lines: Sequence[str]) -> list[str]:
+    """One string per list-marker line, joined with a space to the lines that
+    continue it up to the next marker or blank line, so a hard-wrapped entry
+    keeps a year that landed on its continuation line."""
+    listed: list[str] = []
+    continues = False
+    for line in entry_lines:
+        if LIST_ITEM.match(line):
+            listed.append(line)
+            continues = True
+        elif not line.strip():
+            continues = False
+        elif continues:
+            listed[-1] += " " + line.strip()
+    return listed
+
+
 def _count_numbered(
     add: Adder,
     lines: Sequence[str],
@@ -914,7 +931,7 @@ def check_draft(
     else:
         start, end = block(references_index)
         entry_lines = [clean(lines[n - 1]) for n in range(start + 1, end + 1)]
-        listed = [line for line in entry_lines if LIST_ITEM.match(line)]
+        listed = _listed_entries(entry_lines)
         entries = listed or [
             para for para in "\n".join(entry_lines).split("\n\n") if para.strip()
         ]

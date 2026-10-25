@@ -1008,6 +1008,9 @@ def test_an_author_year_entry_counts_when_its_first_surname_and_year_are_cited(
     assert checker.first_surname("- ISO (2000). ISO 9241-9.") == "ISO"
     assert checker.first_surname("1. Author 3 (2003). A paper.") == "Author 3"
     assert checker.year_of("- Fitts, P. M. (1954). X, 47(6).") == "1954"
+    suffixed = "- Fitts, P. M. (1954a). X."
+    assert checker.year_of(suffixed) == "1954a"
+    assert checker._count_author_year([suffixed], "Fitts (1954a) showed it.", "") == 1
     assert checker.cited_numbers("see [1], [2, 3] and [4–6]; not [NAME]") == {
         1,
         2,
@@ -1017,6 +1020,34 @@ def test_an_author_year_entry_counts_when_its_first_surname_and_year_are_cited(
         6,
     }
     assert checker.cited_numbers("dated [2026-10-24] and [1-2-3]") == set()
+
+
+def test_a_wrapped_list_entry_keeps_its_continuation_lines(tmp_path):
+    """A list item hard-wrapped with its year on an indented continuation line
+    (pandoc's 72-column wrap, kept by mdformat --wrap keep) is one entry, read
+    with its continuation, so its year is found and it counts as cited."""
+    text = valid_draft(reference_count=14)
+    text = mutate(
+        text,
+        "\n\n## Appendix A",
+        "\n- Wobbrock, J. O., Findlater, L., Gergle, D., and Higgins, J. J.\n"
+        "  (2011). The aligned rank transform. CHI 2011.\n\n## Appendix A",
+    )
+    text = mutate(text, "Prior work: ", "Prior work: Wobbrock et al. (2011); ")
+    path = tmp_path / "draft.md"
+    path.write_text(text, encoding="utf-8")
+    result = run("draft", str(path), "--supervisor", "Dr. Example")
+    assert result.returncode == 0, result.stdout
+    assert "references: 15 entries in the list" in result.stderr
+    assert "without a surname and year" not in result.stderr
+    assert "is not cited" not in result.stderr
+    out = run(
+        "draft", str(path), "--supervisor", "Dr. Example", "--references", "16-20"
+    ).stdout
+    assert (
+        "references: the Literature review cites 15 of the list's 15 entries; the template asks for 16 to 20"
+        in out
+    )
 
 
 def test_the_review_section_can_be_named_and_is_a_defect_when_absent(tmp_path):
