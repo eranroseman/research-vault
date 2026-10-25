@@ -11,10 +11,11 @@ top-level conversation (its event's parent_tool_use_id null or absent) names
 experiment-proposal:<skill> and has a tool_result whose is_error is false or
 absent; a call with no tool_result reads is_error null and is not a
 positive, nor is a result whose is_error is null, nor is a call made inside
-a subagent (listed under skill_calls_in_subagents). A negative holds when no
-Skill tool_use, top-level or inside a subagent, names an experiment-proposal
-skill and no Agent tool_use names experiment-proposal:hci-researcher; other
-plugins' calls are listed under other_calls and not barred. Prints one JSON
+a subagent (listed under skill_calls_in_subagents). A negative holds when,
+top-level or inside a subagent, no Skill tool_use names an
+experiment-proposal skill and no Agent tool_use names
+experiment-proposal:hci-researcher; other plugins' calls are listed under
+other_calls and not barred. Prints one JSON
 object with the verdict, the calls, the init event's plugins, skills, agents
 and model, and the models that served assistant turns. Exit 0 pass, 1 fail,
 2 unreadable.

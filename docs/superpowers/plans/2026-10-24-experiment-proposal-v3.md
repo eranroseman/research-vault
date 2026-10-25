@@ -3038,10 +3038,11 @@ Usage:
 A positive for <skill> holds when at least one Skill tool_use of the
 top-level conversation (its event's parent_tool_use_id null or absent) names
 experiment-proposal:<skill> and its tool_result is not an error; a call made
-inside a subagent is not a positive. A negative holds when no Skill
-tool_use, top-level or inside a subagent, names an experiment-proposal skill
-and no Agent tool_use names experiment-proposal:hci-researcher; other
-plugins' calls are listed under other_calls and not barred. Prints one JSON
+inside a subagent is not a positive (listed under skill_calls_in_subagents).
+A negative holds when, top-level or inside a subagent, no Skill tool_use
+names an experiment-proposal skill and no Agent tool_use names
+experiment-proposal:hci-researcher; other plugins' calls are listed under
+other_calls and not barred. Prints one JSON
 object with the verdict, the calls, the init event's plugins, skills, agents
 and model, and the models that served assistant turns. Exit 0 pass, 1 fail,
 2 unreadable.
@@ -3076,6 +3077,7 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
     events = events_of(path)
     init: dict = {}
     uses: dict[str, dict] = {}
+    parents: dict[str, object] = {}
     order: list[str] = []
     results: dict[str, bool] = {}
     served: list[str] = []
@@ -3096,18 +3098,28 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
             if not isinstance(block, dict):
                 continue
             if block.get("type") == "tool_use":
-                uses[block.get("id", f"anon-{len(order)}")] = block
-                order.append(block.get("id", f"anon-{len(order)}"))
+                tool_id = block.get("id", f"anon-{len(order)}")
+                uses[tool_id] = block
+                # a call inside a subagent names the Agent call that spawned it
+                parents[tool_id] = event.get("parent_tool_use_id")
+                order.append(tool_id)
             elif block.get("type") == "tool_result":
                 results[block.get("tool_use_id", "")] = bool(block.get("is_error", False))
     skill_calls: list[dict] = []
+    top_level: list[dict] = []
+    in_subagents: list[dict] = []
     agent_calls: list[str] = []
     other_calls: list[dict] = []
     for tool_id in order:
         block = uses[tool_id]
         name, tool_input = block.get("name"), block.get("input") or {}
         if name == "Skill" and str(tool_input.get("skill", "")).startswith(PLUGIN):
-            skill_calls.append({"skill": tool_input["skill"], "is_error": results.get(tool_id, False)})
+            call = {"skill": tool_input["skill"], "is_error": results.get(tool_id, False)}
+            skill_calls.append(call)
+            if parents[tool_id] is None:
+                top_level.append(call)
+            else:
+                in_subagents.append({**call, "parent_tool_use_id": parents[tool_id]})
         elif name == "Agent" and tool_input.get("subagent_type") == SUBAGENT:
             agent_calls.append(SUBAGENT)
         elif name == "Skill":
@@ -3115,7 +3127,7 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
         else:
             other_calls.append({"name": name})
     if mode == "positive":
-        passed = any(c["skill"] == f"{PLUGIN}{skill}" and not c["is_error"] for c in skill_calls)
+        passed = any(c["skill"] == f"{PLUGIN}{skill}" and not c["is_error"] for c in top_level)
     else:
         passed = not skill_calls and not agent_calls
     return {
@@ -3123,6 +3135,7 @@ def judge(path: Path, mode: str, skill: str | None = None) -> dict:
         "skill": skill,
         "pass": passed,
         "skill_calls": skill_calls,
+        "skill_calls_in_subagents": in_subagents,
         "agent_calls": agent_calls,
         "other_calls": other_calls,
         "init": init,
@@ -3213,7 +3226,7 @@ In `docs/research/2026-10-13-experiment-proposal-evals/README.md`:
 2. Under `## Harness`, add two bullets after the headless-runs bullet:
    - `` Isolation (scenarios 7 and 8 and every re-run at 0.3.0): a scratch `CLAUDE_CONFIG_DIR` whose `settings.json` is exactly `{"syncClaudeAiSkills": false, "syncClaudeAiPlugins": false, "disableClaudeAiConnectors": true}`, `ENABLE_CLAUDEAI_MCP_SERVERS=false` in the environment, login by `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`), the plugin by `--plugin-dir`, `--model claude-opus-5` (the ID the 0.2.0 rows were served; the operator's settings pin another model). Each record copies the init event's `plugins`, `skills`, `agents` and `model`, the served model from the assistant turns, the CLI version and the result event's `total_cost_usd`. Scenario 6 reads `~/.claude/plugins/installed_plugins.json` by its literal path, so it reads the operator's file under any configuration; each record says so. ``
    - `` Scenario 7 is judged by `routing_predicate.py` in this folder over each saved stream (`positive <skill>` or `negative`); the fixture `fixtures/routing-utterances.md` holds the eleven utterances. Codex runs are recorded under the Installs name, `runs/installs-codex-v3-1.md`. ``
-3. In the scenarios table, replace the `7 Installs` row with `` | 7 Routing set | `fixtures/routing-utterances.md`, the predicate script | Positives: one Skill call of the named skill, not an error, then its first decisive line (one run each). Negatives: zero Skill or Agent calls of this plugin over seven utterances, three runs each. Agent-run bars: scenario 2 and scenario 5 re-run with the token `agent`, as their keys' Agent run sections say. The Codex admission test (an explicit `$experiment-proposal:<skill>` mention loads the skill with no cache-path search first; up to three attempts; one admitted attempt admits the skill) records under `runs/installs-codex-v3-1.md`. | `` and add `` | 8 Real material | copies of the author's project, never its live `proposal/` folder | None (recorded): copy A runs `design` as an agent run from the study-decisions file and its table is compared item by item with the 2026-10-17 extraction as amended; copy B runs `review` as an agent run (67 rows, 65 checked, four `not confirmed`, no fix applied), then again with the project's own `review.md` carrying one planted fail and one planted waiver, then interactively; `lit-search` round 2 with the exclude file holding round 1's records. | ``.
+3. In the scenarios table, replace the `7 Installs` row with `` | 7 Routing set | `fixtures/routing-utterances.md`, the predicate script | Positives: one top-level Skill call of the named skill (the conversation's own, not a subagent's), not an error, then its first decisive line (one run each). Negatives: zero Skill or Agent calls of this plugin over seven utterances, three runs each. Agent-run bars: scenario 2 and scenario 5 re-run with the token `agent`, as their keys' Agent run sections say. The Codex admission test (an explicit `$experiment-proposal:<skill>` mention loads the skill with no cache-path search first; up to three attempts; one admitted attempt admits the skill) records under `runs/installs-codex-v3-1.md`. | `` and add `` | 8 Real material | copies of the author's project, never its live `proposal/` folder | None (recorded): copy A runs `design` as an agent run from the study-decisions file and its table is compared item by item with the 2026-10-17 extraction as amended; copy B runs `review` as an agent run (67 rows, 65 checked, four `not confirmed`, no fix applied), then again with the project's own `review.md` carrying one planted fail and one planted waiver, then interactively; `lit-search` round 2 with the exclude file holding round 1's records. | ``.
 4. Line 23's sentence about the real-material session gains `; at 0.3.0 that record is scenario 8`. Line 25 becomes: `` `lit-search` has no scenario of its own: `tests/test_experiment_proposal_litsearch.py` tests the wrapper over stubbed indexes, and scenario 8's round-2 record is its live evidence. ``
 5. After the 0.2.0 run table and its two closing paragraphs, add `## Runs at 0.3.0` with the table header `| Run | Scenario | Plugin commit | Outcome |` and the row the 0.1.0 and 0.2.0 rows labelled 7 Installs keep as evidence stated in a sentence above it: `The 0.1.0 and 0.2.0 rows labelled 7 Installs stay as evidence; scenario 7 at 0.3.0 is the routing set.`
 
