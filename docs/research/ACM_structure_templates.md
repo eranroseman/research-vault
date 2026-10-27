@@ -1,6 +1,6 @@
 # ACM sample (sources/ACM, 190 PDFs): paper structure templates
 
-Contents: **Part 0** writer's guide (decision step, length budgets, checklists, heading names, how to use the numbers), **Part A** general template for all papers, **Part B1** system papers (57), **Part B2** method papers (84). B1 and B2 are mutually exclusive; the 9 papers with both a System and a Method section are counted in B1.
+Contents: **Part 0** writer's guide (pick the type, how to use the numbers, heading names), **Part S** one-page cheat sheet for system papers, **Part M** one-page cheat sheet for method papers, **Part A** general template for all papers, **Part B1** system papers (57), **Part B2** method papers (84). B1 and B2 are mutually exclusive; the 9 papers with both a System and a Method section are counted in B1.
 
 Everything quantitative comes from the 190-paper sample (ACM HCI, ubiquitous computing and CSCW papers, 2023–2026). Items marked *editorial* are writing advice, not derived from the data.
 
@@ -10,105 +10,23 @@ Everything quantitative comes from the 190-paper sample (ACM HCI, ubiquitous com
 
 | If your paper's main contribution is... | Use | Typical evidence |
 |---|---|---|
-| A new system, tool, device or technique, with an evaluation | Part B1 (system) | Design goals, architecture, implementation, then an evaluation or a user study |
-| Findings from a study: interviews, survey, experiment, field study, log analysis | Part B2 (method) | Participants, procedure, analysis, then results and discussion |
-| A technical experiment or benchmark (ML, sensing) with datasets and baselines | Part B1 core, with an "Experiment" section (the sample's Evaluation/Study/Data cluster, 39% of papers) | Dataset, setup, metrics, results |
-| Both a system and a study of it | Part B1, with the study as an embedded Method/Evaluation block | In the sample, 9 papers have both a System and a Method section |
+| A new system, tool, device or technique, with an evaluation | Part S (system cheat sheet) | Design goals, architecture, implementation, then an evaluation or a user study |
+| Findings from a study: interviews, survey, experiment, field study, log analysis | Part M (method cheat sheet) | Participants, procedure, analysis, then results and discussion |
+| A technical experiment or benchmark (ML, sensing) with datasets and baselines | Part S, with an "Experiment" section (the sample's Evaluation/Study/Data cluster, 39% of papers) | Dataset, setup, metrics, results |
+| Both a system and a study of it | Part S, with the study as an embedded Method/Evaluation block | In the sample, 9 papers have both a System and a Method section |
 
 If unsure, use Part A, which describes the whole sample.
 
-## 0.2 Length budgets
+## 0.2 Using the numbers
 
-Pick a target body length, in words, and read the row. Body words include the abstract and exclude title and authors, references, acknowledgments, captions and in-figure text. Each cell is **median (Q1–Q3)** of that slot's share of body words, applied to the target. The slot is the section including its subsections.
+- Each cheat sheet (Parts S and M) gives word budgets as **median (Q1–Q3)** of a slot's share of body words, applied to a target length. The slot includes its subsections. Body words include the abstract and exclude title and authors, references, acknowledgments, captions and in-figure text.
+- The ranges are independent per slot, so they do not sum to the target. Decide which optional slots you include, then scale the medians so they sum to your target.
+- A slot inside Q1–Q3 is ordinary; outside it is a choice you can explain. Medians are descriptive, not a quality bar.
+- The abstract is about 150 words whatever the length (Q1–Q3 140–163) and the conclusion stays short. Do not scale them.
+- Q1–Q3 spans a lot, because the sample mixes 3-page extended abstracts and 48-page papers. The venue's page limit and reference style override every number here.
+- The sample is ACM HCI/ubicomp/CSCW; do not apply it to other fields. Section sizes were measured from headings, so combined headings (such as "Introduction and Background") are counted under the first section.
 
-How to use it:
-- The ranges are independent per slot, so they do not sum to the target. Decide which optional slots you include, then scale the medians proportionally so they sum to your target.
-- Treat a slot inside Q1–Q3 as ordinary and outside it as a deliberate choice you can explain.
-- The abstract is about 150 words whatever the length (Q1–Q3 140–163), and the conclusion stays short. Do not scale them.
-
-### System papers (B1)
-
-| Slot | Included in | 4,000 body words (about 8 pages) | 7,000 (about 14 pages) | 10,000 (about 20 pages) |
-|---|---|---|---|---|
-| Introduction | 95% | 380 (300–580) | 660 (530–1,010) | 950 (760–1,450) |
-| Related Work | 82% | 490 (420–660) | 850 (740–1,160) | 1,220 (1,050–1,650) |
-| Core: system sections plus evaluation | 100% | 2,260 (1,580–2,560) | 3,950 (2,760–4,490) | 5,650 (3,950–6,410) |
-| Results, as a separate section | 28% | 930 (710–1,140) | 1,620 (1,250–1,990) | 2,320 (1,780–2,850) |
-| Discussion | 61% | 630 (370–830) | 1,110 (650–1,460) | 1,580 (930–2,080) |
-| Conclusion | 89% | 120 (60–280) | 220 (100–500) | 310 (150–710) |
-
-Of the core, the system sections themselves have a median of 1,497 words (Q1–Q3 731–2,541); evaluation or study sections add 1,581 (1,030–2,852) in the 53% of papers that have them.
-
-### Method papers (B2)
-
-| Slot | Included in | 3,000 body words (about 5 pages) | 5,500 (about 10 pages) | 9,000 (about 16 pages) |
-|---|---|---|---|---|
-| Introduction | 100% | 300 (220–420) | 540 (410–780) | 890 (670–1,270) |
-| Related Work | 77% | 380 (300–580) | 690 (540–1,060) | 1,120 (890–1,740) |
-| Method | 100% | 810 (480–1,190) | 1,480 (890–2,180) | 2,420 (1,450–3,560) |
-| Results | 80% | 850 (650–1,100) | 1,570 (1,190–2,010) | 2,560 (1,950–3,290) |
-| Discussion | 70% | 570 (460–700) | 1,040 (850–1,280) | 1,700 (1,390–2,100) |
-| Conclusion | 93% | 100 (55–300) | 180 (100–540) | 300 (160–890) |
-
-The page estimates use the groups' median body words per page: about 500 for system papers (more figures) and about 570 for method papers.
-
-### Figure, table and reference budgets
-
-| Per target length | System papers | Method papers |
-|---|---|---|
-| Figures per 1,000 body words (median; Q1–Q3) | 1.2 (0.7–1.8) | 0.5 (0.2–1.2) |
-| Tables per 1,000 body words | 0.25 (0.07–0.49) | 0.24 (0–0.54) |
-| References per 1,000 body words | 8.3 (6.4–10.6) | 8.4 (6.6–10.7) |
-| Words per figure caption (median) | 35 (15–61) | 27 (13–49) |
-| Words per table caption (median) | 15 (9–34) | 13 (9–29) |
-| Small-font text (cell, label, footnote words) as a share of body | 6.5% | 4.4% |
-
-Worked example for a system paper of 7,000 body words: about 8 figures, 2 tables and 58 references. For a method paper of 5,500 body words: about 3 figures, 1 table and 46 references. The venue's page limit and reference style override these numbers.
-
-## 0.3 Checklists
-
-Use the prevalence to decide whether an item is expected or optional. Above about 70% means readers expect it; below about 30% means include it only if your paper needs it. The "what to put in it" lines are *editorial*.
-
-### Every paper
-
-| Slot | Expected? | What to put in it (*editorial*) |
-|---|---|---|
-| Abstract | 86% have a separate Abstract heading | Problem, approach, main result, contribution, in about 150 words |
-| Introduction | 97% | Problem and context, gap, your contribution, a short outline. Median 680 words |
-| Related Work | 74% | Group prior work by theme and say what each group lacks. Median 1,060 words |
-| Core | 98% | See the type-specific lists below |
-| Results (if separate) | 51% | Findings organised by research question or theme, with tables and figures |
-| Discussion | 62% | Interpretation, implications, limitations, future work |
-| Conclusion | 89%, often under a combined "Discussion and Conclusion" heading | Short: contribution restated, main takeaway. Median 144 words as its own section |
-| Acknowledgments | 74% | Funding, contributors, short (median 46 words) |
-| References | 100% | Median 54 entries, mean 63 |
-
-### System papers: core checklist
-
-| Item | In system papers | Notes |
-|---|---|---|
-| Design goals or requirements | 19% | Include if the design follows from a formative study or stated needs |
-| System overview or architecture | 47% | Often with a figure; the most common named subsection |
-| Implementation or interface | 39% | Technical detail others need to reproduce or extend |
-| Evaluation, as study or technical experiment | 53% as a separate section | State what you evaluated and how |
-| Embedded study details | participants 46%, procedure 56%, materials 37%, analysis 35% | Include them if the evaluation is a user study |
-| Figure budget | 8 per paper (median) | About one per 815 body words |
-| Limitations | 19% as a standalone section | Most papers fold them into Discussion |
-
-### Method papers: core checklist
-
-| Item | In method papers | Notes |
-|---|---|---|
-| Participants and recruitment | 50% | Number, selection, demographics |
-| Study design and procedure | 44% | Tasks, conditions, protocol |
-| Materials, apparatus, stimuli, datasets | 35% | |
-| Measures, metrics, variables | 24% | |
-| Data collection | 20% | Often merged into procedure |
-| Data analysis | 55% | Almost always last in the Method section |
-| Ethics, approvals, positionality | 21% | Often placed late in the section |
-| Results as their own section | 80% | 4% keep results inside the core |
-
-## 0.4 Heading names
+## 0.3 Heading names
 
 The sample's most common top-level headings (all 190 papers, case-insensitive), so a conventional name is the safe choice:
 
@@ -125,13 +43,93 @@ The sample's most common top-level headings (all 190 papers, case-insensitive), 
 - Pick either two sections (Discussion, Conclusion) or one combined heading, not both. Papers rarely use both forms.
 - ACM's acknowledgment spelling varies ("Acknowledgments" 129, "Acknowledgements" 9).
 
-## 0.5 Reading the numbers
+# Part S: Cheat sheet, system paper
 
-- These are descriptive medians of one sample, not a quality bar. A paper outside Q1–Q3 can be fine.
-- Q1–Q3 spans a lot, because the sample mixes 3-page extended abstracts and 48-page papers. Match your venue's page limit before using any budget.
-- The sample is ACM HCI/ubicomp/CSCW. Do not apply it to other fields or to non-ACM templates.
-- Section sizes were measured from headings, so a word count under a heading includes its subsections, and combined headings (such as "Introduction and Background") are counted under the first section.
-- Reference counts depend on the numbered `[n]` list surviving text extraction; word counts are approximate to a few percent.
+For a new system, tool, device or technique with an evaluation (57 papers in the sample). Detail: Part B1.
+
+**Abstract > Introduction > Related Work > SYSTEM > Evaluation (or Method + Results) > Discussion > Conclusion > Acknowledgments > References**
+
+| Slot | Included in | 4,000 body words (about 8 pages) | 7,000 (about 14 pages) | 10,000 (about 20 pages) |
+|---|---|---|---|---|
+| Abstract | 74% | about 150 | about 150 | about 150 |
+| Introduction | 95% | 380 (300–580) | 660 (530–1,010) | 950 (760–1,450) |
+| Related Work | 82% | 490 (420–660) | 850 (740–1,160) | 1,220 (1,050–1,650) |
+| Core: system sections plus evaluation | 100% | 2,260 (1,580–2,560) | 3,950 (2,760–4,490) | 5,650 (3,950–6,410) |
+| Results, as a separate section | 28% | 930 (710–1,140) | 1,620 (1,250–1,990) | 2,320 (1,780–2,850) |
+| Discussion | 61% | 630 (370–830) | 1,110 (650–1,460) | 1,580 (930–2,080) |
+| Conclusion | 89% | 120 (60–280) | 220 (100–500) | 310 (150–710) |
+
+Page estimates use the group's median of about 500 body words per page.
+
+**Core checklist.** Percentages are of the 57 papers; words are medians per paper (Q1–Q3 in Part B1). Expected means above about 70%, optional below about 30%; the "what to put in it" lines are *editorial*.
+
+| Item | Papers | Median words | What to put in it |
+|---|---|---|---|
+| Design goals or requirements | 19% | 452 | The needs or formative findings the design follows from |
+| System overview/architecture | 47% | 445 | Components and how they fit, usually with a figure |
+| Implementation/interface | 39% | 254 | What others need to reproduce or extend the system |
+| Evaluation as a separate section | 53% | 1,581 | What you evaluated, how, against what |
+| Embedded study: procedure, participants | 56%, 46% | 685, 204 | Include if the evaluation is a user study |
+| Embedded study: materials, analysis, measures | 37%, 35%, 18% | 218, 278, 251 | |
+| Results inside the core | 30% | 743 | Instead of a separate Results section |
+| Limitations as their own section | 19% | 256 | Most papers fold them into Discussion |
+
+**Figures, tables, references** (median, Q1–Q3 in brackets):
+
+| Per 1,000 body words | System papers |
+|---|---|
+| Figures | 1.2 (0.7–1.8), one per about 815 words |
+| Tables | 0.25 (0.07–0.49), one per about 3,150 words |
+| References | 8.3 (6.4–10.6) |
+
+Worked example, 7,000 body words: about 8 figures, 2 tables, 58 references. A figure caption runs 35 words (15–61), a table caption 15 (9–34); in-figure and in-table text adds about 6.5% of the body.
+
+**Pitfalls the data shows.** 61% of system papers have a paper-specific section next to the system section: expected, not an error. 28% combine Discussion and Conclusion under one heading; do not use both a combined heading and separate ones. 18% skip Related Work. Systems papers are more visual than method papers, with more than twice the caption share.
+
+# Part M: Cheat sheet, method paper
+
+For findings from a study: interviews, survey, experiment, field study, log analysis (84 papers in the sample). Detail: Part B2.
+
+**Abstract > Introduction > Related Work > METHOD > RESULTS > Discussion > Conclusion > Acknowledgments > References**
+
+This is the textbook sequence; 10 of the 84 papers follow it exactly and 5 more match it without Acknowledgments.
+
+| Slot | Included in | 3,000 body words (about 5 pages) | 5,500 (about 10 pages) | 9,000 (about 16 pages) |
+|---|---|---|---|---|
+| Abstract | 93% | about 150 | about 150 | about 150 |
+| Introduction | 100% | 300 (220–420) | 540 (410–780) | 890 (670–1,270) |
+| Related Work | 77% | 380 (300–580) | 690 (540–1,060) | 1,120 (890–1,740) |
+| Method | 100% | 810 (480–1,190) | 1,480 (890–2,180) | 2,420 (1,450–3,560) |
+| Results | 80% | 850 (650–1,100) | 1,570 (1,190–2,010) | 2,560 (1,950–3,290) |
+| Discussion | 70% | 570 (460–700) | 1,040 (850–1,280) | 1,700 (1,390–2,100) |
+| Conclusion | 93% | 100 (55–300) | 180 (100–540) | 300 (160–890) |
+
+Page estimates use the group's median of about 570 body words per page.
+
+**Method checklist.** Percentages are of the 84 papers; words are medians per paper (Q1–Q3 in Part B2). The order below is the typical order inside the Method section; the "what to put in it" lines are *editorial*.
+
+| # | Item | Papers | Median words | What to put in it |
+|---|---|---|---|---|
+| 1 | Participants and recruitment | 50% | 208 | Number, selection, demographics |
+| 2 | Study design and procedure | 44% | 571 | Tasks, conditions, protocol |
+| 3 | Materials, apparatus, stimuli, datasets | 35% | 358 | |
+| 4 | Measures, metrics, variables | 24% | 294 | |
+| 5 | Data collection | 20% | 188 | Often merged into the procedure |
+| 6 | Data analysis | 55% | 272 | Almost always last in Method |
+| 7 | Ethics, approvals, positionality | 21% | 149 | Often placed late in the section |
+| – | Results as their own section | 80% | 1,810 | 4% keep results inside the core |
+
+**Figures, tables, references** (median, Q1–Q3 in brackets):
+
+| Per 1,000 body words | Method papers |
+|---|---|
+| Figures | 0.5 (0.2–1.2), one per about 1,010 words |
+| Tables | 0.24 (0–0.54), one per about 3,350 words |
+| References | 8.4 (6.6–10.7) |
+
+Worked example, 5,500 body words: about 3 figures, 1 table, 46 references. A figure caption runs 27 words (13–49), a table caption 13 (9–29); in-figure and in-table text adds about 4.4% of the body. Tables are mostly demographics, themes and statistics.
+
+**Pitfalls the data shows.** 38% of method papers add a paper-specific section; 35% combine Discussion and Conclusion under one heading (do not mix forms); 23% skip Related Work; 20% skip Results as a section. Method and Results travel together in the data (phi +0.51).
 
 # Part A: General template
 
@@ -180,6 +178,8 @@ Co-occurrence: Method and Results/Findings go together (phi +0.51). Discussion a
 
 ## 3. Core slot (slot 4)
 
+Split by paper type in Parts S and M; the table here is for the whole sample. Order is the average relative position within the core, grouped into steps.
+
 The core is a lead-in followed by components in a loose order. Percentages are of the 186 papers with a core. M is the 93 Method-type papers, S the 57 System-type papers (the groups overlap).
 
 | Order | Component | All | M | S | Words Q1 / median / Q3 |
@@ -198,17 +198,6 @@ The core is a lead-in followed by components in a loose order. Percentages are o
 | 5 | Data analysis | 41% | 54% | 35% | 160 / 276 / 414 |
 | 6 | Results sub-sections inside the core | 17% | 4% | 30% | 326 / 536 / 782 |
 | – | Other paper-specific subsections | 70% | 59% | 86% | 423 / 924 / 1,934 |
-
-Order is the average relative position within the core, grouped into steps.
-
-Study variant (Method-type): Method lead-in > Participants/recruitment > Study design and procedure (and materials) > Measures > Data analysis > Ethics/positionality.
-System variant (System-type): Design goals > System overview/architecture > Implementation/interface > optional embedded study (participants, procedure, datasets) > Results sub-sections.
-
-Core size, Q1 / median / Q3: all 1,180 / 2,237 / 4,260 words and 3 / 6 / 10 subsections; Method-type 991 / 1,647 / 2,860 words and 3 / 5 / 7 subsections; Eval/Study-type (72 papers) 1,623 / 2,873 / 5,611 words and 5 / 9 / 13 subsections; System-type 1,923 / 3,941 / 5,861 words and 5 / 9 / 13 subsections.
-
-Top-level core arrangements: Method alone 49 papers; Method then custom 13; Custom then Eval/Study 6; three custom sections 6; System alone 5; custom alone 5; Eval/Study alone 5; System then Eval/Study 4; Eval/Study twice 4; Method then Eval/Study 4; System then custom 3.
-
-Systems papers (58 with a top-level System/Design section) typically run Abstract > Introduction > Related Work > System > Evaluation > Discussion > Conclusion. The design section sits about 40% of the way through and holds about 24% of the non-reference words. Systems papers have more figures (mean 8.9, median 8) than the other papers (mean 4.9).
 
 ## 4. Ratios: references, captions, tables, figures
 
@@ -262,7 +251,9 @@ Scripts: `/tmp/acm_work/` (`analyze.py`, `stats.py`, `corr.py`, `order.py`, `sys
 
 ---
 
-# Part B1: System papers
+# Part B1: System papers (reference detail)
+
+The cheat sheet is Part S; core component statistics are in its checklist, and limitations are in Part A section 6.
 
 Group: the 57 of 190 papers with a top-level System/Design/Implementation section before References. (An earlier summary said 58: that count included one paper with such a section after References.) 9 of them also have a top-level Method section; those 9 are counted here, not in the method group (Part B2).
 
@@ -319,28 +310,6 @@ The system section follows Related Work (or the Introduction when there is no Re
 
 Top-level core arrangements: System alone 5; System then Evaluation/Study 4; System then a custom section 3; System > System > Evaluation 3; System > System 2; System then Method 2.
 
-## Core components
-
-Percentages are of the 57 papers. Order is the average relative position in the core, 0 to 1.
-
-| Order | Component | Papers | Words Q1 / median / Q3 |
-|---|---|---|---|
-| 0.25 | Data collection | 9% | 146 / 208 / 238 |
-| 0.30 | Design goals/requirements | 19% | 273 / 452 / 708 |
-| 0.35 | Lead text before the first subsection | 100% | 239 / 455 / 813 |
-| 0.42 | **System overview/architecture** | 47% | 268 / 445 / 687 |
-| 0.48 | **Implementation/interface** | 39% | 179 / 254 / 668 |
-| 0.50 | Participants/recruitment (embedded study) | 46% | 152 / 204 / 337 |
-| 0.54 | Materials/apparatus/stimuli/datasets | 37% | 120 / 218 / 454 |
-| 0.60 | Procedure/protocol/study design | 56% | 455 / 685 / 1,187 |
-| 0.67 | Data analysis | 35% | 160 / 278 / 429 |
-| 0.68 | Evaluation/experiment setup | 18% | 166 / 324 / 446 |
-| 0.68 | Measures/metrics/variables | 18% | 199 / 251 / 512 |
-| 0.72 | Results sub-sections inside the core | 30% | 428 / 743 / 1,207 |
-| – | Paper-specific subsections | 86% | 638 / 1,386 / 2,395 |
-
-Typical flow: design goals, then overview/architecture, then implementation and interface, then (for about half) an embedded user study with participants, procedure and analysis, then results. The most common named subsections under the system section are Overview/Architecture (37 across the group), then study-procedure titles (24), Implementation/Interface (19) and datasets/materials (14). 114 subsections have paper-specific titles (component names and the like).
-
 ## Figures, tables, references
 
 | Measure | Q1 / median / Q3 | Mean |
@@ -365,11 +334,9 @@ Typical flow: design goals, then overview/architecture, then implementation and 
 
 System papers are visual: about one figure per 815 body words, against one per 1,010 in the method group, and roughly twice the figure-caption share.
 
-## Limitations
+# Part B2: Method papers (reference detail)
 
-Same as the full template. The group is small (57), so quartiles for rare slots (Results 16, Method 9) are rough. Paper-specific subsection titles dominate the system section and are not classified.
-
-# Part B2: Method papers
+The cheat sheet is Part M; core component statistics are in its checklist, and limitations are in Part A section 6. This group is a keyword-defined cut (any top-level Method heading), so it includes some technical experiment papers alongside human-subjects studies.
 
 Group: the 84 of 190 papers with a top-level Method/Methodology section before References and no top-level System/Design/Implementation section. (9 papers have both; they are in Part B1.) These are mostly empirical user studies: interviews, surveys, experiments.
 
@@ -429,26 +396,6 @@ Method before Results held in every paper that has both. Recurring sequences (pa
 
 Top-level core arrangements: Method alone 49; Method then a custom section 13; Method then Evaluation/Study 4; custom section then Method 3; Method then two custom sections 3.
 
-## Core components
-
-Percentages are of the 84 papers. Order is the average relative position within the core, 0 to 1.
-
-| Order | Component | Papers | Words Q1 / median / Q3 |
-|---|---|---|---|
-| 0.24 | Lead text before the first subsection | 100% | 53 / 195 / 380 |
-| 0.43 | Data collection | 20% | 84 / 188 / 345 |
-| 0.49 | **Participants/recruitment** | 50% | 159 / 208 / 314 |
-| 0.51 | Materials/apparatus/stimuli/datasets | 35% | 223 / 358 / 565 |
-| 0.54 | **Procedure/protocol/study design** (tasks, conditions, interviews) | 44% | 306 / 571 / 706 |
-| 0.54 | Measures/metrics/variables | 24% | 138 / 294 / 536 |
-| 0.66 | Ethics/positionality/approvals | 21% | 106 / 149 / 346 |
-| 0.80 | **Data analysis** | 55% | 170 / 272 / 374 |
-| – | Paper-specific subsections | 55% | 282 / 597 / 1,545 |
-
-Rare in this group: design goals (8%), implementation (11%), system overview (20%, mostly study prototypes), results inside the core (4%).
-
-Typical flow: Method lead-in, then participants and recruitment, then study design and procedure (with materials and measures), then data analysis, and an ethics or positionality note late. Counts of the most common named subsections under Method (across the group): study procedure/design 51, participants 50, data analysis 47, materials 26, measures 22, data collection 18, ethics 17; 66 titles are paper-specific.
-
 ## Figures, tables, references
 
 | Measure | Q1 / median / Q3 | Mean |
@@ -472,7 +419,3 @@ Typical flow: Method lead-in, then participants and recruitment, then study desi
 | Tables per page | 0 / 0.14 / 0.29 | 0.19 |
 
 Method papers are text-heavy: about half the figure density of the system group, with tables at the same density. Counts of tables are driven by participant demographics, themes and statistics.
-
-## Limitations
-
-Same as the full template. The group is a keyword-defined cut (any top-level Method heading), so it includes some technical experiment papers alongside human-subjects studies; the sample is the ACM files in `sources/ACM`, not ACM as a whole.
