@@ -1,6 +1,6 @@
 # ACM sample (sources/ACM, 190 PDFs): paper structure templates
 
-Contents: **Part 0** writer's guide (pick the type, how to use the numbers, heading names), **Part S** one-page cheat sheet for system papers, **Part M** one-page cheat sheet for method papers, **Part A** general template for all papers, **Part B1** system papers (57), **Part B2** method papers (84). B1 and B2 are mutually exclusive; the 9 papers with both a System and a Method section are counted in B1.
+Contents: **Part 0** writer's guide (pick the type, how to use the numbers, heading names), **Part S** one-page cheat sheet for system papers, **Part M** one-page cheat sheet for method papers, **Part A** general template for all papers (including words before Results and the citation distribution), **Part B1** system papers (57), **Part B2** method papers (84). B1 and B2 are mutually exclusive; the 9 papers with both a System and a Method section are counted in B1.
 
 Everything quantitative comes from the 190-paper sample (ACM HCI, ubiquitous computing and CSCW papers, 2023–2026). Items marked *editorial* are writing advice, not derived from the data.
 
@@ -86,6 +86,8 @@ Worked example, 7,000 body words: about 8 figures, 2 tables, 58 references. A fi
 
 **Pitfalls the data shows.** 61% of system papers have a paper-specific section next to the system section: expected, not an error. 28% combine Discussion and Conclusion under one heading; do not use both a combined heading and separate ones. 18% skip Related Work. Systems papers are more visual than method papers, with more than twice the caption share.
 
+**Where the text and citations go.** Results starts after a median of 5,154 body words (Q1–Q3 2,030–6,424; only 16 papers have a separate Results section). About 73% of citations fall in the first half of a paper and about 48% in the first fifth; plan most references for the Introduction and Related Work, with a smaller group (about 18%) in the Discussion and Conclusion. Details in Part A sections 6 and 7.
+
 # Part M: Cheat sheet, method paper
 
 For findings from a study: interviews, survey, experiment, field study, log analysis (84 papers in the sample). Detail: Part B2.
@@ -130,6 +132,8 @@ Page estimates use the group's median of about 570 body words per page.
 Worked example, 5,500 body words: about 3 figures, 1 table, 46 references. A figure caption runs 27 words (13–49), a table caption 13 (9–29); in-figure and in-table text adds about 4.4% of the body. Tables are mostly demographics, themes and statistics.
 
 **Pitfalls the data shows.** 38% of method papers add a paper-specific section; 35% combine Discussion and Conclusion under one heading (do not mix forms); 23% skip Related Work; 20% skip Results as a section. Method and Results travel together in the data (phi +0.51).
+
+**Where the text and citations go.** Results starts after a median of 2,610 body words (Q1–Q3 1,963–5,201), about 49% of the way through. About 73% of citations fall in the first half of a paper and about 48% in the first fifth; plan most references for the Introduction and Related Work. Method and Results cite little (about 1.5 per 1,000 words), then citations rise again in the Discussion and Conclusion (about 18% of all). Details in Part A sections 6 and 7.
 
 # Part A: General template
 
@@ -238,22 +242,67 @@ Rules of thumb: references take about a fifth of all words and about 0.3 words p
 
 Reference count tracks paper length (Spearman +0.83 with non-reference words). Section word counts correlating with reference count: Discussion +0.74, Related Work +0.63, Results +0.62, Method +0.62, Introduction +0.55. Papers with a Discussion average 76 references versus 47 without; with Related Work 71 versus 49. Appendix papers average 107 references, which is a length effect.
 
-## 6. Limitations
+## 6. Words before Results
+
+Body words from the abstract to the start of a top-level Results/Findings section, excluding the title block and keywords. 96 papers (51%) have such a section.
+
+| Measure | Q1 / median / Q3 | Mean | Min–max |
+|---|---|---|---|
+| Words before Results | 1,913 / 2,618 / 5,238 | 3,673 | 941–8,561 |
+| Share of the paper's body words | 42% / 49% / 59% | 51% | 21–78% |
+| Words from Results to the end (before references) | 1,790 / 3,216 / 5,441 | 3,706 | 545–9,485 |
+
+What fills the words before Results (median, Q1–Q3): Abstract 148 (128–157); Introduction 696 (500–888); Related Work 899 (346–1,330, Q1 is low because some papers have none); core 1,274 (834–2,749).
+
+The distribution has two clusters. By words before Results (bin starts, papers): 0: 1; 1,000: 27; 2,000: 23; 3,000: 4; 4,000: 11; 5,000: 13; 6,000: 16; 8,000: 1. About 50 papers have 1,000–3,000 words before Results and about 40 have 4,000–8,000, matching short extended abstracts and full papers.
+
+| Type | Papers with Results | Words before Results (Q1 / median / Q3) | Share of body (median) | Core (median) |
+|---|---|---|---|---|
+| Method | 67 of 84 | 1,963 / 2,610 / 5,201 | 49% | 1,255 |
+| System | 16 of 57 | 2,030 / 5,154 / 6,424 | 53% | 3,357 |
+
+The system row rests on 16 papers. For the 88 papers with no Results section, the words before the first Discussion, Conclusion or Limitations section have a median of 3,838 (Q1–Q3 2,815–8,242), about 83% of the body: the evaluation sits inside the core, so almost the whole paper comes before the discussion.
+
+## 7. Citation distribution
+
+In-text numbered citations (`[12]`, `[3, 7]`, `[4–6]`; lists and ranges expanded) from the Introduction to the References heading, all 190 papers. First half means the first 50% of body words.
+
+| Measure (Q1 / median / Q3) | First half | Second half |
+|---|---|---|
+| Citations, each reference counted separately | 32 / 62 / 106 (mean 72, max 259) | 10 / 22 / 36 (mean 29) |
+| Citation brackets (`[3, 7]` counts once) | 23 / 41 / 67 (mean 49) | – |
+| Citations per 1,000 words | 13.2 / 18.2 / 23.2 | 3.5 / 6.0 / 10.9 |
+| Distinct references cited | 25 / 46 / 68 (mean 48) | – |
+
+- A median of 73% of a paper's citations (Q1–Q3 63–84%) fall in the first half; 168 of 190 papers have more citations in the first half than the second.
+- A median of 82% of the references a paper cites (Q1–Q3 71–91%) are already cited by the end of the first half.
+
+By tenth of the paper's words:
+
+| Tenth | 1st | 2nd | 3rd | 4th | 5th | 6th | 7th | 8th | 9th | 10th |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Share of all citations | 24.9% | 22.8% | 12.5% | 6.7% | 4.8% | 3.6% | 3.3% | 3.8% | 9.6% | 8.0% |
+| Median citations per 1,000 words | 28.3 | 27.7 | 15.1 | 6.5 | 3.3 | 1.5 | 1.5 | 2.0 | 10.3 | 9.3 |
+
+The first fifth (Introduction and Related Work) holds 47.7% of all citations at about 28 per 1,000 words. Citations drop to about 1.5 per 1,000 words in the sixth and seventh tenths (Method and Results), then rise to about 10 per 1,000 words in the last fifth (Discussion and Conclusion), which holds 17.6%. Every paper has at least 4 citations in the first half.
+
+## 8. Limitations
 
 - Section classes come from heading keywords; 13 papers have no heading recognised as plain "Introduction" (mostly "Introduction and Background" variants, counted in slot 2 here) and one paper with unnumbered headings parsed poorly.
 - Papers without a bold Abstract heading have their abstract counted in front matter.
 - Table and figure content cannot be told apart in PDF text, so "small-font text" covers cell text, figure labels and footnotes together.
 - Core component percentages depend on a keyword classifier; 70% of papers also have unclassified paper-specific subsections.
 - Word counts count tokens that start with a letter or digit; they are approximate to a few percent (the sum of parsed parts matched pdftotext totals within about 5% on a 12-paper check).
+- Only numbered `[n]` citations are counted, and the tenths in section 7 are by word position including figure and table text, so they only approximate where sections fall.
 - Sample is one publisher's HCI-adjacent papers, not ACM as a whole.
 
-Scripts: `/tmp/acm_work/` (`analyze.py`, `stats.py`, `corr.py`, `order.py`, `sysd.py`, `tmpl.py`, `q.py`, `core.py`, `ratios.py`).
+Scripts: `/tmp/acm_work/` (`analyze.py`, `stats.py`, `corr.py`, `order.py`, `sysd.py`, `tmpl.py`, `q.py`, `core.py`, `ratios.py`, `before.py`, `cites.py`). The earlier files in `/tmp/acm_work/` were cleaned up before `cites.py` was written, so only `cites.py` and the text extraction were re-created; rerunning the others needs the XML extraction again.
 
 ---
 
 # Part B1: System papers (reference detail)
 
-The cheat sheet is Part S; core component statistics are in its checklist, and limitations are in Part A section 6.
+The cheat sheet is Part S; core component statistics are in its checklist, and limitations are in Part A section 8.
 
 Group: the 57 of 190 papers with a top-level System/Design/Implementation section before References. (An earlier summary said 58: that count included one paper with such a section after References.) 9 of them also have a top-level Method section; those 9 are counted here, not in the method group (Part B2).
 
@@ -336,7 +385,7 @@ System papers are visual: about one figure per 815 body words, against one per 1
 
 # Part B2: Method papers (reference detail)
 
-The cheat sheet is Part M; core component statistics are in its checklist, and limitations are in Part A section 6. This group is a keyword-defined cut (any top-level Method heading), so it includes some technical experiment papers alongside human-subjects studies.
+The cheat sheet is Part M; core component statistics are in its checklist, and limitations are in Part A section 8. This group is a keyword-defined cut (any top-level Method heading), so it includes some technical experiment papers alongside human-subjects studies.
 
 Group: the 84 of 190 papers with a top-level Method/Methodology section before References and no top-level System/Design/Implementation section. (9 papers have both; they are in Part B1.) These are mostly empirical user studies: interviews, surveys, experiments.
 
