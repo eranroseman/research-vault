@@ -1191,3 +1191,41 @@ def test_pyyaml_row_reports_the_import_state(monkeypatch):
     probe = doctor._pyyaml_probe()
     assert probe.result is Result.UNMATCHED
     assert "pip install" in probe.reason
+
+
+@pytest.mark.parametrize(
+    ("module", "reason"),
+    [
+        (
+            type("yaml", (), {"__version__": "9.9", "CSafeLoader": object}),
+            "PyYAML 9.9 (C loader)",
+        ),
+        (type("yaml", (), {"__version__": "9.9"}), "PyYAML 9.9 (pure loader)"),
+    ],
+    ids=["libyaml", "pure"],
+)
+def test_pyyaml_row_names_the_version_and_the_loader(monkeypatch, module, reason):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "yaml", module)
+    probe = doctor._pyyaml_probe()
+    assert (probe.check, probe.result, probe.reason) == (
+        "pyyaml",
+        Result.MATCHED,
+        reason,
+    )
+
+
+def test_pyyaml_row_without_pyyaml_names_the_exit_and_the_remedy(monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "yaml", None)  # import raises ImportError
+    probe = doctor._pyyaml_probe()
+    assert (probe.check, probe.result, probe.reason) == (
+        "pyyaml",
+        Result.UNMATCHED,
+        (
+            "PyYAML is not importable — verify exits 4 and the commit hook refuses; "
+            "pip install PyYAML into the environment that runs research_vault"
+        ),
+    )
