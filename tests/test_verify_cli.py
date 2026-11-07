@@ -6618,3 +6618,59 @@ def test_a_rename_the_merge_makes_by_hand_is_raised(net_vault):
     assert [
         o.reason for o in rows if o.target == encode_repo_path(b"literature/new.md")
     ] == ["drift — literature note renamed without writer attestation"]
+
+
+def test_stamp_type_help_names_its_metavars_and_help(capsys):
+    """The flags' help is the verb's only documentation: each metavar and
+    help string as written."""
+    with pytest.raises(SystemExit) as caught:
+        main(["stamp-type", "--help"])
+    assert caught.value.code == 0
+    out = " ".join(capsys.readouterr().out.split())
+    assert "--paths PATH [PATH ...]" in out
+    assert "--paths-file FILE NUL-separated vault-relative paths" in out
+    assert "--staged the fully staged files of the index git names" in out
+
+
+def test_stamp_type_names_the_exclusive_sources_as_its_whole_error(capsys):
+    with pytest.raises(SystemExit):
+        main(["stamp-type", "--vault", "v", "--paths", "a.md", "--staged"])
+    assert capsys.readouterr().err.endswith(
+        "error: stamp-type: --paths, --paths-file and --staged are exclusive\n"
+    )
+
+
+def test_stamp_type_paths_file_fixes_only_the_listed_paths(tmp_path, capsys):
+    vault = tmp_path / "vault"
+    assert main(["scaffold", "--vault", str(vault)]) == 0
+    capsys.readouterr()
+    (vault / "inbox" / "a.md").write_text("a\n")
+    (vault / "inbox" / "b.md").write_text("b\n")
+    listing = tmp_path / "paths"
+    listing.write_bytes(b"inbox/b.md\0")
+    assert (
+        main(["stamp-type", "--vault", str(vault), "--paths-file", str(listing)]) == 0
+    )
+    assert capsys.readouterr().out.splitlines() == ["stamped inbox/b.md"]
+    assert (vault / "inbox" / "a.md").read_text() == "a\n"
+
+
+def test_stamp_type_prints_every_problem_after_an_unterminated_block(tmp_path, capsys):
+    """An unterminated block's line does not end the problem lines: a later
+    note's unresolved link is still printed."""
+    vault = tmp_path / "vault"
+    pages = {
+        "projects/a/index.md": "---\nx: y\n",
+        "projects/b/draft.md": '---\ntype: "project"\n---\n[[nowhere]]\n',
+    }
+    for relative, text in pages.items():
+        (vault / relative).parent.mkdir(parents=True, exist_ok=True)
+        (vault / relative).write_text(text)
+    assert main(["stamp-type", "--vault", str(vault), "--paths", *pages]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        (
+            "skipped projects/a/index.md — frontmatter is not terminated;"
+            " the note was not normalised"
+        ),
+        "unresolved projects/b/draft.md — [[nowhere]] no file matches; resolve by hand",
+    ]
