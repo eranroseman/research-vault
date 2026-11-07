@@ -1,7 +1,9 @@
 import os
 import subprocess
 
-from research_vault import fixer, okf
+import pytest
+
+from research_vault import fixer, gitstate, okf
 
 
 def _git(vault, *args, env=None):
@@ -464,3 +466,208 @@ def test_staged_renders_the_log_when_a_day_files_deletion_is_staged(tmp_path, ca
     assert _staged(vault, capsys) == ["regenerated log.md"]
     assert "captured gone" not in (vault / "log.md").read_text()
     assert (vault / "log.md").read_text() == okf.render_log(vault)
+
+
+def test_staged_paths_reads_the_worktree_against_the_index_git_names(
+    tmp_vault, tmp_path
+):
+    """The dirty read honours GIT_INDEX_FILE too: a note the real index holds
+    in an older copy is fully staged in a temporary index holding the
+    worktree's."""
+    note = _page(tmp_vault, "inbox/a.md", "a\n")
+    _git(tmp_vault, "add", "inbox/a.md")
+    note.write_text("b\n")
+    env = {**os.environ, "GIT_INDEX_FILE": str(tmp_path / "private-index")}
+    _git(tmp_vault, "add", "inbox/a.md", env=env)
+    assert fixer.staged_paths(tmp_vault, env=env) == (["inbox/a.md"], [])
+    assert fixer.staged_paths(tmp_vault) == ([], ["inbox/a.md"])
+
+
+def test_staged_log_reads_the_index_git_names(tmp_vault, tmp_path):
+    """Under `git commit -- <paths>` every read staged_log makes is the
+    temporary index's: the deletion staged only there, the day file edited
+    and the one added there."""
+    day = _page(tmp_vault, "log/2026-10-24.md", _DAY.format("kept"))
+    gone = _page(tmp_vault, "log/2026-10-23.md", _DAY.format("gone"))
+    _git(tmp_vault, "add", "log")
+    _git(tmp_vault, "commit", "-q", "--no-verify", "-m", "days")
+    env = {**os.environ, "GIT_INDEX_FILE": str(tmp_path / "private-index")}
+    _git(tmp_vault, "read-tree", "HEAD", env=env)
+    gone.unlink()
+    _git(tmp_vault, "rm", "-q", "--cached", "log/2026-10-23.md", env=env)
+    day.write_text(_DAY.format("edited"))
+    _page(tmp_vault, "log/2026-10-25.md", _DAY.format("new"))
+    _git(tmp_vault, "add", "log/2026-10-24.md", "log/2026-10-25.md", env=env)
+    assert fixer.staged_log(tmp_vault, [], [], env=env) is True
+    assert fixer.staged_log(tmp_vault, [], []) is False
+
+
+def test_staged_log_renders_for_a_fully_staged_log_md_alone(tmp_vault):
+    assert fixer.staged_log(tmp_vault, ["log.md"], []) is True
+
+
+def test_staged_log_ignores_a_date_named_note_and_a_partially_staged_day_file(
+    tmp_vault,
+):
+    """Only a fully staged log/ day file or log.md, or a day file's staged
+    deletion, renders root log.md: a daily/ note named for its date does
+    not, nor does a day file whose staged copy is not the worktree's."""
+    day = _page(tmp_vault, "log/2026-10-24.md", _DAY.format("half"))
+    _git(tmp_vault, "add", "log/2026-10-24.md")
+    day.write_text(_DAY.format("half") + "- 10:00 research_vault/0.1.0 — captured y\n")
+    _page(tmp_vault, "daily/2026-10-24.md", "a day\n")
+    _git(tmp_vault, "add", "daily/2026-10-24.md")
+    staged, partial = fixer.staged_paths(tmp_vault)
+    assert (staged, partial) == (["daily/2026-10-24.md"], ["log/2026-10-24.md"])
+    assert fixer.staged_log(tmp_vault, staged, partial) is False
+
+
+def test_staged_log_renders_when_a_day_file_is_moved_out_of_log(tmp_vault):
+    """A staged `git mv` of a day file out of log/ deletes it from what
+    log.md renders, though git would pair the two paths as a rename."""
+    _page(tmp_vault, "log/2026-10-24.md", _DAY.format("moved"))
+    _git(tmp_vault, "add", "log/2026-10-24.md")
+    _git(tmp_vault, "commit", "-q", "--no-verify", "-m", "day")
+    (tmp_vault / "projects" / "p").mkdir(parents=True)
+    _git(tmp_vault, "mv", "log/2026-10-24.md", "projects/p/moved.md")
+    staged, partial = fixer.staged_paths(tmp_vault)
+    assert (staged, partial) == (["projects/p/moved.md"], [])
+    assert fixer.staged_log(tmp_vault, staged, partial) is True
+
+
+def test_staged_log_sees_a_day_file_moved_by_hand(tmp_vault):
+    """A day file moved in the worktree, its new path intent-to-add, is still
+    an unstaged deletion, though git would pair the two as a rename."""
+    _page(tmp_vault, "log/2026-10-24.md", _DAY.format("moved by hand"))
+    _git(tmp_vault, "add", "log/2026-10-24.md")
+    _git(tmp_vault, "commit", "-q", "--no-verify", "-m", "day")
+    (tmp_vault / "projects" / "p").mkdir(parents=True)
+    (tmp_vault / "log" / "2026-10-24.md").rename(
+        tmp_vault / "projects" / "p" / "moved.md"
+    )
+    _git(tmp_vault, "add", "-N", "projects/p/moved.md")
+    assert fixer.staged_log(tmp_vault, ["log.md"], []) == "unstaged-day-file"
+
+
+_LINKED = "See [Only Here](/wiki/concepts/Only%20Here.md).\n"
+
+
+def test_the_normaliser_goes_on_after_each_file_it_reports(tmp_vault, monkeypatch):
+    """An index outside the vault, an index that is not UTF-8 and a note
+    that cannot be written are each reported, and the notes after them are
+    still normalised."""
+    from research_vault import stamp
+
+    vault = tmp_vault
+    _page(vault, "wiki/concepts/Only Here.md", "---\ntype: concept\n---\n")
+    outside = vault.parent / f"{vault.name}-outside"
+    _page(outside, "index.md", "See [[Only Here]].\n")
+    (vault / "inbox" / "link").symlink_to(outside, target_is_directory=True)
+    (vault / "projects" / "bad").mkdir(parents=True)
+    (vault / "projects" / "bad" / "index.md").write_bytes(b"\xff [[Only Here]]\n")
+    typed = '---\ntype: "fleeting"\n---\nSee [[Only Here]].\n'
+    names = ["inbox/a.md", "inbox/b.md", "inbox/c.md", "inbox/d.md"]
+    for name in names:
+        _page(vault, name, typed)
+    real = stamp._write_text
+
+    def failing(path, text):
+        if path.name == "c.md":
+            raise OSError(30, "Read-only file system")
+        real(path, text)
+
+    monkeypatch.setattr(stamp, "_write_text", failing)
+    listed = ["inbox/link/index.md", "inbox/a.md", "projects/bad/index.md"]
+    report = fixer.fix(vault, paths=[*listed, "inbox/b.md", "inbox/c.md", "inbox/d.md"])
+    assert report.reported == [
+        ("inbox/c.md", "unwritable"),
+        ("inbox/link/index.md", "outside"),
+        ("projects/bad/index.md", "not-utf-8"),
+    ]
+    assert report.normalised == ["inbox/a.md", "inbox/b.md", "inbox/d.md"]
+    linked = '---\ntype: "fleeting"\n---\n' + _LINKED
+    assert [(vault / name).read_text() for name in names] == [
+        linked,
+        linked,
+        typed,
+        linked,
+    ]
+
+
+def test_a_symlinked_index_inside_the_vault_is_never_normalised(tmp_vault):
+    """Stamp never reads an index.md, so the normaliser's own symlink check
+    is what keeps it from writing through a link, to a file in the vault
+    too."""
+    _page(tmp_vault, "wiki/concepts/Only Here.md", "---\ntype: concept\n---\n")
+    target = _page(tmp_vault, "projects/p/real.md", "See [[Only Here]].\n")
+    (tmp_vault / "projects" / "p" / "index.md").symlink_to("real.md")
+    report = fixer.fix(tmp_vault, paths=["projects/p/index.md"])
+    assert report.normalised == []
+    assert target.read_text() == "See [[Only Here]].\n"
+
+
+def test_a_relative_link_is_resolved_from_the_note_and_left_as_written(tmp_vault):
+    """`./` is read against the note's own folder, both when the note is
+    fixed and when a partially staged copy of it is judged."""
+    _page(tmp_vault, "projects/p/s.md", '---\ntype: "note"\n---\nsibling\n')
+    text = '---\ntype: "note"\n---\nsee [s](./s.md)\n'
+    note = _page(tmp_vault, "projects/p/n.md", text)
+    report = fixer.fix(tmp_vault, paths=["projects/p/n.md"])
+    assert (report.normalised, report.problems) == ([], [])
+    _git(tmp_vault, "add", "projects/p/n.md")
+    note.write_text(text + "more\n")
+    assert fixer.unfixed_staged(tmp_vault, ["projects/p/n.md"]) == []
+
+
+def test_unfixed_staged_names_a_blob_git_cannot_read_back(tmp_vault):
+    """A staged blob missing from the object store is a named GitStateError,
+    the cat-file failure's own words."""
+    note = _page(tmp_vault, "inbox/a.md", "a\n")
+    _git(tmp_vault, "add", "inbox/a.md")
+    blob = _git(tmp_vault, "rev-parse", ":inbox/a.md").strip()
+    (tmp_vault / ".git" / "objects" / blob[:2] / blob[2:]).unlink()
+    note.write_text("a\nb\n")
+    with pytest.raises(gitstate.GitStateError) as caught:
+        fixer.unfixed_staged(tmp_vault, ["inbox/a.md"])
+    assert str(caught.value) == "git cat-file failed with status 128"
+
+
+def test_unfixed_staged_judges_every_partial_note_it_can_read(tmp_vault):
+    """A blob that is not UTF-8 is passed over, and the notes after it are
+    still judged: an executable one and one whose name holds a tab."""
+    names = ["inbox/a.md", "inbox/b.md", "inbox/c\td.md"]
+    _page(tmp_vault, names[0], "x")
+    (tmp_vault / names[0]).write_bytes(b"\xff a thought\n")
+    _page(tmp_vault, names[1], "a thought\n")
+    (tmp_vault / names[1]).chmod(0o755)
+    _page(tmp_vault, names[2], "a thought\n")
+    _git(tmp_vault, "add", *names)
+    for name in names:
+        with (tmp_vault / name).open("ab") as handle:
+            handle.write(b"more\n")
+    _staged_now, partial = fixer.staged_paths(tmp_vault)
+    assert partial == names
+    assert fixer.unfixed_staged(tmp_vault, partial) == names[1:]
+
+
+@pytest.mark.parametrize(
+    ("stderr", "message"),
+    [
+        (b"", "git ls-files failed with status 129"),
+        (
+            b"fatal: bad \xff name\nusage: more\n",
+            "git ls-files failed with status 129: fatal: bad � name",
+        ),
+    ],
+    ids=["silent", "not-utf-8"],
+)
+def test_a_failed_git_read_names_the_command_and_gits_first_line(
+    tmp_vault, monkeypatch, stderr, message
+):
+    def failing(argv, **_kwargs):
+        return subprocess.CompletedProcess(argv, 129, b"", stderr)
+
+    monkeypatch.setattr(fixer.subprocess, "run", failing)
+    with pytest.raises(gitstate.GitStateError) as caught:
+        fixer._git_names(tmp_vault, "ls-files", "--stage")
+    assert str(caught.value) == message
