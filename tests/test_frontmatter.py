@@ -415,3 +415,100 @@ def test_read_okf_refuses_a_value_its_constructor_cannot_build(value, error):
         f"frontmatter is not valid YAML: cannot construct a value ({error}: "
     )
     assert "\n" not in message
+
+
+@pytest.fixture
+def fresh_loader(monkeypatch):
+    """The loader class is built once per process and cached in `_LOADER`: a
+    test of how it is built must build it, never read a cached one."""
+    monkeypatch.setattr(frontmatter, "_LOADER", None)
+
+
+def test_a_freshly_built_loader_reads_as_the_reference_loader(fresh_loader):
+    """Built once and cached; libyaml's SafeLoader when PyYAML has it; every
+    implicit resolver but the timestamp's; nested values constructed."""
+    import yaml
+
+    text = "---\ntype: concept\nday: 2026-10-24\nn: 1\nmeta:\n  tags: [a, b]\n---\nb\n"
+    assert frontmatter.read_okf(text) == (
+        {"type": "concept", "day": "2026-10-24", "n": 1, "meta": {"tags": ["a", "b"]}},
+        "b\n",
+    )
+    loader = frontmatter._loader()
+    assert frontmatter._LOADER is loader
+    assert loader.__mro__[1] is getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
+
+def test_a_loader_built_without_libyaml_is_the_pure_safe_loader(
+    fresh_loader, monkeypatch
+):
+    import sys
+    import types
+
+    import yaml
+
+    pure = types.ModuleType("yaml")
+    pure.__dict__.update(
+        {name: value for name, value in vars(yaml).items() if name != "CSafeLoader"}
+    )
+    monkeypatch.setitem(sys.modules, "yaml", pure)
+    assert frontmatter._loader().__mro__[1] is yaml.SafeLoader
+    assert frontmatter.read_okf("---\nday: 2026-10-24\n---\n") == (
+        {"day": "2026-10-24"},
+        "",
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        (
+            "---\ndate: {{date}}\n---\n",
+            (
+                "frontmatter is not valid YAML: while constructing a mapping, "
+                "found unhashable key {'date': None} (line 2, column 8)"
+            ),
+        ),
+        (
+            "---\ntype: a\ntype: b\n---\n",
+            (
+                "frontmatter is not valid YAML: while constructing a mapping, "
+                "found duplicate key 'type' (line 3, column 1)"
+            ),
+        ),
+    ],
+    ids=["unhashable", "duplicate"],
+)
+def test_a_freshly_built_loader_refuses_unhashable_and_duplicate_keys(
+    fresh_loader, text, message
+):
+    with pytest.raises(frontmatter.FrontmatterError) as caught:
+        frontmatter.read_okf(text)
+    assert str(caught.value) == message
+
+
+def test_a_freshly_built_loader_reads_a_self_referential_sequence_as_safe_load(
+    fresh_loader,
+):
+    """The mapping constructor builds its values shallow, as SafeLoader's own
+    does, so an anchored sequence holding its own alias reads, not fails."""
+    data, _ = frontmatter.read_okf("---\na: &x [*x]\n---\n")
+    assert data["a"][0] is data["a"]
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("---\n- a\n---\n", "frontmatter block is not a mapping"),
+        ("---\ntype: a\n", "unterminated frontmatter"),
+        # A zero-line block: the closing delimiter is searched for after the
+        # opening line, as `parse` searches, so the opening's own newline
+        # never starts one (P-2a).
+        ("---\n---\nbody\n", "unterminated frontmatter"),
+    ],
+    ids=["sequence", "unterminated", "zero-line-block"],
+)
+def test_read_okf_refusals_are_these_messages(text, message):
+    with pytest.raises(frontmatter.FrontmatterError) as caught:
+        frontmatter.read_okf(text)
+    assert str(caught.value) == message
