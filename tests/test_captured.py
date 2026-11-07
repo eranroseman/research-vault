@@ -935,3 +935,57 @@ def test_a_csl_entry_that_does_not_match_its_notes_hash_is_a_mismatch_row(tmp_va
         rows[0].reason
         == "mismatch — literature/smith2020.md records csl-sha256 but system/bibliography.json has no entry for smith2020"
     )
+
+
+def test_a_title_that_is_not_a_non_empty_string_names_no_note(tmp_vault):
+    """Only a non-empty string title is a name: a number and an empty title
+    are recorded, but neither enters the name map."""
+    literature = tmp_vault / "literature"
+    literature.mkdir(exist_ok=True)
+    tuple_lines = (
+        'zotero-server-id: "6LpvURP2E933"\nzotero-item-key: "{key}"\n'
+        'zotero-item-version: 1\ncitationKey: "{cite}"\nattachments:\nfulltext:\n'
+    )
+    (literature / "number.md").write_text(
+        '---\ntype: "literature"\ntitle: 7\n'
+        + tuple_lines.format(key="NUMB0001", cite="number")
+        + "---\n"
+    )
+    (literature / "empty.md").write_text(
+        '---\ntype: "literature"\ntitle: ""\n'
+        + tuple_lines.format(key="EMPT0001", cite="empty")
+        + "---\n"
+    )
+    assert captured.literature_paths(tmp_vault) == (
+        {"empty": "literature/empty.md", "number": "literature/number.md"},
+        {},
+    )
+
+
+def test_a_relative_link_on_a_wiki_page_resolves_from_that_page(tmp_vault):
+    """`./` and `../` are read against the linking page's own folder."""
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (tmp_vault / "wiki" / "Top.md").write_text("x\n")
+    (pages / "B.md").write_text("x\n")
+    (pages / "A.md").write_text(
+        "---\ntype: source\n---\n[b](./B.md) [top](../Top.md)\n"
+    )
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert rows == []
+
+
+def test_an_unterminated_wikilink_after_a_leading_blank_line_counts_it(tmp_vault):
+    """The line number counts every newline before the stray, the file's
+    first character included."""
+    pages = tmp_vault / "wiki" / "sources"
+    pages.mkdir(parents=True)
+    (pages / "A.md").write_text("\n[[oops\n")
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert [o.reason for o in rows] == [
+        "schema-violation — unterminated [[ on wiki/sources/A.md line 2"
+    ]
