@@ -807,3 +807,152 @@ def test_render_keeps_the_written_target_as_the_text_unless_it_is_the_basename(
     alias, case-folded or path-led one must not turn into the file's name."""
     (link,) = links.find_links(wiki)
     assert links.render_markdown(link, path) == rendered
+
+
+_ONLY = "[Only Here](/wiki/concepts/Only%20Here.md)"
+_L = "[[Only Here]]"
+
+
+def test_a_name_holding_a_slash_is_read_as_a_path_never_as_a_title():
+    """A recorded title or alias with a `/` is never a name a bare link
+    reaches: `[[Input/output]]` is a path, and no file holds it."""
+    index = links.Index([], {}, {"Input/output": "literature/io.md"})
+    assert index.resolve("Input/output", source="a.md") == []
+
+
+def test_a_dot_target_names_no_note_even_when_a_title_spells_it():
+    """`.` is the linking folder, which is no file, whatever the captured
+    set records."""
+    index = links.Index(
+        ["a.md"], {".": "literature/dot.md"}, {".": "literature/dot.md"}
+    )
+    assert index.resolve(".", source="a.md") == []
+    assert not links.names_note(".", ".", source="a.md")
+
+
+def test_a_led_target_keeps_every_character_after_its_slashes():
+    """Only the leading `/` is dropped: a path whose first name starts with
+    an `X` is not cut."""
+    index = links.Index(["Xmas.md"], {}, {})
+    assert index.resolve("/Xmas.md", source="a.md") == ["Xmas.md"]
+    assert index.resolve("//Xmas", source="a.md") == ["Xmas.md"]
+
+
+def test_an_attachment_extension_is_the_last_dots_even_after_another_dot():
+    assert links.is_attachment("fig.v2.png")
+    assert not links.is_attachment("png.v2")
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # A link just after a closing fence, at the next line's start.
+        (f"```\ncode\n```\n{_L}\n", f"```\ncode\n```\n{_ONLY}\n"),
+        # A line of the fence's run with an X after it is content, not a closer.
+        (f"```\n```X\n{_L}\n```\n{_L}\n", f"```\n```X\n{_L}\n```\n{_ONLY}\n"),
+        # So is one followed by a no-break space: only spaces and tabs may.
+        (
+            f"```\n``` \n{_L}\n```\n{_L}\n",
+            f"```\n``` \n{_L}\n```\n{_ONLY}\n",
+        ),
+        # A CRLF closer closes.
+        (f"```\r\ncode\r\n```\r\n{_L}\r\n", f"```\r\ncode\r\n```\r\n{_ONLY}\r\n"),
+        # Offsets count each line's ending: a long fence's last line is inside.
+        (
+            "```\n" + "x\n" * 12 + f"{_L}\n```\n{_L}\n",
+            "```\n" + "x\n" * 12 + f"{_L}\n```\n{_ONLY}\n",
+        ),
+        # An unterminated fence masks to the end of the file.
+        (f"{_L}\n```\n{_L}\n", f"{_ONLY}\n```\n{_L}\n"),
+    ],
+    ids=["after", "x-run", "nbsp-run", "crlf", "long", "unterminated"],
+)
+def test_normalize_masks_exactly_the_fenced_lines(tmp_path, text, expected):
+    assert links.normalize(text, _index(tmp_path), source="projects/a.md") == (
+        expected,
+        [],
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (f"{_L}`x` now\n", f"{_ONLY}`x` now\n"),
+        (f"`x`{_L} now\n", f"`x`{_ONLY} now\n"),
+        ("see `[[Only` Here]] now\n", "see `[[Only` Here]] now\n"),
+        ("see [[nowhere %%b]]", "see [[nowhere %%b]]"),
+        # A bracketed Dataview field that is also a markdown link's text: the
+        # link starts where the field does and ends after it.
+        (
+            "[k:: v](wiki/concepts/Only%20Here.md)\n",
+            "[k:: v](wiki/concepts/Only%20Here.md)\n",
+        ),
+    ],
+    ids=[
+        "before-code",
+        "after-code",
+        "opens-in-code",
+        "ends-in-comment-at-eof",
+        "starts-at-a-field",
+    ],
+)
+def test_normalize_protects_a_link_that_overlaps_a_mask_and_only_that(
+    tmp_path, text, expected
+):
+    """A link touching a code span or comment from outside is rewritten; one
+    that starts or ends inside a mask is left as written and unreported."""
+    assert links.normalize(text, _index(tmp_path), source="projects/a.md") == (
+        expected,
+        [],
+    )
+
+
+def test_normalize_keeps_a_led_markdown_destination_as_written(tmp_path):
+    """A `/`-led markdown destination is already the form: resolved, never
+    re-rendered, its written case and encoding kept."""
+    text = "[x](/WIKI/concepts/Only%20Here.md)\n"
+    assert links.normalize(text, _index(tmp_path), source="projects/a.md") == (
+        text,
+        [],
+    )
+
+
+def test_normalize_skips_every_copy_of_an_anchored_claim_block(tmp_path):
+    """A claim block repeated in a note is frozen in each copy; the prose
+    between them is still normalised."""
+    block = (
+        "- (quote) Mortality fell [@smith2020, p. 3] "
+        "[supports:: [[smith2020#^c-1]]] ^c-2\n  > the quoted [[Only Here]] text\n"
+    )
+    text = f"Intro {_L}.\n" + (block + f"Between {_L}.\n") * 3
+    out, problems = links.normalize(text, _index(tmp_path), source="projects/a.md")
+    assert problems == []
+    assert out == f"Intro {_ONLY}.\n" + (block + f"Between {_ONLY}.\n") * 3
+
+
+def test_normalize_reads_a_zero_line_block_as_unterminated(tmp_path):
+    """As `read_okf` reads it (P-2a): the closing delimiter is searched for
+    after the opening line, so `---` twice is no block and the note is left
+    whole."""
+    text = f"---\n---\n{_L}\n"
+    out, problems = links.normalize(text, _index(tmp_path), source="projects/a.md")
+    assert out == text
+    assert [(p.kind, p.written) for p in problems] == [("frontmatter", "---")]
+
+
+def test_normalize_reads_a_relative_body_link_from_the_note(tmp_path):
+    """Below a frontmatter block too, `./` is read from the note's folder."""
+    text = '---\ntype: "note"\n---\n[d](./brief/draft.md)\n'
+    assert links.normalize(text, _index(tmp_path), source="projects/a.md") == (
+        text,
+        [],
+    )
+
+
+def test_rewrite_key_keeps_an_empty_display_text_empty():
+    assert (
+        links.rewrite_key(
+            "[](/literature/old2020.md)\n", "old2020", "new2020", source="a.md"
+        )
+        == "[](/literature/new2020.md)\n"
+    )
