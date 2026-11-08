@@ -1285,3 +1285,14 @@ def test_an_unborn_vault_rechecks_its_whole_history(tmp_path):
         WHOLE_HISTORY,
         "re-check: the whole history (no commit yet)",
     )
+
+
+def test_append_log_fixes_the_day_file_and_root_log_only(green_vault):
+    """#178 item 3: the log append runs the fixer on its own day file, never
+    the vault-wide sweep, so an untyped inbox note stays as written."""
+    stray = green_vault / "inbox" / "stray.md"
+    stray.write_text("a thought\n")
+    now = datetime_lib.datetime(2026, 9, 7, 10, 0, tzinfo=datetime_lib.UTC)
+    publish._append_log(green_vault, "first", date="2026-09-07", now=now)
+    assert stray.read_text() == "a thought\n"
+    assert "— first" in (green_vault / "log.md").read_text()
