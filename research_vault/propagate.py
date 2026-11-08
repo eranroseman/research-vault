@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import NamedTuple
 
-from . import capture, lifecycle, links, literature_notes, structure
+from . import bibliography, capture, lifecycle, links, literature_notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 from .zotero import ZoteroError
@@ -51,6 +51,12 @@ class Plan(NamedTuple):
     # already has a note and apply removes the loser's (ADR 0003's scope note
     # of 2026-11-07). Hashed with the rest, so the person approves the removal.
     removes: dict[str, str]
+    # Each removed note's sha256 at plan time (P39): the plan approves the
+    # removal of those bytes, and apply's recompute refuses `plan changed`
+    # when the loser's note moved in between (a failure row verify recorded,
+    # an event a person added). `literature/` hashes no surface, so only this
+    # binds them.
+    removes_sha256: dict[str, str]
     surfaces: tuple[Surface, ...]
 
 
@@ -155,6 +161,42 @@ def _order(targets: dict[str, str], merges: dict[str, str]) -> list[tuple[str, s
     removal; with no such note, the first loser by key takes it (P25).
     """
     return sorted(targets.items(), key=lambda e: (e[1], e[0] in merges, e[0]))
+
+
+def _survivor_behind_its_loser(
+    old: str,
+    new: str,
+    held: tuple[str, str] | None,
+    name: str,
+    provenance: literature_notes.Provenance,
+    targets: dict[str, str],
+    merges: dict[str, str],
+) -> Outcome | None:
+    """P38 (F10): the survivor took its loser's key, the loser's note holds
+    that path, and the survivor's own note sits under an older key. The
+    re-key cannot land and the loser's note is the merge's identity entry, so
+    the plan refuses, naming the state and the hand step that unblocks it:
+    with the loser's note under another name, the next plan renames the
+    survivor's note onto the path and removes the loser's."""
+    survivor = merges.get(new)
+    if (
+        old in merges
+        or survivor is None
+        or targets.get(new) != new
+        or provenance.item_key != survivor
+        or held is None
+        or held[0] == survivor
+    ):
+        return None
+    return Outcome(
+        CHECK,
+        old,
+        Result.UNMATCHED,
+        f"merged — survivor {survivor}'s note is at literature/{name} and "
+        f"literature/{new}.md holds merged-away item {held[0]}'s; rename "
+        f"literature/{new}.md to another name under literature/ and run "
+        "propagate again",
+    )
 
 
 def _occupied_refusal(
@@ -312,6 +354,7 @@ def plan(
     sources, outcomes = _sources(vault, targets)
     item_keys: dict[str, str] = {}
     removes: dict[str, str] = {}
+    removes_sha256: dict[str, str] = {}
     # Target name -> (item key, server id, old key) of the entry that will
     # hold it. In `_order`, which apply walks too: a later loser for a path an
     # earlier entry claims (the survivor's own re-keyed note, or the first of
@@ -334,10 +377,13 @@ def plan(
         if source.name != target.name and (
             claim is not None or target.exists() or target.is_symlink()
         ):
-            refusal = _occupied_refusal(
+            held = claim[:2] if claim else _holder(target)
+            refusal = _survivor_behind_its_loser(
+                old, new, held, source.name, provenance, targets, merges
+            ) or _occupied_refusal(
                 old,
                 new,
-                claim[:2] if claim else _holder(target),
+                held,
                 claim[2] if claim else None,
                 provenance.server_id,
                 merges.get(old),
@@ -346,6 +392,7 @@ def plan(
                 outcomes.append(refusal)
                 continue
             removes[old] = f"literature/{source.name}"
+            removes_sha256[old] = hashlib.sha256(source.read_bytes()).hexdigest()
         claimed.setdefault(target.name, (item_key, provenance.server_id, old))
         # The mapping is verified against Zotero whatever its source: the note's
         # item must carry the new name live. A name nobody in the library holds
@@ -382,6 +429,7 @@ def plan(
         item_keys,
         merges,
         removes,
+        removes_sha256,
         surfaces,
     ), []
 
@@ -395,6 +443,7 @@ def _document(plan: Plan) -> dict:
         "item_keys": dict(plan.item_keys),
         "merges": dict(plan.merges),
         "removes": dict(plan.removes),
+        "removes_sha256": dict(plan.removes_sha256),
         "surfaces": [surface._asdict() for surface in plan.surfaces],
     }
 
@@ -427,6 +476,8 @@ def plan_from_document(data, source) -> Plan:
         # Absent from a document written before #183: a re-key.
         dict(data.get("merges", {})),
         dict(data.get("removes", {})),
+        # Absent from a document written before P39.
+        dict(data.get("removes_sha256", {})),
         tuple(Surface(str(s["path"]), str(s["sha256"])) for s in data["surfaces"]),
     )
 
@@ -524,7 +575,27 @@ def _apply_entry(
         return outcomes
     source.unlink()
     document["removed"].append(removal)
-    return outcomes
+    return outcomes + _drop_entry(vault, old)
+
+
+def _drop_entry(vault: Path, key: str) -> list[Outcome]:
+    """P36: the removed loser's bibliography entry goes with its note
+    (§5.3.7). The survivor's recapture wrote the file while the loser's note
+    still stood, so its entry was kept then."""
+    try:
+        entries = bibliography.load(vault)
+        if key in entries:
+            bibliography.update(vault, {}, keep=set(entries) - {key})
+    except bibliography.BibliographyError as error:
+        return [
+            Outcome(
+                CHECK,
+                bibliography.BIB_PATH,
+                Result.UNMATCHED,
+                f"schema-violation — {error}",
+            )
+        ]
+    return []
 
 
 def apply(

@@ -1596,6 +1596,7 @@ def test_apply_entry_never_renames_onto_an_existing_path(tmp_vault, monkeypatch,
         {"old2020": "NEW00001"},
         {"old2020": "NEW00001"},
         {},
+        {},
         (),
     )
     document = {**propagate._document(approved), "removed": [], "moved": {}}
@@ -1792,4 +1793,226 @@ def test_lint_judges_every_surface_after_one_it_cannot_read(tmp_vault, monkeypat
     assert [(row.target, row.reason.split(" — ")[0]) for row in rows] == [
         ("path-bytes:projects/brief/a.md", "outage"),
         ("path-bytes:projects/brief/draft.md", "stale-key"),
+    ]
+
+
+def _committed(vault):
+    subprocess.run(["git", "add", "-A"], cwd=vault, check=True)
+    subprocess.run(["git", "commit", "-qm", "seed"], cwd=vault, check=True)
+
+
+def _evidence_rows(vault):
+    return [
+        (o.check, str(o.target), o.reason)
+        for o in lints.lint_evidence_layer(
+            gitstate.snapshot_tree(vault, "HEAD"), gitstate.snapshot_worktree(vault)
+        )
+        if o.result is not Result.MATCHED
+    ]
+
+
+def _surfaces_naming(vault, key):
+    """Every surface whose cites or links name ``key``, as the plan reads them
+    (a link's label is the person's prose and is left as written)."""
+    from research_vault import links
+
+    found = []
+    for path, relative in propagate._surfaces(vault):
+        text = path.read_text(encoding="utf-8")
+        if propagate._names(text, links.find_links(text), key, relative):
+            found.append(relative)
+    return found
+
+
+@pytest.mark.parametrize("survivor_has_note", [True, False], ids=["delete", "rename"])
+def test_a_merge_runs_end_to_end_through_the_residue_and_evidence_checks(
+    tmp_vault, monkeypatch, survivor_has_note
+):
+    """Designs test 8, as §5.3.6 amends it: plan from the linter, apply, then
+    the residue check and the evidence layer over apply's own record. With a
+    survivor note the loser's note goes after the survivor's MATCHED
+    recapture, and its bibliography entry with it (P36); without one it is
+    renamed onto the survivor's key. Either way every surface is rewritten."""
+    from research_vault import bibliography, captured
+
+    _seed(tmp_vault)
+    entries = [{"id": "old2020", "title": "L"}]
+    if survivor_has_note:
+        _survivor_note(tmp_vault)
+        entries.append({"id": "new2020", "title": "T"})
+    bibliography.write(tmp_vault, entries)
+    _committed(tmp_vault)
+    client = _merge_fake(monkeypatch, survivor_has_note=survivor_has_note)
+    _plan, path, sha = _planned(tmp_vault, client, mapping=None)
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert all(o.result is Result.MATCHED for o in outcomes), outcomes
+    (record,) = (tmp_vault / "system" / "propagations").glob("*.json")
+    document = json.loads(record.read_text())
+    assert document["removed"] == (
+        ["literature/old2020.md"] if survivor_has_note else []
+    )
+    assert document["moved"] == (
+        {} if survivor_has_note else {"literature/old2020.md": "literature/new2020.md"}
+    )
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
+    note = (tmp_vault / "literature" / "new2020.md").read_text()
+    assert 'zotero-item-key: "NEW00001"' in note
+    assert _surfaces_naming(tmp_vault, "old2020") == []
+    assert _surfaces_naming(tmp_vault, "new2020") == [
+        "projects/brief/draft.md",
+        "wiki/sources/A.md",
+    ]
+    assert (
+        "[@new2020, p. 3]"
+        in (tmp_vault / "projects" / "brief" / "draft.md").read_text()
+    )
+    assert (
+        "(/literature/new2020.md)"
+        in (tmp_vault / "wiki" / "sources" / "A.md").read_text()
+    )
+    assert not [
+        o for o in propagate.lint_propagation(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    rows = _evidence_rows(tmp_vault)
+    assert not [r for r in rows if r[0] == "evidence-layer"], rows
+    bib = bibliography.load(tmp_vault)
+    assert sorted(bib) == ["new2020"]
+    assert bib["new2020"] == {"id": "new2020", "title": "T"}
+    assert _csl_sha(note) == bibliography.entry_sha256(bib["new2020"])
+    assert not [
+        o
+        for o in captured.lint_captured_set(tmp_vault)
+        if o.result is Result.UNMATCHED and "bibliography" in o.reason
+    ]
+
+
+def _csl_sha(text):
+    from research_vault import frontmatter
+
+    return frontmatter.parse(text)[0]["csl-sha256"]
+
+
+def test_a_merge_removal_drops_only_the_losers_bibliography_entry(
+    tmp_vault, monkeypatch
+):
+    """P36 (F4/F9): the survivor's recapture wrote the CSL file while the
+    loser's note still stood; the removal then drops the loser's entry
+    through bibliography's own writer, and leaves every other entry alone."""
+    from research_vault import bibliography
+
+    _seed(tmp_vault)
+    _survivor_note(tmp_vault)
+    unrelated = {"id": "other2020", "title": "untouched"}
+    bibliography.write(
+        tmp_vault,
+        [{"id": "old2020", "title": "L"}, {"id": "new2020", "title": "T"}, unrelated],
+    )
+    (tmp_vault / "literature" / "other2020.md").write_text(
+        _note("OTHER001", "other2020")
+    )
+    client = _merge_fake(monkeypatch, survivor_has_note=True)
+    _plan, path, sha = _planned(tmp_vault, client, mapping=None)
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert all(o.result is Result.MATCHED for o in outcomes), outcomes
+    bib = bibliography.load(tmp_vault)
+    assert sorted(bib) == ["new2020", "other2020"]
+    assert bib["other2020"] == unrelated
+    assert bib["new2020"] == {"id": "new2020", "title": "T"}
+
+
+def test_a_removal_whose_bibliography_is_invalid_says_so_and_keeps_the_file(
+    tmp_vault, monkeypatch
+):
+    _seed(tmp_vault)
+    _survivor_note(tmp_vault)
+    client = _merge_fake(monkeypatch, survivor_has_note=True)
+    _plan, path, sha = _planned(tmp_vault, client, mapping=None)
+    real_capture = propagate.capture.capture
+
+    def capture_then_break(vault, client_, keys, **kw):
+        rows = real_capture(vault, client_, keys, **kw)
+        (vault / "system" / "bibliography.json").write_bytes(b"{not json")
+        return rows
+
+    monkeypatch.setattr(propagate.capture, "capture", capture_then_break)
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert outcomes[-1] == Outcome(
+        "propagation",
+        "system/bibliography.json",
+        Result.UNMATCHED,
+        "schema-violation — bibliography has invalid JSON or schema",
+    )
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
+    assert (tmp_vault / "system" / "bibliography.json").read_bytes() == b"{not json"
+
+
+def test_a_removal_binds_the_losers_bytes_and_apply_refuses_when_they_moved(
+    tmp_vault, monkeypatch
+):
+    """P39 (F11): the plan's `removes_sha256` binds the loser note's bytes, so
+    a failure row verify recorded on it between plan and apply is `plan
+    changed`, never deleted unseen with the note."""
+    from research_vault import events
+
+    _seed(tmp_vault)
+    _survivor_note(tmp_vault)
+    client = _merge_fake(monkeypatch, survivor_has_note=True)
+    planned, path, sha = _planned(tmp_vault, client, mapping=None)
+    loser = tmp_vault / "literature" / "old2020.md"
+    assert planned.removes_sha256 == {
+        "old2020": hashlib.sha256(loser.read_bytes()).hexdigest()
+    }
+    assert propagate.read_plan(path).removes_sha256 == planned.removes_sha256
+    loser.write_text(
+        events.record_failure(loser.read_text(), "update-notice", Result.UNMATCHED)
+    )
+    moved = loser.read_bytes()
+    (refused,) = propagate.apply(tmp_vault, client, path, sha)
+    assert refused.reason.startswith("mismatch — plan changed")
+    assert loser.read_bytes() == moved
+
+
+def test_an_identity_merge_behind_the_survivors_older_note_names_the_hand_step(
+    tmp_vault, monkeypatch
+):
+    """P38 (F10): the survivor took the loser's key and keeps its own note
+    under an older key; the loser's note holds the path. The plan refuses
+    and names the state and the step; taking the step, the next plan
+    renames the survivor's note onto the path and removes the loser's."""
+    _seed(tmp_vault)
+    (tmp_vault / "literature" / "zed2020.md").write_text(_note("NEW00001", "zed2020"))
+    (tmp_vault / "wiki" / "sources" / "Z.md").write_text(
+        "---\ntype: source\n---\n[@zed2020] and [[zed2020]]\n"
+    )
+    client = _merge_fake(monkeypatch, survivor_has_note=True, citation_key="old2020")
+    planned, outcomes = propagate.plan(tmp_vault, client, None)
+    assert planned is None
+    assert [(o.target, o.result, o.reason) for o in outcomes] == [
+        (
+            "zed2020",
+            Result.UNMATCHED,
+            (
+                "merged — survivor NEW00001's note is at literature/zed2020.md and "
+                "literature/old2020.md holds merged-away item E352DFS8's; rename "
+                "literature/old2020.md to another name under literature/ and run "
+                "propagate again"
+            ),
+        )
+    ]
+    literature = tmp_vault / "literature"
+    (literature / "old2020.md").rename(literature / "old2020-merged.md")
+    planned, path, sha = _planned(tmp_vault, client, mapping=None)
+    assert planned.mapping == {"zed2020": "old2020"}
+    assert planned.removes == {"old2020": "literature/old2020-merged.md"}
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert all(o.result is Result.MATCHED for o in outcomes), outcomes
+    assert sorted(p.name for p in literature.iterdir()) == ["old2020.md"]
+    assert 'zotero-item-key: "NEW00001"' in (literature / "old2020.md").read_text()
+    assert (
+        (tmp_vault / "wiki" / "sources" / "Z.md")
+        .read_text()
+        .endswith("[@old2020] and [[old2020]]\n")
+    )
+    assert not [
+        o for o in propagate.lint_propagation(tmp_vault) if o.result is Result.UNMATCHED
     ]
