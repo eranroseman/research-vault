@@ -9,11 +9,11 @@ choose names and records spellings or exceptions not owned by those sources.
 Use the term selected by §2 unless one of these costs binds:
 
 1. **Permanent surface mismatch** — with tool surfaces we don't control.
-1. **Information loss** — the base term carries less structure than the concept
+2. **Information loss** — the base term carries less structure than the concept
    needs.
-1. **Semantic falsification** — the base term would make our records state
+3. **Semantic falsification** — the base term would make our records state
    something false.
-1. **Collision/ambiguity** — the base term already means something else in our
+4. **Collision/ambiguity** — the base term already means something else in our
    context.
 
 For product names, class 4 also covers public-namespace collisions. Rename
@@ -47,8 +47,8 @@ surface. Among the remaining candidates within a tier, apply these tie-breakers
 in order:
 
 1. The vocabulary whose data we record beats one we merely resemble.
-1. Verbatim machine-readable identifiers beat prose labels.
-1. A versioned specification beats a living wiki, which beats a blog.
+2. Verbatim machine-readable identifiers beat prose labels.
+3. A versioned specification beats a living wiki, which beats a blog.
 
 Determine scope before walking the tiers. A domain-specific authority governs
 only its domain.
@@ -94,18 +94,18 @@ bibliography authority in
 (§3.1 and §3.2), which supersede the two suspended decision records that
 previously held them.
 
-| Spelling                                 | Source or rule                                                                                                                                 |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `citationKey`                            | Zotero's own native field name (Zotero 8+), filled by Better BibTeX                                                                            |
-| `zotero-server-id`                       | Prefixed to Zotero's own `Zotero-Server-ID` response header; qualifies the item key to one instance                                            |
-| `zotero-item-key`                        | Prefixed to Zotero's own item `key`, to disambiguate the frontmatter namespace                                                                 |
-| `zotero-item-version`                    | Prefixed to Zotero's own item `version`, to disambiguate the frontmatter namespace                                                             |
-| `zotero-tags`                            | Prefixed to Zotero's own `tags` list, copied exactly as frontmatter writes strings; `tags` is its slug                                         |
-| `csl-sha256`                             | sha256 over the note's own `system/bibliography.json` entry as canonical JSON (sorted keys, no whitespace); the entry moves only with its note |
-| `compile-input-sha256`                   | sha256 over the text-layer file capture wrote; the compile wrapper's input attestation                                                         |
-| `managed-sha256`                         | sha256 over the note body below the frontmatter                                                                                                |
-| `[failed-verification:: <check>/<date>]` | Exact machine-written failure marker                                                                                                           |
-| `human:<identity>`                       | Human actor form; §4.5 defines the machine actor                                                                                               |
+| Spelling                                 | Source or rule                                                                                                                                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `citationKey`                            | Zotero's own native field name (Zotero 8+), filled by Better BibTeX                                                                                                                |
+| `zotero-server-id`                       | Prefixed to Zotero's own `Zotero-Server-ID` response header; qualifies the item key to one instance                                                                                |
+| `zotero-item-key`                        | Prefixed to Zotero's own item `key`, to disambiguate the frontmatter namespace                                                                                                     |
+| `zotero-item-version`                    | Prefixed to Zotero's own item `version`, to disambiguate the frontmatter namespace                                                                                                 |
+| `zotero-tags`                            | Prefixed to Zotero's own `tags` list, copied exactly as frontmatter writes strings; `tags` is its slug                                                                             |
+| `csl-sha256`                             | sha256 over the note's own `system/bibliography.json` entry as canonical JSON (sorted keys, no whitespace); the entry moves only with its note; csl-sha256 is attested, never held |
+| `compile-input-sha256`                   | sha256 over the text-layer file capture wrote; the compile wrapper's input attestation                                                                                             |
+| `managed-sha256`                         | sha256 over the note body below the frontmatter                                                                                                                                    |
+| `[failed-verification:: <check>/<date>]` | Exact machine-written failure marker                                                                                                                                               |
+| `human:<identity>`                       | Human actor form; §4.5 defines the machine actor                                                                                                                                   |
 
 ### 4.3 Commands and skill names
 

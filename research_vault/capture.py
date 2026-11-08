@@ -182,10 +182,12 @@ def _only_tags_moved(existing: str, candidate: str) -> bool:
     )
     # Zotero bumps the item version on every modify, a tag edit included, and
     # the monitor reports a version only when it goes down (an older render
-    # restored); a bump alone is not a moved field.
+    # restored); a bump alone is not a moved field. `csl-sha256` follows the
+    # item's fields into its CSL entry, so a tag edit may move it too: attested,
+    # never held (R14). Both are consequences of a change, never the change.
     moved = {
         key for key in before.keys() | after.keys() if before.get(key) != after.get(key)
-    } - {"zotero-item-version"}
+    } - {"zotero-item-version", "csl-sha256"}
     return (
         bool(moved)
         and moved <= lints.MONITOR_EXEMPT
@@ -654,7 +656,11 @@ def capture(
             )
     outcomes.extend(_tags_summary(outcomes, now))
     if aborted is not None:
-        # No CSL file from the database that answered after the move.
+        # An entry moves only with its note (§5.3.7, both ways): the notes
+        # written before the move carry their entries' hashes, so those entries
+        # are written, exported before the move; nothing read after it is.
+        if rendered_entries:
+            outcomes.append(_update_csl(vault, rendered_entries))
         return [*outcomes, aborted]
     if rendered_entries or existing:
         outcomes.append(_update_csl(vault, rendered_entries))

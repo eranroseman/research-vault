@@ -3,7 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from research_vault import Result, capture, frontmatter, literature_notes, zotero
+from research_vault import (
+    Result,
+    bibliography,
+    capture,
+    frontmatter,
+    literature_notes,
+    zotero,
+)
 from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM, FakeZotero, canned_item
 
 LIBRARY = [
@@ -545,8 +552,9 @@ def test_a_note_recording_another_database_is_refused_not_read(tmp_vault, monkey
 def test_a_mid_run_412_writes_the_notes_before_the_vault_row(tmp_vault, monkeypatch):
     """The database moves between two items. The notes written before it moved
     stay written — the run's record of what it did — and the `vault` row ends
-    the list. No CSL file: it would be written from the database that answered
-    after the move."""
+    the list. Their entries move with them (§5.3.7, P9): the CSL file holds
+    exactly the entries of the notes written before the move, exported before
+    it, and nothing read after it."""
     second = json.loads(json.dumps(ITEM))
     second["key"] = second["data"]["key"] = "F441KKD2"
     second["data"]["citationKey"] = "second2023"
@@ -567,6 +575,7 @@ def test_a_mid_run_412_writes_the_notes_before_the_vault_row(tmp_vault, monkeypa
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8", "F441KKD2"])
     assert [(o.target, o.result) for o in outcomes] == [
         ("jakesch.etal2023a", Result.MATCHED),
+        ("system/bibliography.json", Result.MATCHED),
         ("vault", Result.UNMATCHED),
     ]
     assert (
@@ -575,8 +584,13 @@ def test_a_mid_run_412_writes_the_notes_before_the_vault_row(tmp_vault, monkeypa
     )
     # The written note is the discriminator: the item read before the move is
     # on disk although the run ends on the vault row.
-    assert (tmp_vault / "literature" / "jakesch.etal2023a.md").is_file()
-    assert not (tmp_vault / "system" / "bibliography.json").exists()
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
+    assert note.is_file()
+    assert not (tmp_vault / "literature" / "second2023.md").exists()
+    entries = bibliography.load(tmp_vault)
+    assert entries == {"jakesch.etal2023a": LIBRARY[0]}
+    data, _ = frontmatter.parse(note.read_text())
+    assert data["csl-sha256"] == bibliography.entry_sha256(entries["jakesch.etal2023a"])
 
 
 def test_refresh_all_reaches_a_note_that_carries_no_tuple(tmp_vault, monkeypatch):
@@ -1480,6 +1494,31 @@ def test_a_tag_change_that_bumped_the_item_version_is_still_tags_only(
     ]
 
 
+def test_a_tag_change_that_moved_the_csl_entry_is_still_tags_only(
+    tmp_vault, monkeypatch
+):
+    """R15: a tag edit whose CSL entry moved too (here the export answers a
+    changed `keyword`) moves `csl-sha256`; like the version bump that is a
+    consequence of the change, never the change, and the run stays tags-only."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
+    before, _ = frontmatter.parse(note.read_text())
+    retagged = json.loads(json.dumps(ITEM))
+    retagged["data"]["tags"] = [{"tag": "ai", "type": 1}, {"tag": "#nosource"}]
+    fake = _canned_run(canned_item(FakeZotero(), item=retagged), items=(retagged,))
+    fake.rpc("item.export", lambda params: [{**LIBRARY[0], "keyword": "ai, #nosource"}])
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    after, _ = frontmatter.parse(note.read_text())
+    assert after["csl-sha256"] != before["csl-sha256"]
+    assert outcomes[0].extra.get("tags-only") is True
+    assert [o.reason for o in outcomes if o.target == "tags"] == [
+        "drift — tags changed on: jakesch.etal2023a"
+    ]
+
+
 def _recapture_with(tmp_vault, monkeypatch, mutate, now=None, children=None):
     """A second run over an item `mutate` edited; the first capture is the caller's."""
     item = json.loads(json.dumps(ITEM))
@@ -1692,17 +1731,21 @@ def test_a_refused_export_is_unmatched_and_an_outage_is_unreachable(
         raise zotero.ZoteroError("JSON-RPC error: unknown key", zotero.Result.UNMATCHED)
 
     monkeypatch.setattr(client, "_rpc", refusing)
-    assert (
-        capture.capture(tmp_vault, client, ["E352DFS8"])[0].result is Result.UNMATCHED
-    )
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result, o.reason) for o in outcomes] == [
+        ("E352DFS8", Result.UNMATCHED, "not-admitted — JSON-RPC error: unknown key"),
+    ]
 
     def down(method, params, *, timeout=None):
         raise zotero.ZoteroError("Zotero unreachable")
 
     monkeypatch.setattr(client, "_rpc", down)
-    assert (
-        capture.capture(tmp_vault, client, ["E352DFS8"])[0].result is Result.UNREACHABLE
-    )
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result, o.reason) for o in outcomes] == [
+        ("E352DFS8", Result.UNREACHABLE, "outage — Zotero unreachable"),
+    ]
+    assert list((tmp_vault / "literature").glob("*.md")) == []
+    assert not (tmp_vault / "system" / "bibliography.json").exists()
 
 
 def test_noop_includes_the_csl_hash(tmp_vault, monkeypatch):
@@ -1724,3 +1767,59 @@ def test_export_entry_picks_the_keys_own_entry_from_the_export(monkeypatch):
     fake.rpc("item.export", [{"id": "other2020", "title": "O"}, own])
     client = _client(monkeypatch, fake)
     assert capture._export_entry(client, "E352DFS8", "jakesch.etal2023a") == own
+
+
+def test_an_invalid_csl_file_is_a_schema_violation_and_is_left_as_it_stands(
+    tmp_vault, monkeypatch
+):
+    """P10: capture never overwrites a CSL file it could not read whole; the
+    file's row says why and its bytes stay."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    csl = tmp_vault / "system" / "bibliography.json"
+    csl.parent.mkdir(parents=True, exist_ok=True)
+    csl.write_bytes(b"{not json")
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (outcomes[-1].target, outcomes[-1].result, outcomes[-1].reason) == (
+        capture.CSL_TARGET,
+        Result.UNMATCHED,
+        "schema-violation — bibliography has invalid JSON or schema",
+    )
+    assert csl.read_bytes() == b"{not json"
+
+
+def test_an_entry_does_not_move_when_its_notes_render_fails(tmp_vault, monkeypatch):
+    """P11: the entry joins the CSL file only when its note now records its
+    hash. A recapture whose render is held (here an unreadable ledger, an
+    outage on the item) exports a changed entry, and the file stays byte for
+    byte as the note last recorded it."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    csl = tmp_vault / "system" / "bibliography.json"
+    before = csl.read_bytes()
+    fake.rpc("item.export", lambda p: [{**LIBRARY[0], "title": "T2"}])
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text("{not json")
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert outcomes[0].result is Result.UNREACHABLE
+    assert outcomes[-1].target == capture.CSL_TARGET  # the update ran, without it
+    assert csl.read_bytes() == before
+
+
+def test_a_412_before_any_note_is_written_writes_no_csl_file(tmp_vault, monkeypatch):
+    """P9's other half: with no note written before the move there is no entry
+    to move, and nothing read after the move reaches the CSL file."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    real_item = client.item
+
+    def flipping_item(key):
+        fake.server_id = "Tdoqsn2J4q4h"
+        return real_item(key)
+
+    monkeypatch.setattr(client, "item", flipping_item)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result) for o in outcomes] == [("vault", Result.UNMATCHED)]
+    assert not (tmp_vault / "system" / "bibliography.json").exists()
