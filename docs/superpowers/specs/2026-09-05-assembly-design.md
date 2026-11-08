@@ -528,7 +528,7 @@ Zotero runtime rows re-measured 2026-09-05 evening, after the author enabled PMC
 
 06. The `.py.manifest.json` sidecars: retire with mutate4py, or keep (§11). **Resolved 2026-09-13: retire with mutate4py, in Plan W Task 25 (§7.1.1). Done 2026-09-14 (`5e1e105`): no `.py.manifest.json` remains in the tree.**
 
-07. Zoplicate merge semantics (item 3) are the open part; duplicate detection itself now has an owner, while `zotero-format-metadata` detects and reports but does not merge.
+07. Zoplicate merge semantics (item 3) are the open part; duplicate detection itself now has an owner, while `zotero-format-metadata` detects and reports but does not merge. *Closed 2026-10-24 with item 03.*
 
 08. The glossary and the two suspended ADRs — handed to issue #116 (§2).
 

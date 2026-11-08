@@ -20,7 +20,7 @@ When the item is not in Zotero yet and the person has asked you to add it, write
 python3 -m research_vault add --vault PATH --item ITEM.json [--collection COLLECTION_KEY]
 ```
 
-The first run on a machine opens Zotero's own consent dialog (**Allow**, **Always Allow**, **Deny**); tell the person to answer it in Zotero. Never retry `add` in a loop: the dialog is rate-limited to five a minute. Better BibTeX fills the citation key a few seconds after creation; `add` waits up to ten seconds and then captures the new item. Capture writes the item's tags twice: `zotero-tags` as Zotero holds them (each run of whitespace written as one space) and `tags` slugged for Obsidian (`doi-fix:low-confidence` has its colon replaced by a hyphen); type-specific field names fold to Zotero's base names in the note. `unkeyed` means the key never arrived: report it, do not write a note by hand.
+The first run on a machine opens Zotero's own consent dialog (**Allow**, **Always Allow**, **Deny**); tell the person to answer it in Zotero. Never retry `add` in a loop: the dialog is rate-limited to five a minute. Better BibTeX fills the citation key a few seconds after creation; `add` waits up to ten seconds and then captures the new item. Capture writes the item's tags twice: `zotero-tags` as Zotero holds them and `tags` slugged for Obsidian (`doi-fix:low-confidence` has its colon replaced by a hyphen); type-specific field names fold to Zotero's base names in the note. In `zotero-tags`, a tag loses its leading and trailing whitespace, and any inner run of whitespace becomes one space. `unkeyed` means the key never arrived: report it, do not write a note by hand.
 
 ## 2. Capture: `capture`
 
