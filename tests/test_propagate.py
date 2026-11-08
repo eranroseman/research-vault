@@ -2016,3 +2016,48 @@ def test_an_identity_merge_behind_the_survivors_older_note_names_the_hand_step(
     assert not [
         o for o in propagate.lint_propagation(tmp_vault) if o.result is Result.UNMATCHED
     ]
+
+
+def test_cli_propagate_files_each_runs_tags_summary_as_its_own_record(
+    tmp_vault, monkeypatch, capsys
+):
+    """Ruling P41 (F6): a survivor's recapture whose only change is tags (a
+    merge unions them) brings capture's summary row through apply; the CLI
+    files it with its per-run target hash, as `_print_and_hold` does (P3), so
+    two such applies on one day are two records, not a refused collision."""
+    from research_vault import inbox
+
+    _seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    _plan, path, sha = _planned(tmp_vault, client)
+    cli, _bases = _cli(monkeypatch, client)
+    runs = iter(["2026-11-08T09:00:00+00:00", "2026-11-08T10:00:00+00:00"])
+    tags_only = Outcome(
+        capture.CHECK, "new2020", Result.MATCHED, "matched", {"tags-only": True}
+    )
+    monkeypatch.setattr(
+        propagate,
+        "apply",
+        lambda *_a, **_k: capture._tags_summary(
+            [tags_only], datetime.datetime.fromisoformat(next(runs))
+        ),
+    )
+    apply = [
+        "propagate",
+        "--vault",
+        str(tmp_vault),
+        "--plan",
+        str(path),
+        "--approved-plan-sha256",
+        sha,
+    ]
+    assert cli.main(apply) == 1
+    assert cli.main(apply) == 1
+    assert "review record refused" not in capsys.readouterr().err
+    summaries = [
+        f
+        for f in inbox.open_entries(tmp_vault)
+        if (f.check, f.target) == ("capture", "tags")
+    ]
+    assert len(summaries) == 2
+    assert len({f.target_hash for f in summaries}) == 2

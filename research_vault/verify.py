@@ -1013,7 +1013,13 @@ def _two_version_rows(repository, snapshots, recheck_commits, *, git_base, hashe
         )
     ):
         own = _unmatched(repository, snapshots.candidate, snapshots.candidate)
-        leg = [o for o in leg if (o.check, o.target, o.reason) in own]
+        # The replay keeps UNMATCHED rows only, so a leg row of any other
+        # result (an UNREACHABLE witness outage) stays here (ruling P42).
+        leg = [
+            o
+            for o in leg
+            if o.result is not Result.UNMATCHED or (o.check, o.target, o.reason) in own
+        ]
     else:
         leg = [o for o in leg if o.extra.get("hash_basis") != lints.VERIFIER_LISTS]
         notices.append(LIST_ROWS_NOTICE)
@@ -1293,6 +1299,15 @@ def verify_state(
     return report, effective, hashes, warning_effective
 
 
+def row_line(outcome) -> str:
+    """One printed row: result, check, target and reason, and for a row the
+    re-check raised at a past commit, that commit (ruling P40), since the
+    vault as it stands may no longer show the edit."""
+    line = f"{outcome.result.value} {outcome.check} {outcome.target} — {outcome.reason}"
+    commit = outcome.extra.get("commit")
+    return f"{line} (commit {commit[:7]})" if isinstance(commit, str) else line
+
+
 def surface_decision(surface, effective, warning_effective):
     """Return the shared exit decision and rendered blockers for one surface."""
     closing = CLOSING_BY_SURFACE[surface]
@@ -1304,9 +1319,7 @@ def surface_decision(surface, effective, warning_effective):
     ]
     for outcome in genuine:
         if outcome.result is Result.UNMATCHED and outcome.check in closing:
-            blockers.append(
-                f"UNMATCHED {outcome.check} {outcome.target} — {outcome.reason}"
-            )
+            blockers.append(row_line(outcome))
         for index, warning in enumerate(outcome.extra.get("warn_notices", ())):
             if outcome.check not in closing or not warning_effective.get(
                 (id(outcome), index), warning_effective.get(id(outcome), False)
@@ -1323,8 +1336,6 @@ def surface_decision(surface, effective, warning_effective):
     if surface == "audit":
         return 0, ()
     unreachable = [
-        f"UNREACHABLE {outcome.check} {outcome.target} — {outcome.reason}"
-        for outcome in genuine
-        if outcome.result is Result.UNREACHABLE
+        row_line(outcome) for outcome in genuine if outcome.result is Result.UNREACHABLE
     ]
     return (3, tuple(unreachable)) if unreachable else (0, ())

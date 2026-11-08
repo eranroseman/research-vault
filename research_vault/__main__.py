@@ -36,6 +36,7 @@ from .pathcodec import (
 from .verify import (
     CLOSING_BY_SURFACE,
     WHOLE_HISTORY,
+    row_line,
     surface_decision,
     verify_state,
 )
@@ -271,6 +272,7 @@ def cmd_propagate(args):
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
         if outcome.result is Result.UNMATCHED:
+            target_hash = outcome.extra.get("target_hash")
             _hold(
                 args.vault,
                 outcome.check,
@@ -278,6 +280,8 @@ def cmd_propagate(args):
                 outcome.result,
                 outcome.reason,
                 target_kind=outcome.target_kind,
+                # Capture's tags summary rides the recapture (ruling P41, P3).
+                target_hash=target_hash if isinstance(target_hash, str) else None,
             )
             worst = 1
         elif outcome.result is Result.UNREACHABLE and worst == 0:
@@ -339,9 +343,7 @@ def cmd_verify(args):
             print(notice)  # the same: a stdout line, never a record
     for outcome in effective:
         if outcome.result is not Result.MATCHED:
-            print(
-                f"{outcome.result.value} {outcome.check} {outcome.target} — {outcome.reason}"
-            )
+            print(row_line(outcome))
         for index, warning in enumerate(outcome.extra.get("warn_notices", [])):
             if warning_effective.get(
                 (id(outcome), index), warning_effective.get(id(outcome), False)

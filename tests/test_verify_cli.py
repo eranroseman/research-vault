@@ -5925,6 +5925,75 @@ def test_recheck_commits_raises_the_row_a_bypassed_commit_hid(net_vault):
     assert verify.surface_decision("commit", effective, warning)[0] == 1
 
 
+def test_a_replayed_row_names_its_commit_in_the_line_and_the_blockers(
+    net_vault, capsys
+):
+    """Ruling P40 (F13): the vault as it stands may no longer show a replayed
+    row's edit, so its printed line and its blocker name the commit."""
+    _ack_standing_citation_key(net_vault)
+    base = _commit_all(net_vault, "base")
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+    bypassed = _commit_all(net_vault, "hand edit, bypassed")
+    line = (
+        "UNMATCHED evidence-layer path-bytes:literature/smith2020.md — "
+        f"drift — DOI changed without writer attestation (commit {bypassed[:7]})"
+    )
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    assert line in verify.surface_decision("publish", effective, warning)[1]
+    capsys.readouterr()
+    args = [
+        "verify",
+        "--vault",
+        str(net_vault),
+        "--offline",
+        "--surface",
+        "commit",
+        "--recheck-commits",
+        base,
+    ]
+    assert main(args) == 1
+    assert line in capsys.readouterr().out.splitlines()
+
+
+def test_a_leg_row_that_is_not_unmatched_survives_a_covering_replay(net_vault, capsys):
+    """Ruling P42 (F3): the replay keeps UNMATCHED rows only, so the leg keeps
+    an UNREACHABLE witness outage in a range the replay covers, and CI's
+    shape of the call still exits 3 once nothing else closes commit."""
+    _ack_standing_citation_key(net_vault)
+    for empty in ("system/templates", "system/bases"):  # so HEAD's tree has them
+        (net_vault / empty / ".gitkeep").write_text("")
+    (net_vault / "literature" / "bad2021.md").write_bytes(b"---\ntitle: \xff\n---\n")
+    _commit_all(net_vault, "a note that is not UTF-8")
+    args = ["verify", "--vault", str(net_vault), "--offline", "--surface", "commit"]
+    # The note's own rows close commit; acknowledged and committed, as a
+    # person would, so the exit below is the outage's alone.
+    assert main(args) == 1
+    for finding in inbox.open_entries(net_vault):
+        if finding.result == "UNMATCHED":
+            inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran")
+    base = _commit_all(net_vault, "acks")
+    (net_vault / "wiki" / "concepts" / "extra.md").write_text(
+        '---\ntitle: "x"\ntype: "concept"\nstatus: "draft"\n---\nx\n'
+    )
+    _commit_all(net_vault, "unrelated")
+    (net_vault / "wiki" / "concepts" / "extra.md").write_text(
+        '---\ntitle: "y"\ntype: "concept"\nstatus: "draft"\n---\ny\n'
+    )
+    _commit_all(net_vault, "unrelated again")
+    capsys.readouterr()
+    ci = [*args, "--git-base", base, "--git-candidate", "HEAD"]
+    assert main([*ci, "--recheck-commits", base]) == 3
+    assert (
+        "UNREACHABLE evidence-layer path-bytes:literature/bad2021.md — "
+        "outage — literature note is not UTF-8"
+    ) in capsys.readouterr().out.splitlines()
+
+
 def test_a_row_the_range_leg_and_the_replay_both_raise_is_one_row(net_vault):
     """CI's shape: the range leg and the replay see the same hand edit on the
     same bytes, so it is one record and one blocker, stamped with its commit."""
