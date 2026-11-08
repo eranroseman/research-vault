@@ -56,7 +56,7 @@ _Avoid_: citekey (a Better BibTeX synonym for a field Better BibTeX no longer ow
 
 **Provenance tuple**: The frontmatter fields that record what a literature note depends on: `zotero-server-id`, `zotero-item-key`, `zotero-item-version`, `citationKey`, `attachments` (key, version, md5, content type, filename), `fulltext` (attachment key, sha256), `csl-sha256` (the hash of the note's own CSL entry), `compile-input-sha256`, `generated`. Versions and keys are meaningful only within one server id. `csl-sha256` is attested, never held: the capture monitor files no row for it.
 
-**Snapshot**: The fixed subset of the Zotero item's data fields a literature note carries verbatim under Zotero's base field names: a type-specific name (`proceedingsTitle`, `bookTitle`, `websiteTitle`, `repository`, `institution`, …) folds to its base field through Zotero's own schema, so the names and the mapping stay Zotero's. `extra` is carried whole; `zotero-tags` is Zotero's tag list exactly and `tags` a slugged copy Obsidian can read. A value with line breaks is carried as a list of its lines.
+**Snapshot**: The fixed subset of the Zotero item's data fields a literature note carries verbatim under Zotero's base field names: a type-specific name (`proceedingsTitle`, `bookTitle`, `websiteTitle`, `repository`, `institution`, …) folds to its base field through Zotero's own schema, so the names and the mapping stay Zotero's. `extra` is carried whole; `zotero-tags` is Zotero's tag list exactly, as `frontmatter_value` writes strings, and `tags` a slugged copy Obsidian can read. A value with line breaks is carried as a list of its lines.
 
 ### Evidence and claims
 

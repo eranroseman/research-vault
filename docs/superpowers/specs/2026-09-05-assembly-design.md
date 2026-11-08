@@ -520,11 +520,11 @@ Zotero runtime rows re-measured 2026-09-05 evening, after the author enabled PMC
 
 02. Rollback for a failed setup or update, which also blocks §9.1's revert leg.
 
-03. **The Zoplicate merge path, now a measured hazard rather than an inferred one.** Zoplicate imports `mergeItems.mjs` directly and never calls `Zotero.Items.merge` — the deprecated shim Better BibTeX monkey-patches — so **a Zoplicate merge skips BBT's citation-key consolidation** (read, `mergeItems.mjs:46, 49-70`). The merge union-merges the loser's collections and tags onto the master, records `dc:replaces`, and trashes the loser without stripping its memberships; 55 trashed items still hold membership in a live collection (measured). Since the citekey is the vault's identity, a merge can leave the survivor keyed differently from the vault note whatever the vault wrote. Zoplicate is active as of 2026-09-05. Lane 2 owns the fix; doctor's merge check (§9) is the interim detector.
+03. **The Zoplicate merge path, now a measured hazard rather than an inferred one.** Zoplicate imports `mergeItems.mjs` directly and never calls `Zotero.Items.merge` — the deprecated shim Better BibTeX monkey-patches — so **a Zoplicate merge skips BBT's citation-key consolidation** (read, `mergeItems.mjs:46, 49-70`). The merge union-merges the loser's collections and tags onto the master, records `dc:replaces`, and trashes the loser without stripping its memberships; 55 trashed items still hold membership in a live collection (measured). Since the citekey is the vault's identity, a merge can leave the survivor keyed differently from the vault note whatever the vault wrote. Zoplicate is active as of 2026-09-05. Lane 2 owns the fix; doctor's merge check (§9) is the interim detector. **Closed 2026-10-24 by the lanes 2–3 spec §5.3.6 (#183): a merge is a propagation; the loser's key maps to the survivor's.**
 
 04. URL-only sources — cited versus consulted (§7.2).
 
-05. What the PMCID fetcher writes going forward, now that `pmcid.tags` is on: Extra lines, tags, or both (§7.0).
+05. What the PMCID fetcher writes going forward, now that `pmcid.tags` is on: Extra lines, tags, or both (§7.0). **Answered 2026-10-24 by screen A row 5: Extra lines, and tags only with `pmcid.tags`, which the spec declares false.**
 
 06. The `.py.manifest.json` sidecars: retire with mutate4py, or keep (§11). **Resolved 2026-09-13: retire with mutate4py, in Plan W Task 25 (§7.1.1). Done 2026-09-14 (`5e1e105`): no `.py.manifest.json` remains in the tree.**
 
