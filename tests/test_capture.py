@@ -11,7 +11,14 @@ from research_vault import (
     literature_notes,
     zotero,
 )
-from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM, FakeZotero, canned_item
+from tests.fakes import (
+    ATTACHMENT,
+    CHILD_NOTE,
+    FULLTEXT,
+    ITEM,
+    FakeZotero,
+    canned_item,
+)
 
 LIBRARY = [
     {
@@ -1599,27 +1606,101 @@ def _tags_and_doi_moved(item):
         pytest.param(
             _tagged("ai", "#nosource"),
             (
-                ATTACHMENT,
                 {
-                    **CHILD_NOTE,
-                    "data": {**CHILD_NOTE["data"], "note": "<p>Reread.</p>"},
+                    **ATTACHMENT,
+                    "data": {**ATTACHMENT["data"], "md5": "b" * 32},
                 },
+                CHILD_NOTE,
             ),
-            id="tags-and-body",
+            id="tags-and-md5",
         ),
+        pytest.param(_tagged("ai", "#nosource"), (CHILD_NOTE,), id="tags-and-leaving"),
     ],
 )
-def test_a_recapture_that_moved_more_than_tags_is_not_tags_only(
+def test_a_recapture_that_moved_a_held_value_is_not_summarised(
     tmp_vault, monkeypatch, mutate, children
 ):
-    """Ruling P5: a bare version bump moved no tag, and a tag move beside a
-    DOI or a body change is the monitor's or a plain rewrite, not a summary."""
+    """Ruling P5, as R29 narrows it: a bare version bump moved no tag, and a
+    tag move beside a held change (a snapshot value, an attachment's md5 or
+    its leaving) is the monitor's row, not the summary's."""
     fake = _canned_run(canned_item(FakeZotero()))
     capture.capture(tmp_vault, _client(monkeypatch, fake), ["E352DFS8"])
     outcomes = _recapture_with(tmp_vault, monkeypatch, mutate, children=children)
     assert (outcomes[0].result, outcomes[0].reason) == (Result.MATCHED, "matched")
     assert outcomes[0].extra == {}
     assert not [o for o in outcomes if o.target == "tags"]
+
+
+@pytest.mark.parametrize(
+    ("children", "fulltext"),
+    [
+        pytest.param(
+            (
+                ATTACHMENT,
+                {
+                    **CHILD_NOTE,
+                    "data": {**CHILD_NOTE["data"], "note": "<p>Reread.</p>"},
+                },
+            ),
+            None,
+            id="child-note-body",
+        ),
+        pytest.param(
+            (
+                {
+                    **ATTACHMENT,
+                    "version": 560,
+                    "data": {
+                        **ATTACHMENT["data"],
+                        "version": 560,
+                        "filename": "renamed.pdf",
+                    },
+                },
+                CHILD_NOTE,
+            ),
+            None,
+            id="attachment-version-and-filename",
+        ),
+        pytest.param(
+            (ATTACHMENT, CHILD_NOTE),
+            {**FULLTEXT, "content": "Re-indexed text " * 80},
+            id="fulltext-re-index",
+        ),
+    ],
+)
+def test_a_tag_move_beside_an_unheld_change_is_still_summarised(
+    tmp_vault, monkeypatch, children, fulltext
+):
+    """R29 (F7): the summary names every note whose tag fields moved and no
+    held value moved, so a tag move riding with a child note's body, an
+    attachment's version or filename, or a re-indexed text (with its
+    `compile-input-sha256`) is reported once, not lost."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    capture.capture(tmp_vault, _client(monkeypatch, fake), ["E352DFS8"])
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
+    before_text = note.read_text()
+    before = frontmatter.parse(before_text)[0]
+    item = json.loads(json.dumps(ITEM))
+    _tagged("ai", "#nosource")(item)
+    fake = canned_item(
+        FakeZotero(), item=item, children=children, fulltext=fulltext or FULLTEXT
+    )
+    outcomes = capture.capture(
+        tmp_vault, _client(monkeypatch, _canned_run(fake, items=(item,))), ["E352DFS8"]
+    )
+    after_text = note.read_text()
+    after = frontmatter.parse(after_text)[0]
+    # The unheld change landed beside the tags.
+    assert (
+        literature_notes.note_body(after_text)
+        != literature_notes.note_body(before_text)
+        or after["attachments"] != before["attachments"]
+        or after["compile-input-sha256"] != before["compile-input-sha256"]
+    )
+    assert outcomes[0].extra.get("tags-only") is True
+    assert [o.reason for o in outcomes if o.target == "tags"] == [
+        "drift — tags changed on: jakesch.etal2023a"
+    ]
 
 
 def test_capture_drops_a_trashed_child_from_the_tuple_and_the_text_layer(

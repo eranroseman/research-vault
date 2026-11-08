@@ -884,21 +884,29 @@ def _capture_monitor_outcomes(raw_path, base_data, candidate_data) -> list[Outco
         return []
     if not _write_attested(base_data, candidate_data):
         return []
-    target = RepoPath(raw_path)
-
-    def row(reason: str) -> Outcome:
-        return Outcome(
+    restored = _restored_reason(base_data, candidate_data)
+    return [
+        Outcome(
             MONITOR_CHECK,
-            target,
+            RepoPath(raw_path),
             Result.UNMATCHED,
             reason,
             extra={"hash_basis": MONITOR_ROW},
         )
+        for reason in (
+            *([] if restored is None else [restored]),
+            *monitor_reasons(base_data, candidate_data),
+        )
+    ]
 
-    rows: list[Outcome] = []
-    restored = _restored_reason(base_data, candidate_data)
-    if restored is not None:
-        rows.append(row(restored))
+
+def monitor_reasons(base_data: dict, candidate_data: dict) -> list[str]:
+    """The held values that moved between two parsed renders of one note,
+    one reason each: a snapshot field outside `MONITOR_EXEMPT`, an attachment
+    leaving or its md5, an identity change at one path. The monitor adds an
+    older render restored (`_restored_reason`); capture reads this list to
+    tell a tag move that rides with no held value (R29)."""
+    reasons: list[str] = []
     for key in literature_notes.SNAPSHOT_FIELDS:
         if key in MONITOR_EXEMPT:
             continue
@@ -906,36 +914,32 @@ def _capture_monitor_outcomes(raw_path, base_data, candidate_data) -> list[Outco
         if old == new:
             continue
         if old is None:
-            rows.append(row(f"drift — {key} added: {_shown(new)}"))
+            reasons.append(f"drift — {key} added: {_shown(new)}")
         elif new is None:
-            rows.append(row(f"drift — {key} removed: {_shown(old)}"))
+            reasons.append(f"drift — {key} removed: {_shown(old)}")
         else:
-            rows.append(row(f"drift — {key} changed: {_shown(old)} → {_shown(new)}"))
+            reasons.append(f"drift — {key} changed: {_shown(old)} → {_shown(new)}")
     old_attachments = _attachments_by_key(base_data)
     new_attachments = _attachments_by_key(candidate_data)
-    rows.extend(
-        row(f"drift — attachment {_bare(key)} left the tuple")
+    reasons.extend(
+        f"drift — attachment {_bare(key)} left the tuple"
         for key in sorted(set(old_attachments) - set(new_attachments))
     )
     for key in sorted(set(old_attachments) & set(new_attachments)):
         old_md5 = old_attachments[key].get("md5")
         new_md5 = new_attachments[key].get("md5")
         if old_md5 != new_md5:
-            rows.append(
-                row(
-                    f"drift — attachment {_bare(key)} md5 changed: "
-                    f"{_bare(old_md5)} → {_bare(new_md5)}"
-                )
+            reasons.append(
+                f"drift — attachment {_bare(key)} md5 changed: "
+                f"{_bare(old_md5)} → {_bare(new_md5)}"
             )
     for key in ("zotero-server-id", "zotero-item-key"):
         old, new = _field(base_data, key), _field(candidate_data, key)
         if old is not None and new is not None and old != new:
-            rows.append(
-                row(
-                    f"drift — {key} changed at the same path: {_bare(old)} → {_bare(new)}"
-                )
+            reasons.append(
+                f"drift — {key} changed at the same path: {_bare(old)} → {_bare(new)}"
             )
-    return rows
+    return reasons
 
 
 _RECORD_PREFIX = b"system/propagations/"

@@ -168,34 +168,17 @@ def _write_texts(
     return entries, usable, reasons
 
 
-def _only_tags_moved(existing: str, candidate: str) -> bool:
-    """Whether a re-render moved nothing but the two tag fields (spec §5.3.1)."""
-    before = dict(
-        literature_notes._projection(
-            frontmatter._mapping_items(frontmatter.parse(existing)[0])
-        )
-    )
-    after = dict(
-        literature_notes._projection(
-            frontmatter._mapping_items(frontmatter.parse(candidate)[0])
-        )
-    )
-    # Zotero bumps the item version on every modify, a tag edit included, and
-    # the monitor reports a version only when it goes down (an older render
-    # restored); a bump alone is not a moved field. Better BibTeX's CSL entry
-    # carries no tags, so a tag edit never moves `csl-sha256`; ignoring it here
-    # is robustness for a CSL change that lands beside a tag edit (a translator
-    # update, say), the way the version moves on any edit. Neither is the edit
-    # the monitor holds, and `csl-sha256` is attested, never held (R14).
-    moved = {
-        key for key in before.keys() | after.keys() if before.get(key) != after.get(key)
-    } - {"zotero-item-version", "csl-sha256"}
-    return (
-        bool(moved)
-        and moved <= lints.MONITOR_EXEMPT
-        and literature_notes.note_body(existing)
-        == literature_notes.note_body(candidate)
-    )
+def _tags_moved_and_nothing_held(existing: str, candidate: str) -> bool:
+    """Whether a re-render moved a tag field and nothing the monitor holds
+    (R29, spec §5.3.1): the tag move rides with any unheld change, a child
+    note's body, an attachment's version or filename, a re-indexed text, a
+    version bump or `csl-sha256`, and still reaches the summary row. A held
+    change is the monitor's row instead, so the tag move is not summarised."""
+    before = frontmatter.parse(existing)[0]
+    after = frontmatter.parse(candidate)[0]
+    return any(
+        before.get(key) != after.get(key) for key in lints.MONITOR_EXEMPT
+    ) and not lints.monitor_reasons(before, after)
 
 
 def _capture_one(
@@ -279,7 +262,9 @@ def _capture_one(
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8", newline="") as handle:
             handle.write(candidate)
-        tags_only = existing is not None and _only_tags_moved(existing, candidate)
+        tags_only = existing is not None and _tags_moved_and_nothing_held(
+            existing, candidate
+        )
         outcomes.append(
             Outcome(
                 CHECK,
