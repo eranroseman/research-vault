@@ -1646,3 +1646,27 @@ def test_capture_refuses_when_the_schema_cannot_be_read(tmp_vault, monkeypatch):
     assert [(o.target, o.result) for o in outcomes] == [("vault", Result.UNREACHABLE)]
     assert outcomes[0].reason.startswith("outage — ")
     assert not (tmp_vault / "literature" / "jakesch.etal2023a.md").exists()
+
+
+def test_capture_writes_both_tag_fields(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    data, _ = frontmatter.parse(
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
+    )
+    assert data["zotero-tags"] == [{"tag": "ai", "type": 1}]
+    assert data["tags"] == ["ai"]
+
+
+def test_add_takes_tags_and_refuses_zotero_tags():
+    assert (
+        capture._validate_items(
+            [{"itemType": "journalArticle", "tags": [{"tag": "a"}]}]
+        )
+        is None
+    )
+    assert (
+        capture._validate_items([{"itemType": "journalArticle", "zotero-tags": []}])
+        == "item 0: unknown field zotero-tags"
+    )

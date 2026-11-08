@@ -52,8 +52,56 @@ SNAPSHOT_FIELDS: tuple[str, ...] = (
     "abstractNote",
     "extra",
     "accessDate",
+    # #195: `zotero-tags` is Zotero's list exactly (today's `tags`, renamed);
+    # `tags` is the slugged copy Obsidian reads.
+    "zotero-tags",
     "tags",
 )
+# Obsidian 1.13.7's rejected tag characters, copied literally (Q9): general
+# (U+2000-U+206F) and supplemental (U+2E00-U+2E7F) punctuation, ASCII
+# punctuation other than `_ - /`, and JavaScript's `\s` spelled out below. JS
+# `\s` has U+FEFF and lacks U+001C-U+001F and U+0085, so Python's `\s` is not
+# used. A tag that is only ASCII digits is also rejected (Obsidian's `^#\d+$`
+# is ASCII-only, unlike Python's `\d`).
+_JS_WHITESPACE = (
+    "\t\n\x0b\x0c\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+)
+TAG_REJECT = re.compile(
+    rf"[\u2000-\u206f\u2e00-\u2e7f'!\"#$%&()*+,.:;<=>?@^`{{|}}~\[\]\\{_JS_WHITESPACE}]"
+)
+_ASCII_DIGITS_ONLY = re.compile(r"^[0-9]+$")
+
+
+def slug_tag(name: str) -> str | None:
+    """Repair what Obsidian rejects, never reinterpret what it accepts: every
+    rejected character becomes `-`, runs collapse, `/` is kept so it nests,
+    `-` is dropped around `/` and at the ends; empty and all-digit results are
+    None (#195, Q9)."""
+    slug = TAG_REJECT.sub("-", name)
+    slug = re.sub(r"-{2,}", "-", slug)
+    slug = re.sub(r"-*/-*", "/", slug)
+    slug = re.sub(r"/{2,}", "/", slug).strip("-/")
+    if not slug or _ASCII_DIGITS_ONLY.match(slug):
+        return None
+    return slug
+
+
+def slug_tags(entries) -> list[str]:
+    """Every tag of either type, slugged, duplicates removed ignoring case."""
+    seen: set[str] = set()
+    slugs: list[str] = []
+    for entry in entries or []:
+        name = entry.get("tag") if isinstance(entry, Mapping) else entry
+        if not isinstance(name, str):
+            continue
+        slug = slug_tag(name)
+        if slug is None or slug.casefold() in seen:
+            continue
+        seen.add(slug.casefold())
+        slugs.append(slug)
+    return slugs
+
+
 TUPLE_FIELDS: tuple[str, ...] = (
     "zotero-server-id",
     "zotero-item-key",
@@ -373,6 +421,12 @@ def snapshot(
 ) -> list[tuple[str, object]]:
     """The fixed subset, verbatim, under Zotero's base field names; empty values absent."""
     folded = _folded_values(item_data, base_fields)
+    tags = folded.pop("tags", None)
+    if isinstance(tags, list) and tags:
+        folded["zotero-tags"] = tags
+        slugs = slug_tags(tags)
+        if slugs:
+            folded["tags"] = slugs
     return [
         (name, frontmatter_value(folded[name]))
         for name in SNAPSHOT_FIELDS

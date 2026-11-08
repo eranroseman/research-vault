@@ -588,7 +588,9 @@ def capture(
     return outcomes
 
 
-_ITEM_FIELDS = frozenset(literature_notes.SNAPSHOT_FIELDS) | {"collections"}
+_ITEM_FIELDS = (frozenset(literature_notes.SNAPSHOT_FIELDS) - {"zotero-tags"}) | {
+    "collections"
+}
 
 
 def _validate_items(items) -> str | None:

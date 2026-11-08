@@ -444,7 +444,8 @@ def test_render_note_carries_snapshot_tuple_and_witness_in_order():
         data["abstractNote"] == ["Line one.", "Line two."]
     )  # ITEM's second line carries a tab and a double space; display_text collapses both
     assert data["extra"] == ["PMID: 28503678", "PMCID: PMC5428074"]
-    assert data["tags"] == [{"tag": "ai", "type": 1}]
+    assert data["zotero-tags"] == [{"tag": "ai", "type": 1}]
+    assert data["tags"] == ["ai"]
     assert data["DOI"] == "10.1145/3544548.3581196"
     assert "relations" not in data
     assert "dateModified" not in data
@@ -959,3 +960,75 @@ def test_render_note_title_folds_a_title_shaped_field():
     )
     assert data["title"] == "Roe v. Wade"
     assert data["aliases"] == ["Roe v. Wade"]
+
+
+@pytest.mark.parametrize(
+    ("tag", "slug"),
+    [
+        ("ai", "ai"),
+        ("doi-fix:low-confidence", "doi-fix-low-confidence"),
+        ("triage:needed", "triage-needed"),
+        ("human/computer interaction", "human/computer-interaction"),
+        ("Evaluation / methodology", "Evaluation/methodology"),
+        ("#nosource", "nosource"),
+        # U+274C is a Dingbat, outside Obsidian's rejected class: only the space repairs.
+        ("❌ nosource", "❌-nosource"),
+        ("/unread", "unread"),
+        # U+2010, U+2014, U+2019 are in Obsidian's rejected class
+        ("a‐b—c’d", "a-b-c-d"),
+        ("x[1];y+z", "x-1-y-z"),
+        ("日记", "日记"),
+        ("2020", None),  # all ASCII digits
+        # non-ASCII digits are not "digits only" to Obsidian's ^#\d+$
+        ("٢٠٢٠", "٢٠٢٠"),
+        ("", None),
+        ("---", None),
+        ("a\x1cb", "a\x1cb"),  # JS \s lacks U+001C-U+001F and U+0085
+        ("a\x85b", "a\x85b"),
+        ("a\ufeffb", "a-b"),  # JS \s has U+FEFF
+    ],
+)
+def test_slug_tag_repairs_what_obsidian_rejects_and_never_reinterprets_a_valid_tag(
+    tag, slug
+):
+    assert literature_notes.slug_tag(tag) == slug
+
+
+def test_slug_tags_drops_duplicates_ignoring_case_and_keeps_both_tag_types():
+    entries = [
+        {"tag": "AI", "type": 1},
+        {"tag": "ai"},
+        {"tag": "2020"},
+        {"tag": "Methods: survey"},
+        "bare",
+    ]
+    assert literature_notes.slug_tags(entries) == ["AI", "Methods-survey", "bare"]
+
+
+def test_snapshot_splits_tags_into_zotero_tags_and_a_slugged_copy():
+    fields = dict(
+        literature_notes.snapshot(
+            {
+                "itemType": "journalArticle",
+                "title": "T",
+                "tags": [{"tag": "doi-fix:low-confidence"}, {"tag": "ai", "type": 1}],
+            }
+        )
+    )
+    assert fields["zotero-tags"] == [
+        {"tag": "doi-fix:low-confidence"},
+        {"tag": "ai", "type": 1},
+    ]
+    assert fields["tags"] == ["doi-fix-low-confidence", "ai"]
+    assert literature_notes.SNAPSHOT_FIELDS[-2:] == ("zotero-tags", "tags")
+    assert {"zotero-tags", "tags"} <= literature_notes.CAPTURE_FIELDS
+
+
+def test_snapshot_omits_both_tag_keys_when_zotero_has_none():
+    fields = dict(
+        literature_notes.snapshot(
+            {"itemType": "journalArticle", "title": "T", "tags": []}
+        )
+    )
+    assert "zotero-tags" not in fields
+    assert "tags" not in fields
