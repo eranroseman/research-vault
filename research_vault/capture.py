@@ -99,7 +99,13 @@ def read_item(client: ZoteroClient, item_key: str) -> ItemRead:
     """
     for _attempt in range(MAX_READ_RESTARTS):
         item = client.item(item_key)
-        children = client.children(item_key)
+        children = [
+            child
+            for child in client.children(item_key)
+            if not (
+                isinstance(child.get("data"), Mapping) and child["data"].get("deleted")
+            )
+        ]
         texts = {
             c["key"]: client.fulltext(c["key"])
             for c in children

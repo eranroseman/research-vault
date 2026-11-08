@@ -4,6 +4,10 @@ Three reads answer every transition: the whole versions map (children and
 annotations included), the trash map, and the top-level items, which alone
 carry ``citationKey`` and ``relations.dc:replaces``. Every key in a note's
 tuple is compared, because Zotero versions objects independently (§9).
+
+``trashed`` is the item's state only: a trashed attachment is drift on its
+note (#189), named in the drift detail and reported by the capture monitor
+when the next render drops it from the tuple.
 """
 
 from collections.abc import Mapping
@@ -17,8 +21,9 @@ from .zotero import DatabaseChangedError, ZoteroClient, ZoteroError
 CHECK = "lifecycle"
 # First transition that matches wins; merged outranks deleted and trashed
 # because Zotero trashes a merge's predecessor and a later purge removes it.
-# classify's branch order below implements this precedence; exported for the
-# docs, never iterated.
+# Only the item's own key can be trashed: an attachment in the trash map is
+# drift (#189). classify's branch order below implements this precedence;
+# exported for the docs, never iterated.
 ORDER = ("database-changed", "merged", "deleted", "trashed", "re-keyed", "drift")
 
 
@@ -83,12 +88,6 @@ def classify(provenance: literature_notes.Provenance, live: Live) -> tuple[str, 
         return "merged", successor
     if key not in live.versions:
         return ("trashed", key) if key in live.trash else ("deleted", key)
-    # Spec §3.4 step 6 puts trashed before re-keyed, and step 4 makes any key in
-    # the trash set — an attachment's included — a trashed note.
-    for attachment in provenance.attachments:
-        att_key = attachment.get("key")
-        if att_key in live.trash:
-            return "trashed", str(att_key)
     live_key = live.top.get(key, {}).get("citationKey")
     if live_key and live_key != provenance.citation_key:
         return "re-keyed", f"{provenance.citation_key} → {live_key}"
@@ -113,8 +112,9 @@ def _drift_detail(
     vault: Path,
     provenance: literature_notes.Provenance,
     detail: str,
+    live: Live,
 ) -> str:
-    """Name whether a moved attachment's file changed or only its metadata did (§3.4 step 5)."""
+    """Name whether a moved attachment is trashed, its file changed, or only its metadata did (§3.4 step 5, #189)."""
     if "attachment" not in detail:
         return detail
     live_md5: dict[str, object] = {}
@@ -136,9 +136,13 @@ def _drift_detail(
         if key in cached:
             path = fulltext.path_for(vault, key)
             text_changed = not path.is_file() or fulltext.sha256_of(path) != cached[key]
+        state = (
+            "trashed"
+            if key in live.trash
+            else ("file changed" if file_changed else "metadata only")
+        )
         notes_out.append(
-            f"{key}: {'file changed' if file_changed else 'metadata only'}"
-            + (", cached text stale" if text_changed else "")
+            f"{key}: {state}" + (", cached text stale" if text_changed else "")
         )
     return detail + ("; " + "; ".join(notes_out) if notes_out else "")
 
@@ -235,7 +239,7 @@ def lint_lifecycle(vault_root, client: ZoteroClient, provenances=None) -> list[O
             continue
         code = "drift" if state == "drifted" else state
         if state == "drifted":
-            detail = _drift_detail(client, vault, provenance, detail)
+            detail = _drift_detail(client, vault, provenance, detail, live)
         outcomes.append(
             Outcome(
                 CHECK, provenance.citation_key, Result.UNMATCHED, f"{code} — {detail}"

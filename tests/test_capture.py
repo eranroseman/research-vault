@@ -1810,3 +1810,24 @@ def test_a_recapture_that_moved_more_than_tags_is_not_tags_only(
     assert (outcomes[0].result, outcomes[0].reason) == (Result.MATCHED, "matched")
     assert outcomes[0].extra == {}
     assert not [o for o in outcomes if o.target == "tags"]
+
+
+def test_capture_drops_a_trashed_child_from_the_tuple_and_the_text_layer(
+    tmp_vault, monkeypatch
+):
+    """#189: the children route lists a trashed attachment with `deleted: 1`;
+    capture reads it as gone, so the tuple shrinks and the monitor reports the
+    attachment leaving (designs test 7, offline half)."""
+    trashed = json.loads(json.dumps(ATTACHMENT))
+    trashed["data"]["deleted"] = 1
+    fake = _canned_run(canned_item(FakeZotero(), children=(trashed, CHILD_NOTE)))
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert outcomes[0].result is Result.MATCHED
+    data, body = frontmatter.parse(
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
+    )
+    assert data["attachments"] == []
+    assert not (tmp_vault / "fulltext" / "D7EJ9FTG.md").exists()
+    assert "## Attachments" not in body
+    assert outcomes[1].result is Result.SKIPPED  # no attachment left to read

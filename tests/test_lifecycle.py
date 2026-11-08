@@ -114,10 +114,10 @@ def test_rekeyed_when_the_live_citation_key_differs():
     )
 
 
-def test_a_trashed_attachment_outranks_a_re_key():
-    """§3.4 step 6: trashed precedes re-keyed, and step 4 makes any key in the
-    trash set — an attachment's included — a trashed note."""
-    top = {"ALKT2NF7": {"citationKey": "alkt2026a", "replaces": set()}}
+def test_a_trashed_attachment_is_drift_on_its_note_not_a_trashed_note():
+    """#189: `trashed` is the item's state. A trashed child moves the note to
+    drift (its version moved into the trash map), and a re-key still wins."""
+    top = {"ALKT2NF7": {"citationKey": "alkt2026", "replaces": set()}}
     prov = _prov(
         attachments=(
             {
@@ -129,9 +129,17 @@ def test_a_trashed_attachment_outranks_a_re_key():
             },
         )
     )
+    assert lifecycle.classify(
+        prov, _live({"ALKT2NF7": 0, "ATT00001": 5}, {"ATT00001": 5}, top)
+    ) == ("drifted", "attachment ATT00001 4 → 5")
+    assert lifecycle.classify(prov, _live({"ALKT2NF7": 0}, {"ATT00001": 5}, top)) == (
+        "drifted",
+        "attachment ATT00001 absent",
+    )
+    top["ALKT2NF7"]["citationKey"] = "alkt2026a"
     assert lifecycle.classify(prov, _live({"ALKT2NF7": 0}, {"ATT00001": 4}, top)) == (
-        "trashed",
-        "ATT00001",
+        "re-keyed",
+        "alkt2026 → alkt2026a",
     )
 
 
@@ -662,3 +670,11 @@ def test_replaces_keys_takes_the_last_segment_and_a_bare_key_is_itself():
     }
     assert lifecycle.replaces_keys(None) == set()
     assert lifecycle.replaces_keys(["", 7]) == set()
+
+
+def test_drift_detail_names_a_trashed_child(tmp_vault, monkeypatch):
+    fake = _drift_fake([{"key": "ATT00001", "data": {"md5": "aa11", "deleted": 1}}])
+    fake.get("/api/users/0/items/trash?format=versions", body={"ATT00001": 5})
+    assert _drift_reason(tmp_vault, monkeypatch, fake) == (
+        "drift — attachment ATT00001 4 → 5; ATT00001: trashed"
+    )
