@@ -986,7 +986,8 @@ def test_render_note_title_folds_a_title_shaped_field():
         # non-ASCII digits are not "digits only" to Obsidian's ^#\d+$
         ("٢٠٢٠", "٢٠٢٠"),
         ("", None),
-        ("---", None),
+        ("---", "---"),  # R12: Obsidian accepts hyphens-only (not ASCII digits only)
+        ("_", "_"),
         ("a\x1cb", "a\x1cb"),  # JS \s lacks U+001C-U+001F and U+0085
         ("a\x85b", "a\x85b"),
         ("a\ufeffb", "a-b"),  # JS \s has U+FEFF
