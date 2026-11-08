@@ -1815,8 +1815,8 @@ def test_a_recapture_that_moved_more_than_tags_is_not_tags_only(
 def test_capture_drops_a_trashed_child_from_the_tuple_and_the_text_layer(
     tmp_vault, monkeypatch
 ):
-    """#189: the children route lists a trashed attachment with `deleted: 1`;
-    capture reads it as gone, so the tuple shrinks and the monitor reports the
+    """#189, defensive case: if the children route lists a trashed attachment
+    with `deleted: 1`, capture reads it as gone, so the tuple shrinks and the monitor reports the
     attachment leaving (designs test 7, offline half)."""
     trashed = json.loads(json.dumps(ATTACHMENT))
     trashed["data"]["deleted"] = 1
@@ -1831,3 +1831,32 @@ def test_capture_drops_a_trashed_child_from_the_tuple_and_the_text_layer(
     assert not (tmp_vault / "fulltext" / "D7EJ9FTG.md").exists()
     assert "## Attachments" not in body
     assert outcomes[1].result is Result.SKIPPED  # no attachment left to read
+
+
+def test_a_recapture_after_the_attachment_is_trashed_drops_it_from_the_tuple(
+    tmp_vault, monkeypatch
+):
+    """#189, the measured shape: the local API omits a trashed child from the
+    versions map and from /children, and lists it only in the trash map."""
+    capture.capture(
+        tmp_vault,
+        _client(monkeypatch, _canned_run(canned_item(FakeZotero()))),
+        ["E352DFS8"],
+    )
+    text = tmp_vault / "fulltext" / "D7EJ9FTG.md"
+    before = text.read_bytes()
+    stamp = text.stat().st_mtime_ns
+    fake = _canned_run(canned_item(FakeZotero(), children=(CHILD_NOTE,)))
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"E352DFS8": 544, "N0TE0001": 552},
+        headers={"Last-Modified-Version": "565"},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={"D7EJ9FTG": 566})
+    outcomes = capture.capture(tmp_vault, _client(monkeypatch, fake), ["E352DFS8"])
+    assert outcomes[0].result is Result.MATCHED
+    data, _body = frontmatter.parse(
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
+    )
+    assert data["attachments"] == []
+    assert (text.read_bytes(), text.stat().st_mtime_ns) == (before, stamp)

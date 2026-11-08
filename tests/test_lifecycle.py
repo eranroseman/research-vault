@@ -673,8 +673,12 @@ def test_replaces_keys_takes_the_last_segment_and_a_bare_key_is_itself():
 
 
 def test_drift_detail_names_a_trashed_child(tmp_vault, monkeypatch):
-    fake = _drift_fake([{"key": "ATT00001", "data": {"md5": "aa11", "deleted": 1}}])
+    """The measured shape (screen evidence, 2026-10-03): the local API omits a
+    trashed child from the versions map and from /children; only the trash map
+    lists it."""
+    fake = _drift_fake([])
+    fake.get("/api/users/0/items?since=0&format=versions", body={"ALKT2NF7": 0})
     fake.get("/api/users/0/items/trash?format=versions", body={"ATT00001": 5})
     assert _drift_reason(tmp_vault, monkeypatch, fake) == (
-        "drift — attachment ATT00001 4 → 5; ATT00001: trashed"
+        "drift — attachment ATT00001 absent; ATT00001: trashed"
     )

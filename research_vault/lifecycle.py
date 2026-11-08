@@ -129,20 +129,23 @@ def _drift_detail(
     cached = {f.get("attachment-key"): f.get("sha256") for f in provenance.fulltext}
     for attachment in provenance.attachments:
         key = attachment.get("key")
-        if key not in live_md5 or f"attachment {key}" not in detail:
+        if f"attachment {key}" not in detail:
+            continue
+        # The local API lists a trashed child in neither the versions map nor
+        # /children (screen evidence, 2026-10-03), so the trash map decides.
+        if key in live.trash:
+            notes_out.append(f"{key}: trashed")
+            continue
+        if key not in live_md5:
             continue
         file_changed = live_md5[key] != attachment.get("md5")
         text_changed = False
         if key in cached:
             path = fulltext.path_for(vault, key)
             text_changed = not path.is_file() or fulltext.sha256_of(path) != cached[key]
-        state = (
-            "trashed"
-            if key in live.trash
-            else ("file changed" if file_changed else "metadata only")
-        )
         notes_out.append(
-            f"{key}: {state}" + (", cached text stale" if text_changed else "")
+            f"{key}: {'file changed' if file_changed else 'metadata only'}"
+            + (", cached text stale" if text_changed else "")
         )
     return detail + ("; " + "; ".join(notes_out) if notes_out else "")
 
