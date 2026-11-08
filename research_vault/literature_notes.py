@@ -94,7 +94,9 @@ def slug_tags(entries) -> list[str]:
         name = entry.get("tag") if isinstance(entry, Mapping) else entry
         if not isinstance(name, str):
             continue
-        slug = slug_tag(name)
+        # The slug is made from the string capture writes: frontmatter_value
+        # collapses Python whitespace (U+001C-U+001F, U+0085) to a space.
+        slug = slug_tag(display_text(name))
         if slug is None or slug.casefold() in seen:
             continue
         seen.add(slug.casefold())

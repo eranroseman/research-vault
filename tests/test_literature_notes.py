@@ -1032,3 +1032,44 @@ def test_snapshot_omits_both_tag_keys_when_zotero_has_none():
     )
     assert "zotero-tags" not in fields
     assert "tags" not in fields
+
+
+def _snapshot_fields(*names):
+    return dict(
+        literature_notes.snapshot(
+            {
+                "itemType": "journalArticle",
+                "title": "T",
+                "tags": [{"tag": name} for name in names],
+            }
+        )
+    )
+
+
+def test_snapshot_slugs_the_value_it_writes_so_python_whitespace_cannot_undo_it():
+    # frontmatter_value collapses U+001C-U+001F and U+0085 to a space; the slug
+    # is made from that final string, not from the raw tag.
+    assert _snapshot_fields("a\x1cb")["tags"] == ["a-b"]
+
+
+def test_snapshot_drops_a_tag_that_is_empty_once_written():
+    fields = _snapshot_fields("\x1c")
+    assert "tags" not in fields
+    # zotero-tags still passes through frontmatter_value, which collapses the control
+    assert fields["zotero-tags"] == [{"tag": ""}]
+
+
+def test_snapshot_drops_a_tag_that_is_all_digits_once_written():
+    fields = _snapshot_fields("2020\x85")
+    assert "tags" not in fields
+    assert fields["zotero-tags"] == [{"tag": "2020"}]
+
+
+def test_snapshot_dedupes_tags_that_are_equal_once_written():
+    assert _snapshot_fields("a\x1cb", "a\x1db")["tags"] == ["a-b"]
+
+
+def test_snapshot_keeps_zotero_tags_when_no_tag_survives_slugging():
+    fields = _snapshot_fields("2020")
+    assert fields["zotero-tags"] == [{"tag": "2020"}]
+    assert "tags" not in fields
