@@ -5582,9 +5582,21 @@ def test_a_pass_fail_pass_cycle_raises_no_list_row_end_to_end(net_vault):
     assert _list_rows_open(net_vault) == []
 
 
+def _remove_failure_row_and_ack(vault, note, row):
+    """Delete a failure row by hand and accept it; returns the row's
+    ``(reason, hash)``."""
+    note.write_text(must_replace(note.read_text(), row, ""))
+    ((reason, digest),) = _list_rows_open(vault)
+    finding = next(f for f in inbox.open_entries(vault) if f.target_hash == digest)
+    inbox.append_ack(vault, finding.id, "manual — accepted", "human:eran", digest)
+    assert _list_rows_open(vault) == []
+    return reason, digest
+
+
 def test_a_repeat_removal_on_a_newer_base_is_raised_again(net_vault):
-    """R16: the basis carries the committed lists, so an ack on the first
-    deletion of a failure row does not cover the second."""
+    """R17: the basis carries the base tree's oid, and the commit of the first
+    deletion moved it, so an ack on the first deletion of a failure row does
+    not cover the second."""
     from research_vault import events
     from tests.test_lints import _with_lists
 
@@ -5592,11 +5604,7 @@ def test_a_repeat_removal_on_a_newer_base_is_raised_again(net_vault):
     row = 'failed-verification:\n  - {check: "update-notice", result: "UNMATCHED"}\n'
     _with_lists(note, [], [("update-notice", "UNMATCHED")])
     _commit_all(net_vault, "failure")
-    note.write_text(must_replace(note.read_text(), row, ""))
-    ((_reason, first),) = _list_rows_open(net_vault)
-    finding = next(f for f in inbox.open_entries(net_vault) if f.target_hash == first)
-    inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran", first)
-    assert _list_rows_open(net_vault) == []
+    _reason, first = _remove_failure_row_and_ack(net_vault, note, row)
     _commit_all(net_vault, "failure deleted")
     # Verify records the failure again; the person deletes it again.
     note.write_text(
@@ -5606,16 +5614,6 @@ def test_a_repeat_removal_on_a_newer_base_is_raised_again(net_vault):
     note.write_text(must_replace(note.read_text(), row, ""))
     ((_reason, second),) = _list_rows_open(net_vault)
     assert second != first
-
-
-def _remove_failure_row_and_ack(vault, note, row):
-    """Delete a failure row by hand and accept it; returns the row's hash."""
-    note.write_text(must_replace(note.read_text(), row, ""))
-    ((_reason, digest),) = _list_rows_open(vault)
-    finding = next(f for f in inbox.open_entries(vault) if f.target_hash == digest)
-    inbox.append_ack(vault, finding.id, "manual — accepted", "human:eran", digest)
-    assert _list_rows_open(vault) == []
-    return digest
 
 
 def test_a_repeat_removal_after_the_lists_return_to_where_they_were_is_raised_again(
@@ -5632,19 +5630,20 @@ def test_a_repeat_removal_after_the_lists_return_to_where_they_were_is_raised_ag
     _with_lists(note, [], [("update-notice", "UNMATCHED")])
     lists = note.read_text()
     _commit_all(net_vault, "L")
-    first = _remove_failure_row_and_ack(net_vault, note, row)
+    first_reason, first = _remove_failure_row_and_ack(net_vault, note, row)
     _commit_all(net_vault, "L'")
     note.write_text(lists)
     _commit_all(net_vault, "L again")
     note.write_text(must_replace(note.read_text(), row, ""))
-    second = [digest for _reason, digest in _list_rows_open(net_vault)]
-    assert len(second) == 1
-    assert second != [first]
+    ((second_reason, second),) = _list_rows_open(net_vault)
+    assert second_reason == first_reason
+    assert second != first
 
 
 def test_a_list_row_hash_follows_the_base_tree_not_the_base_commit(net_vault):
     """R17: a commit that changes no content (an amend, a rebase onto the same
-    tree) leaves an acknowledged removal acknowledged."""
+    tree) leaves a removal's hash where it was, so an ack filed on it would
+    still stand."""
     from tests.test_lints import _with_lists
 
     note = net_vault / "literature" / "smith2020.md"

@@ -310,8 +310,9 @@ def _lists_with_reason(_data: bytes, outcome, candidate_image, base_snapshot) ->
 
 # An outcome's `extra["hash_basis"]` names what its repo-path hash covers
 # beyond the target's bytes; each basis is called `(data, outcome,
-# candidate_image, base_snapshot)`. Several rows on one note would otherwise share one hash,
-# so `_file_effects` would file the first and one ack would accept all.
+# candidate_image, base_snapshot)`. Several rows on one note would otherwise
+# share one hash, so `_file_effects` would file the first and one ack would
+# accept all.
 # - `lints.MONITOR_ROW` ("monitor-row"): the note's bytes plus the row's reason;
 #   each capture-monitor row is its own record, and any byte change still
 #   lapses its ack (ruling P4).
