@@ -373,7 +373,15 @@ def _update_csl(vault: Path, rendered_entries: Mapping[str, dict]) -> Outcome:
 
 
 def _captured_keys(vault: Path) -> set[str]:
-    return set(captured.captured_set(vault))
+    """The keys whose entries stay (P37): every key a note records, and every
+    `literature/<key>.md` that is still a file, so a note that cannot be read
+    or parsed this run keeps its entry. Only a key whose note is gone drops."""
+    files = {
+        path.stem
+        for path in (vault / "literature").glob("*.md")
+        if path.is_file() and not structure.is_excluded(path, vault)
+    }
+    return set(captured.captured_set(vault)) | files
 
 
 def _every_note(vault: Path) -> tuple[list[str], list[Outcome]]:

@@ -1948,3 +1948,54 @@ def test_a_compiled_child_trashed_and_recaptured_leaves_a_not_captured_ledger_ro
             "not-captured — ledger src-1 names fulltext/D7EJ9FTG.md, which no capture wrote",
         )
     ]
+
+
+def _two_captured(tmp_vault, monkeypatch):
+    second = _second_item()
+    fake = _canned_run(canned_item(FakeZotero()), items=(ITEM, second))
+    canned_item(fake, item=second, children=())
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"E352DFS8": 544, "D7EJ9FTG": 551, "N0TE0001": 552, "F441KKD2": 544},
+        headers={"Last-Modified-Version": "565"},
+    )
+    entries = [*LIBRARY, {"id": "second2023", "title": "S"}]
+    fake.rpc("item.export", lambda params: [e for e in entries if e["id"] in params[0]])
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8", "F441KKD2"])
+    assert sorted(bibliography.load(tmp_vault)) == ["jakesch.etal2023a", "second2023"]
+    return client
+
+
+def test_a_note_that_does_not_parse_keeps_its_entry_through_another_items_capture(
+    tmp_vault, monkeypatch
+):
+    """P37 (F5): the keep set is every entry whose `literature/<key>.md` is
+    still a file; a half-edited note another capture run cannot parse keeps
+    its entry, so the note and the entry still agree once it parses again."""
+    from research_vault import captured
+
+    client = _two_captured(tmp_vault, monkeypatch)
+    note = tmp_vault / "literature" / "second2023.md"
+    entry = bibliography.load(tmp_vault)["second2023"]
+    kept = note.read_text()
+    note.write_text("---\ntitle: [unclosed\n---\n")
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (outcomes[-1].target, outcomes[-1].result) == (
+        capture.CSL_TARGET,
+        Result.MATCHED,
+    )
+    assert bibliography.load(tmp_vault)["second2023"] == entry
+    note.write_text(kept)
+    assert not [
+        o
+        for o in captured.lint_captured_set(tmp_vault)
+        if o.result is Result.UNMATCHED and "second2023" in o.reason
+    ]
+
+
+def test_an_entry_drops_only_when_its_note_file_is_gone(tmp_vault, monkeypatch):
+    client = _two_captured(tmp_vault, monkeypatch)
+    (tmp_vault / "literature" / "second2023.md").unlink()
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert sorted(bibliography.load(tmp_vault)) == ["jakesch.etal2023a"]
