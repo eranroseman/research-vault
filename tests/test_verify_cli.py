@@ -5443,3 +5443,36 @@ def test_capture_monitor_closes_commit_and_publish_and_its_ack_lapses_on_any_byt
     (row,) = [o for o in effective if o.check == "capture-monitor"]
     assert hashes[id(row)] != first_hash
     assert verify.surface_decision("commit", effective, warning)[0] == 1
+
+
+def test_each_capture_monitor_row_is_its_own_record(net_vault):
+    """Ruling P4: a restore that also moved the DOI raises two rows on one note;
+    each is filed and acknowledged separately, so the #205 row is queued too."""
+    from research_vault import inbox, verify
+    from tests.test_lints import _recapture
+
+    note = net_vault / "literature" / "smith2020.md"
+    _recapture(
+        note,
+        **{
+            "zotero-item-version: 12": "zotero-item-version: 11",
+            'DOI: "10.1000/xyz"': 'DOI: "10.1000/old"',
+        },
+    )
+    verify.verify_state(net_vault, network=False)
+    records = [f for f in inbox.open_entries(net_vault) if f.check == "capture-monitor"]
+    assert sorted(f.reason for f in records) == [
+        'drift — DOI changed: "10.1000/xyz" → "10.1000/old"',
+        "drift — older render restored: version 11 < 12",
+    ]
+    (restored,) = [f for f in records if "older render restored" in f.reason]
+    inbox.append_ack(net_vault, restored.id, "manual — accepted", "human:eran")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False
+    )
+    assert [
+        f.reason for f in inbox.open_entries(net_vault) if f.check == "capture-monitor"
+    ] == ['drift — DOI changed: "10.1000/xyz" → "10.1000/old"']
+    assert [o.reason for o in effective if o.check == "capture-monitor"] == [
+        'drift — DOI changed: "10.1000/xyz" → "10.1000/old"'
+    ]

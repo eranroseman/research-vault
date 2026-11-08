@@ -262,6 +262,19 @@ def _claim_anchor_hash(
     return None
 
 
+def _with_reason(data: bytes, outcome) -> bytes:
+    return data + b"\x00" + outcome.reason.encode("utf-8")
+
+
+# An outcome's `extra["hash_basis"]` names what its repo-path hash covers
+# beyond the target's bytes. Several rows on one note would otherwise share one
+# hash, so `_file_effects` would file the first and one ack would accept all.
+# - `lints.MONITOR_ROW` ("monitor-row"): the note's bytes plus the row's reason;
+#   each capture-monitor row is its own record, and any byte change still
+#   lapses its ack (ruling P4).
+_HASH_BASES = {lints.MONITOR_ROW: _with_reason}
+
+
 def _snapshot_path_hash(
     vault_root, outcome, raw_target, base_snapshot, candidate_snapshot
 ):
@@ -298,6 +311,9 @@ def _snapshot_path_hash(
         ) or b""
         if raw_target.endswith(b".md"):
             data = _note_bytes(data)
+    basis = _HASH_BASES.get(outcome.extra.get("hash_basis"))
+    if basis is not None:
+        data = basis(data, outcome)
     return hashlib.sha256(data).hexdigest()[:16]
 
 

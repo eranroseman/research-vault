@@ -742,6 +742,10 @@ MONITOR_CHECK = "capture-monitor"
 # Scanner's status tags, MarkDB-Connect's ObsCite); a hold on each would be an
 # approval gate. Capture files one summary row per run instead (Q3).
 MONITOR_EXEMPT = frozenset({"zotero-tags", "tags"})
+# The `hash_basis` every monitor row carries in `extra`: its acknowledgment
+# hash is the note's bytes plus the row's own reason (`verify._HASH_BASES`), so
+# each row is its own queue record and one ack accepts one change (ruling P4).
+MONITOR_ROW = "monitor-row"
 _VALUE_CAP = 60
 
 
@@ -810,7 +814,13 @@ def _capture_monitor_outcomes(raw_path, base_data, candidate_data) -> list[Outco
     target = RepoPath(raw_path)
 
     def row(reason: str) -> Outcome:
-        return Outcome(MONITOR_CHECK, target, Result.UNMATCHED, reason)
+        return Outcome(
+            MONITOR_CHECK,
+            target,
+            Result.UNMATCHED,
+            reason,
+            extra={"hash_basis": MONITOR_ROW},
+        )
 
     rows: list[Outcome] = []
     restored = _restored_reason(base_data, candidate_data)
