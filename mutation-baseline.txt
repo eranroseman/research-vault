@@ -39,6 +39,8 @@ research_vault/__main__.py::func/cmd_search_log::-        else ("--not-admitted"
 research_vault/__main__.py::func/cmd_stamp_type::-                f"skipped {path} — path resolves outside the vault, refusing to write through it"\n+                None
 research_vault/__main__.py::func/cmd_stamp_type::-        elif reason == "outside":\n+        elif reason == "OUTSIDE":
 research_vault/__main__.py::func/cmd_stamp_type::-        elif reason == "outside":\n+        elif reason == "XXoutsideXX":
+# reason: equivalent on the grammar: unfixed is read only in the loop over partial, which is [] unless --staged, and the --staged branch reassigns unfixed from fixer.unfixed_staged before that loop runs
+research_vault/__main__.py::func/cmd_stamp_type::-    unfixed: list[str] = []\n+    unfixed: list[str] = None
 research_vault/__main__.py::func/cmd_verify::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n+                (id(outcome), index), warning_effective.get(id(outcome), )
 research_vault/__main__.py::func/cmd_verify::-                (id(outcome), index), warning_effective.get(id(outcome), False)\n+                (id(outcome), index), warning_effective.get(id(outcome), None)
 research_vault/__main__.py::func/cmd_verify::-        print("update-notice: RW leg not run (no --rw-csv)")\n+        print("XXupdate-notice: RW leg not run (no --rw-csv)XX")
@@ -244,6 +246,8 @@ research_vault/captured.py::func/_structural::-                or due[:10] < ins
 research_vault/captured.py::func/_structural::-        text = ledger.read_text(encoding="utf-8")\n+        text = ledger.read_text(encoding="UTF-8")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/captured.py::func/_structural::-        text = ledger.read_text(encoding="utf-8")\n+        text = ledger.read_text(encoding=None)
+# reason: equivalent on the grammar: str.count reads a None start as 0, the slice start it replaces
+research_vault/captured.py::func/_textual::-            line = text.count("\n", 0, match.start()) + 1\n+            line = text.count("\n", None, match.start()) + 1
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/captured.py::func/_textual::-            text = path.read_text(encoding="utf-8", errors="surrogateescape")\n+            text = path.read_text(encoding="UTF-8", errors="surrogateescape")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
@@ -693,15 +697,52 @@ research_vault/factcheck.py::func/select_claims::-        citation_key = claim_l
 research_vault/factcheck.py::func/select_claims::-        citation_key = claim_link.split("#^", 1)[0]\n+        citation_key = claim_link.split("#^", 2)[0]
 research_vault/factcheck.py::func/select_claims::-        raise ValueError("cap must be non-negative")\n+        raise ValueError("XXcap must be non-negativeXX")
 research_vault/factcheck.py::func/skipped_sha256::-    joined = "\n".join(sorted(ref.claim_link for ref in skipped))\n+    joined = "XX\nXX".join(sorted(ref.claim_link for ref in skipped))
+# reason: equivalent on the grammar: subprocess.run's check defaults to False and is read as a truthiness test, so a dropped, None or False check never raises
+research_vault/fixer.py::func/_git_names::-        ["git", *args, "-z"], cwd=vault, check=False, capture_output=True, env=env\n+        ["git", *args, "-z"], cwd=vault, capture_output=True, env=env
+# reason: equivalent on the grammar: subprocess.run's check defaults to False and is read as a truthiness test, so a dropped, None or False check never raises
+research_vault/fixer.py::func/_git_names::-        ["git", *args, "-z"], cwd=vault, check=False, capture_output=True, env=env\n+        ["git", *args, "-z"], cwd=vault, check=None, capture_output=True, env=env
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/fixer.py::func/_git_names::-        said = completed.stderr.decode("utf-8", "replace").strip().splitlines()\n+        said = completed.stderr.decode("UTF-8", "replace").strip().splitlines()
+# reason: equivalent on the grammar: current is only compared with the rendered bytes, which neither None nor "" ever equals
+research_vault/fixer.py::func/_regenerate_root_log::-        current = None\n+        current = ""
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/fixer.py::func/_regenerate_root_log::-    if current == rendered.encode("utf-8"):\n+    if current == rendered.encode("UTF-8"):
+# reason: equivalent on the grammar: the precheck needs only rev-parse's repository discovery, which every argument list runs (measured 2026-10-25: `git rev-parse`, with `--git-dir`, `--GIT-DIR` or nothing, exits 128 "not a git repository" outside one and 0 inside), and its output is never read
+research_vault/fixer.py::func/staged_paths::-    _git_names(vault, "rev-parse", "--git-dir", env=env)\n+    _git_names(vault, "rev-parse", "--GIT-DIR", env=env)
+# reason: equivalent for every caller: an env is os.environ plus at most GIT_INDEX_FILE (the CLI and the hook pass none; the tests add the index), and rev-parse --git-dir reads no index
+research_vault/fixer.py::func/staged_paths::-    _git_names(vault, "rev-parse", "--git-dir", env=env)\n+    _git_names(vault, "rev-parse", "--git-dir", )
+# reason: equivalent for every caller: an env is os.environ plus at most GIT_INDEX_FILE (the CLI and the hook pass none; the tests add the index), and rev-parse --git-dir reads no index
+research_vault/fixer.py::func/staged_paths::-    _git_names(vault, "rev-parse", "--git-dir", env=env)\n+    _git_names(vault, "rev-parse", "--git-dir", env=None)
+# reason: equivalent on the grammar: the precheck needs only rev-parse's repository discovery, which every argument list runs (measured 2026-10-25: `git rev-parse`, with `--git-dir`, `--GIT-DIR` or nothing, exits 128 "not a git repository" outside one and 0 inside), and its output is never read
+research_vault/fixer.py::func/staged_paths::-    _git_names(vault, "rev-parse", "--git-dir", env=env)\n+    _git_names(vault, "rev-parse", env=env)
+# reason: equivalent on the grammar: subprocess.run's check defaults to False and is read as a truthiness test, so a dropped, None or False check never raises
+research_vault/fixer.py::func/unfixed_staged::-            check=False,
+# reason: equivalent on the grammar: subprocess.run's check defaults to False and is read as a truthiness test, so a dropped, None or False check never raises
+research_vault/fixer.py::func/unfixed_staged::-            check=False,\n+            check=None,
+# reason: equivalent for every caller: an env is os.environ plus at most GIT_INDEX_FILE, and `git cat-file blob <sha>` reads the object store, never the index
+research_vault/fixer.py::func/unfixed_staged::-            env=env,\n+            env=None,
+# reason: equivalent for every caller: an env is os.environ plus at most GIT_INDEX_FILE, and `git cat-file blob <sha>` reads the object store, never the index
+research_vault/fixer.py::func/unfixed_staged::-            env=env,\n-        )\n+            )
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/fixer.py::func/unfixed_staged::-            text = completed.stdout.decode("utf-8")\n+            text = completed.stdout.decode("UTF-8")
 research_vault/frontmatter.py::func/_emit_scalar::-            f"frontmatter scalars cannot carry control or line-break "\n-            f"characters: {text!r}"\n+            None
 research_vault/frontmatter.py::func/_emit_scalar::-    escaped = text.replace("\\", "\\\\").replace('"', '\\"')\n+    escaped = text.replace("XX\\XX", "\\\\").replace('"', '\\"')
 research_vault/frontmatter.py::func/_emit_scalar::-    escaped = text.replace("\\", "\\\\").replace('"', '\\"')\n+    escaped = text.replace("\\", "XX\\\\XX").replace('"', '\\"')
 research_vault/frontmatter.py::func/_emit_scalar::-    escaped = text.replace("\\", "\\\\").replace('"', '\\"')\n+    escaped = text.replace("\\", "\\\\").replace('XX"XX', '\\"')
+# reason: equivalent on the grammar: ConstructorError's second argument is the context mark, which _yaml_fault never reads (it reads context, problem and problem_mark), so read_okf's message is unchanged
+research_vault/frontmatter.py::func/_loader::-                    node.start_mark,\n+                    None,
+# reason: equivalent on the grammar: construct_mapping is registered with add_constructor, which PyYAML calls as constructor(self, node), so deep is always its default False; an omitted deep and None read the same
+research_vault/frontmatter.py::func/_loader::-            key = self.construct_object(key_node, deep=deep)\n+            key = self.construct_object(key_node, )
+# reason: equivalent on the grammar: construct_mapping is registered with add_constructor, which PyYAML calls as constructor(self, node), so deep is always its default False; an omitted deep and None read the same
+research_vault/frontmatter.py::func/_loader::-            key = self.construct_object(key_node, deep=deep)\n+            key = self.construct_object(key_node, deep=None)
+# reason: equivalent on the grammar: construct_mapping is registered with add_constructor, which PyYAML calls as constructor(self, node), so deep is always its default False; an omitted deep and None read the same
+research_vault/frontmatter.py::func/_loader::-            mapping[key] = self.construct_object(value_node, deep=deep)\n+            mapping[key] = self.construct_object(value_node, )
+# reason: equivalent on the grammar: construct_mapping is registered with add_constructor, which PyYAML calls as constructor(self, node), so deep is always its default False; an omitted deep and None read the same
+research_vault/frontmatter.py::func/_loader::-            mapping[key] = self.construct_object(value_node, deep=deep)\n+            mapping[key] = self.construct_object(value_node, deep=None)
 research_vault/frontmatter.py::func/_parse_item::-        pair = _split_unquoted(part, ": ", 1)\n+        pair = _split_unquoted(part, ": ", )
 research_vault/frontmatter.py::func/_parse_item::-        pair = _split_unquoted(part, ": ", 1)\n+        pair = _split_unquoted(part, ": ", 2)
 research_vault/frontmatter.py::func/_parse_item::-        pair = _split_unquoted(part, ": ", 1)\n+        pair = _split_unquoted(part, ": ", None)
 research_vault/frontmatter.py::func/_parse_item::-        value = _parse_scalar(pair[1] if len(pair) > 1 else "")\n+        value = _parse_scalar(pair[1] if len(pair) > 1 else "XXXX")
-research_vault/frontmatter.py::func/_parse_item::-        value = _parse_scalar(pair[1] if len(pair) > 1 else "")\n+        value = _parse_scalar(pair[1] if len(pair) >= 1 else "")
 research_vault/frontmatter.py::func/_parse_scalar::-        return raw[1:-1].replace('\\"', '"').replace("\\\\", "\\")\n+        return raw[1:-1].replace('\\"', '"').replace("\\\\", "XX\\XX")
 research_vault/frontmatter.py::func/_parse_scalar::-    if raw.startswith('"') and raw.endswith('"'):\n+    if raw.startswith('"') or raw.endswith('"'):
 research_vault/frontmatter.py::func/_split_unquoted::-            continue\n+            break
@@ -711,11 +752,19 @@ research_vault/frontmatter.py::func/_split_unquoted::-        if char == "\\" an
 research_vault/frontmatter.py::func/_split_unquoted::-    index = 0\n+    index = 1
 research_vault/frontmatter.py::func/_split_unquoted::-    quoted = False\n+    quoted = None
 research_vault/frontmatter.py::func/_split_unquoted::-    start = 0\n+    start = None
+# reason: equivalent on the grammar: an error with a problem is a MarkedYAMLError, whose __init__ always sets context and problem_mark (a ReaderError has no problem and returns above), so the default is never read
+research_vault/frontmatter.py::func/_yaml_fault::-    context = getattr(error, "context", None)\n+    context = getattr(error, "context", )
+# reason: equivalent on the grammar: an error with a problem is a MarkedYAMLError, whose __init__ always sets context and problem_mark (a ReaderError has no problem and returns above), so the default is never read
+research_vault/frontmatter.py::func/_yaml_fault::-    mark = getattr(error, "problem_mark", None)\n+    mark = getattr(error, "problem_mark", )
 research_vault/frontmatter.py::func/parse::-                current_list = None\n+                current_list = ""
 research_vault/frontmatter.py::func/parse::-                f"nested maps unsupported (flat schema, spec §5): {line!r}"\n+                None
 research_vault/frontmatter.py::func/parse::-                raise FrontmatterError(f"list item outside list: {line!r}")\n+                raise FrontmatterError(None)
 research_vault/frontmatter.py::func/parse::-    closing = _FRONTMATTER_CLOSE.search(text, opening.end())\n+    closing = _FRONTMATTER_CLOSE.search(text, )
 research_vault/frontmatter.py::func/parse::-    current_list: list[object] | None = None\n+    current_list: list[object] | None = ""
+# reason: equivalent on the grammar: _FRONTMATTER_OPEN matches at \A, so text[0] is "-" and a count from 1 sees the same newlines
+research_vault/frontmatter.py::func/read_okf::-        first_line = text.count("\n", 0, opening.end()) + 1\n+        first_line = text.count("\n", 1, opening.end()) + 1
+# reason: equivalent on the grammar: str.count reads a None start as 0, the slice start it replaces
+research_vault/frontmatter.py::func/read_okf::-        first_line = text.count("\n", 0, opening.end()) + 1\n+        first_line = text.count("\n", None, opening.end()) + 1
 research_vault/fulltext.py::func/_render::-            fields.extend(zip(pair, values, strict=True))\n+            fields.extend(zip(pair, values, ))
 research_vault/fulltext.py::func/_render::-            fields.extend(zip(pair, values, strict=True))\n+            fields.extend(zip(pair, values, strict=False))
 research_vault/fulltext.py::func/_render::-            fields.extend(zip(pair, values, strict=True))\n+            fields.extend(zip(pair, values, strict=None))
@@ -1078,6 +1127,12 @@ research_vault/inbox.py::func/_line_fields::-        raise InboxError(f"unparsea
 research_vault/inbox.py::func/_prepare_append::-        queue.parent.mkdir(parents=True, exist_ok=True)\n+        queue.parent.mkdir(exist_ok=True)
 research_vault/inbox.py::func/_prepare_append::-        queue.parent.mkdir(parents=True, exist_ok=True)\n+        queue.parent.mkdir(parents=False, exist_ok=True)
 research_vault/inbox.py::func/_prepare_append::-        queue.parent.mkdir(parents=True, exist_ok=True)\n+        queue.parent.mkdir(parents=None, exist_ok=True)
+# reason: locale default: the text written is frontmatter.serialize of a one-key ASCII type block, so the platform codec and utf-8 write the same bytes; the keyword itself is pinned on the source by tests/test_okf.py::test_okf_write_text_sites_name_their_encoding (#170)
+research_vault/inbox.py::func/_prepare_append::-        queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}), encoding="utf-8")\n+        queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}), )
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/inbox.py::func/_prepare_append::-        queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}), encoding="utf-8")\n+        queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}), encoding="UTF-8")
+# reason: locale default: the text written is frontmatter.serialize of a one-key ASCII type block, so the platform codec and utf-8 write the same bytes; the keyword itself is pinned on the source by tests/test_okf.py::test_okf_write_text_sites_name_their_encoding (#170)
+research_vault/inbox.py::func/_prepare_append::-        queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}), encoding="utf-8")\n+        queue.write_text(frontmatter.serialize({"type": INBOX_TYPE}), encoding=None)
 research_vault/inbox.py::func/_scope_acknowledged::-            finding.check != "update-notice"\n+            finding.check != "UPDATE-NOTICE"
 research_vault/inbox.py::func/_scope_acknowledged::-            finding.check != "update-notice"\n+            finding.check != "XXupdate-noticeXX"
 research_vault/inbox.py::func/_scope_acknowledged::-            finding.check != "update-notice"\n+            finding.check == "update-notice"
@@ -1228,16 +1283,6 @@ research_vault/inbox.py::func/validate_reason::-        or "\0" in reason\n+    
 research_vault/keystore.py::func/_read_store::-        current = json.loads(path.read_text(encoding="utf-8"))\n+        current = json.loads(path.read_text(encoding="UTF-8"))
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/keystore.py::func/_read_store::-        current = json.loads(path.read_text(encoding="utf-8"))\n+        current = json.loads(path.read_text(encoding=None))
-# reason: equivalent on the grammar: the very next line, `current = current or {}`, unconditionally coerces None back to {}, so the two assignments reach the same value
-research_vault/keystore.py::func/_store_key::-        current = {}\n+        current = None
-# reason: equivalent on the grammar: Path.touch's own default exist_ok is True, so dropping the literal changes nothing
-research_vault/keystore.py::func/_write_store::-    path.touch(mode=0o600, exist_ok=True)\n+    path.touch(mode=0o600, )
-# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
-research_vault/keystore.py::func/_write_store::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=2) + "\n", )
-# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
-research_vault/keystore.py::func/_write_store::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=2) + "\n", encoding="UTF-8")
-# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
-research_vault/keystore.py::func/_write_store::-    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")\n+    path.write_text(json.dumps(current, indent=2) + "\n", encoding=None)
 # reason: locale default: the store holds ASCII item keys, so the platform codec and utf-8 write the same bytes
 research_vault/keystore.py::func/_write_store::-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:\n+    with os.fdopen(descriptor, "w", ) as handle:
 # reason: encoding alias
@@ -1254,11 +1299,28 @@ research_vault/lifecycle.py::func/_provenances::-                path.read_text(
 research_vault/lifecycle.py::func/replaces_keys::-        str(v).rstrip("/").rsplit("/", 1)[-1]\n+        str(v).rstrip("/").rsplit("/", )[-1]
 # reason: equivalent on the grammar: only the last segment is read
 research_vault/lifecycle.py::func/replaces_keys::-        str(v).rstrip("/").rsplit("/", 1)[-1]\n+        str(v).rstrip("/").rsplit("/", 2)[-1]
+# reason: equivalent on the grammar: every file of a directory whose first part is literature/ is skipped, so break leaves the same files out; dirnames is pruned before the loop, so the walk is unchanged
+research_vault/links.py::func/Index.build::-                continue  # resolved through the captured set only\n+                break  # resolved through the captured set only
+# reason: equivalent on the grammar: a None slice start is 0, so text[None:start] is text[0:start] and text[None:] the whole text
+research_vault/links.py::func/_blanked::-    cursor = 0\n+    cursor = None
+# reason: equivalent on the grammar: a candidate leaving the vault ("../…") matches no Index entry, whose paths are vault-relative and never begin "../", and its forms never equal "literature/<key>.md" nor its name a key, so resolve gives [] and names_note False either way
+research_vault/links.py::func/_candidate::-    if candidate in {".", ""} or candidate.startswith("../"):\n+    if candidate in {".", ""} or candidate.startswith("XX../XX"):
+# reason: equivalent on the grammar: posixpath.normpath never returns "" (it returns "." for an empty path), so "" is never a candidate
+research_vault/links.py::func/_candidate::-    if candidate in {".", ""} or candidate.startswith("../"):\n+    if candidate in {".", "XXXX"} or candidate.startswith("../"):
+# reason: equivalent on the grammar: a fence run is one character repeated (_FENCE's `{3,} or ~{3,}), so run[1] is run[0]
+research_vault/links.py::func/_closes::-    closing = re.match(rf"({_QUOTES}){re.escape(run[0])}{{{len(run)},}}[ \t]*$", line)\n+    closing = re.match(rf"({_QUOTES}){re.escape(run[1])}{{{len(run)},}}[ \t]*$", line)
+# reason: equivalent on the grammar: a claim block begins a line and its first line is longer than two characters, so its next copy starts at least that far on and start + 2 finds the same copy
+research_vault/links.py::func/_protected_spans::-            start = text.find(block, start + 1)\n+            start = text.find(block, start + 2)
+# reason: equivalent on the grammar: the separator is read (rewrite_key) only when an alias exists; with none it is never used
+research_vault/links.py::func/_split_alias::-        return inner, "", None\n+        return inner, "XXXX", None
+# reason: equivalent on the grammar: _FRONTMATTER_OPEN matches `---` followed only by its line ending, so stripping \r\n, X or any whitespace leaves the same `---`
+research_vault/links.py::func/normalize::-        opening_line = text[: opening.end()].rstrip("\r\n")\n+        opening_line = text[: opening.end()].rstrip("XX\r\nXX")
+# reason: equivalent on the grammar: _FRONTMATTER_OPEN matches `---` followed only by its line ending, so stripping \r\n, X or any whitespace leaves the same `---`
+research_vault/links.py::func/normalize::-        opening_line = text[: opening.end()].rstrip("\r\n")\n+        opening_line = text[: opening.end()].rstrip(None)
 research_vault/lints.py::func/_body_bytes::-        return literature_notes.note_body(text).encode("utf-8")\n+        return literature_notes.note_body(text).encode("UTF-8")
 research_vault/lints.py::func/_body_bytes::-        text = (image.data or b"").decode("utf-8")\n+        text = (image.data or b"").decode("UTF-8")
 research_vault/lints.py::func/_claim_blocks::-            if continuation.startswith(("  > ", "  <!-- rv-selector")):\n+            if continuation.startswith(("  > ", "  <!-- RV-SELECTOR")):
 research_vault/lints.py::func/_claim_blocks::-            if continuation.startswith(("  > ", "  <!-- rv-selector")):\n+            if continuation.startswith(("  > ", "XX  <!-- rv-selectorXX")):
-research_vault/lints.py::func/_claim_blocks::-        blocks[match.group(1)] = "".join(block)\n+        blocks[match.group(1)] = "XXXX".join(block)
 research_vault/lints.py::func/_claim_blocks::-        match = ANCHOR.search(line.rstrip("\r\n"))\n+        match = ANCHOR.search(line.lstrip("\r\n"))
 research_vault/lints.py::func/_claim_blocks::-        match = ANCHOR.search(line.rstrip("\r\n"))\n+        match = ANCHOR.search(line.rstrip("XX\r\nXX"))
 research_vault/lints.py::func/_claim_blocks::-        match = ANCHOR.search(line.rstrip("\r\n"))\n+        match = ANCHOR.search(line.rstrip(None))
@@ -1440,17 +1502,20 @@ research_vault/markers.py::func/_write_note_text::-    with Path(path).open("w",
 # reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/markers.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.rsplit("#^", 1)[1]
 # reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
-research_vault/markers.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.split("#^", )[1]
-# reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/markers.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.split("#^", 2)[1]
 # reason: equivalent on the grammar: first_only is only read via a truthiness test (if first_only: break), and False and None are equally falsy
 research_vault/markers.py::func/clear_marker_for::-        if _rewrite_marker_lines(path, check, matcher, clear=True, first_only=False):\n+        if _rewrite_marker_lines(path, check, matcher, clear=True, first_only=None):
 research_vault/okf.py::func/_day_lines::-        _data, body = frontmatter.parse(day_file.read_text(encoding="utf-8"))\n+        _data, body = frontmatter.parse(day_file.read_text(encoding="UTF-8"))
 research_vault/okf.py::func/_day_lines::-        _data, body = frontmatter.parse(day_file.read_text(encoding="utf-8"))\n+        _data, body = frontmatter.parse(day_file.read_text(encoding=None))
-research_vault/okf.py::func/regenerate_log::-        body_lines.extend(["", f"## {day_file.stem}"])\n+        body_lines.extend(["XXXX", f"## {day_file.stem}"])
-research_vault/okf.py::func/regenerate_log::-        take = lines[:remaining] if remaining > 0 else []\n+        take = lines[:remaining] if remaining >= 0 else []
-research_vault/okf.py::func/regenerate_log::-    text = frontmatter.serialize({"type": "log"}) + "\n".join(body_lines) + "\n"\n+    text = frontmatter.serialize({"type": "log"}) + "XX\nXX".join(body_lines) + "\n"
 research_vault/okf.py::func/regenerate_log::-def regenerate_log(vault_root, tail_entries: int = 20) -> str:\n+def regenerate_log(vault_root, tail_entries: int = 21) -> str:
+# reason: equivalent on the grammar: at remaining == 0, lines[:0] is [], the else arm's value (predates Plan A: the same unreasoned survivor of regenerate_log, moved into render_log by Task 6)
+research_vault/okf.py::func/render_log::-        take = lines[:remaining] if remaining > 0 else []\n+        take = lines[:remaining] if remaining >= 0 else []
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/okf.py::func/write_log::-        "w", encoding="utf-8", newline=""\n+        "w", encoding="UTF-8", newline=""
+# reason: equivalent on POSIX: newline=None (the default when dropped) writes os.linesep for each "\n", and os.linesep is "\n" on Linux, where CI and WSL run; on Windows it would write "\r\n" and #210's byte comparison would refuse the file, which is why the source names newline=""
+research_vault/okf.py::func/write_log::-        "w", encoding="utf-8", newline=""\n+        "w", encoding="utf-8", newline=None
+# reason: equivalent on POSIX: newline=None (the default when dropped) writes os.linesep for each "\n", and os.linesep is "\n" on Linux, where CI and WSL run; on Windows it would write "\r\n" and #210's byte comparison would refuse the file, which is why the source names newline=""
+research_vault/okf.py::func/write_log::-        "w", encoding="utf-8", newline=""\n-    ) as handle:\n+        "w", encoding="utf-8", ) as handle:
 research_vault/outcome.py::func/_detached_extra::-                raise TypeError("Outcome extra mapping keys must be strings")\n+                raise TypeError("OUTCOME EXTRA MAPPING KEYS MUST BE STRINGS")
 research_vault/outcome.py::func/_detached_extra::-                raise TypeError("Outcome extra mapping keys must be strings")\n+                raise TypeError("XXOutcome extra mapping keys must be stringsXX")
 research_vault/outcome.py::func/_detached_extra::-                raise TypeError("Outcome extra mapping keys must be strings")\n+                raise TypeError("outcome extra mapping keys must be strings")
@@ -1526,11 +1591,11 @@ research_vault/propagate.py::func/apply::-    record.write_text(_canonical(docum
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/apply::-    record.write_text(_canonical(document), encoding="utf-8")\n+    record.write_text(_canonical(document), encoding=None)
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
-research_vault/propagate.py::func/lint_propagation::-                (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+                (relative, path.read_text(encoding="UTF-8", errors="surrogateescape"))
+research_vault/propagate.py::func/lint_propagation::-            text = path.read_text(encoding="utf-8", errors="surrogateescape")\n+            text = path.read_text(encoding="UTF-8", errors="surrogateescape")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
-research_vault/propagate.py::func/lint_propagation::-                (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+                (relative, path.read_text(encoding=None, errors="surrogateescape"))
+research_vault/propagate.py::func/lint_propagation::-            text = path.read_text(encoding="utf-8", errors="surrogateescape")\n+            text = path.read_text(encoding=None, errors="surrogateescape")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
-research_vault/propagate.py::func/lint_propagation::-                (relative, path.read_text(encoding="utf-8", errors="surrogateescape"))\n+                (relative, path.read_text(errors="surrogateescape"))
+research_vault/propagate.py::func/lint_propagation::-            text = path.read_text(encoding="utf-8", errors="surrogateescape")\n+            text = path.read_text(errors="surrogateescape")
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/propagate.py::func/plan::-            relative.encode("utf-8")\n+            relative.encode("UTF-8")
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
@@ -1593,6 +1658,12 @@ research_vault/propagate.py::func/write_plan::-    path.write_text(_canonical(_d
 research_vault/propagate.py::func/write_plan::-    path.write_text(_canonical(_document(plan)), encoding="utf-8")\n+    path.write_text(_canonical(_document(plan)), encoding="UTF-8")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/propagate.py::func/write_plan::-    path.write_text(_canonical(_document(plan)), encoding="utf-8")\n+    path.write_text(_canonical(_document(plan)), encoding=None)
+# reason: locale default: the text written is frontmatter.serialize of a one-key ASCII type block, so the platform codec and utf-8 write the same bytes; the keyword itself is pinned on the source by tests/test_okf.py::test_okf_write_text_sites_name_their_encoding (#170)
+research_vault/publish.py::func/_append_log::-        day.write_text(frontmatter.serialize({"type": "log"}), encoding="utf-8")\n+        day.write_text(frontmatter.serialize({"type": "log"}), )
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/publish.py::func/_append_log::-        day.write_text(frontmatter.serialize({"type": "log"}), encoding="utf-8")\n+        day.write_text(frontmatter.serialize({"type": "log"}), encoding="UTF-8")
+# reason: locale default: the text written is frontmatter.serialize of a one-key ASCII type block, so the platform codec and utf-8 write the same bytes; the keyword itself is pinned on the source by tests/test_okf.py::test_okf_write_text_sites_name_their_encoding (#170)
+research_vault/publish.py::func/_append_log::-        day.write_text(frontmatter.serialize({"type": "log"}), encoding="utf-8")\n+        day.write_text(frontmatter.serialize({"type": "log"}), encoding=None)
 research_vault/publish.py::func/_append_log::-    day.parent.mkdir(parents=True, exist_ok=True)\n+    day.parent.mkdir(exist_ok=True)
 research_vault/publish.py::func/_append_log::-    day.parent.mkdir(parents=True, exist_ok=True)\n+    day.parent.mkdir(parents=False, exist_ok=True)
 research_vault/publish.py::func/_append_log::-    day.parent.mkdir(parents=True, exist_ok=True)\n+    day.parent.mkdir(parents=None, exist_ok=True)
@@ -1746,6 +1817,12 @@ research_vault/quotes.py::func/levenshtein_ratio::-    if not a and not b:\n+   
 research_vault/quotes.py::func/levenshtein_ratio::-    previous = list(range(len(b) + 1))\n+    previous = list(range(len(b) + 2))
 research_vault/scaffold.py::func/_add_empty_root_sentinels::-            sentinel.touch(exist_ok=False)\n+            sentinel.touch(exist_ok=None)
 research_vault/scaffold.py::func/_add_empty_root_sentinels::-            sentinel.touch(exist_ok=False)\n+            sentinel.touch(exist_ok=True)
+# reason: equivalent on the grammar: every _EMPTY_ROOTS entry is one path component and its only caller, scaffold_vault, has _prepare_repository create the vault first, so the parent always exists and parents is never read
+research_vault/scaffold.py::func/_add_empty_root_sentinels::-        directory.mkdir(parents=True, exist_ok=True)\n+        directory.mkdir(exist_ok=True)
+# reason: equivalent on the grammar: every _EMPTY_ROOTS entry is one path component and its only caller, scaffold_vault, has _prepare_repository create the vault first, so the parent always exists and parents is never read
+research_vault/scaffold.py::func/_add_empty_root_sentinels::-        directory.mkdir(parents=True, exist_ok=True)\n+        directory.mkdir(parents=False, exist_ok=True)
+# reason: equivalent on the grammar: every _EMPTY_ROOTS entry is one path component and its only caller, scaffold_vault, has _prepare_repository create the vault first, so the parent always exists and parents is never read
+research_vault/scaffold.py::func/_add_empty_root_sentinels::-        directory.mkdir(parents=True, exist_ok=True)\n+        directory.mkdir(parents=None, exist_ok=True)
 research_vault/scaffold.py::func/_commit_created_paths::-        "--",
 research_vault/scaffold.py::func/_commit_created_paths::-        "--only",
 research_vault/scaffold.py::func/_commit_created_paths::-    _git(vault, "add", "--", *trackable)\n+    _git(vault, "add", *trackable)
@@ -1801,6 +1878,12 @@ research_vault/searchlog.py::func/_body::-        text = path.read_text(encoding
 research_vault/searchlog.py::func/_line_fields::-        raise SearchLogError(f"duplicate search-log field on line {number}: {line!r}")\n+        raise SearchLogError(None)
 research_vault/searchlog.py::func/_line_fields::-        raise SearchLogError(f"unparseable search-log line {number}: {line!r}")\n+        raise SearchLogError(None)
 research_vault/searchlog.py::func/_line_fields::-    if not fields or " ".join(field.group(0) for field in fields) != line[2:]:\n+    if not fields and " ".join(field.group(0) for field in fields) != line[2:]:
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/searchlog.py::func/_prepare_append::-            frontmatter.serialize({"type": SEARCH_LOG_TYPE}), encoding="utf-8"\n+            frontmatter.serialize({"type": SEARCH_LOG_TYPE}), encoding="UTF-8"
+# reason: locale default: the text written is frontmatter.serialize of a one-key ASCII type block, so the platform codec and utf-8 write the same bytes; the keyword itself is pinned on the source by tests/test_okf.py::test_okf_write_text_sites_name_their_encoding (#170)
+research_vault/searchlog.py::func/_prepare_append::-            frontmatter.serialize({"type": SEARCH_LOG_TYPE}), encoding="utf-8"\n+            frontmatter.serialize({"type": SEARCH_LOG_TYPE}), encoding=None
+# reason: locale default: the text written is frontmatter.serialize of a one-key ASCII type block, so the platform codec and utf-8 write the same bytes; the keyword itself is pinned on the source by tests/test_okf.py::test_okf_write_text_sites_name_their_encoding (#170)
+research_vault/searchlog.py::func/_prepare_append::-            frontmatter.serialize({"type": SEARCH_LOG_TYPE}), encoding="utf-8"\n-        )\n+            frontmatter.serialize({"type": SEARCH_LOG_TYPE}), )
 research_vault/searchlog.py::func/_prepare_append::-        path.parent.mkdir(parents=True, exist_ok=True)\n+        path.parent.mkdir(exist_ok=True)
 research_vault/searchlog.py::func/_prepare_append::-        path.parent.mkdir(parents=True, exist_ok=True)\n+        path.parent.mkdir(parents=False, exist_ok=True)
 research_vault/searchlog.py::func/_prepare_append::-        path.parent.mkdir(parents=True, exist_ok=True)\n+        path.parent.mkdir(parents=None, exist_ok=True)
@@ -1947,47 +2030,58 @@ research_vault/stamp.py::func/_write_text::-    with path.open("w", encoding="ut
 research_vault/stamp.py::func/_write_text::-    with path.open("w", encoding="utf-8", newline="") as handle:\n+    with path.open("w", encoding=None, newline="") as handle:
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/stamp.py::func/_write_text::-    with path.open("w", encoding="utf-8", newline="") as handle:\n+    with path.open("w", newline="") as handle:
-research_vault/structure.py::func/check_note_frontmatter::-                "okf-frontmatter",
+# reason: unreachable: the mutant is the return under the post-condition above, which never holds (its mutmut diff is at that line); the same text at stamp_text's reachable returns is killed by the fixer's `frontmatter is unparseable` tests
+research_vault/stamp.py::func/stamp_text::-            return None, "unparseable"\n+            return None, "UNPARSEABLE"
+# reason: unreachable: the mutant is the return under the post-condition above, which never holds (its mutmut diff is at that line); the same text at stamp_text's reachable returns is killed by the fixer's `frontmatter is unparseable` tests
+research_vault/stamp.py::func/stamp_text::-            return None, "unparseable"\n+            return None, "XXunparseableXX"
+# reason: equivalent on the grammar: an unreachable post-condition (Task 2's ledger note) — by this line the flat and OKF readers agree on the keys, checked above, and serialize quotes every string, so type reads back as derived and the key set as {type, *rest}; neither comparison is ever true
+research_vault/stamp.py::func/stamp_text::-        if reparsed.get("type") != derived or set(reparsed) != {"type", *rest}:\n+        if reparsed.get("type") != derived and set(reparsed) != {"type", *rest}:
+# reason: equivalent on the grammar: in_list is read only as a truthiness test, and None and False are both falsy
+research_vault/structure.py::func/_index_shape_problems::-            in_list = False\n+            in_list = None
+# reason: equivalent on the grammar: in_list is read only as a truthiness test, and None and False are both falsy
+research_vault/structure.py::func/_index_shape_problems::-    in_list = False\n+    in_list = None
+# reason: equivalent on the grammar: the day file is read with read_text, whose universal-newline decoding turns every "\r\n" and lone "\r" into "\n", so no line of body.split("\n") ends in "\r"
+research_vault/structure.py::func/check_log_dir::-            line = raw.removesuffix("\r")\n+            line = raw.removeprefix("\r")
+# reason: equivalent on the grammar: the day file is read with read_text, whose universal-newline decoding turns every "\r\n" and lone "\r" into "\n", so no line of body.split("\n") ends in "\r"
+research_vault/structure.py::func/check_log_dir::-            line = raw.removesuffix("\r")\n+            line = raw.removesuffix("XX\rXX")
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/structure.py::func/check_log_dir::-            text = child.read_text(encoding="utf-8")\n+            text = child.read_text(encoding="UTF-8")
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
+research_vault/structure.py::func/check_log_dir::-            text = child.read_text(encoding="utf-8")\n+            text = child.read_text(encoding=None)
+# reason: equivalent on the grammar: with a block, text begins with its opening "---", so text[0] is "-"; without one, body is text and the range is empty — a count from 1 sees the same newlines
+research_vault/structure.py::func/check_log_dir::-        first = text.count("\n", 0, len(text) - len(body)) + 1\n+        first = text.count("\n", 1, len(text) - len(body)) + 1
+# reason: equivalent on the grammar: str.count reads a None start as 0, the slice start it replaces
+research_vault/structure.py::func/check_log_dir::-        first = text.count("\n", 0, len(text) - len(body)) + 1\n+        first = text.count("\n", None, len(text) - len(body)) + 1
 research_vault/structure.py::func/check_note_frontmatter::-                "okf-frontmatter",\n+                "OKF-FRONTMATTER",
 research_vault/structure.py::func/check_note_frontmatter::-                "okf-frontmatter",\n+                "XXokf-frontmatterXX",
-research_vault/structure.py::func/check_note_frontmatter::-                "okf-frontmatter",\n+                None,
-research_vault/structure.py::func/check_note_frontmatter::-                Result.UNMATCHED,
-research_vault/structure.py::func/check_note_frontmatter::-                Result.UNMATCHED,\n+                None,
-research_vault/structure.py::func/check_note_frontmatter::-                _repo_path(relative),
-research_vault/structure.py::func/check_note_frontmatter::-                _repo_path(relative),\n+                None,
-research_vault/structure.py::func/check_note_frontmatter::-                _repo_path(relative),\n+                _repo_path(None),
-research_vault/structure.py::func/check_note_frontmatter::-                f"schema-violation — frontmatter unparseable ({error})",\n+                None,
-research_vault/structure.py::func/check_note_frontmatter::-                f"schema-violation — frontmatter unparseable ({error})",\n-            )\n+                )
-research_vault/structure.py::func/check_note_frontmatter::-        data, _body = frontmatter.parse(Path(path).read_text(encoding="utf-8"))\n+        data, _body = frontmatter.parse(Path(path).read_text(encoding="UTF-8"))
-research_vault/structure.py::func/check_note_frontmatter::-        data, _body = frontmatter.parse(Path(path).read_text(encoding="utf-8"))\n+        data, _body = frontmatter.parse(Path(path).read_text(encoding=None))
-research_vault/structure.py::func/check_reserved::-                    problems.append((relative, "missing okf_version"))\n+                    problems.append((relative, "MISSING OKF_VERSION"))
-research_vault/structure.py::func/check_reserved::-                    problems.append((relative, "missing okf_version"))\n+                    problems.append((relative, "XXmissing okf_versionXX"))
-research_vault/structure.py::func/check_reserved::-                    problems.append((relative, "missing okf_version"))\n+                    problems.append(None)
-research_vault/structure.py::func/check_reserved::-                "okf-structure",\n+                "OKF-STRUCTURE",
-research_vault/structure.py::func/check_reserved::-                "okf-structure",\n+                "XXokf-structureXX",
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/structure.py::func/check_note_frontmatter::-        data, _body = frontmatter.read_okf(Path(path).read_text(encoding="utf-8"))\n+        data, _body = frontmatter.read_okf(Path(path).read_text(encoding="UTF-8"))
+# reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
+research_vault/structure.py::func/check_note_frontmatter::-        data, _body = frontmatter.read_okf(Path(path).read_text(encoding="utf-8"))\n+        data, _body = frontmatter.read_okf(Path(path).read_text(encoding=None))
 research_vault/structure.py::func/check_reserved::-                continue\n+                break
-research_vault/structure.py::func/check_reserved::-                data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))\n+                data, _body = frontmatter.parse(path.read_text(encoding="UTF-8"))
-research_vault/structure.py::func/check_reserved::-                data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))\n+                data, _body = frontmatter.parse(path.read_text(encoding=None))
-research_vault/structure.py::func/check_reserved::-                if not str(data.get("okf_version", "")).strip():\n+                if not str(None).strip():
-research_vault/structure.py::func/check_reserved::-                if not str(data.get("okf_version", "")).strip():\n+                if not str(data.get("")).strip():
-research_vault/structure.py::func/check_reserved::-                if not str(data.get("okf_version", "")).strip():\n+                if not str(data.get("okf_version", "XXXX")).strip():
-research_vault/structure.py::func/check_reserved::-                if not str(data.get("okf_version", "")).strip():\n+                if not str(data.get("okf_version", )).strip():
-research_vault/structure.py::func/check_reserved::-                if not str(data.get("okf_version", "")).strip():\n+                if not str(data.get("okf_version", None)).strip():
 research_vault/structure.py::func/check_reserved::-                problems.append((relative, "nested index.md must be frontmatter-free"))\n+                problems.append((relative, "NESTED INDEX.MD MUST BE FRONTMATTER-FREE"))
 research_vault/structure.py::func/check_reserved::-                problems.append((relative, "nested index.md must be frontmatter-free"))\n+                problems.append((relative, "XXnested index.md must be frontmatter-freeXX"))
 research_vault/structure.py::func/check_reserved::-                problems.append((relative, f"unreadable ({error})"))\n+                problems.append(None)
-research_vault/structure.py::func/check_reserved::-                text = path.read_text(encoding="utf-8")\n+                text = path.read_text(encoding="UTF-8")
-research_vault/structure.py::func/check_reserved::-                text = path.read_text(encoding="utf-8")\n+                text = path.read_text(encoding=None)
 research_vault/structure.py::func/check_reserved::-            continue\n+            break
+# reason: equivalent on the grammar: every item sorted is already str(key), so key=str (spec §5.6's own fix, kept for the reader) orders them as the default does
+research_vault/structure.py::func/check_reserved::-            extra = sorted((str(key) for key in set(data) - {"okf_version"}), key=str)\n+            extra = sorted((str(key) for key in set(data) - {"okf_version"}), )
+# reason: equivalent on the grammar: every item sorted is already str(key), so key=str (spec §5.6's own fix, kept for the reader) orders them as the default does
+research_vault/structure.py::func/check_reserved::-            extra = sorted((str(key) for key in set(data) - {"okf_version"}), key=str)\n+            extra = sorted((str(key) for key in set(data) - {"okf_version"}), key=None)
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/structure.py::func/check_reserved::-            if raw != okf.render_log(vault).encode("utf-8"):\n+            if raw != okf.render_log(vault).encode("UTF-8"):
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/structure.py::func/check_reserved::-            text = raw.decode("utf-8")\n+            text = raw.decode("UTF-8")
 research_vault/structure.py::func/check_reserved::-    return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]\n+    return [Outcome("OKF-STRUCTURE", "reserved-files", Result.MATCHED, "matched")]
 research_vault/structure.py::func/check_reserved::-    return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]\n+    return [Outcome("XXokf-structureXX", "reserved-files", Result.MATCHED, "matched")]
-research_vault/structure.py::func/check_reserved::-    return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]\n+    return [Outcome("okf-structure", "RESERVED-FILES", Result.MATCHED, "matched")]
-research_vault/structure.py::func/check_reserved::-    return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]\n+    return [Outcome("okf-structure", "XXreserved-filesXX", Result.MATCHED, "matched")]
 research_vault/structure.py::func/check_tree::-            "tree", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"\n+            "TREE", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"
 research_vault/structure.py::func/check_tree::-            "tree", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"\n+            "XXtreeXX", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"
 research_vault/structure.py::func/check_tree::-            "tree", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"\n+            "tree", "VAULT", Result.UNMATCHED, f"schema-violation — missing {missing}"
 research_vault/structure.py::func/check_tree::-            "tree", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"\n+            "tree", "XXvaultXX", Result.UNMATCHED, f"schema-violation — missing {missing}"
 research_vault/structure.py::func/check_tree::-    missing = [d for d in scaffold.VAULT_DIRS if not (vault / d).is_dir()]\n+    missing = None
+# reason: equivalent on the grammar: [-1] on an rsplit("/", n) result names the same trailing segment for any n >= 1 or unbounded, so the maxsplit value never changes the answer
+research_vault/structure.py::func/is_reserved::-    return relative.rsplit("/", 1)[-1] in RESERVED_NAMES\n+    return relative.rsplit("/", )[-1] in RESERVED_NAMES
+# reason: equivalent on the grammar: [-1] on an rsplit("/", n) result names the same trailing segment for any n >= 1 or unbounded, so the maxsplit value never changes the answer
+research_vault/structure.py::func/is_reserved::-    return relative.rsplit("/", 1)[-1] in RESERVED_NAMES\n+    return relative.rsplit("/", 2)[-1] in RESERVED_NAMES
 research_vault/verify.py::func/_append_only_basis::-        return image.data or b"" if image is not None and image.kind == "file" else b""\n+        return image.data or b"XXXX" if image is not None and image.kind == "file" else b""
 research_vault/verify.py::func/_append_only_basis::-    return gitstate.blob_bytes(vault_root, "HEAD", raw_path) or b""\n+    return gitstate.blob_bytes(vault_root, "HEAD", raw_path) or b"XXXX"
 # reason: never-read-back literal: _rewrite_marker_lines's clear branch never reads date -- only the stamp branch's marker text does
@@ -2017,10 +2111,6 @@ research_vault/verify.py::func/_claim_anchor_hash::-    citation_key, claim_id =
 # reason: equivalent on the grammar: claims.CITE_RE's citation key is [A-Za-z0-9_.:-]+ and ANCHOR_RE's claim id is [A-Za-z0-9-]+ -- neither can contain "#^", so it occurs exactly once and split/rsplit/maxsplit variants agree
 research_vault/verify.py::func/_claim_anchor_hash::-    citation_key, claim_id = target.split("#^", 1)\n+    citation_key, claim_id = target.split("#^", 2)
 research_vault/verify.py::func/_effective::-            target_kind=outcome.target_kind,\n-        )\n+            )
-research_vault/verify.py::func/_note_bytes::-    return _without_own_marks(text).encode(errors="surrogateescape")\n+    return _without_own_marks(text).encode(errors="SURROGATEESCAPE")
-research_vault/verify.py::func/_note_bytes::-    return _without_own_marks(text).encode(errors="surrogateescape")\n+    return _without_own_marks(text).encode(errors="XXsurrogateescapeXX")
-research_vault/verify.py::func/_note_bytes::-    text = literature_notes.canonical_content(data.decode(errors="surrogateescape"))\n+    text = literature_notes.canonical_content(data.decode(errors="SURROGATEESCAPE"))
-research_vault/verify.py::func/_note_bytes::-    text = literature_notes.canonical_content(data.decode(errors="surrogateescape"))\n+    text = literature_notes.canonical_content(data.decode(errors="XXsurrogateescapeXX"))
 # reason: never-read-back literal: this synthetic outage row carries synthetic_offline=True, so it is excluded from authoritative (and therefore effective, hashes, genuine) before target is ever compared -- and report["outcomes"] itself (the raw list that still has the row) is never read back either: __main__.py's cmd_verify prints report["counts"] only (line 307), and its own per-outcome print loop walks effective, not outcomes
 research_vault/verify.py::func/_plan_state::-                "vault",\n+                "VAULT",
 # reason: never-read-back literal: this synthetic outage row carries synthetic_offline=True, so it is excluded from authoritative (and therefore effective, hashes, genuine) before target is ever compared -- and report["outcomes"] itself (the raw list that still has the row) is never read back either: __main__.py's cmd_verify prints report["counts"] only (line 307), and its own per-outcome print loop walks effective, not outcomes
