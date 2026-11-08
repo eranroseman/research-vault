@@ -250,7 +250,7 @@ def cmd_propagate(args):
             for old, new in planned.mapping.items():
                 if old not in planned.merges:
                     print(f"rename {old} → {new} (item {planned.item_keys[old]})")
-            for old, item_key in planned.merges.items():
+            for old, item_key in sorted(planned.merges.items()):
                 # From the hashed fields: the person approves the one removal
                 # a verb performs (ADR 0003's scope note of 2026-11-07).
                 removal = planned.removes.get(old)

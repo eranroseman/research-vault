@@ -2,10 +2,11 @@ import datetime
 import hashlib
 import json
 import os
+import subprocess
 
 import pytest
 
-from research_vault import Result, propagate, zotero
+from research_vault import Result, capture, gitstate, lints, propagate, zotero
 from research_vault.outcome import Outcome
 from tests.conftest import must_replace
 from tests.fakes import ITEM, FakeZotero, canned_item
@@ -1152,7 +1153,9 @@ def test_lint_reports_a_surface_it_cannot_read_and_judges_the_rest(
     )
 
 
-def _merge_fake(monkeypatch, *, survivor_has_note, citation_key="new2020"):
+def _merge_fake(
+    monkeypatch, *, survivor_has_note, citation_key="new2020", losers=("E352DFS8",)
+):
     """old2020 (E352DFS8) was merged into NEW00001, whose key is new2020."""
     fake = FakeZotero(server_id="S")
     survivor = {
@@ -1162,7 +1165,9 @@ def _merge_fake(monkeypatch, *, survivor_has_note, citation_key="new2020"):
             **ITEM["data"],
             "key": "NEW00001",
             "citationKey": citation_key,
-            "relations": {"dc:replaces": ["http://zotero.org/users/0/items/E352DFS8"]},
+            "relations": {
+                "dc:replaces": [f"http://zotero.org/users/0/items/{k}" for k in losers]
+            },
         },
     }
     canned_item(fake, item=survivor)
@@ -1171,7 +1176,10 @@ def _merge_fake(monkeypatch, *, survivor_has_note, citation_key="new2020"):
         body={"NEW00001": 600, "D7EJ9FTG": 551, "N0TE0001": 552},
         headers={"Last-Modified-Version": "600"},
     )
-    fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 545})
+    fake.get(
+        "/api/users/0/items/trash?format=versions",
+        body={key: 545 + i for i, key in enumerate(losers)},
+    )
     fake.get(
         "/api/users/0/items/top?format=json",
         body=[survivor],
@@ -1389,12 +1397,12 @@ def test_a_merge_into_the_losers_own_key_leaves_no_stale_key(tmp_vault, monkeypa
     ]
 
 
-def _stub_capture(monkeypatch, vault, row):
+def _stub_capture(monkeypatch, vault, *rows):
     seen = []
 
     def capture(_vault, _client, keys, **_kw):
         seen.append((list(keys), (vault / "literature" / "old2020.md").exists()))
-        return [row]
+        return list(rows)
 
     monkeypatch.setattr(propagate.capture, "capture", capture)
     return seen
@@ -1421,15 +1429,21 @@ def test_the_removal_unlinks_the_loser_and_never_renames_over_the_survivor(
 
 
 @pytest.mark.parametrize(
-    "row",
+    "rows",
     [
-        Outcome("capture", "new2020", Result.UNREACHABLE, "outage — refused"),
-        Outcome("capture", "new2020", Result.SKIPPED, "no-fulltext — none"),
+        [Outcome("capture", "new2020", Result.UNREACHABLE, "outage — refused")],
+        [Outcome("capture", "new2020", Result.SKIPPED, "no-fulltext — none")],
+        # A real capture that fails the survivor's render still reports the
+        # CSL bibliography it updated, MATCHED: that row is not the survivor's.
+        [
+            Outcome("capture", capture.CSL_TARGET, Result.MATCHED, "matched"),
+            Outcome("capture", "new2020", Result.UNMATCHED, "mismatch — refused"),
+        ],
     ],
-    ids=["outage", "no-render-row"],
+    ids=["outage", "no-render-row", "csl-row-only"],
 )
 def test_a_survivor_recapture_that_did_not_render_keeps_the_loser(
-    tmp_vault, monkeypatch, row
+    tmp_vault, monkeypatch, rows
 ):
     """P23: the scope note's condition is the survivor re-rendered in the
     same act; without capture's MATCHED row for it the loser's note stays,
@@ -1439,7 +1453,7 @@ def test_a_survivor_recapture_that_did_not_render_keeps_the_loser(
     _survivor_note(tmp_vault)
     client = _merge_fake(monkeypatch, survivor_has_note=True)
     planned, path, sha = _planned(tmp_vault, client, mapping=None)
-    _stub_capture(monkeypatch, tmp_vault, row)
+    _stub_capture(monkeypatch, tmp_vault, *rows)
     outcomes = propagate.apply(tmp_vault, client, path, sha)
     assert outcomes[-1] == Outcome(
         "propagation",
@@ -1478,3 +1492,125 @@ def test_plan_refuses_a_merge_onto_a_survivor_path_it_cannot_read_as_a_note(
     assert planned is None
     assert "is not item NEW00001's note" in outcomes[0].reason
     assert (tmp_vault / "literature" / "old2020.md").is_file()
+
+
+def _seed_second_loser(vault):
+    """old2021 (LOSER002), a second note merged into the same survivor."""
+    old2021 = vault / "literature" / "old2021.md"
+    old2021.write_text(_note("LOSER002", "old2021"))
+    (vault / "wiki" / "sources" / "C.md").write_text(
+        "---\ntype: source\n---\nSee [[old2021]].\n"
+    )
+    return old2021.read_bytes()
+
+
+def _two_loser_fake(monkeypatch):
+    return _merge_fake(
+        monkeypatch, survivor_has_note=False, losers=("E352DFS8", "LOSER002")
+    )
+
+
+def test_two_losers_into_a_note_less_survivor_plan_one_rename_and_one_removal(
+    tmp_vault, monkeypatch, capsys
+):
+    """P24: the first loser (sorted) is renamed onto the survivor's path, which
+    the plan then holds as occupied by the survivor-to-be; the second is a
+    planned, hashed, printed removal — never a rename over the first."""
+    _seed(tmp_vault)
+    _seed_second_loser(tmp_vault)
+    planned, outcomes = propagate.plan(tmp_vault, _two_loser_fake(monkeypatch), None)
+    assert planned is not None, outcomes
+    assert planned.mapping == {"old2020": "new2020", "old2021": "new2020"}
+    assert planned.removes == {"old2021": "literature/old2021.md"}
+    cli, _bases = _cli(monkeypatch, _two_loser_fake(monkeypatch))
+    assert cli.main(["propagate", "--vault", str(tmp_vault)]) == 0
+    assert capsys.readouterr().out.splitlines()[:2] == [
+        "merge old2020 → new2020 (item NEW00001)",
+        "merge old2021 → new2020 (item NEW00001); removes literature/old2021.md",
+    ]
+
+
+def test_two_losers_apply_renames_one_and_removes_the_other_after_the_render(
+    tmp_vault, monkeypatch
+):
+    """P24 (3): the survivor's note is its render, not old2021's bytes;
+    old2021.md goes only after a MATCHED recapture, `removed` names exactly
+    it, and the evidence-layer lint is silent on both notes that left."""
+    _seed(tmp_vault)
+    old2021 = _seed_second_loser(tmp_vault)
+    for args in (["add", "-A"], ["commit", "-q", "-m", "seed"]):
+        subprocess.run(["git", *args], cwd=tmp_vault, check=True, capture_output=True)
+    base = gitstate.snapshot_tree(tmp_vault, "HEAD")
+    client = _two_loser_fake(monkeypatch)
+    planned, path, sha = _planned(tmp_vault, client, mapping=None)
+    real = propagate.capture.capture
+    seen = []
+
+    def capture_(vault, client, keys, **kw):
+        seen.append((list(keys), (vault / "literature" / "old2021.md").exists()))
+        return real(vault, client, keys, **kw)
+
+    monkeypatch.setattr(propagate.capture, "capture", capture_)
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert all(o.result is Result.MATCHED for o in outcomes), outcomes
+    assert seen == [(["NEW00001"], True), (["NEW00001"], True)]
+    survivor = (tmp_vault / "literature" / "new2020.md").read_bytes()
+    assert survivor != old2021
+    assert b'zotero-item-key: "NEW00001"' in survivor
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
+    assert not (tmp_vault / "literature" / "old2021.md").exists()
+    record = json.loads(
+        (
+            tmp_vault / "system" / "propagations" / f"{planned.operation_id}.json"
+        ).read_text()
+    )
+    assert record["removed"] == ["literature/old2021.md"]
+    rows = lints.lint_evidence_layer(base, gitstate.snapshot_worktree(tmp_vault))
+    assert not [o for o in rows if o.reason == "drift — literature note deleted"], rows
+
+
+@pytest.mark.parametrize("shape", ["file", "dangling-symlink"])
+def test_apply_entry_never_renames_onto_an_existing_path(tmp_vault, monkeypatch, shape):
+    """P24 (2), the backstop: an entry not planned as a removal whose target
+    exists at rename time is refused; nothing moves, nothing is recaptured
+    or recorded as removed."""
+    _seed(tmp_vault)
+    target = tmp_vault / "literature" / "new2020.md"
+    if shape == "file":
+        target.write_text(_note("NEW00001", "new2020"))
+    else:
+        target.symlink_to(tmp_vault / "nowhere.md")
+    loser = (tmp_vault / "literature" / "old2020.md").read_bytes()
+    seen = _stub_capture(monkeypatch, tmp_vault)
+    approved = propagate.Plan(
+        "propagate-20261024T100000Z",
+        "2026-10-24",
+        {"old2020": "new2020"},
+        {"old2020": "NEW00001"},
+        {"old2020": "NEW00001"},
+        {},
+        (),
+    )
+    document = {"removed": [], "moved": {}}
+    outcomes = propagate._apply_entry(
+        tmp_vault,
+        None,
+        approved,
+        "old2020",
+        "new2020",
+        tmp_vault / "literature" / "old2020.md",
+        document,
+    )
+    assert outcomes == [
+        Outcome(
+            "propagation",
+            "old2020",
+            Result.UNMATCHED,
+            "schema-violation — literature/new2020.md already exists; "
+            "nothing is renamed over it",
+        )
+    ]
+    assert seen == []
+    assert document == {"removed": [], "moved": {}}
+    assert (tmp_vault / "literature" / "old2020.md").read_bytes() == loser
+    assert target.is_symlink() == (shape == "dangling-symlink")

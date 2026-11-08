@@ -947,13 +947,11 @@ _RECORD_PREFIX = b"system/propagations/"
 def _merge_removals(
     base_snapshot: gitstate.Snapshot, candidate_snapshot: gitstate.Snapshot
 ) -> set[bytes]:
-    """Note paths an applied propagation record says it removed (#183).
+    """Merge-loser note paths an applied propagation record says left (#183).
 
-    A path counts when the record's `removed` (what apply did) names it and
-    the approved plan's `removes` (what the person approved) does too; a
-    planned removal apply withheld, because the survivor's recapture failed,
-    is in `removes` only. Only a record this diff adds counts: `propagate apply` writes it in the
-    same act that removes the loser's note, and records are write-once
+    Which paths count is `_departures`. Only a record this diff adds counts:
+    `propagate apply` writes it in the same act that removes or moves the
+    loser's note, and records are write-once
     (`_is_append_only_path`), so a record already in the base attests no later
     deletion — a different item may hold the freed key by then. The record is
     read as `lint_propagation` reads one (`propagate.plan_from_document`, flat
@@ -978,19 +976,42 @@ def _merge_removals(
             record = propagate.plan_from_document(document, raw_path)
         except (UnicodeDecodeError, ValueError, KeyError, TypeError):
             continue
-        removed = document.get("removed")
-        if (
-            isinstance(document.get("applied_at"), str)
-            and isinstance(document.get("approved_plan_sha256"), str)
-            and isinstance(removed, list)
+        if isinstance(document.get("applied_at"), str) and isinstance(
+            document.get("approved_plan_sha256"), str
         ):
-            approved = set(record.removes.values())
-            removals.update(
-                os.fsencode(path)
-                for path in removed
-                if isinstance(path, str) and path in approved
-            )
+            removals.update(_departures(document, record, candidate_snapshot))
     return removals
+
+
+def _departures(document: dict, record, candidate_snapshot) -> set[bytes]:
+    """The loser notes one applied record accounts for.
+
+    `removed` (what apply did) counts where the approved plan's `removes`
+    (what the person approved) names it too; a planned removal apply
+    withheld, because the survivor's recapture failed, is in `removes` only.
+    `moved` counts where it lands on a merge's survivor path the candidate
+    holds: renamed and recaptured as the survivor, the note changed identity,
+    so no pairing of the two paths can see the rename.
+    """
+    removed = document.get("removed")
+    moved = document.get("moved")
+    approved = set(record.removes.values())
+    paths = {
+        path
+        for path in (removed if isinstance(removed, list) else [])
+        if isinstance(path, str) and path in approved
+    }
+    survivors = {
+        f"literature/{record.mapping[old]}.md"
+        for old in record.merges
+        if old in record.mapping
+    }
+    paths.update(
+        source
+        for source, target in (moved.items() if isinstance(moved, dict) else [])
+        if target in survivors and os.fsencode(target) in candidate_snapshot.images
+    )
+    return {os.fsencode(path) for path in paths}
 
 
 def lint_evidence_layer(

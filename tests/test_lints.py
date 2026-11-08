@@ -2150,3 +2150,56 @@ def test_a_record_already_in_the_base_attests_no_later_deletion(fixture_vault):
     base = _base_tree(fixture_vault)
     (fixture_vault / "literature" / "gone2019.md").unlink()
     assert _gone_deleted(_evidence_rows(fixture_vault, base))
+
+
+@pytest.mark.parametrize(
+    ("overrides", "attested"),
+    [
+        pytest.param({}, True, id="moved-onto-the-survivor"),
+        pytest.param(
+            {"mapping": {"gone2019": "other2019"}}, False, id="not-the-survivors-path"
+        ),
+        pytest.param({"merges": {}}, False, id="not-a-merge"),
+        pytest.param(
+            {"moved": ["literature/gone2019.md"]}, False, id="moved-not-an-object"
+        ),
+        pytest.param({"applied_at": None}, False, id="never-applied"),
+    ],
+)
+def test_a_merge_losers_rename_is_attested_by_the_records_moved(
+    fixture_vault, overrides, attested
+):
+    """P24: a merge loser renamed onto the survivor's path and recaptured as
+    the survivor changes identity, so no pairing sees the rename; the record's
+    `moved` accounts for the old path when it lands on a merge's survivor."""
+    base = _base_tree(fixture_vault)
+    record = _merge_record(
+        removes={},
+        removed=[],
+        moved={"literature/gone2019.md": "literature/smith2020.md"},
+    )
+    record.update(overrides)
+    _write_merge_record(
+        fixture_vault, json.dumps({k: v for k, v in record.items() if v is not None})
+    )
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+    assert _gone_deleted(_evidence_rows(fixture_vault, base)) is not attested
+
+
+def test_a_move_onto_a_survivor_path_the_candidate_lacks_attests_nothing(
+    fixture_vault,
+):
+    base = _base_tree(fixture_vault)
+    _write_merge_record(
+        fixture_vault,
+        json.dumps(
+            _merge_record(
+                removes={},
+                removed=[],
+                moved={"literature/gone2019.md": "literature/smith2020.md"},
+            )
+        ),
+    )
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+    (fixture_vault / "literature" / "smith2020.md").unlink()
+    assert _gone_deleted(_evidence_rows(fixture_vault, base))

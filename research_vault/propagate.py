@@ -136,33 +136,39 @@ def _targets(mapping: dict[str, str], merges: dict[str, str]) -> dict[str, str]:
     return targets
 
 
-def _read_provenance(path: Path) -> literature_notes.Provenance | None:
-    if path.is_symlink():
+def _holder(target: Path) -> tuple[str, str] | None:
+    """``(item key, server id)`` of the note at ``target``, or None."""
+    if target.is_symlink():
         return None
     try:
-        return literature_notes.read_provenance(path.read_text(encoding="utf-8"))
+        held = literature_notes.read_provenance(target.read_text(encoding="utf-8"))
     except (OSError, UnicodeError):
         return None
+    return None if held is None else (held.item_key, held.server_id)
 
 
 def _occupied_refusal(
-    old: str, new: str, target: Path, server_id: str, survivor: str | None
+    old: str,
+    new: str,
+    held: tuple[str, str] | None,
+    server_id: str,
+    survivor: str | None,
 ) -> Outcome | None:
-    """Why ``old``'s note may not land on the existing ``target``, or None.
+    """Why ``old``'s note may not land on the occupied target, or None.
 
     ADR 0003: no transition deletes a literature note, and a POSIX rename over
     an existing file replaces it silently — a dangling symlink too, which
     exists() would not see. A merge is the one exception (ADR 0003's scope
     note of 2026-11-07): apply removes the loser's note, never the target, and
-    only when the target is the survivor's own note in the same database —
-    an unrelated note at that path would be recaptured over and lost.
+    only when ``held`` — the target's note, or the earlier entry of this plan
+    that claimed it — is the survivor's own in the same database; an
+    unrelated note at that path would be recaptured over and lost.
     """
     if survivor is None:
         return _refusal(
             old, f"literature/{new}.md already exists; nothing is renamed over it"
         )
-    held = _read_provenance(target)
-    if held is None or held.item_key != survivor or held.server_id != server_id:
+    if held != (survivor, server_id):
         return _refusal(
             old,
             f"literature/{new}.md is not item {survivor}'s note; "
@@ -290,7 +296,12 @@ def plan(
     sources, outcomes = _sources(vault, targets)
     item_keys: dict[str, str] = {}
     removes: dict[str, str] = {}
-    for old, new in targets.items():
+    # Target name -> (item key, server id) of the entry that will hold it.
+    # Sorted, so apply walks the same order: a later loser for a path an
+    # earlier entry claims (two losers, one note-less survivor) finds it
+    # occupied by the survivor-to-be, and is a removal, not a rename over it.
+    claimed: dict[str, tuple[str, str]] = {}
+    for old, new in sorted(targets.items()):
         if old not in sources:
             continue
         source, provenance = sources[old]
@@ -302,14 +313,22 @@ def plan(
             continue
         # The note already sitting at its target (a re-run after a partial
         # apply) is not occupied: no rename.
-        if source.name != target.name and (target.exists() or target.is_symlink()):
+        held = claimed.get(target.name)
+        if source.name != target.name and (
+            held is not None or target.exists() or target.is_symlink()
+        ):
             refusal = _occupied_refusal(
-                old, new, target, provenance.server_id, merges.get(old)
+                old,
+                new,
+                held or _holder(target),
+                provenance.server_id,
+                merges.get(old),
             )
             if refusal is not None:
                 outcomes.append(refusal)
                 continue
             removes[old] = f"literature/{source.name}"
+        claimed.setdefault(target.name, (item_key, provenance.server_id))
         # The mapping is verified against Zotero whatever its source: the note's
         # item must carry the new name live. A name nobody in the library holds
         # (a --map typo) is refused here, before it can become a rename; the
@@ -422,9 +441,20 @@ def rewrite_surfaces(vault_root, old: str, new: str) -> list[str]:
 
 
 def _apply_entry(
-    vault: Path, client, approved: Plan, old: str, new: str, source: Path
-) -> tuple[list[Outcome], str | None]:
-    """One entry of an approved plan: its outcomes, and the path it removed.
+    vault: Path,
+    client,
+    approved: Plan,
+    old: str,
+    new: str,
+    source: Path,
+    document: dict,
+) -> list[Outcome]:
+    """One entry of an approved plan; what it did joins the record ``document``.
+
+    A rename never lands on an existing path or symlink, whatever the plan
+    said (P24's backstop): the entry is refused and nothing moves. A merge's
+    rename is recorded under ``moved``: the note changes identity with it, so
+    the evidence-layer lint cannot pair the two paths and reads the record.
 
     A planned removal (§5.3.6) waits for the survivor's recapture: the scope
     note's condition is that the survivor's note is re-rendered in the same
@@ -436,7 +466,16 @@ def _apply_entry(
     removal = approved.removes.get(old)
     target = literature_notes.note_path(vault, new)
     if source.name != target.name and removal is None:
+        if target.exists() or target.is_symlink():
+            return [
+                _refusal(
+                    old,
+                    f"literature/{new}.md already exists; nothing is renamed over it",
+                )
+            ]
         source.rename(target)
+        if old in approved.merges:
+            document["moved"][f"literature/{source.name}"] = f"literature/{target.name}"
     changed = rewrite_surfaces(vault, old, new) if old != new else []
     recapture = capture.capture(vault, client, [approved.item_keys[old]])
     outcomes = [
@@ -449,7 +488,7 @@ def _apply_entry(
     ]
     outcomes.extend(o for o in recapture if o.result is not Result.MATCHED)
     if removal is None:
-        return outcomes, None
+        return outcomes
     if not any(o.result is Result.MATCHED and o.target == new for o in recapture):
         outcomes.append(
             Outcome(
@@ -460,9 +499,10 @@ def _apply_entry(
                 "recapture did not match; run propagate again",
             )
         )
-        return outcomes, None
+        return outcomes
     source.unlink()
-    return outcomes, removal
+    document["removed"].append(removal)
+    return outcomes
 
 
 def apply(
@@ -514,23 +554,23 @@ def apply(
     sources, refused = _sources(vault, targets)
     if refused:
         return refused
-    outcomes = []
-    removed: list[str] = []
-    for old, new in targets.items():
-        entry, removal = _apply_entry(
-            vault, client, approved, old, new, sources[old][0]
-        )
-        outcomes.extend(entry)
-        removed.extend([removal] if removal else [])
-    record = vault / RECORD_DIR / f"{approved.operation_id}.json"
-    record.parent.mkdir(parents=True, exist_ok=True)
-    # The approved plan verbatim, then what applying it did: `removed` is the
-    # removals that happened, which the evidence-layer lint reads; a planned
-    # one whose recapture failed is in `removes` only.
+    # The approved plan verbatim, then what applying it did, which the
+    # evidence-layer lint reads: `removed`, the removals that happened (a
+    # planned one whose recapture failed is in `removes` only), and `moved`,
+    # each merge loser's note renamed onto the survivor's path.
     document = _document(approved)
     document["applied_at"] = now.replace(microsecond=0).isoformat()
     document["approved_plan_sha256"] = approved_sha256
-    document["removed"] = sorted(removed)
+    document["removed"] = []
+    document["moved"] = {}
+    outcomes = []
+    for old, new in sorted(targets.items()):
+        outcomes.extend(
+            _apply_entry(vault, client, approved, old, new, sources[old][0], document)
+        )
+    document["removed"].sort()
+    record = vault / RECORD_DIR / f"{approved.operation_id}.json"
+    record.parent.mkdir(parents=True, exist_ok=True)
     record.write_text(_canonical(document), encoding="utf-8")
     return outcomes
 
