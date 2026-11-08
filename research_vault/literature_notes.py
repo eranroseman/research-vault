@@ -37,6 +37,9 @@ SNAPSHOT_FIELDS: tuple[str, ...] = (
     "creators",
     "date",
     "DOI",
+    # #185: Zotero 10's native identifier fields, under Zotero's names.
+    "PMID",
+    "PMCID",
     "url",
     "publicationTitle",
     "volume",

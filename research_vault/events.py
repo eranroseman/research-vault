@@ -255,9 +255,14 @@ def _extra_lines(value) -> list[str]:
 
 def _applicable_note_checks(data: dict) -> set[str]:
     has_doi = bool(data.get("DOI") or data.get("doi"))
-    has_pmid = bool(data.get("pmid")) or any(
-        line.strip().upper().startswith("PMID:")
-        for line in _extra_lines(data.get("extra"))
+    # #185: the native field first; the Extra line is the pre-Zotero-10 spelling.
+    has_pmid = (
+        bool(data.get("PMID"))
+        or bool(data.get("pmid"))
+        or any(
+            line.strip().upper().startswith("PMID:")
+            for line in _extra_lines(data.get("extra"))
+        )
     )
     return {"update-notice"} if has_doi or has_pmid else set()
 

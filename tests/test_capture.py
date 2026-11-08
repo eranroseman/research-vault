@@ -1609,3 +1609,12 @@ def test_standing_by_item_key_keys_an_unjoined_target_by_itself():
     ]
     standing = capture._standing_by_item_key(linted, {})
     assert standing == {"unjoined-key": linted[0]}
+
+
+def test_add_accepts_the_native_identifier_fields():
+    assert (
+        capture._validate_items(
+            [{"itemType": "journalArticle", "PMID": "1", "PMCID": "PMC1"}]
+        )
+        is None
+    )

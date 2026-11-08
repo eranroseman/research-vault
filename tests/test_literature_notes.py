@@ -844,3 +844,28 @@ def test_duplicate_capture_fields_lists_every_repeated_machine_owned_key_sorted(
     single, _ = frontmatter.parse('---\ntitle: "a"\nhuman: "x"\nhuman: "y"\n---\n')
     assert literature_notes.duplicate_capture_fields(single) == []
     assert literature_notes.duplicate_capture_fields({}) == []
+
+
+def test_snapshot_carries_zoteros_native_identifier_fields():
+    """#185: Zotero 10 carries PMID and PMCID as fields; the snapshot copies
+    them under Zotero's own names, beside DOI, and the trust tier sees them."""
+    fields = dict(
+        literature_notes.snapshot(
+            {
+                "itemType": "journalArticle",
+                "title": "T",
+                "PMID": "28503678",
+                "PMCID": "PMC5428074",
+            }
+        )
+    )
+    assert fields["PMID"] == "28503678"
+    assert fields["PMCID"] == "PMC5428074"
+    assert (
+        literature_notes.SNAPSHOT_FIELDS.index("PMID")
+        == literature_notes.SNAPSHOT_FIELDS.index("DOI") + 1
+    )
+    assert (
+        literature_notes.SNAPSHOT_FIELDS.index("PMCID")
+        == literature_notes.SNAPSHOT_FIELDS.index("DOI") + 2
+    )

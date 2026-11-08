@@ -14,7 +14,7 @@ In every command, `PATH` is the vault and `KEY` is either the Zotero item key (e
 
 ## 1. Add: `add`
 
-When the item is not in Zotero yet and the person has asked you to add it, write a Zotero item JSON file — `itemType` plus any of the snapshot fields (`title`, `creators`, `date`, `DOI`, `url`, `publicationTitle`, `volume`, `issue`, `pages`, `publisher`, `ISBN`, `language`, `abstractNote`, `extra`, `accessDate`, `tags`) — and run:
+When the item is not in Zotero yet and the person has asked you to add it, write a Zotero item JSON file — `itemType` plus any of the snapshot fields (`title`, `creators`, `date`, `DOI`, `PMID`, `PMCID`, `url`, `publicationTitle`, `volume`, `issue`, `pages`, `publisher`, `ISBN`, `language`, `abstractNote`, `extra`, `accessDate`, `tags`) — and run:
 
 ```sh
 python3 -m research_vault add --vault PATH --item ITEM.json [--collection COLLECTION_KEY]

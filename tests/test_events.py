@@ -549,6 +549,8 @@ def test_foreign_human_event_without_check_stays_unverified():
         ({"doi": "10.1000/xyz"}, {"update-notice"}),
         ({"extra": ["PMID: 28503678", "PMCID: PMC5428074"]}, {"update-notice"}),
         ({"extra": "PMID: 28503678"}, {"update-notice"}),
+        ({"PMID": "28503678"}, {"update-notice"}),
+        ({"PMCID": "PMC5428074"}, set()),
         ({"title": "no identifiers"}, set()),
     ],
 )
