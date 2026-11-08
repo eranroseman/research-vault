@@ -1771,3 +1771,25 @@ def test_a_backstop_refused_entry_leaves_no_stale_key(tmp_vault, monkeypatch):
         o for o in propagate.lint_propagation(tmp_vault) if "stale-key" in o.reason
     ]
     assert not [o for o in stale if "other2020" in o.reason], stale
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads everything")
+def test_lint_judges_every_surface_after_one_it_cannot_read(tmp_vault, monkeypatch):
+    """The unreadable surface sorts first here: its row does not end the
+    walk, and the residue after it is still reported."""
+    _seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    _planned_plan, path, digest = _planned(tmp_vault, client)
+    propagate.apply(tmp_vault, client, path, digest)
+    unreadable = tmp_vault / "projects" / "brief" / "a.md"
+    unreadable.write_text("x\n")
+    (tmp_vault / "projects" / "brief" / "draft.md").write_text("[[old2020]]\n")
+    unreadable.chmod(0)
+    try:
+        rows = propagate.lint_propagation(tmp_vault)
+    finally:
+        unreadable.chmod(0o644)
+    assert [(row.target, row.reason.split(" — ")[0]) for row in rows] == [
+        ("path-bytes:projects/brief/a.md", "outage"),
+        ("path-bytes:projects/brief/draft.md", "stale-key"),
+    ]
