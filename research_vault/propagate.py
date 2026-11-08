@@ -435,7 +435,7 @@ def plan(
 
 
 def _document(plan: Plan) -> dict:
-    return {
+    document = {
         "schema": SCHEMA,
         "operation_id": plan.operation_id,
         "date": plan.date,
@@ -443,9 +443,13 @@ def _document(plan: Plan) -> dict:
         "item_keys": dict(plan.item_keys),
         "merges": dict(plan.merges),
         "removes": dict(plan.removes),
-        "removes_sha256": dict(plan.removes_sha256),
         "surfaces": [surface._asdict() for surface in plan.surfaces],
     }
+    # Only when a removal binds bytes (P51): a plan with none keeps the shape,
+    # and so the hash, a release before P39 printed for it.
+    if plan.removes_sha256:
+        document["removes_sha256"] = dict(plan.removes_sha256)
+    return document
 
 
 def _canonical(document: dict) -> str:
@@ -476,7 +480,9 @@ def plan_from_document(data, source) -> Plan:
         # Absent from a document written before #183: a re-key.
         dict(data.get("merges", {})),
         dict(data.get("removes", {})),
-        # Absent from a document written before P39.
+        # Absent from a plan with no removal, and from a document written
+        # before P39: that document still hashes to its printed hash, and one
+        # with a removal recomputes to `plan changed` at apply (P51).
         dict(data.get("removes_sha256", {})),
         tuple(Surface(str(s["path"]), str(s["sha256"])) for s in data["surfaces"]),
     )
@@ -575,25 +581,24 @@ def _apply_entry(
         return outcomes
     source.unlink()
     document["removed"].append(removal)
-    return outcomes + _drop_entry(vault, old)
+    return outcomes + _drop_orphaned_entries(vault)
 
 
-def _drop_entry(vault: Path, key: str) -> list[Outcome]:
-    """P36: the removed loser's bibliography entry goes with its note
-    (§5.3.7). The survivor's recapture wrote the file while the loser's note
-    still stood, so its entry was kept then."""
+def _drop_orphaned_entries(vault: Path) -> list[Outcome]:
+    """P36, P49: after a removal, the bibliography keeps only the entries a
+    remaining note holds, by capture's own keep set (P37). The survivor's
+    recapture wrote the file while the loser's note still stood, so the
+    loser's entry was kept then; in an identity merge the survivor holds the
+    loser's key, and its entry stays."""
     try:
         entries = bibliography.load(vault)
-        if key in entries:
-            bibliography.update(vault, {}, keep=set(entries) - {key})
+        keep = capture._captured_keys(vault)
+        if set(entries) - keep:
+            bibliography.update(vault, {}, keep=keep)
     except bibliography.BibliographyError as error:
+        code = "outage" if error.result is Result.UNREACHABLE else "schema-violation"
         return [
-            Outcome(
-                CHECK,
-                bibliography.BIB_PATH,
-                Result.UNMATCHED,
-                f"schema-violation — {error}",
-            )
+            Outcome(CHECK, bibliography.BIB_PATH, error.result, f"{code} — {error}")
         ]
     return []
 

@@ -1920,9 +1920,23 @@ def test_a_merge_removal_drops_only_the_losers_bibliography_entry(
     assert bib["new2020"] == {"id": "new2020", "title": "T"}
 
 
+@pytest.mark.parametrize(
+    ("broken", "result", "reason"),
+    [
+        (
+            b"{not json",
+            Result.UNMATCHED,
+            "schema-violation — bibliography has invalid JSON or schema",
+        ),
+        (b"\xff", Result.UNREACHABLE, "outage — bibliography is unreadable"),
+    ],
+    ids=["invalid", "unreadable"],
+)
 def test_a_removal_whose_bibliography_is_invalid_says_so_and_keeps_the_file(
-    tmp_vault, monkeypatch
+    tmp_vault, monkeypatch, broken, result, reason
 ):
+    """G10: the row carries bibliography's own verdict, an outage for a file
+    it could not read, and the file is left as it stands."""
     _seed(tmp_vault)
     _survivor_note(tmp_vault)
     client = _merge_fake(monkeypatch, survivor_has_note=True)
@@ -1931,19 +1945,16 @@ def test_a_removal_whose_bibliography_is_invalid_says_so_and_keeps_the_file(
 
     def capture_then_break(vault, client_, keys, **kw):
         rows = real_capture(vault, client_, keys, **kw)
-        (vault / "system" / "bibliography.json").write_bytes(b"{not json")
+        (vault / "system" / "bibliography.json").write_bytes(broken)
         return rows
 
     monkeypatch.setattr(propagate.capture, "capture", capture_then_break)
     outcomes = propagate.apply(tmp_vault, client, path, sha)
     assert outcomes[-1] == Outcome(
-        "propagation",
-        "system/bibliography.json",
-        Result.UNMATCHED,
-        "schema-violation — bibliography has invalid JSON or schema",
+        "propagation", "system/bibliography.json", result, reason
     )
     assert not (tmp_vault / "literature" / "old2020.md").exists()
-    assert (tmp_vault / "system" / "bibliography.json").read_bytes() == b"{not json"
+    assert (tmp_vault / "system" / "bibliography.json").read_bytes() == broken
 
 
 def test_a_removal_binds_the_losers_bytes_and_apply_refuses_when_they_moved(
@@ -2016,6 +2027,21 @@ def test_an_identity_merge_behind_the_survivors_older_note_names_the_hand_step(
     assert not [
         o for o in propagate.lint_propagation(tmp_vault) if o.result is Result.UNMATCHED
     ]
+    # P49 (G1/G2): the loser's removal keeps the survivor's entry, which now
+    # sits under the loser's own key.
+    from research_vault import bibliography, captured
+
+    bib = bibliography.load(tmp_vault)
+    assert sorted(bib) == ["old2020"]
+    assert _csl_sha((literature / "old2020.md").read_text()) == (
+        bibliography.entry_sha256(bib["old2020"])
+    )
+    # The seed's own `[[older2020]]` (a link to no note) is its only row.
+    assert [
+        str(o.target)
+        for o in captured.lint_captured_set(tmp_vault)
+        if o.result is Result.UNMATCHED and "[[older2020]]" not in o.reason
+    ] == []
 
 
 def test_cli_propagate_files_each_runs_tags_summary_as_its_own_record(
@@ -2061,3 +2087,51 @@ def test_cli_propagate_files_each_runs_tags_summary_as_its_own_record(
     ]
     assert len(summaries) == 2
     assert len({f.target_hash for f in summaries}) == 2
+
+
+def _pre_p39_plan(vault, planned):
+    """The plan document as a release before P39 wrote it: no `removes_sha256`,
+    hashed as it was printed then."""
+    document = {
+        "schema": propagate.SCHEMA,
+        "operation_id": planned.operation_id,
+        "date": planned.date,
+        "mapping": dict(planned.mapping),
+        "item_keys": dict(planned.item_keys),
+        "merges": dict(planned.merges),
+        "removes": dict(planned.removes),
+        "surfaces": [s._asdict() for s in planned.surfaces],
+    }
+    text = propagate._canonical(document)
+    path = vault / propagate.PLAN_DIR / "pre-p39.json"
+    path.write_text(text, encoding="utf-8")
+    return path, hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def test_a_plan_approved_before_p39_still_applies(tmp_vault, monkeypatch):
+    """P51 (G6/G9/G12/G19): a plan with no removal omits `removes_sha256`, so
+    a document written before P39 re-hashes to the hash printed for it and
+    applies."""
+    _seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    planned, written, sha = _planned(tmp_vault, client)
+    assert "removes_sha256" not in json.loads(written.read_text())
+    path, old_sha = _pre_p39_plan(tmp_vault, planned)
+    assert old_sha == sha
+    monkeypatch.setattr(propagate.capture, "capture", lambda *_a, **_k: [])
+    outcomes = propagate.apply(tmp_vault, client, path, old_sha)
+    assert all(o.result is Result.MATCHED for o in outcomes), outcomes
+    assert (tmp_vault / "literature" / "new2020.md").is_file()
+
+
+def test_a_removal_approved_before_p39_is_planned_again(tmp_vault, monkeypatch):
+    """P51: a pre-P39 removal never bound the loser's bytes, so its recompute
+    differs and apply says `plan changed`, never that the hash is wrong."""
+    _seed(tmp_vault)
+    _survivor_note(tmp_vault)
+    client = _merge_fake(monkeypatch, survivor_has_note=True)
+    planned, _written, _sha = _planned(tmp_vault, client, mapping=None)
+    path, old_sha = _pre_p39_plan(tmp_vault, planned)
+    (refused,) = propagate.apply(tmp_vault, client, path, old_sha)
+    assert refused.reason.startswith("mismatch — plan changed")
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
