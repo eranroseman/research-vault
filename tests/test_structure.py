@@ -942,3 +942,88 @@ def test_the_text_layer_folder_is_one_name_in_every_module_that_spells_it():
 
     assert structure._FULLTEXT_DIR == fulltext.FULLTEXT_DIR
     assert frozenset({fulltext.FULLTEXT_DIR}) == stamp._SKIP_DIRS
+
+
+@pytest.mark.parametrize(
+    ("body", "problems"),
+    [
+        # A continuation needs a list entry above it and leading whitespace.
+        ("# P\n\n- [d](d.md)\n x\n", []),
+        ("# P\n\n- [d](d.md)\nXtra\n", ["'Xtra'"]),
+        ("# P\n\n- [d](d.md)\na b\n", ["'a b'"]),
+        ("  first\n", ["'first'"]),
+    ],
+    ids=["one-space-continuation", "unindented", "space-second", "indented-first"],
+)
+def test_index_shape_reads_a_continuation_only_under_a_list_entry(body, problems):
+    assert structure._index_shape_problems(body) == [
+        f"index body line is neither a heading nor a list entry: {quoted}"
+        for quoted in problems
+    ]
+
+
+def test_log_dir_judges_the_day_files_after_one_it_cannot_decode(tmp_path):
+    _scaffold_min(tmp_path)
+    (tmp_path / "log" / "2026-10-01.md").write_bytes(b'---\ntype: "log"\n---\n\xff\n')
+    _write(tmp_path, "log/2026-10-02.md", '---\ntype: "log"\n---\n- hand-typed\n')
+    assert [(o.target, o.reason) for o in structure.check_log_dir(tmp_path)] == [
+        (
+            "path-bytes:log/2026-10-02.md",
+            "schema-violation — line 4 is not in the writer's format: '- hand-typed'",
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("relative", "text", "reason"),
+    [
+        ("index.md", "---\n# no keys\n---\n", "missing okf_version"),
+        (
+            "daily/log.md",
+            "---\ntitle: x\n---\n## 2026-10-24\n- x\n",
+            "missing type (OKF §11 rule 2)",
+        ),
+        (
+            "system/propagations/index.md",
+            "",
+            "reserved name under a machine-written folder",
+        ),
+    ],
+    ids=["no-okf-version", "no-type", "machine-folder"],
+)
+def test_reserved_rows_are_these_words(tmp_path, relative, text, reason):
+    _scaffold_min(tmp_path)
+    _write(tmp_path, relative, text)
+    assert [(o.target, o.reason) for o in structure.check_reserved(tmp_path)] == [
+        (f"path-bytes:{relative}", f"schema-violation — {reason}")
+    ]
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads everything")
+def test_reserved_check_rows_an_index_it_cannot_read(tmp_path):
+    _scaffold_min(tmp_path)
+    index = tmp_path / "index.md"
+    index.chmod(0)
+    try:
+        (row,) = structure.check_reserved(tmp_path)
+    finally:
+        index.chmod(0o644)
+    assert row.target == "path-bytes:index.md"
+    assert row.reason.startswith("schema-violation — unreadable ([Errno 13]")
+
+
+def test_reserved_check_rows_an_index_it_cannot_decode(tmp_path):
+    _scaffold_min(tmp_path)
+    (tmp_path / "index.md").write_bytes(b'---\nokf_version: "0.2"\n---\n\xff\n')
+    (row,) = structure.check_reserved(tmp_path)
+    assert row.target == "path-bytes:index.md"
+    assert row.reason.startswith("schema-violation — unreadable ('utf-8' codec")
+
+
+def test_reserved_check_leaves_log_entries_to_the_log_dir_check(tmp_path):
+    """A reserved name under log/ is check_log_dir's stray row, not a second
+    one here."""
+    _scaffold_min(tmp_path)
+    _write(tmp_path, "log/index.md", "prose\n")
+    (outcome,) = structure.check_reserved(tmp_path)
+    assert (outcome.target, outcome.result) == ("reserved-files", Result.MATCHED)
