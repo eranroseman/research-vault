@@ -324,10 +324,14 @@ def _lists_with_reason(_data: bytes, outcome, candidate_image, base_snapshot) ->
 #   later well-formed list edit by a person, or a repeat removal after any
 #   commit, changes the hash and raises it again (#206, rulings P13, P14, P15,
 #   R16 and R17). The tree oid, not the commit id: two commits with the same
-#   tree hash the same. Accepted cost: an acked removal left uncommitted while
-#   other files are committed is raised again after that commit, since its base
-#   moved; the hook's normal path (removal and ack in one commit, after which
-#   the row is gone) never meets this.
+#   tree hash the same. Accepted cost (R26): an acked removal is raised again
+#   wherever its base moves. Left uncommitted while other files are committed,
+#   it is raised after that commit; carried by a commit a history rewrite gives
+#   a new parent (a rebase onto a moved main, a squash or rebase merge, a
+#   cherry-pick, an amend, a conflicted merge concluded at the hook), it is
+#   raised again on the rewritten commit. Each takes a second ack. The hook's
+#   path (removal and ack in one commit) is rewrite-free only while that
+#   commit is never rewritten.
 _HASH_BASES = {
     lints.MONITOR_ROW: _with_reason,
     lints.VERIFIER_LISTS: _lists_with_reason,

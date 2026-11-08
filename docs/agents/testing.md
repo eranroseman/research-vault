@@ -8,8 +8,10 @@ Offline (default): `python -m pytest tests -q -n auto` from the repo root, insid
 
 ```bash
 RV_LIVE=1 RV_LIVE_NET=1 RV_MAILTO=<real address> python -m pytest tests -q            # read-only local-Zotero and external-registry legs
-RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 python -m pytest tests -q -k live  # plus the add/trash/delete leg (one consent dialog the first time)
+RV_LIVE=1 RV_LIVE_WRITE_BASE=http://localhost:23129 python -m pytest tests -q -s -k live  # plus the write legs (one consent dialog the first time)
 ```
+
+The write legs create, edit, trash and delete items on the test instance; `tests/test_capture_live.py`'s docstring lists them. The capture live legs print one `LIVE-FACT` JSON line each on stderr, naming the base the fact came from; pytest captures a passing test's stderr, so run them with `-s` to read the facts.
 
 The offline suite is hermetic through four mechanisms in `tests/conftest.py`: three autouse fixtures the markers gate — a marked test keeps the real thing (the marker each honours is named below), and every unmarked test gets the block in every run, live flags or not — and one opt-in fixture for subprocess tests.
 

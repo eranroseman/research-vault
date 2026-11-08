@@ -756,10 +756,13 @@ MONITOR_ROW = "monitor-row"
 # two list rows on one note apart; the tree oid names the committed lists, and
 # every commit that changes any file moves it, so a repeat removal after a
 # commit (a failure row verify records again, undated, is the same lists
-# every time) is raised again. Accepted cost: an acked removal left
-# uncommitted while other files are committed is raised again after that
-# commit, since its base moved; the hook's normal path (removal and ack in one
-# commit, after which the row is gone) never meets this.
+# every time) is raised again. Accepted cost (R26): an acked removal is raised
+# again wherever its base moves: left uncommitted while other files are
+# committed, or carried by a commit a history rewrite gives a new parent (a
+# rebase onto a moved main, a squash or rebase merge, a cherry-pick, an amend,
+# a conflicted merge concluded at the hook). Each takes a second ack; the
+# hook's path (removal and ack in one commit) is rewrite-free only while that
+# commit is never rewritten.
 VERIFIER_LISTS = "verifier-lists"
 _VALUE_CAP = 60
 
@@ -837,8 +840,9 @@ def _verifier_list_outcomes(raw_path, base_data, candidate_data) -> list[Outcome
     change its result, and may vanish only when the same diff appends a
     passing event for its check. These rows hash on the committed tree, the
     person's additions and the removed entry (`hash_basis`), because the note's
-    canonical bytes exclude the lists; an acked removal left uncommitted while
-    other files are committed is raised again after that commit."""
+    canonical bytes exclude the lists; an acked removal is raised again
+    wherever its base moves, after an unrelated commit or a history rewrite
+    (`VERIFIER_LISTS`, R26)."""
     if base_data is None or candidate_data is None:
         return []
     extra = {"hash_basis": VERIFIER_LISTS}

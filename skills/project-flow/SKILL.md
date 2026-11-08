@@ -87,4 +87,4 @@ python3 -m research_vault ack FINDING-ID --vault PATH --reason "CODE free text" 
 
 Compose and explain the finding; the person consents; the CLI writes — every mechanical act in this skill (events, statuses, tags, holds, acknowledgments) is a CLI verb call.
 
-A `capture-monitor` row names a snapshot value a Zotero add-on or a restore changed; read the old and new values in the row, confirm them in Zotero, and acknowledge only what the person accepts.
+A `capture-monitor` row names a held value that changed in Zotero (by the person, a sync, or an add-on), an attachment that left the tuple or changed `md5`, an identity change at one path, or an older render restored. The row's values are capped; read them whole with `git diff -- literature/<key>.md`. Acknowledge what the person accepts; for a change they reject, correct the item in Zotero and run `capture KEY` again before committing, and the row goes.

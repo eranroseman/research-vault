@@ -5846,6 +5846,58 @@ def test_a_list_row_hash_follows_the_base_tree_not_the_base_commit(net_vault):
     assert _list_rows_open(net_vault) == [(_reason, first)]
 
 
+def test_a_rebase_of_an_acked_list_removal_takes_a_second_ack(net_vault):
+    """R26, the accepted cost pinned: the row hashes on its base's tree, so a
+    rebase of the commit that carried a removal and its ack onto a moved
+    main gives it a new parent, and the removal is raised again there. A
+    second acknowledgment, on the rebased commit, clears it."""
+    from tests.test_lints import _with_lists
+
+    def git(*args):
+        return subprocess.run(
+            ["git", *args], cwd=net_vault, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    def ci_list_rows(base):
+        _report, effective, _hashes, _warning = verify_state(
+            net_vault,
+            network=False,
+            git_base=base,
+            git_candidate="HEAD",
+            recheck_commits=base,
+        )
+        return [
+            o.reason for o in effective if o.extra.get("hash_basis") == "verifier-lists"
+        ]
+
+    _ack_standing_citation_key(net_vault)
+    note = net_vault / "literature" / "smith2020.md"
+    row = 'failed-verification:\n  - {check: "update-notice", result: "UNMATCHED"}\n'
+    _with_lists(note, [], [("update-notice", "UNMATCHED")])
+    lists = _commit_all(net_vault, "L")
+    branch = git("rev-parse", "--abbrev-ref", "HEAD")
+    git("branch", "main-line")
+    reason, _first = _remove_failure_row_and_ack(net_vault, note, row)
+    _commit_all(net_vault, "removal and its ack, through the hook")
+    assert ci_list_rows(lists) == []
+    git("reset", "-q", "--hard")  # what CI's run left in its checkout
+    git("checkout", "-q", "main-line")
+    (net_vault / "wiki" / "concepts" / "extra.md").write_text(
+        '---\ntitle: "x"\ntype: "concept"\nstatus: "draft"\n---\nx\n'
+    )
+    moved = _commit_all(net_vault, "main moves on")
+    git("checkout", "-q", branch)
+    git("rebase", "-q", moved)
+    assert ci_list_rows(moved) == [reason]
+    git("reset", "-q", "--hard")
+    # The second ack: the publish preview's replay files the row again.
+    verify_state(net_vault, network=False, recheck_commits=moved)
+    (finding,) = [f for f in inbox.open_entries(net_vault) if f.reason == reason]
+    inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran")
+    _commit_all(net_vault, "second ack")
+    assert ci_list_rows(moved) == []
+
+
 def test_two_list_rows_on_one_note_hash_apart(net_vault):
     from tests.test_lints import _with_lists
 

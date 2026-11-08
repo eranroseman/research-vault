@@ -196,6 +196,9 @@ def test_hook_documents_escape_hatch_and_replay_and_is_executable():
     assert HOOK.stat().st_mode & os.X_OK
     subprocess.run(["sh", "-n", str(HOOK)], check=True)
     assert "git commit --no-verify" in text
-    assert "CI replay" in text
+    assert (
+        "The publish re-check (and CI, if configured)\n# replays a bypassed commit."
+        in text
+    )
     assert "git add" not in text
     assert "never stages" in text

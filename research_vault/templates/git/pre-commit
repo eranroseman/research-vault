@@ -1,6 +1,7 @@
 #!/bin/sh
 # research-vault pre-commit: the fixer, then the offline commit-closing checks.
-# Bypass: git commit --no-verify. CI replays the same checks.
+# Bypass: git commit --no-verify. The publish re-check (and CI, if configured)
+# replays a bypassed commit.
 # This hook never stages (#203). It runs the one fixer, stamp-type --staged:
 # the type stamp and link normalisation on the staged files whose worktree
 # copy equals the staged blob, and root log.md when one of those is a log/ day
@@ -27,7 +28,7 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 if ! python3 -c "import research_vault" 2>/dev/null; then
-  echo "pre-commit: research_vault is not importable; CI will replay verification." >&2
+  echo "pre-commit: research_vault is not importable; the publish re-check (and CI, if configured) replays this commit." >&2
   exit 0
 fi
 
@@ -68,11 +69,11 @@ case "$code" in
   0) exit 0 ;;
   1)
     echo "pre-commit: commit-closing verification failed." >&2
-    echo "Bypass with --no-verify; CI will replay these checks." >&2
+    echo "Bypass with --no-verify; the publish re-check (and CI, if configured) replays a bypassed commit." >&2
     exit 1
     ;;
   3)
-    echo "pre-commit: verification unreachable; leaving commit open for CI replay." >&2
+    echo "pre-commit: verification unreachable; leaving commit open for the publish re-check (and CI, if configured)." >&2
     exit 0
     ;;
   4) dependency_missing ;;

@@ -93,9 +93,11 @@ _Avoid_: "source" for an outlet — that is a **venue**, which is what OpenAlex'
 
 **Lifecycle linter**: The one check that classifies every literature note against live Zotero from three reads (the versions map, the trash map, the top-level items), at capture and at verify through one code path. Its pre-commit leg is held.
 
+**Capture monitor**: The check `capture-monitor`, which reports each change an attested writer made to a literature note's held values: a snapshot field other than the tag fields, an attachment leaving the tuple or its `md5`, an identity change at one path, an older render restored. One row per change, closing commit and publish; tag moves alone go to capture's one summary row per run instead.
+
 **Review queue**: The append-only findings file (`inbox/review-queue.md`) every warn, hold, and alert writes to.
 
-**Acknowledgment**: A human's standing acceptance of a finding, identified by the derived scope `sha256(check \0 target \0 target content hash)`; for a note-targeted finding the content hash is the note's `managed-sha256`. If the target's body changes, the scope no longer matches and the finding re-fires. An ack lets a check stand down; it never erases the finding.
+**Acknowledgment**: A human's standing acceptance of a finding, identified by the derived scope `sha256(check \0 target \0 target content hash)`; for a note-targeted finding the content hash is the note's `managed-sha256`. If the target's body changes, the scope no longer matches and the finding re-fires. Some rows add their reason or another basis to the content hash (`verify._HASH_BASES`), so each such row is acknowledged separately. An ack lets a check stand down; it never erases the finding.
 
 **Publish gate**: The fail-closed verification boundary every publication crosses.
 

@@ -298,15 +298,19 @@ def test_precommit_hook_is_executable_and_has_exact_contract():
     assert "git commit --no-verify" in text
     assert 'if ! python3 -c "import research_vault" 2>/dev/null; then' in text
     assert (
-        "pre-commit: research_vault is not importable; CI will replay verification."
-        in text
+        "pre-commit: research_vault is not importable; the publish re-check "
+        "(and CI, if configured) replays this commit." in text
     )
     assert "1)" in text
     assert "pre-commit: commit-closing verification failed." in text
+    assert (
+        "Bypass with --no-verify; the publish re-check (and CI, if configured) "
+        "replays a bypassed commit." in text
+    )
     assert "3)" in text
     assert (
-        "pre-commit: verification unreachable; leaving commit open for CI replay."
-        in text
+        "pre-commit: verification unreachable; leaving commit open for the "
+        "publish re-check (and CI, if configured)." in text
     )
     assert (
         '*)\n    echo "pre-commit: verifier exited unexpectedly with status $code."'
