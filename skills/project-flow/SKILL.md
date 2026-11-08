@@ -86,3 +86,5 @@ python3 -m research_vault ack FINDING-ID --vault PATH --reason "CODE free text" 
 ```
 
 Compose and explain the finding; the person consents; the CLI writes — every mechanical act in this skill (events, statuses, tags, holds, acknowledgments) is a CLI verb call.
+
+A `capture-monitor` row names a snapshot value a Zotero add-on or a restore changed; read the old and new values in the row, confirm them in Zotero, and acknowledge only what the person accepts.

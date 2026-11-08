@@ -1704,3 +1704,196 @@ def test_lint_disputed_claim_reports_an_undecodable_note(fixture_vault):
     assert row.reason.startswith(
         "schema-violation — not UTF-8: 'utf-8' codec can't decode byte 0xff"
     )
+
+
+def _recapture(path, **changes):
+    """What a recapture that moved `changes` writes: the fields swapped, `generated`
+    bumped under the machine actor, the witness refreshed."""
+    text = path.read_text()
+    for old, new in changes.items():
+        text = must_replace(text, old, new)
+    # The first recapture of a test moves the fixture stamp; a second one in the
+    # same test finds it moved already and stays attested (generated differs
+    # from HEAD's either way).
+    if _FIXTURE_GENERATED in text:
+        text = _bump_generated(text)
+    path.write_text(text)
+    _refresh_body_witness(path)
+
+
+def _monitor_rows(vault, base):
+    return [
+        (item.target, item.reason)
+        for item in lints.lint_evidence_layer(
+            gitstate.snapshot_tree(vault, base), gitstate.snapshot_worktree(vault)
+        )
+        if item.check == "capture-monitor"
+    ]
+
+
+def test_monitor_reports_every_attested_snapshot_change_with_old_and_new(fixture_vault):
+    """Designs test 1: a recapture that moved DOI, dropped the venue and added
+    pages raises one monitor row per field, values JSON-encoded."""
+    base = _base_tree(fixture_vault)
+    note = fixture_vault / "literature" / "smith2020.md"
+    _recapture(
+        note,
+        **{
+            'DOI: "10.1000/xyz"': 'DOI: "10.1000/abc"\npages: "1-10"',
+            'itemType: "journalArticle"': 'itemType: "conferencePaper"',
+        },
+    )
+    assert _monitor_rows(fixture_vault, base) == [
+        (
+            "path-bytes:literature/smith2020.md",
+            'drift — DOI changed: "10.1000/xyz" → "10.1000/abc"',
+        ),
+        (
+            "path-bytes:literature/smith2020.md",
+            'drift — itemType changed: "journalArticle" → "conferencePaper"',
+        ),
+        ("path-bytes:literature/smith2020.md", 'drift — pages added: "1-10"'),
+    ]
+
+
+def test_monitor_reasons_are_one_line_and_capped(fixture_vault):
+    """Designs test 9: a multi-line abstract and a long value never reach
+    append_entry as line breaks or a kilobyte."""
+    base = _base_tree(fixture_vault)
+    note = fixture_vault / "literature" / "smith2020.md"
+    long_value = "x" * 500
+    _recapture(
+        note,
+        **{
+            'DOI: "10.1000/xyz"': f'DOI: "10.1000/xyz"\nabstractNote:\n  - "Line one"\n  - "{long_value}"'
+        },
+    )
+    ((_target, reason),) = _monitor_rows(fixture_vault, base)
+    assert "\n" not in reason
+    assert "\r" not in reason
+    assert reason.startswith("drift — abstractNote added: ")
+    assert len(reason) < 200
+    assert reason.endswith("…")
+
+
+def test_monitor_is_silent_on_an_unattested_change(fixture_vault):
+    """Designs test 10: a hand edit is evidence-layer's row, never a second
+    row costing a second acknowledgement."""
+    base = _base_tree(fixture_vault)
+    note = fixture_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+    assert _monitor_rows(fixture_vault, base) == []
+    rows = _evidence_rows(fixture_vault, base)
+    assert any(
+        r.reason == "drift — DOI changed without writer attestation" for r in rows
+    )
+
+
+def test_monitor_exempts_both_tag_fields(fixture_vault):
+    """Designs test 14: a tag-only recapture commits clean (ruling 3: the
+    scanner's status tags move on every modify)."""
+    base = _base_tree(fixture_vault)
+    note = fixture_vault / "literature" / "smith2020.md"
+    _recapture(
+        note,
+        **{
+            'DOI: "10.1000/xyz"': 'DOI: "10.1000/xyz"\nzotero-tags:\n  - {tag: "#nosource"}\ntags:\n  - "nosource"'
+        },
+    )
+    assert _monitor_rows(fixture_vault, base) == []
+
+
+def test_monitor_reports_an_attachment_that_left_and_a_swapped_md5(fixture_vault):
+    """Designs test 13 (first half) and the [added] md5 row."""
+    base = _base_tree(fixture_vault)
+    note = fixture_vault / "literature" / "smith2020.md"
+    _recapture(
+        note,
+        **{
+            'md5: "aa11aa11aa11aa11aa11aa11aa11aa11"': 'md5: "bb22bb22bb22bb22bb22bb22bb22bb22"'
+        },
+    )
+    assert _monitor_rows(fixture_vault, base) == [
+        (
+            "path-bytes:literature/smith2020.md",
+            "drift — attachment ATT00001 md5 changed: aa11aa11aa11aa11aa11aa11aa11aa11 → bb22bb22bb22bb22bb22bb22bb22bb22",
+        )
+    ]
+    _recapture(
+        note,
+        **{
+            '  - {key: "ATT00001", version: 13, md5: "bb22bb22bb22bb22bb22bb22bb22bb22", contentType: "application/pdf", filename: "smith2020.pdf"}\n': ""
+        },
+    )
+    assert (
+        "path-bytes:literature/smith2020.md",
+        "drift — attachment ATT00001 left the tuple",
+    ) in _monitor_rows(fixture_vault, base)
+
+
+def test_monitor_reports_a_changed_item_key_at_the_same_path(fixture_vault):
+    """Designs test 13 (second half): capture has no identity guard, so a
+    deleted item's note overwritten by a new item with the same key is a row."""
+    base = _base_tree(fixture_vault)
+    note = fixture_vault / "literature" / "smith2020.md"
+    _recapture(note, **{'zotero-item-key: "SMITH020"': 'zotero-item-key: "OTHER001"'})
+    assert (
+        "path-bytes:literature/smith2020.md",
+        "drift — zotero-item-key changed at the same path: SMITH020 → OTHER001",
+    ) in _monitor_rows(fixture_vault, base)
+
+
+def test_monitor_reports_an_older_render_restored(fixture_vault):
+    """#205 (designs test 12): a `git checkout` of an earlier render carries a
+    valid machine attestation; the version going backwards is the row."""
+    base = _base_tree(fixture_vault)
+    note = fixture_vault / "literature" / "smith2020.md"
+    _recapture(note, **{"zotero-item-version: 12": "zotero-item-version: 11"})
+    rows = _monitor_rows(fixture_vault, base)
+    assert rows[0] == (
+        "path-bytes:literature/smith2020.md",
+        "drift — older render restored: version 11 < 12",
+    )
+
+
+def test_monitor_tie_breaks_a_same_version_restore_on_generated_at(fixture_vault):
+    base = _base_tree(fixture_vault)
+    note = fixture_vault / "literature" / "smith2020.md"
+    text = must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/old"')
+    text = must_replace(
+        text, 'at: "2026-08-16T09:00:00Z"', 'at: "2026-08-15T09:00:00Z"'
+    )
+    note.write_text(text)
+    _refresh_body_witness(note)
+    rows = _monitor_rows(fixture_vault, base)
+    assert (
+        "path-bytes:literature/smith2020.md",
+        "drift — older render restored: generated.at 2026-08-15T09:00:00Z < 2026-08-16T09:00:00Z",
+    ) in rows  # beside the DOI row; _deduplicate sorts by reason
+
+
+def test_monitor_runs_across_a_renamed_pair_too(fixture_vault):
+    base = _base_tree(fixture_vault)
+    source = fixture_vault / "literature" / "smith2020.md"
+    renamed = fixture_vault / "literature" / "smith2020b.md"
+    renamed.write_text(
+        _bump_generated(
+            must_replace(
+                must_replace(
+                    source.read_text(),
+                    'citationKey: "smith2020"',
+                    'citationKey: "smith2020b"',
+                ),
+                'DOI: "10.1000/xyz"',
+                'DOI: "10.1000/abc"',
+            )
+        )
+    )
+    _refresh_body_witness(renamed)
+    source.unlink()
+    assert (
+        "path-bytes:literature/smith2020b.md",
+        'drift — DOI changed: "10.1000/xyz" → "10.1000/abc"',
+    ) in _monitor_rows(fixture_vault, base)

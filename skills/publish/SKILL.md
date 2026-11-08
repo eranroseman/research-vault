@@ -30,7 +30,7 @@ Each finding line begins with its finding id — the argument `ack` needs later.
 python3 -m research_vault verify --surface publish --vault PATH
 ```
 
-The publish surface closes on the publish closing set — every check `CLOSING_BY_SURFACE["publish"]` names (`citation-key`, `evidence-layer`, `quote`, `update-notice`, `okf-frontmatter`, `okf-structure`, `tree`, `propagation`, `captured-set`, `dead-link`). Exit `0` means green, `1` means a closing check is UNMATCHED, `3` means something was UNREACHABLE, `2` means verification could not run at all, and `4` means the OKF frontmatter reader's dependency, PyYAML, is missing, so nothing was verified.
+The publish surface closes on the publish closing set — every check `CLOSING_BY_SURFACE["publish"]` names (`citation-key`, `evidence-layer`, `quote`, `update-notice`, `okf-frontmatter`, `okf-structure`, `tree`, `propagation`, `captured-set`, `dead-link`, `capture-monitor`). Exit `0` means green, `1` means a closing check is UNMATCHED, `3` means something was UNREACHABLE, `2` means verification could not run at all, and `4` means the OKF frontmatter reader's dependency, PyYAML, is missing, so nothing was verified.
 
 ## Report the four states honestly
 

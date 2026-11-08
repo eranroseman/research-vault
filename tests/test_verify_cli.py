@@ -2395,6 +2395,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "propagation",
                 "captured-set",
                 "dead-link",
+                "capture-monitor",
             }
         ),
         "publish": frozenset(
@@ -2409,6 +2410,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "propagation",
                 "captured-set",
                 "dead-link",
+                "capture-monitor",
             }
         ),
     }
@@ -5399,3 +5401,45 @@ def test_every_verb_that_reads_okf_exits_4_without_pyyaml(
     captured = capsys.readouterr()
     assert captured.err == _NO_PYYAML
     assert captured.out == ""
+
+
+def test_capture_monitor_closes_commit_and_publish_and_its_ack_lapses_on_any_byte(
+    net_vault,
+):
+    """Designs test 11: ack, recapture with no value moved (generated bumps),
+    stage: the row is raised again with a new hash."""
+    from research_vault import inbox, verify
+    from tests.test_lints import _recapture
+
+    assert "capture-monitor" in inbox.CHECK_IDS
+    assert "capture-monitor" in verify.CLOSING_BY_SURFACE["commit"]
+    assert "capture-monitor" in verify.CLOSING_BY_SURFACE["publish"]
+    # The fixture's draft cites `fabricated2020`, a standing citation-key row
+    # that holds commit on its own; acknowledged first, so every exit code
+    # below is the monitor's.
+    verify.verify_state(net_vault, network=False)
+    standing = next(
+        f
+        for f in inbox.open_entries(net_vault)
+        if f.check == "citation-key" and f.target == "fabricated2020"
+    )
+    inbox.append_ack(net_vault, standing.id, "manual — accepted", "human:eran")
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    assert verify.surface_decision("commit", effective, warning)[0] == 0
+    note = net_vault / "literature" / "smith2020.md"
+    _recapture(note, **{'DOI: "10.1000/xyz"': 'DOI: "10.1000/abc"'})
+    _report, effective, hashes, warning = verify.verify_state(net_vault, network=False)
+    (row,) = [o for o in effective if o.check == "capture-monitor"]
+    first_hash = hashes[id(row)]
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+    finding = next(
+        f for f in inbox.open_entries(net_vault) if f.check == "capture-monitor"
+    )
+    inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran")
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    assert verify.surface_decision("commit", effective, warning)[0] == 0
+    _recapture(note, **{'at: "2026-09-16T09:00:00Z"': 'at: "2026-09-17T09:00:00Z"'})
+    _report, effective, hashes, warning = verify.verify_state(net_vault, network=False)
+    (row,) = [o for o in effective if o.check == "capture-monitor"]
+    assert hashes[id(row)] != first_hash
+    assert verify.surface_decision("commit", effective, warning)[0] == 1

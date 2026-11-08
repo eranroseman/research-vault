@@ -1670,3 +1670,41 @@ def test_add_takes_tags_and_refuses_zotero_tags():
         capture._validate_items([{"itemType": "journalArticle", "zotero-tags": []}])
         == "item 0: unknown field zotero-tags"
     )
+
+
+def test_a_tag_only_recapture_files_one_summary_row_under_capture(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    retagged = json.loads(json.dumps(ITEM))
+    retagged["data"]["tags"] = [{"tag": "ai", "type": 1}, {"tag": "#nosource"}]
+    fake = _canned_run(canned_item(FakeZotero(), item=retagged), items=(retagged,))
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert outcomes[0].extra.get("tags-only") is True
+    summary = [o for o in outcomes if o.target == "tags"]
+    assert [(o.check, o.result, o.reason) for o in summary] == [
+        ("capture", Result.UNMATCHED, "drift — tags changed on: jakesch.etal2023a")
+    ]
+
+
+def test_a_tag_change_that_bumped_the_item_version_is_still_tags_only(
+    tmp_vault, monkeypatch
+):
+    """Zotero bumps an item's version on every modify, a tag edit included; the
+    monitor reports no version move, so the bump alone keeps the run tags-only."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    retagged = json.loads(json.dumps(ITEM))
+    retagged["version"] = retagged["data"]["version"] = 545
+    retagged["data"]["tags"] = [{"tag": "ai", "type": 1}, {"tag": "#nosource"}]
+    fake = _canned_run(canned_item(FakeZotero(), item=retagged), items=(retagged,))
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert outcomes[0].extra.get("tags-only") is True
+    assert [o.reason for o in outcomes if o.target == "tags"] == [
+        "drift — tags changed on: jakesch.etal2023a"
+    ]

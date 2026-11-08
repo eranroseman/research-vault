@@ -19,6 +19,7 @@ from . import (
     fulltext,
     keystore,
     lifecycle,
+    lints,
     literature_notes,
     structure,
 )
@@ -158,6 +159,31 @@ def _write_texts(
     return entries, usable, reasons
 
 
+def _only_tags_moved(existing: str, candidate: str) -> bool:
+    """Whether a re-render moved nothing but the two tag fields (spec §5.3.1)."""
+    before = dict(
+        literature_notes._projection(
+            frontmatter._mapping_items(frontmatter.parse(existing)[0])
+        )
+    )
+    after = dict(
+        literature_notes._projection(
+            frontmatter._mapping_items(frontmatter.parse(candidate)[0])
+        )
+    )
+    # Zotero bumps the item version on every modify, a tag edit included, and
+    # the monitor reports no version move; the bump alone is not a moved field.
+    moved = {
+        key for key in before.keys() | after.keys() if before.get(key) != after.get(key)
+    } - {"zotero-item-version"}
+    return (
+        bool(moved)
+        and moved <= lints.MONITOR_EXEMPT
+        and literature_notes.note_body(existing)
+        == literature_notes.note_body(candidate)
+    )
+
+
 def _capture_one(
     vault: Path,
     read: ItemRead,
@@ -236,7 +262,16 @@ def _capture_one(
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8", newline="") as handle:
             handle.write(candidate)
-        outcomes.append(Outcome(CHECK, citation_key, Result.MATCHED, "matched"))
+        tags_only = existing is not None and _only_tags_moved(existing, candidate)
+        outcomes.append(
+            Outcome(
+                CHECK,
+                citation_key,
+                Result.MATCHED,
+                "matched",
+                extra={"tags-only": True} if tags_only else {},
+            )
+        )
     if not read.texts:
         # Spec §0 (b555d77): a web page, a repository, a program — no stored
         # attachment, nothing to read. The fourth state, not a failure: the note
@@ -576,6 +611,18 @@ def capture(
                     f"schema-violation — {error}",
                 )
             )
+    # Q3: the monitor exempts the tag fields, so a run that moved only tags
+    # says so once, under `capture`, which closes no surface (ruling 3).
+    retagged = sorted(str(o.target) for o in outcomes if o.extra.get("tags-only"))
+    if retagged:
+        outcomes.append(
+            Outcome(
+                CHECK,
+                "tags",
+                Result.UNMATCHED,
+                "drift — tags changed on: " + ", ".join(retagged),
+            )
+        )
     if aborted is not None:
         # No CSL file from the database that answered after the move.
         return [*outcomes, aborted]

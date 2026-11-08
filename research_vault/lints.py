@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -736,6 +737,124 @@ def _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data):
     ]
 
 
+MONITOR_CHECK = "capture-monitor"
+# Ruling 3: the declared add-ons move tags on every modify (Attachment
+# Scanner's status tags, MarkDB-Connect's ObsCite); a hold on each would be an
+# approval gate. Capture files one summary row per run instead (Q3).
+MONITOR_EXEMPT = frozenset({"zotero-tags", "tags"})
+_VALUE_CAP = 60
+
+
+def _shown(value) -> str:
+    """One line, ASCII, capped: `append_entry` refuses line breaks and the full
+    values stay in `git diff` (designs cluster 1, [corrected])."""
+    return _capped(json.dumps(value, ensure_ascii=True, sort_keys=True))
+
+
+def _bare(value) -> str:
+    """An identifier or digest printed unquoted, still one line and capped: the
+    values are machine-written, but a line break in one would make
+    `append_entry` refuse the row and stop the verify run."""
+    return _capped(literature_notes.display_text(value))
+
+
+def _capped(text: str) -> str:
+    return text if len(text) <= _VALUE_CAP else text[: _VALUE_CAP - 1] + "…"
+
+
+def _attachments_by_key(data: dict | None) -> dict[str, dict]:
+    entries = data.get("attachments") if data is not None else None
+    return {
+        str(entry["key"]): entry
+        for entry in (entries if isinstance(entries, list) else [])
+        if isinstance(entry, dict) and "key" in entry
+    }
+
+
+def _restored_reason(base_data: dict, candidate_data: dict) -> str | None:
+    """#205: the same item rendered at a lower version, or at the same version
+    with an earlier `generated.at`, is an older render restored — a valid
+    attestation on the way back in."""
+    if _field(base_data, "zotero-item-key") != _field(
+        candidate_data, "zotero-item-key"
+    ):
+        return None
+    old = _field(base_data, "zotero-item-version")
+    new = _field(candidate_data, "zotero-item-version")
+    if not isinstance(old, int) or not isinstance(new, int):
+        return None
+    if new < old:
+        return f"drift — older render restored: version {new} < {old}"
+    if not (
+        new == old
+        and literature_notes._valid_generated(base_data.get("generated"))
+        and literature_notes._valid_generated(candidate_data.get("generated"))
+    ):
+        return None
+    old_at, new_at = base_data["generated"]["at"], candidate_data["generated"]["at"]
+    # Parsed, not string-compared: `_valid_generated` admits any offset-aware
+    # ISO spelling ending in `Z`, fractional seconds among them.
+    if datetime.fromisoformat(new_at) < datetime.fromisoformat(old_at):
+        return f"drift — older render restored: generated.at {new_at} < {old_at}"
+    return None
+
+
+def _capture_monitor_outcomes(raw_path, base_data, candidate_data) -> list[Outcome]:
+    """Every attested change to a literature note's snapshot, attachments and
+    identity (spec §5.3.1). Attested pairs only: an unattested change is
+    already evidence-layer's row, and a second row would cost a second ack."""
+    if base_data is None or candidate_data is None:
+        return []
+    if not _write_attested(base_data, candidate_data):
+        return []
+    target = RepoPath(raw_path)
+
+    def row(reason: str) -> Outcome:
+        return Outcome(MONITOR_CHECK, target, Result.UNMATCHED, reason)
+
+    rows: list[Outcome] = []
+    restored = _restored_reason(base_data, candidate_data)
+    if restored is not None:
+        rows.append(row(restored))
+    for key in literature_notes.SNAPSHOT_FIELDS:
+        if key in MONITOR_EXEMPT:
+            continue
+        old, new = _field(base_data, key), _field(candidate_data, key)
+        if old == new:
+            continue
+        if old is None:
+            rows.append(row(f"drift — {key} added: {_shown(new)}"))
+        elif new is None:
+            rows.append(row(f"drift — {key} removed: {_shown(old)}"))
+        else:
+            rows.append(row(f"drift — {key} changed: {_shown(old)} → {_shown(new)}"))
+    old_attachments = _attachments_by_key(base_data)
+    new_attachments = _attachments_by_key(candidate_data)
+    rows.extend(
+        row(f"drift — attachment {_bare(key)} left the tuple")
+        for key in sorted(set(old_attachments) - set(new_attachments))
+    )
+    for key in sorted(set(old_attachments) & set(new_attachments)):
+        old_md5 = old_attachments[key].get("md5")
+        new_md5 = new_attachments[key].get("md5")
+        if old_md5 != new_md5:
+            rows.append(
+                row(
+                    f"drift — attachment {_bare(key)} md5 changed: "
+                    f"{_bare(old_md5)} → {_bare(new_md5)}"
+                )
+            )
+    for key in ("zotero-server-id", "zotero-item-key"):
+        old, new = _field(base_data, key), _field(candidate_data, key)
+        if old is not None and new is not None and old != new:
+            rows.append(
+                row(
+                    f"drift — {key} changed at the same path: {_bare(old)} → {_bare(new)}"
+                )
+            )
+    return rows
+
+
 def lint_evidence_layer(
     base_snapshot: gitstate.Snapshot,
     candidate_snapshot: gitstate.Snapshot,
@@ -845,6 +964,9 @@ def lint_evidence_layer(
             outcomes.extend(
                 _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data)
             )
+            outcomes.extend(
+                _capture_monitor_outcomes(raw_path, base_data, candidate_data)
+            )
         if not attested:
             outcomes.append(
                 Outcome(
@@ -884,4 +1006,5 @@ def lint_evidence_layer(
         outcomes.extend(
             _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data)
         )
+        outcomes.extend(_capture_monitor_outcomes(raw_path, base_data, candidate_data))
     return _deduplicate(outcomes)

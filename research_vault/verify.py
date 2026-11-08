@@ -62,6 +62,7 @@ CLOSING_BY_SURFACE = {
             "propagation",
             "captured-set",
             "dead-link",
+            "capture-monitor",
         }
     ),
     "publish": frozenset(
@@ -76,6 +77,7 @@ CLOSING_BY_SURFACE = {
             "propagation",
             "captured-set",
             "dead-link",
+            "capture-monitor",
         }
     ),
 }

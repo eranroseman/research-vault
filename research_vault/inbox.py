@@ -92,6 +92,8 @@ CHECK_IDS = frozenset(
         "compile",
         # Unresolved embeds and path links in the compiled layer (#208, spec §5.4).
         "dead-link",
+        # Every attested change to a literature note's snapshot (spec §5.3.1).
+        "capture-monitor",
     }
 )
 _REASON = re.compile(
