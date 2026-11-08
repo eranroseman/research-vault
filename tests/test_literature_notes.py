@@ -974,6 +974,10 @@ def test_render_note_title_folds_a_title_shaped_field():
         # U+274C is a Dingbat, outside Obsidian's rejected class: only the space repairs.
         ("❌ nosource", "❌-nosource"),
         ("/unread", "unread"),
+        # Obsidian accepts these as written: the identity, not a repair
+        ("a--b", "a--b"),
+        ("-a-", "-a-"),
+        ("a//b", "a/b"),
         # U+2010, U+2014, U+2019 are in Obsidian's rejected class
         ("a‐b—c’d", "a-b-c-d"),
         ("x[1];y+z", "x-1-y-z"),

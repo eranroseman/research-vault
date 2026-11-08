@@ -94,16 +94,17 @@ bibliography authority in
 (§3.1 and §3.2), which supersede the two suspended decision records that
 previously held them.
 
-| Spelling                                 | Source or rule                                                                                      |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `citationKey`                            | Zotero's own native field name (Zotero 8+), filled by Better BibTeX                                 |
-| `zotero-server-id`                       | Prefixed to Zotero's own `Zotero-Server-ID` response header; qualifies the item key to one instance |
-| `zotero-item-key`                        | Prefixed to Zotero's own item `key`, to disambiguate the frontmatter namespace                      |
-| `zotero-item-version`                    | Prefixed to Zotero's own item `version`, to disambiguate the frontmatter namespace                  |
-| `compile-input-sha256`                   | sha256 over the text-layer file capture wrote; the compile wrapper's input attestation              |
-| `managed-sha256`                         | sha256 over the note body below the frontmatter                                                     |
-| `[failed-verification:: <check>/<date>]` | Exact machine-written failure marker                                                                |
-| `human:<identity>`                       | Human actor form; §4.5 defines the machine actor                                                    |
+| Spelling                                 | Source or rule                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `citationKey`                            | Zotero's own native field name (Zotero 8+), filled by Better BibTeX                                    |
+| `zotero-server-id`                       | Prefixed to Zotero's own `Zotero-Server-ID` response header; qualifies the item key to one instance    |
+| `zotero-item-key`                        | Prefixed to Zotero's own item `key`, to disambiguate the frontmatter namespace                         |
+| `zotero-item-version`                    | Prefixed to Zotero's own item `version`, to disambiguate the frontmatter namespace                     |
+| `zotero-tags`                            | Prefixed to Zotero's own `tags` list, copied exactly as frontmatter writes strings; `tags` is its slug |
+| `compile-input-sha256`                   | sha256 over the text-layer file capture wrote; the compile wrapper's input attestation                 |
+| `managed-sha256`                         | sha256 over the note body below the frontmatter                                                        |
+| `[failed-verification:: <check>/<date>]` | Exact machine-written failure marker                                                                   |
+| `human:<identity>`                       | Human actor form; §4.5 defines the machine actor                                                       |
 
 ### 4.3 Commands and skill names
 

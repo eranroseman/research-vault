@@ -73,10 +73,19 @@ _ASCII_DIGITS_ONLY = re.compile(r"^[0-9]+$")
 
 
 def slug_tag(name: str) -> str | None:
-    """Repair what Obsidian rejects, never reinterpret what it accepts: every
-    rejected character becomes `-`, runs collapse, `/` is kept so it nests,
-    `-` is dropped around `/` and at the ends; empty and all-digit results are
-    None (#195, Q9)."""
+    """A tag Obsidian accepts comes back unchanged; only a rejected one is
+    repaired. Accepted means: no rejected character, not ASCII digits only, no
+    empty `/` segment (leading, trailing or doubled `/`), and not only hyphens.
+    The repair turns every rejected character into `-`, collapses runs, keeps
+    `/` so it nests, and drops `-` around `/` and at the ends; empty and
+    all-digit results are None (#195, Q9)."""
+    if (
+        name.strip("-")
+        and not TAG_REJECT.search(name)
+        and not _ASCII_DIGITS_ONLY.match(name)
+        and not (name.startswith("/") or name.endswith("/") or "//" in name)
+    ):
+        return name
     slug = TAG_REJECT.sub("-", name)
     slug = re.sub(r"-{2,}", "-", slug)
     slug = re.sub(r"-*/-*", "/", slug)
