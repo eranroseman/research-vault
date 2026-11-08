@@ -1,5 +1,6 @@
 """Integration regressions for the verify and inbox command surface."""
 
+import datetime
 import hashlib
 import json
 import os
@@ -5480,6 +5481,172 @@ def test_each_capture_monitor_row_is_its_own_record(net_vault):
     assert [o.reason for o in effective if o.check == "capture-monitor"] == [
         'drift — DOI changed: "10.1000/xyz" → "10.1000/old"'
     ]
+
+
+def test_a_multi_line_abstract_change_holds_commit_with_a_one_line_row(
+    net_vault, capsys
+):
+    """Designs test 9: a recapture that changes a multi-line `abstractNote`;
+    `verify --surface commit` exits 1 without a traceback, and the filed
+    queue row is one line."""
+    from tests.test_lints import _recapture
+
+    _ack_standing_citation_key(net_vault)
+    note = net_vault / "literature" / "smith2020.md"
+    _recapture(
+        note,
+        **{
+            'DOI: "10.1000/xyz"': 'DOI: "10.1000/xyz"\nabstractNote:\n  - "Line one"\n  - "Line two"'
+        },
+    )
+    _commit_all(net_vault, "abstract")
+    _recapture(
+        note,
+        **{
+            '  - "Line one"\n  - "Line two"': '  - "First line"\n  - "Second line"\n  - "Third"',
+            'at: "2026-09-16T09:00:00Z"': 'at: "2026-09-17T09:00:00Z"',
+        },
+    )
+    code = main(
+        ["verify", "--vault", str(net_vault), "--offline", "--surface", "commit"]
+    )
+    streams = capsys.readouterr()
+    assert code == 1
+    assert "Traceback" not in streams.err
+    (record,) = [
+        f for f in inbox.open_entries(net_vault) if f.check == "capture-monitor"
+    ]
+    assert record.reason.startswith("drift — abstractNote changed: ")
+    assert "\n" not in record.reason
+    assert "\r" not in record.reason
+    queue = (net_vault / "inbox" / "review-queue.md").read_text()
+    (line,) = [line for line in queue.splitlines() if "abstractNote changed" in line]
+    assert line.startswith(f"- [id:: {record.id}]")
+    assert line.endswith(f"[target-hash:: {record.target_hash}]")
+
+
+def test_a_checkout_of_an_acked_earlier_render_raises_the_restore_row(net_vault):
+    """Designs test 12 (#205): render A is committed with its row acked; render
+    B follows; `git checkout <A> -- <note>` restores A's acked bytes, and the
+    restore row is raised as its own record the earlier ack does not cover."""
+    from tests.test_lints import _recapture
+
+    _ack_standing_citation_key(net_vault)
+    note = net_vault / "literature" / "smith2020.md"
+    _recapture(
+        note,
+        **{
+            "zotero-item-version: 12": "zotero-item-version: 13",
+            'DOI: "10.1000/xyz"': 'DOI: "10.1000/abc"',
+        },
+    )
+    verify.verify_state(net_vault, network=False)
+    (row_a,) = [
+        f for f in inbox.open_entries(net_vault) if f.check == "capture-monitor"
+    ]
+    inbox.append_ack(net_vault, row_a.id, "manual — accepted", "human:eran")
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    assert verify.surface_decision("commit", effective, warning)[0] == 0
+    commit_a = _commit_all(net_vault, "render A")
+    _recapture(
+        note,
+        **{
+            "zotero-item-version: 13": "zotero-item-version: 14",
+            'title: "Mortality decline"': 'title: "Mortality decline revisited"',
+            'at: "2026-09-16T09:00:00Z"': 'at: "2026-09-17T09:00:00Z"',
+        },
+    )
+    _commit_all(net_vault, "render B")
+    subprocess.run(
+        ["git", "checkout", commit_a, "--", "literature/smith2020.md"],
+        cwd=net_vault,
+        check=True,
+    )
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    restored = [
+        o
+        for o in effective
+        if o.check == "capture-monitor" and "older render restored" in o.reason
+    ]
+    assert [o.reason for o in restored] == [
+        "drift — older render restored: version 13 < 14"
+    ]
+    assert row_a.reason not in {o.reason for o in effective}
+    open_ids = {
+        f.id for f in inbox.open_entries(net_vault) if f.check == "capture-monitor"
+    }
+    assert row_a.id not in open_ids
+    assert any(
+        f.reason == restored[0].reason
+        for f in inbox.open_entries(net_vault)
+        if f.id in open_ids
+    )
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+
+
+@pytest.mark.parametrize(
+    ("base_tags", "recaptured"),
+    [
+        pytest.param(None, ("#nosource", "nosource"), id="tags-added"),
+        pytest.param(("ai", "ai"), ("#nosource", "nosource"), id="tags-changed"),
+    ],
+)
+def test_a_tag_only_recapture_commits_clean(
+    net_vault, monkeypatch, base_tags, recaptured
+):
+    """Designs test 14: with both tag fields exempt, a tag-only recapture raises
+    no `capture-monitor` row and no other closing row, and capture's summary
+    row files under `capture`, which closes no surface: commit exits 0."""
+    import research_vault.__main__ as cli
+    from research_vault import capture
+    from tests.test_lints import _recapture
+
+    assert "capture" not in verify.CLOSING_BY_SURFACE["commit"]
+    _ack_standing_citation_key(net_vault)
+    note = net_vault / "literature" / "smith2020.md"
+    anchor = 'DOI: "10.1000/xyz"'
+
+    def tag_block(tags):
+        zotero, slug = tags
+        return f'\nzotero-tags:\n  - {{tag: "{zotero}"}}\ntags:\n  - "{slug}"'
+
+    if base_tags is not None:
+        _recapture(note, **{anchor: anchor + tag_block(base_tags)})
+        _commit_all(net_vault, "tagged")
+        _recapture(
+            note,
+            **{
+                tag_block(base_tags): tag_block(recaptured),
+                'at: "2026-09-16T09:00:00Z"': 'at: "2026-09-17T09:00:00Z"',
+            },
+        )
+    else:
+        _recapture(note, **{anchor: anchor + tag_block(recaptured)})
+    summary = Outcome(
+        capture.CHECK,
+        "smith2020",
+        Result.MATCHED,
+        "matched",
+        extra={"tags-only": True},
+    )
+    cli._print_and_hold(
+        net_vault,
+        capture._tags_summary(
+            [summary], datetime.datetime(2026, 11, 8, tzinfo=datetime.UTC)
+        ),
+        capture.CHECK,
+    )
+    assert [
+        f.reason for f in inbox.open_entries(net_vault) if f.check == capture.CHECK
+    ] == ["drift — tags changed on: smith2020"]
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    closing = verify.CLOSING_BY_SURFACE["commit"]
+    assert [
+        (o.check, o.reason)
+        for o in effective
+        if o.result in (Result.UNMATCHED, Result.UNREACHABLE) and o.check in closing
+    ] == []
+    assert verify.surface_decision("commit", effective, warning)[0] == 0
 
 
 def test_a_verifier_list_row_is_acknowledged_on_the_lists_not_the_note(net_vault):

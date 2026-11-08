@@ -1825,3 +1825,126 @@ def test_a_412_before_any_note_is_written_writes_no_csl_file(tmp_vault, monkeypa
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     assert [(o.target, o.result) for o in outcomes] == [("vault", Result.UNMATCHED)]
     assert not (tmp_vault / "system" / "bibliography.json").exists()
+
+
+def test_capturing_x_alone_moves_no_entry_for_y_and_ys_own_recapture_moves_both(
+    tmp_vault, monkeypatch
+):
+    """Designs test 2, as §5.3.7 amends it: an entry moves only with its note.
+    Y's DOI moves in Zotero; `capture X` leaves Y's entry and note as they
+    were, with no captured-set row for Y; `capture Y` moves both together, and
+    the monitor reports the DOI."""
+    import subprocess
+
+    from research_vault import captured, gitstate, lints
+
+    second = _second_item()
+    csl = {
+        "jakesch.etal2023a": {**LIBRARY[0]},
+        "second2023": {"id": "second2023", "type": "article-journal", "DOI": "10.1/a"},
+    }
+    second["data"]["DOI"] = "10.1/a"
+    fake = _canned_run(canned_item(FakeZotero()), items=(ITEM, second))
+    canned_item(fake, item=second, children=())
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"E352DFS8": 544, "D7EJ9FTG": 551, "N0TE0001": 552, "F441KKD2": 544},
+        headers={"Last-Modified-Version": "565"},
+    )
+    fake.rpc("item.export", lambda params: [csl[k] for k in params[0] if k in csl])
+    client = _client(monkeypatch, fake)
+    capture.capture(
+        tmp_vault, client, ["E352DFS8", "F441KKD2"], now=_at("2026-11-01T09:00:00Z")
+    )
+    subprocess.run(["git", "add", "-A"], cwd=tmp_vault, check=True)
+    subprocess.run(["git", "commit", "-qm", "both"], cwd=tmp_vault, check=True)
+    y_note = tmp_vault / "literature" / "second2023.md"
+    y_bytes = y_note.read_bytes()
+    y_entry = bibliography.load(tmp_vault)["second2023"]
+    assert frontmatter.parse(y_bytes.decode())[0]["csl-sha256"] == (
+        bibliography.entry_sha256(y_entry)
+    )
+
+    second["data"]["DOI"] = "10.1/b"
+    csl["second2023"] = {**csl["second2023"], "DOI": "10.1/b"}
+    canned_item(fake, item=second, children=())
+    capture.capture(tmp_vault, client, ["E352DFS8"], now=_at("2026-11-02T09:00:00Z"))
+    assert y_note.read_bytes() == y_bytes
+    assert bibliography.load(tmp_vault)["second2023"] == y_entry
+    assert [
+        o
+        for o in captured.lint_captured_set(tmp_vault)
+        if "second2023" in f"{o.target} {o.reason}"
+    ] == []
+
+    capture.capture(tmp_vault, client, ["F441KKD2"], now=_at("2026-11-03T09:00:00Z"))
+    data, _ = frontmatter.parse(y_note.read_text())
+    entry = bibliography.load(tmp_vault)["second2023"]
+    assert (data["DOI"], entry["DOI"]) == ("10.1/b", "10.1/b")
+    assert data["csl-sha256"] == bibliography.entry_sha256(entry)
+    monitor = [
+        (o.target, o.reason)
+        for o in lints.lint_evidence_layer(
+            gitstate.snapshot_tree(tmp_vault, "HEAD"),
+            gitstate.snapshot_worktree(tmp_vault),
+        )
+        if o.check == lints.MONITOR_CHECK
+    ]
+    assert monitor == [
+        (
+            "path-bytes:literature/second2023.md",
+            'drift — DOI changed: "10.1/a" → "10.1/b"',
+        )
+    ]
+
+
+def test_a_compiled_child_trashed_and_recaptured_leaves_a_not_captured_ledger_row(
+    tmp_vault, monkeypatch
+):
+    """Designs test 4: the source ledger names `fulltext/K.md`; K is trashed and
+    the note recaptured, so its `fulltext` tuple loses K and the captured-set
+    check reports the ledger reference. The orphaned `fulltext/K.md` file left
+    behind (#274) does not suppress the row."""
+    from research_vault import captured
+    from tests.test_captured import _ledger
+
+    capture.capture(
+        tmp_vault,
+        _client(monkeypatch, _canned_run(canned_item(FakeZotero()))),
+        ["E352DFS8"],
+    )
+    note = tmp_vault / "literature" / "jakesch.etal2023a.md"
+    (text_entry,) = frontmatter.parse(note.read_text())[0]["fulltext"]
+    _ledger(
+        tmp_vault,
+        {
+            "src-1": {
+                "origin": {"kind": "file", "locator": "fulltext/D7EJ9FTG.md"},
+                "content_sha256": text_entry["sha256"],
+            }
+        },
+    )
+    assert [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ] == []
+    fake = _canned_run(canned_item(FakeZotero(), children=(CHILD_NOTE,)))
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"E352DFS8": 544, "N0TE0001": 552},
+        headers={"Last-Modified-Version": "565"},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={"D7EJ9FTG": 566})
+    outcomes = capture.capture(tmp_vault, _client(monkeypatch, fake), ["E352DFS8"])
+    assert outcomes[0].result is Result.MATCHED
+    assert frontmatter.parse(note.read_text())[0]["fulltext"] == []
+    assert (tmp_vault / "fulltext" / "D7EJ9FTG.md").is_file()  # #274's orphan
+    assert [
+        (str(o.target), o.reason)
+        for o in captured.lint_captured_set(tmp_vault)
+        if o.result is Result.UNMATCHED
+    ] == [
+        (
+            f"path-bytes:{captured.LEDGER_PATH}",
+            "not-captured — ledger src-1 names fulltext/D7EJ9FTG.md, which no capture wrote",
+        )
+    ]

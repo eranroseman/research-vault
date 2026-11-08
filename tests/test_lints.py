@@ -1907,6 +1907,33 @@ def test_monitor_runs_across_a_renamed_pair_too(fixture_vault):
     ) in _monitor_rows(fixture_vault, base)
 
 
+def test_a_rename_that_drops_a_failure_row_raises_that_one_list_row(fixture_vault):
+    """P43 (F19): the rename branch's verifier-list call is the only thing that
+    catches a #206 removal riding a propagate rename."""
+    note = fixture_vault / "literature" / "smith2020.md"
+    _with_lists(note, [], [("update-notice", "UNMATCHED")])
+    subprocess.run(["git", "commit", "-qam", "failure"], cwd=fixture_vault, check=True)
+    base = _base_tree(fixture_vault)
+    renamed = fixture_vault / "literature" / "smith2020b.md"
+    text = must_replace(
+        note.read_text(), 'citationKey: "smith2020"', 'citationKey: "smith2020b"'
+    )
+    text = must_replace(
+        text,
+        'failed-verification:\n  - {check: "update-notice", result: "UNMATCHED"}\n',
+        "",
+    )
+    renamed.write_text(_bump_generated(text))
+    _refresh_body_witness(renamed)
+    note.unlink()
+    assert _list_rows(fixture_vault, base) == [
+        (
+            "drift — failed-verification row for update-notice removed without a passing event",
+            "verifier-lists",
+        )
+    ]
+
+
 def _with_lists(path, verified, failures):
     text = path.read_text()
     block = ""
@@ -2035,6 +2062,43 @@ def test_verified_events_are_compared_as_a_multiset(fixture_vault):
     )
     assert _list_rows(fixture_vault, base) == []
     note.write_text(must_replace(note.read_text(), line * 2, line * 3))
+    assert _list_rows(fixture_vault, base) == []
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ('at: "2026-09-01"', 'at: "2026-09-02"'),
+        ('check: "update-notice"', 'check: "identifier-discovery"'),
+        ('by: "research_vault/0.1.0"', 'by: "human:eran"'),
+    ],
+    ids=["at", "check", "by"],
+)
+def test_an_event_edited_in_place_is_a_removed_event(fixture_vault, old, new):
+    """Designs test 6: under the multiset rule an edit in place reads as the
+    old event removed (and a new one added), so it raises the removal row."""
+    note, base = _event_note(
+        fixture_vault, [("research_vault/0.1.0", "2026-09-01", "update-notice")], []
+    )
+    note.write_text(must_replace(note.read_text(), old, new))
+    assert _list_rows(fixture_vault, base) == [
+        (
+            "drift — verified event removed: update-notice@2026-09-01 by research_vault/0.1.0",
+            "verifier-lists",
+        )
+    ]
+
+
+def test_verifys_own_record_failure_diff_raises_no_list_row(fixture_vault):
+    """Designs test 6: `record_failure` on a committed note adds a failure row,
+    which is never a removal."""
+    note, base = _event_note(
+        fixture_vault, [("research_vault/0.1.0", "2026-09-01", "update-notice")], []
+    )
+    note.write_text(
+        events.record_failure(note.read_text(), "update-notice", Result.UNMATCHED)
+    )
+    assert "failed-verification" in note.read_text()
     assert _list_rows(fixture_vault, base) == []
 
 
