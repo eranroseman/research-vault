@@ -348,10 +348,10 @@ def base_field_map(schema: Mapping) -> dict[str, dict[str, str]]:
     return folded
 
 
-def snapshot(
+def _folded_values(
     item_data, base_fields: Mapping[str, str] | None = None
-) -> list[tuple[str, object]]:
-    """The fixed subset, verbatim, under Zotero's base field names; empty values absent.
+) -> dict[str, object]:
+    """The snapshot's raw values keyed by base field name, before rendering.
 
     ``base_fields`` is the item type's row of ``base_field_map``: a value under a
     type-specific name (``proceedingsTitle``) is carried under its base name
@@ -365,6 +365,14 @@ def snapshot(
             continue
         if key == name or key not in folded:
             folded[key] = value
+    return folded
+
+
+def snapshot(
+    item_data, base_fields: Mapping[str, str] | None = None
+) -> list[tuple[str, object]]:
+    """The fixed subset, verbatim, under Zotero's base field names; empty values absent."""
+    folded = _folded_values(item_data, base_fields)
     return [
         (name, frontmatter_value(folded[name]))
         for name in SNAPSHOT_FIELDS
@@ -530,8 +538,10 @@ def render_note(
     """Frontmatter, then only what frontmatter cannot carry, plus the three pointers (§3.3 step 5)."""
     prior = frontmatter.parse(existing)[0] if existing else {}
     prior_items = list(frontmatter._mapping_items(prior))
+    # The raw value, not snapshot's: frontmatter_value would split a title with a
+    # line break into a list, and display_text would then print the list.
     title = display_text(
-        dict(snapshot(item_data, base_fields)).get("title") or provenance.citation_key
+        _folded_values(item_data, base_fields).get("title") or provenance.citation_key
     )
     fields: list[tuple[str, object]] = [
         ("type", "literature"),

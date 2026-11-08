@@ -931,3 +931,31 @@ def test_snapshot_lets_a_base_named_value_win_over_a_folded_one():
         )
     )
     assert fields["publicationTitle"] == "Base"
+
+
+def _render_data(item_data, base_fields=None):
+    text = literature_notes.render_note(
+        item_data,
+        PROVENANCE,
+        [],
+        [],
+        None,
+        accessed="2026-09-07",
+        generated_at="2026-09-07T10:00:00Z",
+        base_fields=base_fields,
+    )
+    return frontmatter.parse(text)[0]
+
+
+def test_render_note_title_and_alias_collapse_a_line_break():
+    data = _render_data({"itemType": "journalArticle", "title": "Line one\nline two"})
+    assert data["title"] == "Line one line two"
+    assert data["aliases"] == ["Line one line two"]
+
+
+def test_render_note_title_folds_a_title_shaped_field():
+    data = _render_data(
+        {"itemType": "case", "caseName": "Roe v. Wade"}, {"caseName": "title"}
+    )
+    assert data["title"] == "Roe v. Wade"
+    assert data["aliases"] == ["Roe v. Wade"]
