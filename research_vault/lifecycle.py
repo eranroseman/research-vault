@@ -74,10 +74,10 @@ def read_live(client: ZoteroClient) -> Live:
     return Live(versions, trash, top)
 
 
-def _successor(item_key: str, live: Live) -> str | None:
+def _successor(item_key: str, live: Live) -> tuple[str, dict] | None:
     for key, entry in live.top.items():
         if item_key in entry["replaces"]:
-            return key
+            return key, entry
     return None
 
 
@@ -85,7 +85,10 @@ def classify(provenance: literature_notes.Provenance, live: Live) -> tuple[str, 
     key = provenance.item_key
     successor = _successor(key, live)
     if successor is not None:
-        return "merged", successor
+        # `<item key> (<citation key>)`: propagate maps the loser to the
+        # survivor's key (#183); `?` is a survivor not yet keyed.
+        successor_key, entry = successor
+        return "merged", f"{successor_key} ({entry.get('citationKey') or '?'})"
     if key not in live.versions:
         return ("trashed", key) if key in live.trash else ("deleted", key)
     live_key = live.top.get(key, {}).get("citationKey")

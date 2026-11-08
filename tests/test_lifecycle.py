@@ -147,10 +147,16 @@ def test_merged_outranks_trashed_and_deleted():
     top = {"NEW00001": {"citationKey": "new2026", "replaces": {"ALKT2NF7"}}}
     assert lifecycle.classify(
         _prov(), _live({"NEW00001": 1}, {"ALKT2NF7": 9}, top)
-    ) == ("merged", "NEW00001")
+    ) == ("merged", "NEW00001 (new2026)")
     assert lifecycle.classify(_prov(), _live({"NEW00001": 1}, {}, top)) == (
         "merged",
-        "NEW00001",
+        "NEW00001 (new2026)",
+    )
+    # A survivor not yet keyed names no target; propagate maps nothing for it.
+    top["NEW00001"]["citationKey"] = None
+    assert lifecycle.classify(_prov(), _live({"NEW00001": 1}, {}, top)) == (
+        "merged",
+        "NEW00001 (?)",
     )
 
 

@@ -6,6 +6,8 @@ Records of what was known, decided, or found — captured sources and their life
 
 **Scope bound.** Records only, in the vault only. The compiled layer under `wiki/` is freely rewritable (it asserts arrangement, not evidence). Repo artifacts — plans, docs, code — are outside this ADR: deleting them is normal hygiene, and this ADR never justifies keeping a dead file.
 
+**Scope note, 2026-11-07 (lanes 2–3 spec §5.3.6).** A Zotero merge is a recorded transition whose record is Zotero's own `dc:replaces` relation and the applied propagation plan under `system/propagations/`. When the survivor already has a literature note, the loser's note is removed by `propagate apply` under that plan: the note is wholly machine-written, the merge moved the loser's Zotero child notes onto the survivor, and the survivor's note is re-rendered in the same act, so nothing a person wrote is lost and what the loser's note said remains in history and in the plan. This is the one deletion a verb performs; `trashed` and `deleted` items keep their notes as before. Verified events and acknowledgments keyed on the loser's address are #146's open question.
+
 ## Considered Options
 
 Delete-with-git-history-as-audit-trail (rejected: history preserves bytes, not meaning — a deleted source's exclusion rationale becomes archaeology instead of a queryable field, and every consumer would need to walk history to know what was ever considered). Free overwrite of state fields (rejected: loses the actor and date that make a transition accountable, and lets contradictions vanish without a trace).

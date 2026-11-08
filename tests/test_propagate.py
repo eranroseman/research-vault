@@ -48,7 +48,10 @@ def _zotero(monkeypatch, citation_key="new2020", server_id="S"):
 # A tuple of pairs, not the brief's dict literal: ruff's `B` set (B006) refuses
 # a mutable default argument. `now` pins an operation id where a test needs two.
 def _planned(vault, client, mapping=(("old2020", "new2020"),), now=None):
-    planned, outcomes = propagate.plan(vault, client, dict(mapping), now=now)
+    """``mapping=None`` plans from the lifecycle linter, as the CLI without --map does."""
+    planned, outcomes = propagate.plan(
+        vault, client, None if mapping is None else dict(mapping), now=now
+    )
     assert planned is not None, outcomes
     return planned, propagate.write_plan(vault, planned), propagate.plan_sha256(planned)
 
@@ -701,7 +704,11 @@ def test_mapping_from_linter_takes_re_keys_and_blocks_only_on_vault_rows(
     """A re-keyed note becomes a mapping entry; a trashed note is neither a
     mapping nor a block; a vault row blocks only when it is UNMATCHED
     (database-changed) or an outage -- the fresh vault's SKIPPED row does not."""
-    assert propagate._mapping_from_linter(tmp_vault, _zotero(monkeypatch)) == ({}, [])
+    assert propagate._mapping_from_linter(tmp_vault, _zotero(monkeypatch)) == (
+        {},
+        {},
+        [],
+    )
     (tmp_vault / "literature" / "old2020.md").write_text(_note("E352DFS8", "old2020"))
     (tmp_vault / "literature" / "gone2020.md").write_text(_note("TRASHED1", "gone2020"))
     client = _lint_fake(
@@ -712,9 +719,10 @@ def test_mapping_from_linter_takes_re_keys_and_blocks_only_on_vault_rows(
     )
     assert propagate._mapping_from_linter(tmp_vault, client) == (
         {"old2020": "new2020"},
+        {},
         [],
     )
-    mapping, blocking = propagate._mapping_from_linter(
+    mapping, _merges, blocking = propagate._mapping_from_linter(
         tmp_vault, _zotero(monkeypatch, server_id="Tdoqsn2J4q4h")
     )
     assert mapping == {}
@@ -1141,3 +1149,150 @@ def test_lint_reports_a_surface_it_cannot_read_and_judges_the_rest(
     assert by_target["path-bytes:projects/brief/draft.md"].reason == (
         f"stale-key — names old2020, mapped to new2020 by {_planned_plan.operation_id}"
     )
+
+
+def _merge_fake(monkeypatch, *, survivor_has_note):
+    """old2020 (E352DFS8) was merged into NEW00001, whose key is new2020."""
+    fake = FakeZotero(server_id="S")
+    survivor = {
+        **ITEM,
+        "key": "NEW00001",
+        "data": {
+            **ITEM["data"],
+            "key": "NEW00001",
+            "citationKey": "new2020",
+            "relations": {"dc:replaces": ["http://zotero.org/users/0/items/E352DFS8"]},
+        },
+    }
+    canned_item(fake, item=survivor)
+    fake.get(
+        "/api/users/0/items?since=0&format=versions",
+        body={"NEW00001": 600, "D7EJ9FTG": 551, "N0TE0001": 552},
+        headers={"Last-Modified-Version": "600"},
+    )
+    fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 545})
+    fake.get(
+        "/api/users/0/items/top?format=json",
+        body=[survivor],
+        headers={"Last-Modified-Version": "600"},
+    )
+    fake.rpc("item.export", lambda params: [{"id": "new2020", "title": "T"}])
+    return fake.install(zotero.ZoteroClient(), monkeypatch)
+
+
+def test_plan_maps_a_merged_loser_to_the_survivor_through_its_item(
+    tmp_vault, monkeypatch
+):
+    _seed(tmp_vault)
+    client = _merge_fake(monkeypatch, survivor_has_note=False)
+    planned, outcomes = propagate.plan(tmp_vault, client, None)
+    assert planned is not None, outcomes
+    assert planned.mapping == {"old2020": "new2020"}
+    assert planned.merges == {"old2020": "NEW00001"}
+    assert planned.item_keys == {"old2020": "NEW00001"}
+    assert propagate.read_plan(propagate.write_plan(tmp_vault, planned)).merges == {
+        "old2020": "NEW00001"
+    }
+
+
+def test_apply_renames_the_loser_when_the_survivor_has_no_note(tmp_vault, monkeypatch):
+    _seed(tmp_vault)
+    client = _merge_fake(monkeypatch, survivor_has_note=False)
+    _plan, path, sha = _planned(tmp_vault, client, mapping=None)
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert all(o.result is Result.MATCHED for o in outcomes), outcomes
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
+    note = tmp_vault / "literature" / "new2020.md"
+    assert note.is_file()
+    assert 'zotero-item-key: "NEW00001"' in note.read_text()  # re-rendered
+    assert "[[new2020]]" in (tmp_vault / "wiki" / "sources" / "A.md").read_text()
+
+
+def test_apply_deletes_the_loser_when_the_survivor_already_has_a_note(
+    tmp_vault, monkeypatch
+):
+    """§5.3.6: the loser's note is wholly machine-written and the merge moved
+    its Zotero child notes onto the survivor; nothing person-written is lost.
+    ADR 0003's scope note of 2026-11-07 covers this one deletion."""
+    _seed(tmp_vault)
+    (tmp_vault / "literature" / "new2020.md").write_text(_note("NEW00001", "new2020"))
+    client = _merge_fake(monkeypatch, survivor_has_note=True)
+    planned, path, sha = _planned(tmp_vault, client, mapping=None)
+    assert planned.merges == {"old2020": "NEW00001"}
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert all(o.result is Result.MATCHED for o in outcomes), outcomes
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
+    assert (tmp_vault / "literature" / "new2020.md").is_file()
+    record = json.loads(
+        next((tmp_vault / "system" / "propagations").glob("*.json")).read_text()
+    )
+    assert record["merges"] == {"old2020": "NEW00001"}
+
+
+def test_a_plain_re_key_still_refuses_an_existing_target(tmp_vault, monkeypatch):
+    """The exists-check is bypassed for merges only."""
+    _seed(tmp_vault)
+    (tmp_vault / "literature" / "new2020.md").write_text(_note("OTHER001", "new2020"))
+    client = _zotero(monkeypatch)
+    planned, outcomes = propagate.plan(tmp_vault, client, {"old2020": "new2020"})
+    assert planned is None
+    assert "already exists" in outcomes[0].reason
+
+
+def test_a_merge_into_a_survivor_without_a_citation_key_maps_nothing(
+    tmp_vault, monkeypatch
+):
+    """`merged — NEW00001 (?)`: no target name yet, so neither a mapping nor a
+    merge; the plan says there is nothing to propagate."""
+    (tmp_vault / "literature" / "old2020.md").write_text(_note("E352DFS8", "old2020"))
+    client = _lint_fake(
+        monkeypatch,
+        versions={"NEW00001": 1},
+        trash={"E352DFS8": 1},
+        top=[
+            {
+                "key": "NEW00001",
+                "data": {
+                    "relations": {
+                        "dc:replaces": "http://zotero.org/users/0/items/E352DFS8"
+                    }
+                },
+            }
+        ],
+    )
+    assert propagate._mapping_from_linter(tmp_vault, client) == ({}, {}, [])
+
+
+def test_a_merge_is_verified_against_the_survivors_item(tmp_vault, monkeypatch):
+    """The live read for a merged loser is the survivor's item: a survivor
+    whose key moved between plan and apply refuses before anything changes."""
+    _seed(tmp_vault)
+    _plan, path, sha = _planned(
+        tmp_vault, _merge_fake(monkeypatch, survivor_has_note=False), mapping=None
+    )
+    moved = FakeZotero(server_id="S")
+    canned_item(
+        moved,
+        item={
+            **ITEM,
+            "key": "NEW00001",
+            "data": {**ITEM["data"], "key": "NEW00001", "citationKey": "new2020b"},
+        },
+    )
+    client = moved.install(zotero.ZoteroClient(), monkeypatch)
+    (refused,) = propagate.apply(tmp_vault, client, path, sha)
+    assert refused.reason == (
+        "mismatch — item NEW00001 carries citation key 'new2020b', not 'new2020'"
+    )
+    assert (tmp_vault / "literature" / "old2020.md").is_file()
+
+
+def test_a_plan_document_without_merges_reads_as_a_re_key(tmp_vault, monkeypatch):
+    """Records written before #183 carry no `merges`; they read as `{}`."""
+    _seed(tmp_vault)
+    _plan, path, _sha = _planned(tmp_vault, _zotero(monkeypatch))
+    document = json.loads(path.read_text())
+    assert document["merges"] == {}
+    del document["merges"]
+    path.write_text(json.dumps(document))
+    assert propagate.read_plan(path).merges == {}

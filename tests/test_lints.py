@@ -1,3 +1,4 @@
+import json
 import re
 import subprocess
 
@@ -2035,3 +2036,141 @@ def test_verified_events_are_compared_as_a_multiset(fixture_vault):
     assert _list_rows(fixture_vault, base) == []
     note.write_text(must_replace(note.read_text(), line * 2, line * 3))
     assert _list_rows(fixture_vault, base) == []
+
+
+def _merge_record(**overrides):
+    record = {
+        "schema": "research-vault.propagation.v1",
+        "operation_id": "propagate-20261024T100000Z",
+        "date": "2026-10-24",
+        "mapping": {"gone2019": "smith2020"},
+        "item_keys": {"gone2019": "SMITH020"},
+        "merges": {"gone2019": "SMITH020"},
+        "surfaces": [],
+        "applied_at": "2026-10-24T10:00:00",
+        "approved_plan_sha256": "0" * 64,
+    }
+    record.update(overrides)
+    return {key: value for key, value in record.items() if value is not None}
+
+
+def _write_merge_record(vault, text):
+    record = vault / "system" / "propagations" / "propagate-20261024T100000Z.json"
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(text)
+    return record
+
+
+def _gone_deleted(rows):
+    return any(
+        r.reason == "drift — literature note deleted" and "gone2019" in str(r.target)
+        for r in rows
+    )
+
+
+def test_a_merge_losers_deletion_is_attested_by_the_propagation_record(fixture_vault):
+    """#183: the record under system/propagations/ names the loser, so the
+    deletion is a transition with a record (ADR 0003 scope note), not drift."""
+    base = _base_tree(fixture_vault)
+    _write_merge_record(fixture_vault, json.dumps(_merge_record()))
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+    rows = _evidence_rows(fixture_vault, base)
+    assert not _gone_deleted(rows), rows
+    (fixture_vault / "literature" / "smith2020.md").unlink()
+    rows = _evidence_rows(fixture_vault, base)
+    assert any(
+        r.reason == "drift — literature note deleted" and "smith2020" in str(r.target)
+        for r in rows
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param(json.dumps(_merge_record(merges=None)), id="no-merges"),
+        pytest.param(
+            json.dumps(_merge_record(merges={"other2019": "SMITH020"})),
+            id="another-key",
+        ),
+        pytest.param(
+            json.dumps(_merge_record(schema="research-vault.other.v1")),
+            id="wrong-schema",
+        ),
+        pytest.param(json.dumps(_merge_record(applied_at=None)), id="never-applied"),
+        pytest.param(
+            json.dumps(_merge_record(approved_plan_sha256=None)), id="no-approval"
+        ),
+        pytest.param(json.dumps(_merge_record(surfaces=None)), id="no-surfaces"),
+        pytest.param(json.dumps(_merge_record(merges=["gone2019"])), id="merges-list"),
+        pytest.param(json.dumps([_merge_record()]), id="not-an-object"),
+        pytest.param("{not json", id="not-json"),
+        pytest.param("\udcff", id="not-utf8"),
+    ],
+)
+def test_only_an_applied_record_naming_the_loser_attests_its_deletion(
+    fixture_vault, text
+):
+    """The record must read as `lint_propagation` reads one (`read_plan`'s
+    schema and fields), carry the apply's stamp, and name the deleted note's
+    citationKey in `merges`; anything less leaves the deletion row."""
+    base = _base_tree(fixture_vault)
+    record = _write_merge_record(fixture_vault, "")
+    record.write_bytes(text.encode("utf-8", errors="surrogateescape"))
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+    assert _gone_deleted(_evidence_rows(fixture_vault, base))
+
+
+def test_a_record_already_in_the_base_attests_no_later_deletion(fixture_vault):
+    """A record attests the deletion it was applied with. Once committed, it
+    no longer covers a note deleted later under the freed key (a different
+    item can hold it): records are write-once, so a new one is a new path."""
+    _write_merge_record(fixture_vault, json.dumps(_merge_record()))
+    subprocess.run(
+        ["git", "add", "system"], cwd=fixture_vault, check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "record"],
+        cwd=fixture_vault,
+        check=True,
+        capture_output=True,
+    )
+    base = _base_tree(fixture_vault)
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+    assert _gone_deleted(_evidence_rows(fixture_vault, base))
+
+
+def _commit_all(vault, message):
+    subprocess.run(["git", "add", "-A"], cwd=vault, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", message],
+        cwd=vault,
+        check=True,
+        capture_output=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("line", "replacement"),
+    [
+        pytest.param(
+            'citationKey: "gone2019"\n',
+            'citationKey: "other2019"\ncitationKey: "gone2019"\n',
+            id="duplicated-key",
+        ),
+        pytest.param(
+            'citationKey: "gone2019"\n', "citationKey:\n  - gone2019\n", id="list"
+        ),
+    ],
+)
+def test_a_base_note_whose_citation_key_cannot_be_trusted_is_never_a_loser(
+    fixture_vault, line, replacement
+):
+    """#20: a duplicated key is last-key-wins, so a crafted last value could
+    claim a record's loser; a key that is not a string names no note."""
+    note = fixture_vault / "literature" / "gone2019.md"
+    note.write_text(must_replace(note.read_text(), line, replacement))
+    _commit_all(fixture_vault, "base")
+    base = _base_tree(fixture_vault)
+    _write_merge_record(fixture_vault, json.dumps(_merge_record()))
+    note.unlink()
+    assert _gone_deleted(_evidence_rows(fixture_vault, base))

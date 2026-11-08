@@ -941,6 +941,52 @@ def _capture_monitor_outcomes(raw_path, base_data, candidate_data) -> list[Outco
     return rows
 
 
+_RECORD_PREFIX = b"system/propagations/"
+
+
+def _merged_losers(
+    base_snapshot: gitstate.Snapshot, candidate_snapshot: gitstate.Snapshot
+) -> set[str]:
+    """Citation keys an applied propagation record names as merge losers (#183).
+
+    Only a record this diff adds counts: `propagate apply` writes it in the
+    same act that removes the loser's note, and records are write-once
+    (`_is_append_only_path`), so a record already in the base attests no later
+    deletion — a different item may hold the freed key by then. The record is
+    read as `lint_propagation` reads one (`propagate.plan_from_document`, flat
+    `*.json` under `system/propagations/`) and must carry the apply's stamp;
+    `lint_propagation` reports one that does not read.
+    """
+    from . import propagate  # propagate imports capture, which imports lints
+
+    losers: set[str] = set()
+    for raw_path, image in candidate_snapshot.images.items():
+        name = raw_path[len(_RECORD_PREFIX) :]
+        if (
+            not raw_path.startswith(_RECORD_PREFIX)
+            or b"/" in name
+            or not name.endswith(b".json")
+            or image.kind != "file"
+            or raw_path in base_snapshot.images
+        ):
+            continue
+        try:
+            document = json.loads((image.data or b"").decode("utf-8"))
+            record = propagate.plan_from_document(document, raw_path)
+        except (UnicodeDecodeError, ValueError, KeyError, TypeError):
+            continue
+        if isinstance(document.get("applied_at"), str) and isinstance(
+            document.get("approved_plan_sha256"), str
+        ):
+            losers.update(record.merges)
+    return losers
+
+
+def _names_loser(image: gitstate.FileImage, losers: set[str]) -> bool:
+    key = _field(_frontmatter(image), "citationKey")
+    return isinstance(key, str) and key in losers
+
+
 def lint_evidence_layer(
     base_snapshot: gitstate.Snapshot,
     candidate_snapshot: gitstate.Snapshot,
@@ -1066,6 +1112,10 @@ def lint_evidence_layer(
                     extra=extra,
                 )
             )
+    # A merge loser's note goes under the applied plan (ADR 0003's scope note
+    # of 2026-11-07); a base note with a duplicated key names no citationKey
+    # this may trust (#20), so its deletion is reported.
+    losers = _merged_losers(base_snapshot, candidate_snapshot)
     outcomes.extend(
         Outcome(
             "evidence-layer",
@@ -1074,6 +1124,7 @@ def lint_evidence_layer(
             "drift — literature note deleted",
         )
         for raw_path in sorted(unpaired_removed)
+        if raw_path in base_duplicated or not _names_loser(base_files[raw_path], losers)
     )
     for raw_path in sorted(set(base_files) & set(candidate_files)):
         if raw_path in duplicated:

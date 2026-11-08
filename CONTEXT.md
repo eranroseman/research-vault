@@ -50,7 +50,7 @@ _Avoid_: synthesis layer, synthesis note (the layer moved under `wiki/` and took
 **Citation key**: A source's name: Zotero's native `citationKey` field, filled by Better BibTeX. It names the file, the prose citation and the CSL entry. A change is a rename of a thing whose identity did not change, propagated mechanically.
 _Avoid_: citekey (a Better BibTeX synonym for a field Better BibTeX no longer owns)
 
-**Standing**: A source's state after it was added, in the lifecycle linter's words: current, drifted, re-keyed, **merged**, **trashed**, **deleted** (Zotero's words); **retracted**, **corrected** (Retraction Watch, Cochrane). A transition never deletes a note; it files a finding.
+**Standing**: A source's state after it was added, in the lifecycle linter's words: current, drifted, re-keyed, **merged**, **trashed**, **deleted** (Zotero's words); **retracted**, **corrected** (Retraction Watch, Cochrane). A transition files a finding and keeps the note — except a merge whose survivor already has a note, where the applied propagation plan removes the loser's (spec §5.3.6, ADR 0003's 2026-11-07 scope note).
 
 **Captured set**: The citation keys read from the `citationKey` field of every parseable note under `literature/` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation. The CSL file's scope, the compile wrapper's selection and the captured-set lint all read this set.
 

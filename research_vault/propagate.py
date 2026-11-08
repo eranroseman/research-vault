@@ -43,6 +43,10 @@ class Plan(NamedTuple):
     date: str
     mapping: dict[str, str]
     item_keys: dict[str, str]
+    # A merged loser's citation key -> the survivor's item key (#183, §5.3.6);
+    # empty for a re-key. The note is verified against, and recaptured as, the
+    # survivor, and apply removes it when the survivor already has a note.
+    merges: dict[str, str]
     surfaces: tuple[Surface, ...]
 
 
@@ -77,8 +81,16 @@ def _surfaces(vault: Path) -> Iterator[tuple[Path, str]]:
         yield path, relative
 
 
-def _mapping_from_linter(vault: Path, client) -> tuple[dict[str, str], list[Outcome]]:
+# lint_lifecycle's `merged — <survivor item key> (<survivor citation key>)`;
+# the item key is zotero.ITEM_KEY's shape.
+_MERGED = re.compile(r"^merged — (?P<item>[A-Z0-9]{8}) \((?P<key>[^)]+)\)$")
+
+
+def _mapping_from_linter(
+    vault: Path, client
+) -> tuple[dict[str, str], dict[str, str], list[Outcome]]:
     mapping: dict[str, str] = {}
+    merges: dict[str, str] = {}
     blocking: list[Outcome] = []
     for outcome in lifecycle.lint_lifecycle(vault, client):
         if outcome.result is Result.UNREACHABLE or (
@@ -90,7 +102,16 @@ def _mapping_from_linter(vault: Path, client) -> tuple[dict[str, str], list[Outc
         ):
             old, new = outcome.reason[len("re-keyed — ") :].split(" → ", 1)
             mapping[old] = new
-    return mapping, blocking
+        elif (
+            outcome.result is Result.UNMATCHED
+            and (match := _MERGED.match(outcome.reason))
+            # A survivor not yet keyed (`?`) has no name to map to; the
+            # finding stands until Zotero gives it one.
+            and match.group("key") != "?"
+        ):
+            mapping[str(outcome.target)] = match.group("key")
+            merges[str(outcome.target)] = match.group("item")
+    return mapping, merges, blocking
 
 
 def _refusal(old: str, detail: str) -> Outcome:
@@ -145,9 +166,20 @@ def _sources(
 
 
 def plan(
-    vault_root, client, mapping: dict[str, str] | None, *, now=None
+    vault_root,
+    client,
+    mapping: dict[str, str] | None,
+    *,
+    merges: dict[str, str] | None = None,
+    now=None,
 ) -> tuple[Plan | None, list[Outcome]]:
-    """Compute one re-key pass without touching anything (spec §3.5, decision 01)."""
+    """Compute one re-key pass without touching anything (spec §3.5, decision 01).
+
+    ``merges`` names the mapping entries that are Zotero merges (§5.3.6): each
+    is verified against the survivor's item, not the note's, and may land on
+    an existing ``literature/<survivor>.md``. Without ``mapping``, the
+    lifecycle linter supplies both.
+    """
     vault = Path(vault_root)
     now = now or datetime.datetime.now(datetime.UTC)
     if client is None:
@@ -160,9 +192,11 @@ def plan(
             )
         ]
     if mapping is None:
-        mapping, blocking = _mapping_from_linter(vault, client)
+        mapping, merges, blocking = _mapping_from_linter(vault, client)
         if blocking:
             return None, blocking
+    known = merges or {}
+    merges = {old: known[old] for old in mapping if old in known}
     if not mapping:
         return None, [
             Outcome(
@@ -178,16 +212,23 @@ def plan(
         if old not in sources:
             continue
         source, provenance = sources[old]
+        item_key = merges.get(old, provenance.item_key)
         try:
             target = literature_notes.note_path(vault, new)
         except literature_notes.InvalidCitationKeyError as error:
             outcomes.append(_refusal(old, str(error)))
             continue
-        if source.name != target.name and (target.exists() or target.is_symlink()):
+        if (
+            old not in merges
+            and source.name != target.name
+            and (target.exists() or target.is_symlink())
+        ):
             # ADR 0003: no transition deletes a literature note, and a POSIX rename
             # over an existing file replaces it silently — a dangling symlink too,
             # which exists() would not see. The note already sitting at its target
-            # (a re-run after a partial apply) is the one exception: no rename.
+            # (a re-run after a partial apply) is one exception: no rename. A
+            # merge is the other: apply removes the loser's note instead (ADR
+            # 0003's scope note of 2026-11-07).
             outcomes.append(
                 _refusal(
                     old,
@@ -201,7 +242,7 @@ def plan(
         # read sends the tuple's server id, so the wrong database is a 412.
         client.server_id = provenance.server_id
         try:
-            live = client.item(provenance.item_key)["data"].get("citationKey")
+            live = client.item(item_key)["data"].get("citationKey")
         except ZoteroError as error:
             return None, [lifecycle.blocked(CHECK, old, error)]
         if live != new:
@@ -210,12 +251,12 @@ def plan(
                     CHECK,
                     old,
                     Result.UNMATCHED,
-                    f"mismatch — item {provenance.item_key} carries citation key "
+                    f"mismatch — item {item_key} carries citation key "
                     f"{live!r}, not {new!r}",
                 )
             )
             continue
-        item_keys[old] = provenance.item_key
+        item_keys[old] = item_key
     if outcomes:
         return None, outcomes
     surfaces = []
@@ -241,7 +282,12 @@ def plan(
         surfaces.append(Surface(relative, hashlib.sha256(data).hexdigest()))
     operation_id = "propagate-" + now.strftime("%Y%m%dT%H%M%SZ")
     return Plan(
-        operation_id, now.date().isoformat(), dict(mapping), item_keys, tuple(surfaces)
+        operation_id,
+        now.date().isoformat(),
+        dict(mapping),
+        item_keys,
+        merges,
+        tuple(surfaces),
     ), []
 
 
@@ -252,6 +298,7 @@ def _document(plan: Plan) -> dict:
         "date": plan.date,
         "mapping": dict(plan.mapping),
         "item_keys": dict(plan.item_keys),
+        "merges": dict(plan.merges),
         "surfaces": [surface._asdict() for surface in plan.surfaces],
     }
 
@@ -271,17 +318,24 @@ def write_plan(vault_root, plan: Plan) -> Path:
     return path
 
 
-def read_plan(path) -> Plan:
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    if data.get("schema") != SCHEMA:
-        raise ValueError(f"not a propagation plan: {path}")
+def plan_from_document(data, source) -> Plan:
+    """A plan or applied record's document, as ``read_plan`` and the
+    evidence-layer lint read it; ValueError, KeyError or TypeError otherwise."""
+    if not isinstance(data, dict) or data.get("schema") != SCHEMA:
+        raise ValueError(f"not a propagation plan: {source}")
     return Plan(
         str(data["operation_id"]),
         str(data["date"]),
         dict(data["mapping"]),
         dict(data["item_keys"]),
+        # Absent from a document written before #183: a re-key.
+        dict(data.get("merges", {})),
         tuple(Surface(str(s["path"]), str(s["sha256"])) for s in data["surfaces"]),
     )
+
+
+def read_plan(path) -> Plan:
+    return plan_from_document(json.loads(Path(path).read_text(encoding="utf-8")), path)
 
 
 def rewrite_surfaces(vault_root, old: str, new: str) -> list[str]:
@@ -305,6 +359,17 @@ def rewrite_surfaces(vault_root, old: str, new: str) -> list[str]:
                 handle.write(rewritten)
             changed.append(relative)
     return changed
+
+
+def _move(source: Path, target: Path, *, merged: bool) -> None:
+    if merged and (target.exists() or target.is_symlink()):
+        # §5.3.6: the survivor already has a note; the loser's is wholly
+        # machine-written and its Zotero child notes moved with the merge.
+        # ADR 0003's scope note of 2026-11-07 covers this deletion; the
+        # applied plan under system/propagations/ is its record.
+        source.unlink()
+    else:
+        source.rename(target)
 
 
 def apply(
@@ -334,7 +399,9 @@ def apply(
             )
         ]
     # Verified again, against Zotero, before anything is renamed.
-    current, outcomes = plan(vault, client, approved.mapping, now=now)
+    current, outcomes = plan(
+        vault, client, approved.mapping, merges=approved.merges, now=now
+    )
     if current is None:
         return outcomes
     current = current._replace(operation_id=approved.operation_id, date=approved.date)
@@ -358,7 +425,7 @@ def apply(
         source, _provenance = sources[old]
         target = literature_notes.note_path(vault, new)
         if source.name != target.name:
-            source.rename(target)
+            _move(source, target, merged=old in approved.merges)
         changed = rewrite_surfaces(vault, old, new)
         recapture = capture.capture(vault, client, [approved.item_keys[old]])
         outcomes.append(
