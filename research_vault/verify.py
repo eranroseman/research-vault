@@ -820,10 +820,12 @@ HISTORY_CHECKS = tuple(_HISTORY_LINTS)
 # Ruling R18: the verifier-list rows hash on the base's tree, so they are
 # per-commit rows, computed only where the base is the candidate's parent. A
 # range leg over more than one commit leaves them to the re-check, and says so
-# once when no re-check runs, rather than dropping them in silence.
+# once whenever no re-check covers its range (P34), rather than dropping them
+# in silence.
 LIST_ROWS_NOTICE = (
     "evidence-layer: verifier-list rows are per-commit and this range spans "
-    "more than one commit; they need --recheck-commits"
+    "more than one commit; they need --recheck-commits from the range's base, "
+    "over the committed HEAD"
 )
 
 
@@ -879,15 +881,17 @@ def _unmatched(repository, base_snapshot, candidate_snapshot):
 
 
 def _holders(outcome, bases):
-    """The parents that hold the row's path; every parent when none does, or
-    when the row names no path."""
+    """The parents a merge row must be raised against: those that hold its
+    path. None may: then the path is wholly the merge's, nothing arrived from
+    a side, and a row raised against any parent stands (a hand rename at the
+    merge reads `renamed` against one side and as an attested add against the
+    other). A row that names no path is held by every parent."""
     raw_path = _row_path(outcome)
-    held = [
-        index
-        for index, base in enumerate(bases)
-        if raw_path is not None and base.image(raw_path) is not None
+    if raw_path is None:
+        return range(len(bases))
+    return [
+        index for index, base in enumerate(bases) if base.image(raw_path) is not None
     ]
-    return held or range(len(bases))
 
 
 def _commit_rows(repository, commit, bases, candidate, *, hasher, own_rows):
@@ -899,8 +903,9 @@ def _commit_rows(repository, commit, bases, candidate, *, hasher, own_rows):
     would only break the acks filed there. A change the merge itself made
     shows against every parent that holds the path, and it stays. So a merge
     row is kept when it is raised against every parent holding its path (a
-    parent lacking the path stands aside; when no parent holds it, against all
-    of them); a single-parent commit keeps every row that test leaves.
+    parent lacking the path stands aside; when none holds it, the path is the
+    merge's own and a row against any parent stands); a single-parent commit
+    keeps every row that test leaves.
 
     A row is new at a commit, or it is not raised there (ruling P33): one a
     parent's own tree already raises on the same bytes (the same check,
@@ -992,8 +997,8 @@ def _two_version_rows(repository, snapshots, recheck_commits, *, git_base, hashe
     it and keeps only its candidate-only rows (rulings P29, P32): the replay
     judges each edit at its own commit, on that commit's bytes, where the
     hook filed its ack. Otherwise, over more than one commit, the leg keeps
-    its rows but the verifier-list ones, and says so once when no re-check
-    runs (ruling R18)."""
+    its rows but the verifier-list ones, which no re-check covers then, and
+    says so once (rulings R18, P34)."""
     leg = _history_lints(repository, snapshots.base, snapshots.candidate)
     notices = []
     if gitstate.base_is_candidates_parent(repository, snapshots):
@@ -1011,8 +1016,7 @@ def _two_version_rows(repository, snapshots, recheck_commits, *, git_base, hashe
         leg = [o for o in leg if (o.check, o.target, o.reason) in own]
     else:
         leg = [o for o in leg if o.extra.get("hash_basis") != lints.VERIFIER_LISTS]
-        if recheck_commits is None:
-            notices.append(LIST_ROWS_NOTICE)
+        notices.append(LIST_ROWS_NOTICE)
     history = (
         _history_outcomes(repository, recheck_commits, hasher)
         if recheck_commits is not None

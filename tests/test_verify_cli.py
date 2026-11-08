@@ -6544,7 +6544,7 @@ def test_a_leg_base_older_than_the_recheck_base_keeps_the_uncovered_rows(net_vau
         '---\ntype: "note"\n---\nunrelated\n'
     )
     _commit_all(net_vault, "unrelated")
-    _report, effective, _hashes, _warning = verify.verify_state(
+    report, effective, _hashes, _warning = verify.verify_state(
         net_vault,
         network=False,
         git_base=old,
@@ -6552,9 +6552,12 @@ def test_a_leg_base_older_than_the_recheck_base_keeps_the_uncovered_rows(net_vau
         recheck_commits=edited,
     )
     assert [o.extra.get("commit") for o in _doi_rows(effective)] == [None]
+    # P34: the re-check is newer than the leg's base, so it covers none of the
+    # list rows the leg withholds; the notice says so.
+    assert report["notices"] == [verify.LIST_ROWS_NOTICE]
     # A HEAD-candidate run refuses a worktree the last run's filings moved.
     subprocess.run(["git", "checkout", "--", "."], cwd=net_vault, check=True)
-    _report, effective, _hashes, _warning = verify.verify_state(
+    report, effective, _hashes, _warning = verify.verify_state(
         net_vault,
         network=False,
         git_base=old,
@@ -6562,11 +6565,12 @@ def test_a_leg_base_older_than_the_recheck_base_keeps_the_uncovered_rows(net_vau
         recheck_commits=old,
     )
     assert [o.extra.get("commit") for o in _doi_rows(effective)] == [edited]
+    assert report["notices"] == []
 
 
-def test_holders_fall_back_to_every_parent_when_none_holds_the_path():
-    """P28's fallback: a parent lacking the path stands aside, unless no
-    parent holds it; then the row must be raised against all of them."""
+def test_holders_are_the_parents_that_hold_the_path():
+    """P28: a parent lacking the path stands aside; when none holds it the
+    path is the merge's own and binds no parent; a pathless row binds all."""
     image = gitstate.FileImage(b"literature/n.md", "file", 0o100644, b"x")
     holding = gitstate.Snapshot({b"literature/n.md": image})
     empty = gitstate.Snapshot({})
@@ -6577,6 +6581,40 @@ def test_holders_fall_back_to_every_parent_when_none_holds_the_path():
         "drift — literature note deleted",
     )
     assert list(verify._holders(row, [empty, holding])) == [1]
-    assert list(verify._holders(row, [empty, empty])) == [0, 1]
+    assert list(verify._holders(row, [empty, empty])) == []
     claimless = Outcome("evidence-layer", "vault", Result.UNMATCHED, "drift — x")
     assert list(verify._holders(claimless, [holding, empty])) == [0, 1]
+
+
+def test_a_rename_the_merge_makes_by_hand_is_raised(net_vault):
+    """P28's no-holder case: one side adds a note; the merge renames it by
+    hand. No parent holds the new path, and the rows differ by parent (a
+    rename against the side that added it, nothing against the other, whose
+    copied `generated` reads as an attested add); the path is wholly the
+    merge's, so a row raised against any parent stands."""
+    note = net_vault / "literature" / "old.md"
+    renamed = net_vault / "literature" / "new.md"
+
+    def add():
+        note.write_text(
+            must_replace(
+                (net_vault / "literature" / "smith2020.md").read_text(),
+                'citationKey: "smith2020"',
+                'citationKey: "old"',
+            )
+        )
+
+    def unrelated():
+        (net_vault / "projects" / "brief" / "notes.md").write_text(
+            '---\ntype: "note"\n---\nmain\n'
+        )
+
+    def resolve():
+        renamed.write_text(note.read_text())
+        note.unlink()
+
+    base, *_, merge = _merge_sides(net_vault, add, unrelated, resolve=resolve)
+    rows = [o for o in _replayed(net_vault, base) if o.extra["commit"] == merge]
+    assert [
+        o.reason for o in rows if o.target == encode_repo_path(b"literature/new.md")
+    ] == ["drift — literature note renamed without writer attestation"]
