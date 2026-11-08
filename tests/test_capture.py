@@ -1694,7 +1694,8 @@ def test_a_tag_change_that_bumped_the_item_version_is_still_tags_only(
     tmp_vault, monkeypatch
 ):
     """Zotero bumps an item's version on every modify, a tag edit included; the
-    monitor reports no version move, so the bump alone keeps the run tags-only."""
+    monitor reports a version only when it goes down (an older render
+    restored), so a bump alone keeps the run tags-only."""
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
@@ -1708,3 +1709,104 @@ def test_a_tag_change_that_bumped_the_item_version_is_still_tags_only(
     assert [o.reason for o in outcomes if o.target == "tags"] == [
         "drift — tags changed on: jakesch.etal2023a"
     ]
+
+
+def _recapture_with(tmp_vault, monkeypatch, mutate, now=None, children=None):
+    """A second run over an item `mutate` edited; the first capture is the caller's."""
+    item = json.loads(json.dumps(ITEM))
+    mutate(item)
+    fake = canned_item(
+        FakeZotero(), item=item, children=children or (ATTACHMENT, CHILD_NOTE)
+    )
+    client = _client(monkeypatch, _canned_run(fake, items=(item,)))
+    return capture.capture(tmp_vault, client, ["E352DFS8"], now=now)
+
+
+def _tagged(*names):
+    def mutate(item):
+        item["data"]["tags"] = [{"tag": name} for name in names]
+
+    return mutate
+
+
+def _tag_summaries(vault):
+    from research_vault import inbox
+
+    return [
+        f
+        for f in inbox.open_entries(vault)
+        if f.check == "capture" and f.target == "tags"
+    ]
+
+
+def test_each_tag_only_run_files_its_own_summary_and_an_ack_covers_that_run_only(
+    tmp_vault, monkeypatch, capsys
+):
+    """Ruling P3: the summary row carries a per-run target hash, so a second
+    run on the same day is a second record rather than a refused collision,
+    and acknowledging one run's summary leaves a later run's open."""
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    capture.capture(tmp_vault, _client(monkeypatch, fake), ["E352DFS8"])
+    first = _recapture_with(
+        tmp_vault, monkeypatch, _tagged("ai", "#nosource"), _at("2026-11-07T09:00:00Z")
+    )
+    cli._print_and_hold(tmp_vault, first, capture.CHECK)
+    (first_record,) = _tag_summaries(tmp_vault)
+    second = _recapture_with(
+        tmp_vault, monkeypatch, _tagged("ai"), _at("2026-11-07T10:00:00Z")
+    )
+    cli._print_and_hold(tmp_vault, second, capture.CHECK)
+    assert "review record refused" not in capsys.readouterr().err
+    assert len(_tag_summaries(tmp_vault)) == 2
+    inbox.append_ack(tmp_vault, first_record.id, "manual — accepted", "human:eran")
+    third = _recapture_with(
+        tmp_vault, monkeypatch, _tagged("ai", "later"), _at("2026-11-07T11:00:00Z")
+    )
+    cli._print_and_hold(tmp_vault, third, capture.CHECK)
+    assert "review record refused" not in capsys.readouterr().err
+    still_open = _tag_summaries(tmp_vault)
+    assert len(still_open) == 2
+    assert first_record.id not in {f.id for f in still_open}
+
+
+def _version_bumped(item):
+    item["version"] = item["data"]["version"] = 545
+
+
+def _tags_and_doi_moved(item):
+    _tagged("ai", "#nosource")(item)
+    item["data"]["DOI"] = "10.1145/0000000.0000000"
+
+
+@pytest.mark.parametrize(
+    ("mutate", "children"),
+    [
+        pytest.param(_version_bumped, None, id="version-only"),
+        pytest.param(_tags_and_doi_moved, None, id="tags-and-doi"),
+        pytest.param(
+            _tagged("ai", "#nosource"),
+            (
+                ATTACHMENT,
+                {
+                    **CHILD_NOTE,
+                    "data": {**CHILD_NOTE["data"], "note": "<p>Reread.</p>"},
+                },
+            ),
+            id="tags-and-body",
+        ),
+    ],
+)
+def test_a_recapture_that_moved_more_than_tags_is_not_tags_only(
+    tmp_vault, monkeypatch, mutate, children
+):
+    """Ruling P5: a bare version bump moved no tag, and a tag move beside a
+    DOI or a body change is the monitor's or a plain rewrite, not a summary."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    capture.capture(tmp_vault, _client(monkeypatch, fake), ["E352DFS8"])
+    outcomes = _recapture_with(tmp_vault, monkeypatch, mutate, children=children)
+    assert (outcomes[0].result, outcomes[0].reason) == (Result.MATCHED, "matched")
+    assert outcomes[0].extra == {}
+    assert not [o for o in outcomes if o.target == "tags"]

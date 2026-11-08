@@ -122,6 +122,9 @@ def _print_and_hold(vault, outcomes, check: str) -> int:
                 outcome.result,
                 outcome.reason,
                 target_kind=outcome.target_kind,
+                # A row whose fixed target cannot tell one run from the next
+                # carries its own hash (capture's tags summary, ruling P3).
+                target_hash=outcome.extra.get("target_hash"),
             )
         if outcome.result is Result.UNMATCHED:
             worst = 1
@@ -173,7 +176,13 @@ def cmd_add(args):
 
 
 def _hold(
-    vault, check, target, result: Result, reason: str, target_kind: str = "identifier"
+    vault,
+    check,
+    target,
+    result: Result,
+    reason: str,
+    target_kind: str = "identifier",
+    target_hash: str | None = None,
 ) -> None:
     """File one import hold through ``record_finding`` — never a forked writer.
 
@@ -184,7 +193,13 @@ def _hold(
     and a silently missing review record is the failure this reports.
     """
     status, detail = record_finding(
-        vault, check, target, result, reason, target_kind=target_kind
+        vault,
+        check,
+        target,
+        result,
+        reason,
+        target_hash=target_hash,
+        target_kind=target_kind,
     )
     if status:
         print(f"warning: review record refused: {detail}", file=sys.stderr)

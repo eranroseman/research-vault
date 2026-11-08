@@ -6,6 +6,7 @@ regenerated whole at the end of the run; NOOP is a result.
 """
 
 import datetime
+import hashlib
 import os
 import time
 from collections.abc import Mapping
@@ -172,7 +173,8 @@ def _only_tags_moved(existing: str, candidate: str) -> bool:
         )
     )
     # Zotero bumps the item version on every modify, a tag edit included, and
-    # the monitor reports no version move; the bump alone is not a moved field.
+    # the monitor reports a version only when it goes down (an older render
+    # restored); a bump alone is not a moved field.
     moved = {
         key for key in before.keys() | after.keys() if before.get(key) != after.get(key)
     } - {"zotero-item-version"}
@@ -471,6 +473,29 @@ def _re_key_target(prior) -> str | None:
     return prior.reason[len("re-keyed — ") :].split(";", 1)[0].split(" → ", 1)[-1]
 
 
+def _tags_summary(outcomes: list[Outcome], now: datetime.datetime) -> list[Outcome]:
+    """Q3: the monitor exempts the tag fields, so a run that moved only tags
+    says so once, under `capture`, which closes no surface (ruling 3).
+
+    The target is the fixed word `tags`, so the run's own timestamp and notes
+    are its target hash (ruling P3): each run files its own record, and an
+    acknowledgment covers that run only.
+    """
+    retagged = sorted(str(o.target) for o in outcomes if o.extra.get("tags-only"))
+    if not retagged:
+        return []
+    basis = "\0".join([literature_notes.generated_at_now(now), *retagged])
+    return [
+        Outcome(
+            CHECK,
+            "tags",
+            Result.UNMATCHED,
+            "drift — tags changed on: " + ", ".join(retagged),
+            extra={"target_hash": hashlib.sha256(basis.encode()).hexdigest()[:16]},
+        )
+    ]
+
+
 def capture(
     vault_root,
     client: ZoteroClient,
@@ -611,18 +636,7 @@ def capture(
                     f"schema-violation — {error}",
                 )
             )
-    # Q3: the monitor exempts the tag fields, so a run that moved only tags
-    # says so once, under `capture`, which closes no surface (ruling 3).
-    retagged = sorted(str(o.target) for o in outcomes if o.extra.get("tags-only"))
-    if retagged:
-        outcomes.append(
-            Outcome(
-                CHECK,
-                "tags",
-                Result.UNMATCHED,
-                "drift — tags changed on: " + ", ".join(retagged),
-            )
-        )
+    outcomes.extend(_tags_summary(outcomes, now))
     if aborted is not None:
         # No CSL file from the database that answered after the move.
         return [*outcomes, aborted]
