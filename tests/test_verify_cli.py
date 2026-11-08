@@ -5545,3 +5545,63 @@ def test_verifier_lists_bytes_keeps_hand_written_events_only():
     assert verify._verifier_lists_bytes(image("no frontmatter")) == (
         verify._verifier_lists_bytes(None)
     )
+
+
+def _list_rows_open(vault):
+    _report, effective, hashes, _warning = verify_state(vault, network=False)
+    return [
+        (o.reason, hashes[id(o)])
+        for o in effective
+        if o.extra.get("hash_basis") == "verifier-lists"
+    ]
+
+
+def _commit_all(vault, message):
+    subprocess.run(["git", "add", "-A"], cwd=vault, check=True)
+    subprocess.run(["git", "commit", "-qm", message], cwd=vault, check=True)
+
+
+def test_a_pass_fail_pass_cycle_raises_no_list_row_end_to_end(net_vault):
+    """K1: verify's own writes across a pass, a fail and a pass again are
+    legal list changes, however many events the check already has."""
+    draft = net_vault / "projects" / "brief" / "draft.md"
+    good = draft.read_text()
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+    _commit_all(net_vault, "pass")
+    draft.write_text(
+        must_replace(good, "Mortality fell 12% across all strata.", "wrong quote")
+    )
+    run_verify(net_vault, network=False, detection_date="2026-08-17")
+    note = net_vault / "literature" / "smith2020.md"
+    assert "failed-verification:" in note.read_text()
+    _commit_all(net_vault, "fail")
+    draft.write_text(good)
+    run_verify(net_vault, network=False, detection_date="2026-08-18")
+    assert "failed-verification:" not in note.read_text()
+    assert _list_rows_open(net_vault) == []
+
+
+def test_a_repeat_removal_on_a_newer_base_is_raised_again(net_vault):
+    """R16: the basis carries the committed lists, so an ack on the first
+    deletion of a failure row does not cover the second."""
+    from research_vault import events
+    from tests.test_lints import _with_lists
+
+    note = net_vault / "literature" / "smith2020.md"
+    row = 'failed-verification:\n  - {check: "update-notice", result: "UNMATCHED"}\n'
+    _with_lists(note, [], [("update-notice", "UNMATCHED")])
+    _commit_all(net_vault, "failure")
+    note.write_text(must_replace(note.read_text(), row, ""))
+    ((_reason, first),) = _list_rows_open(net_vault)
+    finding = next(f for f in inbox.open_entries(net_vault) if f.target_hash == first)
+    inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran", first)
+    assert _list_rows_open(net_vault) == []
+    _commit_all(net_vault, "failure deleted")
+    # Verify records the failure again; the person deletes it again.
+    note.write_text(
+        events.record_failure(note.read_text(), "update-notice", Result.UNMATCHED)
+    )
+    _commit_all(net_vault, "failure re-recorded")
+    note.write_text(must_replace(note.read_text(), row, ""))
+    ((_reason, second),) = _list_rows_open(net_vault)
+    assert second != first

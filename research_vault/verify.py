@@ -296,9 +296,11 @@ def _verifier_lists_bytes(image) -> bytes:
 
 
 def _lists_with_reason(_data: bytes, outcome, candidate_image) -> bytes:
-    return _with_reason(
-        _verifier_lists_bytes(candidate_image), outcome, candidate_image
-    )
+    """The committed lists (digest in `extra`, set by the lint), the person's
+    additions in the candidate, and the row's reason."""
+    committed = str(outcome.extra.get("base_lists", "")).encode("utf-8")
+    basis = committed + b"\x00" + _verifier_lists_bytes(candidate_image)
+    return _with_reason(basis, outcome, candidate_image)
 
 
 # An outcome's `extra["hash_basis"]` names what its repo-path hash covers
@@ -308,11 +310,13 @@ def _lists_with_reason(_data: bytes, outcome, candidate_image) -> bytes:
 # - `lints.MONITOR_ROW` ("monitor-row"): the note's bytes plus the row's reason;
 #   each capture-monitor row is its own record, and any byte change still
 #   lapses its ack (ruling P4).
-# - `lints.VERIFIER_LISTS` ("verifier-lists"): the candidate's hand-written
-#   `verified` events as canonical JSON (`_verifier_lists_bytes`) plus the
-#   row's reason, not the note's bytes (which exclude the lists): an ack covers
-#   that row, and a later well-formed list edit by a person changes the hash
-#   and raises it again (#206, rulings P13 and P14).
+# - `lints.VERIFIER_LISTS` ("verifier-lists"): the committed lists and the
+#   person's additions, not the note's bytes (which exclude the lists): the
+#   base's two lists whole (`extra["base_lists"]`), the candidate's
+#   hand-written `verified` events (`_verifier_lists_bytes`), and the row's
+#   reason. An ack covers that row; a later well-formed list edit by a person,
+#   or a repeat removal on a newer base, changes the hash and raises it again
+#   (#206, rulings P13, P14, P15 and R16).
 _HASH_BASES = {
     lints.MONITOR_ROW: _with_reason,
     lints.VERIFIER_LISTS: _lists_with_reason,

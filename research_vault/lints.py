@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -746,12 +747,15 @@ MONITOR_EXEMPT = frozenset({"zotero-tags", "tags"})
 # hash is the note's bytes plus the row's own reason (`verify._HASH_BASES`), so
 # each row is its own queue record and one ack accepts one change (ruling P4).
 MONITOR_ROW = "monitor-row"
-# The `hash_basis` of a #206 verifier-list row: its acknowledgment hash is the
-# candidate's hand-written `verified` events (verify's own appends and its
-# failure rows are left out, since every verify run rewrites them) plus the
-# row's reason (`verify._HASH_BASES`). The note's canonical bytes exclude the
-# lists, so hashing the note would let one ack on a removal cover every later
-# well-formed list edit; the reason keeps two list rows on one note apart.
+# The `hash_basis` of a #206 verifier-list row: its acknowledgment hash is on
+# the committed lists and the person's additions (`verify._HASH_BASES`): the
+# base's two lists whole (`extra["base_lists"]`), the candidate's hand-written
+# `verified` events (verify's own appends and failure rows are left out, since
+# every verify run rewrites them), and the row's reason. The note's canonical
+# bytes exclude the lists, so hashing the note would let one ack on a removal
+# cover every later well-formed list edit; the reason keeps two list rows on
+# one note apart; the committed lists keep a repeat removal on a later base
+# from inheriting the first removal's ack.
 VERIFIER_LISTS = "verifier-lists"
 _VALUE_CAP = 60
 
@@ -824,14 +828,23 @@ def _failures_of(data: dict | None) -> dict[str, str]:
     return {} if malformed else {row["check"]: row["result"] for row in rows}
 
 
+def _lists_digest(data: dict) -> str:
+    """The two verifier-owned lists exactly as stored, as a short digest."""
+    lists = {key: data.get(key) for key in ("verified", events.FAILURES_FIELD)}
+    canonical = json.dumps(lists, sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def _verifier_list_outcomes(raw_path, base_data, candidate_data) -> list[Outcome]:
     """#206: `verified` events are append-only; a failure row may be added or
     change its result, and may vanish only when the same diff appends a
-    passing event for its check. These rows hash on the lists themselves
-    (`hash_basis`), because the note's canonical bytes exclude the lists."""
+    passing event for its check. These rows hash on the committed lists and the
+    person's additions (`hash_basis`; `extra["base_lists"]` is the committed
+    half, computed here where both sides are held), because the note's
+    canonical bytes exclude the lists."""
     if base_data is None or candidate_data is None:
         return []
-    extra = {"hash_basis": VERIFIER_LISTS}
+    extra = {"hash_basis": VERIFIER_LISTS, "base_lists": _lists_digest(base_data)}
 
     def row(reason: str) -> Outcome:
         return Outcome(
@@ -851,9 +864,11 @@ def _verifier_list_outcomes(raw_path, base_data, candidate_data) -> list[Outcome
         else:
             by, at, check = event
             rows.append(row(f"drift — verified event removed: {check}@{at} by {by}"))
-    passed = {check for _by, _at, check in after} - {
-        check for _by, _at, check in before
-    }
+    # What this diff appended: the candidate's events no base event accounts
+    # for. A check that already had an event in base still passes when the
+    # diff appends another (pass, fail, pass: `events.record_pass` drops the
+    # failure row and appends).
+    passed = {check for _by, _at, check in remaining}
     vanished = set(_failures_of(base_data)) - set(_failures_of(candidate_data))
     rows.extend(
         row(

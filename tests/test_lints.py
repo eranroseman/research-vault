@@ -3,7 +3,14 @@ import subprocess
 
 import pytest
 
-from research_vault import Result, frontmatter, gitstate, lints, literature_notes
+from research_vault import (
+    Result,
+    events,
+    frontmatter,
+    gitstate,
+    lints,
+    literature_notes,
+)
 from research_vault.pathcodec import RepoPath
 from tests.conftest import must_replace
 
@@ -1982,4 +1989,49 @@ def test_a_failure_row_removed_by_a_passing_event_in_the_same_diff_is_legal(
             'verified:\n  - {by: "research_vault/0.1.0", at: "2026-09-02", check: "update-notice"}\n',
         )
     )
+    assert _list_rows(fixture_vault, base) == []
+
+
+def _event_note(vault, verified, failures):
+    """Commit the fixture note with the given lists; return the base tree."""
+    note = vault / "literature" / "smith2020.md"
+    _with_lists(note, verified, failures)
+    subprocess.run(["git", "commit", "-qam", "lists"], cwd=vault, check=True)
+    return note, _base_tree(vault)
+
+
+def test_a_pass_after_a_fail_after_a_pass_is_legal(fixture_vault):
+    """K1: verify's own `record_pass` drops the failure row and appends an
+    event; the check's earlier event must not stop that counting as passing."""
+    note, base = _event_note(
+        fixture_vault,
+        [("research_vault/0.1.0", "2026-09-01", "update-notice")],
+        [("update-notice", "UNREACHABLE")],
+    )
+    note.write_text(
+        events.record_pass(
+            note.read_text(), "update-notice", Result.MATCHED, at="2026-09-05"
+        )
+    )
+    assert "failed-verification" not in note.read_text()
+    assert _list_rows(fixture_vault, base) == []
+
+
+def test_verified_events_are_compared_as_a_multiset(fixture_vault):
+    event = ("research_vault/0.1.0", "2026-09-01", "update-notice")
+    removed = (
+        "drift — verified event removed: update-notice@2026-09-01 by research_vault/0.1.0",
+        "verifier-lists",
+    )
+    note, base = _event_note(fixture_vault, [event, event], [])
+    line = (
+        '  - {by: "research_vault/0.1.0", at: "2026-09-01", check: "update-notice"}\n'
+    )
+    note.write_text(must_replace(note.read_text(), line, ""))
+    assert _list_rows(fixture_vault, base) == [removed]
+    note.write_text(
+        must_replace(note.read_text(), "verified:\n", "verified:\n" + line * 2)
+    )
+    assert _list_rows(fixture_vault, base) == []
+    note.write_text(must_replace(note.read_text(), line * 2, line * 3))
     assert _list_rows(fixture_vault, base) == []
