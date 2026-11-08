@@ -298,10 +298,10 @@ def recheck_base(vault) -> tuple[str | object, str]:
     """The publish re-check's base, and one line naming it and its rule (R19).
 
     In order: the newest publication tag; else the commit that brought
-    `--recheck-commits` into the vault's tracked CI workflow, since every
-    push after it was re-checked there (a fresh scaffold's first commit
-    carries the template, an upgraded vault's its upgrade); else the whole
-    history."""
+    `--recheck-commits` into the vault's tracked CI workflow (a fresh
+    scaffold's first commit carries the template, an upgraded vault's its
+    upgrade), replayed itself with every push after it (`_seed_base`); else
+    the whole history."""
     tag = last_publication(vault)
     if tag is not None:
         return tag, f"re-check: every commit since {tag} (the newest publication)"
@@ -320,30 +320,38 @@ def recheck_base(vault) -> tuple[str | object, str]:
         raise PublishError(f"cannot read the history of {CI_WORKFLOW}")
     commits = seeded.stdout.split()
     if commits:
-        return commits[0], (
-            f"re-check: every commit since {commits[0]} (the commit that "
-            f"brought --recheck-commits into {CI_WORKFLOW})"
-            + _uncovered(vault, commits[0])
-        )
+        return _seed_base(vault, commits[0])
     return WHOLE_HISTORY, (
         "re-check: the whole history (no publication tag, and no "
         f"--recheck-commits in {CI_WORKFLOW}'s history)"
     )
 
 
-def _uncovered(vault, seed: str) -> str:
-    """What the seed rule leaves out (R28): the seed's ancestors, which no
-    re-check ran on if CI arrived after them (an upgraded vault), and the one
-    command that covers them."""
-    counted = _git(vault, "rev-list", "--count", seed)
+def _seed_base(vault, seed: str) -> tuple[str, str]:
+    """Rule 2's base (R30, P50): the seed's parent, or the empty tree for a
+    root seed, so the seed itself is replayed; a created ref's first push
+    that brought CI was re-checked by nothing else. The line counts what the
+    replay leaves out, the commits before the seed, and names the one
+    command that covers them (R28)."""
+    named = (
+        f"re-check: {seed} and every commit after it (the commit that "
+        f"brought --recheck-commits into {CI_WORKFLOW})"
+    )
+    parent = _git(vault, "rev-parse", "--verify", "-q", f"{seed}^")
+    if parent.returncode != 0:
+        empty = _git(vault, "hash-object", "-w", "-t", "tree", "/dev/null")
+        if empty.returncode != 0:
+            raise PublishError("cannot write the empty tree")
+        return empty.stdout.strip(), f"{named}; no earlier commit"
+    base = parent.stdout.strip()
+    counted = _git(vault, "rev-list", "--count", base)
     if counted.returncode != 0:
         raise PublishError(f"cannot count the commits before {seed}")
-    earlier = int(counted.stdout) - 1
-    if earlier == 0:
-        return "; no earlier commit"
-    return (
-        f"; {earlier} earlier commit{'s' if earlier > 1 else ''} not re-checked: "
-        "run verify --surface publish --recheck-commits all once to cover them"
+    earlier = int(counted.stdout)
+    return base, (
+        f"{named}; {earlier} earlier commit{'s' if earlier > 1 else ''} not "
+        "re-checked: run verify --surface publish --recheck-commits all once "
+        "to cover them"
     )
 
 

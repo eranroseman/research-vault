@@ -1219,13 +1219,41 @@ def test_the_recheck_base_is_the_whole_history_with_no_tag_and_no_ci_seed(green_
     assert line.startswith("re-check: the whole history")
 
 
+def _seed_line(seed, tail):
+    return (
+        f"re-check: {seed} and every commit after it (the commit that brought "
+        f"--recheck-commits into .github/workflows/verify.yml); {tail}"
+    )
+
+
+def _uncovered(count):
+    plural = "s" if count > 1 else ""
+    return (
+        f"{count} earlier commit{plural} not re-checked: run verify --surface "
+        "publish --recheck-commits all once to cover them"
+    )
+
+
+def _replayed(vault, since):
+    from research_vault import verify
+
+    _report, effective, _hashes, _warning = verify.verify_state(
+        vault, network=False, recheck_commits=since
+    )
+    return [
+        (str(o.target), o.reason, o.extra.get("commit"))
+        for o in effective
+        if o.extra.get("commit") is not None
+    ]
+
+
 def test_the_recheck_base_is_the_commit_that_brought_the_recheck_into_ci(
     green_vault, monkeypatch
 ):
-    """R19, rule 2: CI re-checked every push after that commit, so a bypass
-    before it is not replayed again, and one after it is. R28: the line
-    counts the seed's ancestors, which nothing re-checked if CI came later,
-    and names the command that covers them."""
+    """R19, rule 2, as R30 (P50) refines it: the replay starts at the seed's
+    parent, so the seed itself is replayed with every commit after it, and a
+    bypass before it is not. R28: the line counts the commits strictly before
+    the seed and names the command that covers them."""
     start = int(_git(green_vault, "rev-list", "--count", "HEAD"))
     _bypass_add_and_delete(green_vault, "before")
     _commit_workflow(green_vault, "run: python -m research_vault verify\n")
@@ -1233,14 +1261,9 @@ def test_the_recheck_base_is_the_commit_that_brought_the_recheck_into_ci(
         green_vault, 'run: python -m research_vault verify --recheck-commits "$BASE"\n'
     )
     since, line = publish.recheck_base(green_vault)
-    assert since == seeded
+    assert since == _git(green_vault, "rev-parse", f"{seeded}^").strip()
     # The fixture's commits, the two bypasses and the CI file without the flag.
-    assert line == (
-        f"re-check: every commit since {seeded} (the commit that brought "
-        "--recheck-commits into .github/workflows/verify.yml); "
-        f"{start + 3} earlier commits not re-checked: run verify --surface "
-        "publish --recheck-commits all once to cover them"
-    )
+    assert line == _seed_line(seeded, _uncovered(start + 3))
     _tag_clock(monkeypatch, "090000", "100000")
     assert publish.mark_published(green_vault, "brief").decision == 0
     draft = _note(green_vault)
@@ -1257,13 +1280,11 @@ def test_the_recheck_base_is_the_commit_that_brought_the_recheck_into_ci(
 
 def test_the_newest_publication_tag_wins_over_the_ci_seed(green_vault, monkeypatch):
     """R19, rule 1."""
+    start = int(_git(green_vault, "rev-list", "--count", "HEAD"))
     seeded = _commit_workflow(green_vault, "run: verify --recheck-commits x\n")
     _tag_clock(monkeypatch, "090000")
     published = publish.mark_published(green_vault, "brief")
-    assert published.recheck.startswith(
-        f"re-check: every commit since {seeded} (the commit that brought "
-        "--recheck-commits into .github/workflows/verify.yml); "
-    )
+    assert published.recheck == _seed_line(seeded, _uncovered(start))
     since, line = publish.recheck_base(green_vault)
     assert since == published.tag
     assert (
@@ -1271,42 +1292,64 @@ def test_the_newest_publication_tag_wins_over_the_ci_seed(green_vault, monkeypat
     )
 
 
-def test_the_uncovered_count_is_the_seeds_ancestors_and_the_command_covers_them(
+def test_an_upgraded_vaults_seed_is_replayed_and_the_commits_before_it_counted(
     green_vault,
 ):
-    """R28: the seed rule's earlier commits are the seed's ancestors (the seed
-    itself is CI's first re-checked push); the command the line names
-    replays them, so a bypass there is found, which the seed's replay misses."""
-    _bypass_add_and_delete(green_vault, "before")
-    seeded = _commit_workflow(green_vault, "run: verify --recheck-commits x\n")
-    _since, line = publish.recheck_base(green_vault)
-    ancestors = _git(green_vault, "rev-list", f"{seeded}^").split()
-    assert line.endswith(
-        f"; {len(ancestors)} earlier commits not re-checked: run verify "
-        "--surface publish --recheck-commits all once to cover them"
-    )
-
+    """R30 (P50), an upgraded vault: the commit that brings CI also carries a
+    hand-written note, and the replay raises it at the seed. The commits
+    before the seed are counted, and the command the line names replays them:
+    a bypass there is found only by it."""
     from research_vault import verify
 
-    def before_rows(recheck):
-        _report, effective, _hashes, _warning = verify.verify_state(
-            green_vault, network=False, recheck_commits=recheck
-        )
-        return [o.reason for o in effective if "before.md" in str(o.target)]
+    _bypass_add_and_delete(green_vault, "before")
+    (green_vault / "literature" / "seeded.md").write_text(
+        '---\ntype: "literature"\n---\nbody\n'
+    )
+    seeded = _commit_workflow(green_vault, "run: verify --recheck-commits x\n")
+    since, line = publish.recheck_base(green_vault)
+    before = _git(green_vault, "rev-list", f"{seeded}^").split()
+    assert line == _seed_line(seeded, _uncovered(len(before)))
+    rows = _replayed(green_vault, since)
+    assert ("path-bytes:literature/seeded.md", seeded) in {(t, c) for t, _r, c in rows}
+    assert not [r for r in rows if "before.md" in r[0]]
+    assert [
+        r for r in _replayed(green_vault, verify.WHOLE_HISTORY) if "before.md" in r[0]
+    ]
 
-    assert before_rows(seeded) == []
-    assert before_rows(verify.WHOLE_HISTORY) != []
+
+def test_a_fresh_scaffolds_root_seed_is_replayed_from_the_empty_tree(tmp_vault):
+    """R30 (P50), a fresh vault's first push: the seed is the root commit and
+    the whole vault, so the base is the empty tree and the seed's own rows
+    are raised; nothing comes before it."""
+    workflows = tmp_vault / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "verify.yml").write_text("run: verify --recheck-commits x\n")
+    (tmp_vault / "literature" / "seeded.md").write_text(
+        '---\ntype: "literature"\n---\nbody\n'
+    )
+    _git(tmp_vault, "add", "-A")
+    _git(tmp_vault, "commit", "-qm", "the whole vault, with CI")
+    seeded = _head(tmp_vault)
+    empty = _git(tmp_vault, "hash-object", "-t", "tree", "/dev/null").strip()
+    assert publish.recheck_base(tmp_vault) == (
+        empty,
+        _seed_line(seeded, "no earlier commit"),
+    )
+    assert ("path-bytes:literature/seeded.md", seeded) in {
+        (t, c) for t, _r, c in _replayed(tmp_vault, empty)
+    }
 
 
-def test_a_seed_with_no_ancestor_says_no_earlier_commit(tmp_path):
+def test_a_seed_with_one_commit_before_it_says_so_in_the_singular(tmp_path):
+    """G16/G21: R28's singular form."""
     _git(tmp_path, "init", "-q")
+    _commit_workflow(tmp_path, "run: verify\n")
     seeded = _commit_workflow(tmp_path, "run: verify --recheck-commits x\n")
-    assert publish.recheck_base(tmp_path) == (
-        seeded,
-        (
-            f"re-check: every commit since {seeded} (the commit that brought "
-            "--recheck-commits into .github/workflows/verify.yml); no earlier commit"
-        ),
+    _since, line = publish.recheck_base(tmp_path)
+    assert line == _seed_line(seeded, _uncovered(1))
+    assert line.endswith(
+        "; 1 earlier commit not re-checked: run verify --surface "
+        "publish --recheck-commits all once to cover them"
     )
 
 
