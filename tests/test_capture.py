@@ -1494,12 +1494,14 @@ def test_a_tag_change_that_bumped_the_item_version_is_still_tags_only(
     ]
 
 
-def test_a_tag_change_that_moved_the_csl_entry_is_still_tags_only(
+def test_a_tag_change_beside_an_independent_csl_entry_change_is_still_tags_only(
     tmp_vault, monkeypatch
 ):
-    """R15: a tag edit whose CSL entry moved too (here the export answers a
-    changed `keyword`) moves `csl-sha256`; like the version bump that is a
-    consequence of the change, never the change, and the run stays tags-only."""
+    """R15: Better BibTeX's CSL entry carries no tags, so a tag edit never moves
+    `csl-sha256`; a CSL change that lands beside one (here the export answers a
+    changed `title`, as a translator update might, while the item's own title
+    stays) does. `csl-sha256` is attested, never held, so like the version
+    bump it does not end tags-only."""
     fake = _canned_run(canned_item(FakeZotero()))
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
@@ -1508,7 +1510,7 @@ def test_a_tag_change_that_moved_the_csl_entry_is_still_tags_only(
     retagged = json.loads(json.dumps(ITEM))
     retagged["data"]["tags"] = [{"tag": "ai", "type": 1}, {"tag": "#nosource"}]
     fake = _canned_run(canned_item(FakeZotero(), item=retagged), items=(retagged,))
-    fake.rpc("item.export", lambda params: [{**LIBRARY[0], "keyword": "ai, #nosource"}])
+    fake.rpc("item.export", lambda params: [{**LIBRARY[0], "title": "T2"}])
     client = _client(monkeypatch, fake)
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     after, _ = frontmatter.parse(note.read_text())

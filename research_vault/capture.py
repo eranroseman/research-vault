@@ -182,9 +182,11 @@ def _only_tags_moved(existing: str, candidate: str) -> bool:
     )
     # Zotero bumps the item version on every modify, a tag edit included, and
     # the monitor reports a version only when it goes down (an older render
-    # restored); a bump alone is not a moved field. `csl-sha256` follows the
-    # item's fields into its CSL entry, so a tag edit may move it too: attested,
-    # never held (R14). Both are consequences of a change, never the change.
+    # restored); a bump alone is not a moved field. Better BibTeX's CSL entry
+    # carries no tags, so a tag edit never moves `csl-sha256`; ignoring it here
+    # is robustness for a CSL change that lands beside a tag edit (a translator
+    # update, say), the way the version moves on any edit. Neither is the edit
+    # the monitor holds, and `csl-sha256` is attested, never held (R14).
     moved = {
         key for key in before.keys() | after.keys() if before.get(key) != after.get(key)
     } - {"zotero-item-version", "csl-sha256"}
