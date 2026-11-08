@@ -1,13 +1,17 @@
 """The CSL JSON file: one entry per captured item (ingest spec §3.2).
 
-Capture regenerates it whole at the end of every run from one whole-library
-Better BibTeX read; verify reads it as the citation-key universe. No
-auto-export, no observation, no byte-compare against a third-party writer.
+Capture exports each rendered item's entry before rendering it and rewrites
+only those entries at the end of the run (#196): an entry moves only with its
+note, which records the entry's hash as `csl-sha256`. Verify reads the file as
+the citation-key universe. No auto-export, no observation, no byte-compare
+against a third-party writer.
 """
 
+import hashlib
 import json
 import os
 import stat
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from . import Result
@@ -100,3 +104,25 @@ def write(vault_root, items: list[dict]) -> Path:
         json.dumps(ordered, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     return target
+
+
+def entry_sha256(entry: dict) -> str:
+    """The hash a literature note records of its own CSL entry (#196): canonical
+    JSON, sorted keys, no whitespace, so the same entry hashes the same whatever
+    Better BibTeX's key order was."""
+    canonical = json.dumps(
+        entry, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def update(vault_root, rendered: Mapping[str, dict], keep: Iterable[str]) -> Path:
+    """Replace the rendered items' entries, keep every other captured key's
+    entry as it stands, drop the rest (a merged-away or re-keyed key), write
+    whole. An unreadable or invalid existing file raises `BibliographyError`
+    rather than being overwritten from a partial read."""
+    existing = load(vault_root)
+    wanted = set(keep)
+    merged = {key: entry for key, entry in existing.items() if key in wanted}
+    merged.update(rendered)
+    return write(vault_root, list(merged.values()))

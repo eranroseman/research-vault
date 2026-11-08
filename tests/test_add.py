@@ -24,10 +24,7 @@ def _fake_for_add(monkeypatch):
         body={},
         headers={"Last-Modified-Version": "1"},
     )
-    fake.get(
-        "/better-bibtex/library?/My%20Library.json",
-        body=[{"id": "jakesch.etal2023a", "type": "paper-conference"}],
-    )
+    fake.rpc("item.export", [{"id": "jakesch.etal2023a", "type": "paper-conference"}])
     fake.post("/api/local/authorize", body={"key": "k" * 32, "remember": True})
     fake.post(
         "/api/users/0/items",

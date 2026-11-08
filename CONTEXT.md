@@ -54,7 +54,7 @@ _Avoid_: citekey (a Better BibTeX synonym for a field Better BibTeX no longer ow
 
 **Captured set**: The citation keys read from the `citationKey` field of every parseable note under `literature/` that also carries `zotero-item-key`. Not the filenames: a note whose filename disagrees with its recorded key is a re-key awaiting propagation. The CSL file's scope, the compile wrapper's selection and the captured-set lint all read this set.
 
-**Provenance tuple**: The frontmatter fields that record what a literature note depends on: `zotero-server-id`, `zotero-item-key`, `zotero-item-version`, `citationKey`, `attachments` (key, version, md5, content type, filename), `fulltext` (attachment key, sha256), `compile-input-sha256`, `generated`. Versions and keys are meaningful only within one server id.
+**Provenance tuple**: The frontmatter fields that record what a literature note depends on: `zotero-server-id`, `zotero-item-key`, `zotero-item-version`, `citationKey`, `attachments` (key, version, md5, content type, filename), `fulltext` (attachment key, sha256), `csl-sha256` (the hash of the note's own CSL entry), `compile-input-sha256`, `generated`. Versions and keys are meaningful only within one server id.
 
 **Snapshot**: The fixed subset of the Zotero item's data fields a literature note carries verbatim under Zotero's base field names: a type-specific name (`proceedingsTitle`, `bookTitle`, `websiteTitle`, `repository`, `institution`, …) folds to its base field through Zotero's own schema, so the names and the mapping stay Zotero's. `extra` is carried whole; `zotero-tags` is Zotero's tag list exactly and `tags` a slugged copy Obsidian can read. A value with line breaks is carried as a list of its lines.
 

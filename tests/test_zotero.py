@@ -158,37 +158,19 @@ def test_versions_trash_and_top_carry_the_version_header(fake):
     assert version == 565
 
 
-def test_library_csl_reads_the_whole_library_route(fake):
-    fake.get(
-        "/better-bibtex/library?/My%20Library.json",
-        body=[
-            {
-                "id": "jakesch.etal2023a",
-                "citation-key": "jakesch.etal2023a",
-                "type": "paper-conference",
-            }
-        ],
-    )
-    items = fake.client.library_csl("My Library")
-    assert items[0]["id"] == "jakesch.etal2023a"
-
-
 def test_export_calls_carry_the_export_timeout_reads_keep_the_default(
     fake, monkeypatch
 ):
-    """Decision 13: the two whole-library export calls (``library_csl``,
-    ``export_csl``) get ``EXPORT_TIMEOUT``; ``ready()`` (doctor's ``bbt``
-    probe) and a per-item read keep the client's default so a busy Zotero
-    cannot hang the loop.
+    """Decision 13: the export call (``export_csl``) gets ``EXPORT_TIMEOUT``;
+    ``ready()`` (doctor's ``bbt`` probe) and a per-item read keep the client's
+    default so a busy Zotero cannot hang the loop.
 
     Reaches the real ``_rpc`` (``monkeypatch.delattr`` removes
-    ``FakeZotero``'s dict-backed substitute, the pattern at
-    ``test_capture.py``'s ``test_a_refused_item_export_is_unmatched_not_an_outage``)
-    so its own ``timeout=timeout`` forward to ``_http`` is what this test
-    exercises, not just ``export_csl``'s/``ready()``'s call into ``_rpc``.
+    ``FakeZotero``'s dict-backed substitute) so its own ``timeout=timeout``
+    forward to ``_http`` is what this test exercises, not just
+    ``export_csl``'s/``ready()``'s call into ``_rpc``.
     """
     canned_item(fake)
-    fake.get("/better-bibtex/library?/My%20Library.json", body=[])
     monkeypatch.delattr(fake.client, "_rpc")  # the real parser, over fake._http
     real_http = fake.client._http
     calls: list[tuple[str, float | None]] = []
@@ -210,13 +192,11 @@ def test_export_calls_carry_the_export_timeout_reads_keep_the_default(
 
     monkeypatch.setattr(fake.client, "_http", recording_http)
 
-    fake.client.library_csl("My Library")
     fake.client.export_csl(["smith2020"])
     fake.client.ready()
     fake.client.item("E352DFS8")
 
     assert calls == [
-        ("http", zotero.EXPORT_TIMEOUT),  # library_csl
         ("http", zotero.EXPORT_TIMEOUT),  # export_csl -> item.export over JSON-RPC
         ("http", None),  # ready() -> api.ready over JSON-RPC, the default
         ("http", None),  # item() -> the local API, the default

@@ -37,7 +37,7 @@ def _canned_run(fake, items=(ITEM,)):
         body={"E352DFS8": 544},
         headers={"Last-Modified-Version": "565"},
     )
-    fake.get("/better-bibtex/library?/My%20Library.json", body=LIBRARY)
+    fake.rpc("item.export", lambda params: [e for e in LIBRARY if e["id"] in params[0]])
     return fake
 
 
@@ -380,46 +380,6 @@ def test_database_changed_aborts_before_any_write(tmp_vault, monkeypatch):
     )
 
 
-def test_csl_file_falls_back_to_item_export_when_the_library_route_breaks(
-    tmp_vault, monkeypatch
-):
-    fake = _canned_run(canned_item(FakeZotero()))
-    fake.get("/better-bibtex/library?/My%20Library.json", status=500, body=b"")
-    fake.rpc("item.export", LIBRARY)
-    client = _client(monkeypatch, fake)
-    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
-    assert outcomes[-1].reason == "matched — item.export fallback"
-    assert (
-        "RPC",
-        "item.export",
-        {"params": [["jakesch.etal2023a"], "Better CSL JSON"]},
-    ) in fake.calls
-
-
-def test_library_route_is_reread_once_when_zotero_moved_during_the_run(
-    tmp_vault, monkeypatch
-):
-    fake = _canned_run(canned_item(FakeZotero()))
-    client = _client(monkeypatch, fake)
-    seen = iter(["565", "570"])
-    original = fake._http
-
-    def moving(url, data=None, headers=None, method=None, *, timeout=None):
-        response = original(url, data, headers, method, timeout=timeout)
-        if url.endswith("/items/top?format=versions"):
-            return zotero.Response(
-                response.status,
-                response.body,
-                {**response.headers, "Last-Modified-Version": next(seen, "570")},
-            )
-        return response
-
-    monkeypatch.setattr(client, "_http", moving)
-    capture.capture(tmp_vault, client, ["E352DFS8"])
-    library_reads = [c for c in fake.calls if c[1].startswith("/better-bibtex/library")]
-    assert len(library_reads) == 2
-
-
 def test_cli_capture_exit_codes_and_holds(tmp_vault, monkeypatch, capsys):
     import research_vault.__main__ as cli
 
@@ -475,40 +435,6 @@ def test_cli_capture_all_files_a_repo_path_hold_that_an_ack_closes(
     )
 
 
-def test_a_database_change_during_the_csl_read_voids_the_run_not_the_file(
-    tmp_vault, monkeypatch
-):
-    """A 412 on the version read that brackets the library route is
-    database-changed on the vault — every recorded version is void, and the
-    CSL file records no server id, so it cannot carry that condition. The
-    item.export fallback is JSON-RPC, which carries no server id either, so
-    falling through would write the CSL file from whichever database now
-    answers and call it a matched fallback. The per-item outcomes stay: they
-    are the record of what was written before the database moved."""
-    fake = _canned_run(canned_item(FakeZotero()))
-    client = _client(monkeypatch, fake)
-    original = fake._http
-    answers = iter([200, 412])  # the run's own read answers; the CSL bracket is refused
-
-    def changing(url, data=None, headers=None, method=None, *, timeout=None):
-        if url.endswith("/items/top?format=versions") and next(answers, 412) == 412:
-            return zotero.Response(412, b"does not match this server", {})
-        return original(url, data, headers, method, timeout=timeout)
-
-    monkeypatch.setattr(client, "_http", changing)
-    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
-    assert [(o.target, o.result) for o in outcomes] == [
-        ("jakesch.etal2023a", Result.MATCHED),
-        ("vault", Result.UNMATCHED),
-    ]
-    assert (
-        outcomes[-1].reason
-        == "database-changed — Zotero-Server-ID does not match this server"
-    )
-    assert not (tmp_vault / "system" / "bibliography.json").exists()
-    assert not [c for c in fake.calls if c[0] == "RPC"]  # never item.export
-
-
 def test_a_key_filled_during_the_wait_is_captured_at_its_post_fill_version(
     tmp_vault, monkeypatch
 ):
@@ -554,48 +480,17 @@ def test_a_corrupt_existing_note_is_a_schema_violation_not_a_traceback(
     assert [e["id"] for e in json.loads(csl.read_text())] == ["jakesch.etal2023a"]
     corrupt = '---\ntype: "literature"\nno closing delimiter\n'
     note.write_text(corrupt)
+    before = csl.read_text()
     outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
     assert [(o.target, o.result) for o in outcomes] == [
         ("E352DFS8", Result.UNMATCHED),
-        ("system/bibliography.json", Result.MATCHED),
     ]
     assert outcomes[0].reason == "schema-violation — unterminated frontmatter"
     assert note.read_text() == corrupt  # not rewritten over a note it could not read
-    # The CSL file is regenerated from the captured set, which decision 08 defines
-    # as the parseable notes: the corrupt note's entry is gone, and this run says
-    # so only through the per-item finding. The captured-set lint is the
-    # mechanism that names the gap between the two files.
-    assert json.loads(csl.read_text()) == []
-
-
-def test_a_refused_item_export_is_unmatched_not_an_outage(tmp_vault, monkeypatch):
-    """Better BibTeX answers a JSON-RPC error envelope for a key list it will
-    not export (a stale captured key after a re-key); the client types that
-    UNMATCHED. The CSL step must keep that split rather than tell the operator
-    to wait out an outage that will not end. The real _rpc parser runs over the
-    fake transport so the envelope is typed the way the client types it."""
-    fake = _canned_run(canned_item(FakeZotero()))
-    fake.get("/better-bibtex/library?/My%20Library.json", status=500, body=b"")
-    fake.post(
-        "/better-bibtex/json-rpc",
-        body={
-            "jsonrpc": "2.0",
-            "error": {"code": -32000, "message": "no item with citation key"},
-            "id": 1,
-        },
-    )
-    client = _client(monkeypatch, fake)
-    monkeypatch.delattr(client, "_rpc")  # the class's real parser, over fake._http
-    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
-    assert (outcomes[-1].target, outcomes[-1].result) == (
-        "system/bibliography.json",
-        Result.UNMATCHED,
-    )
-    assert outcomes[-1].reason == (
-        "not-admitted — JSON-RPC error: "
-        "{'code': -32000, 'message': 'no item with citation key'}"
-    )
-    assert not (tmp_vault / "system" / "bibliography.json").exists()
+    # An entry moves only with its note (#196): this run rendered nothing and
+    # no parseable note carries a tuple, so the CSL file is left as it stands.
+    # The captured-set lint names the corrupt note itself.
+    assert csl.read_text() == before
 
 
 def test_a_trashed_source_requested_by_citation_key_reports_trashed_not_not_admitted(
@@ -620,64 +515,6 @@ def test_a_trashed_source_requested_by_citation_key_reports_trashed_not_not_admi
     assert by_key[0].reason == "trashed — E352DFS8"
     refreshed = capture.capture(tmp_vault, client, [], refresh_all=True)
     assert refreshed[0].reason == "trashed — E352DFS8"
-
-
-def test_a_trashed_refusal_does_not_skip_its_key_from_csl_regeneration(
-    tmp_vault, monkeypatch
-):
-    """`re_keyed` must gain an entry only for an actually re-keyed refusal:
-    `_refused` refuses a trashed item too, but by a different reason code
-    (`_REFUSED`, not `re-keyed`). An `and`/`or` slip on the guard would fold
-    every kind of refusal into the CSL regeneration `skip` set, not just
-    re-keyed ones — so the trashed item's own citation key must still reach
-    `export_csl`."""
-    fake = _canned_run(canned_item(FakeZotero()))
-    fake.rpc("item.export", LIBRARY)
-    client = _client(monkeypatch, fake)
-    capture.capture(tmp_vault, client, ["E352DFS8"])
-    fake.get(
-        "/api/users/0/items?since=0&format=versions",
-        body={"D7EJ9FTG": 551},
-        headers={"Last-Modified-Version": "566"},
-    )
-    fake.get("/api/users/0/items/trash?format=versions", body={"E352DFS8": 566})
-    fake.get(
-        "/api/users/0/items/top?format=json",
-        body=[],
-        headers={"Last-Modified-Version": "566"},
-    )
-    fake.calls.clear()
-    seen = []
-    real_export_csl = client.export_csl
-
-    def recording_export_csl(keys):
-        seen.append(list(keys))
-        return real_export_csl(keys)
-
-    monkeypatch.setattr(client, "export_csl", recording_export_csl)
-    capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
-    assert seen
-    assert "jakesch.etal2023a" in seen[-1]
-
-
-def test_csl_regeneration_needs_no_library_name_when_nothing_was_read(
-    tmp_vault, monkeypatch
-):
-    fake = _canned_run(canned_item(FakeZotero()))
-    fake.rpc("item.export", LIBRARY)
-    client = _client(monkeypatch, fake)
-    capture.capture(
-        tmp_vault, client, ["E352DFS8"]
-    )  # this run reads a name and takes the library route
-    fake.calls.clear()
-    outcomes = capture.capture(
-        tmp_vault, client, ["GHOST001"]
-    )  # 404: nothing read this run
-    assert outcomes[0].reason == "not-admitted — GHOST001 is not in the library"
-    assert outcomes[-1].reason == "matched — item.export fallback"
-    assert not [
-        c for c in fake.calls if "better-bibtex/library" in c[1]
-    ]  # no library route without a name
 
 
 def test_a_note_recording_another_database_is_refused_not_read(tmp_vault, monkeypatch):
@@ -772,17 +609,18 @@ def test_all_keeps_unrequestable_rows_when_the_vault_level_read_then_fails(
     tmp_vault, monkeypatch
 ):
     """A note with no citationKey is its own row (`_every_note`, `--all`); a
-    vault-level Zotero failure right after (`_top_version`/`resolve_keys`)
-    must not silently drop it — ADR 0002: a finding is never silently
-    dropped. A bare `FakeZotero()` 404s on `/items/top?format=versions`
-    (nothing registers it), which is exactly the outage this pins."""
+    vault-level Zotero failure right after (`resolve_keys`) must not silently
+    drop it — ADR 0002: a finding is never silently dropped. A bare
+    `FakeZotero()` 404s on `/items/top?format=json` (nothing registers it),
+    which is exactly the outage this pins: the uncaptured citation key sends
+    `resolve_keys` there."""
     fake = FakeZotero()
     client = _client(monkeypatch, fake)
     (tmp_vault / "literature").mkdir(parents=True, exist_ok=True)
     (tmp_vault / "literature" / "nameless.md").write_text(
         '---\ntype: "literature"\n---\n'
     )
-    outcomes = capture.capture(tmp_vault, client, [], refresh_all=True)
+    outcomes = capture.capture(tmp_vault, client, ["nobody2020"], refresh_all=True)
     assert len(outcomes) == 2
     assert str(outcomes[0].target).endswith("literature/nameless.md")
     assert outcomes[0].result is Result.UNMATCHED
@@ -790,14 +628,14 @@ def test_all_keeps_unrequestable_rows_when_the_vault_level_read_then_fails(
     assert outcomes[1].target == "vault"
     assert outcomes[1].result is Result.UNMATCHED
     assert outcomes[1].reason == (
-        "not-admitted — local API 404 for /api/users/0/items/top?format=versions"
+        "not-admitted — local API 404 for /api/users/0/items/top?format=json"
     )
 
 
 def test_all_keeps_unrequestable_rows_when_the_linter_blocks_the_vault(
     tmp_vault, monkeypatch
 ):
-    """Same shape as the _top_version/resolve_keys case above (finding 9),
+    """Same shape as the resolve_keys case above (finding 9),
     one step earlier: `_every_note` runs before `lint_lifecycle`, so a
     vault-level lint refusal must not drop its rows either (finding 10,
     ADR 0002). The tupled note's recorded server id ("Tdoqsn2J4q4h", the
@@ -838,13 +676,18 @@ def _re_keyed_fake(monkeypatch):
     fake = _canned_run(canned_item(FakeZotero(), item=old), items=(old,))
 
     def export(params):
+        # Better BibTeX exports only the key the item carries now: after the
+        # re-key the old key is refused (-32602), so an export of it is a row.
+        _status, body, _headers = fake._gets["/api/users/0/items/E352DFS8?format=json"]
+        live = json.loads(body)["data"]["citationKey"]
         keys = params[0] if params and isinstance(params[0], list) else []
-        if "old2020" in keys:
-            raise zotero.ZoteroError(
-                "JSON-RPC error: {'code': -32602, 'message': 'old2020 not found'}",
-                Result.UNMATCHED,
-            )
-        return []
+        for key in keys:
+            if key != live:
+                raise zotero.ZoteroError(
+                    f"JSON-RPC error: {{'code': -32602, 'message': '{key} not found'}}",
+                    Result.UNMATCHED,
+                )
+        return [{"id": key, "type": "paper-conference"} for key in keys]
 
     fake.rpc("item.export", export)
     client = _client(monkeypatch, fake)
@@ -1354,6 +1197,10 @@ def test_capture_keeps_going_past_a_not_admitted_and_a_refused_key(
     fake = _canned_run(canned_item(FakeZotero()))
     second = _second_item()
     canned_item(fake, item=second, children=())
+    fake.rpc(
+        "item.export",
+        lambda params: [{"id": key, "type": "article-journal"} for key in params[0]],
+    )
     client = _client(monkeypatch, fake)
     capture.capture(tmp_vault, client, ["E352DFS8"])
     fake.get(
@@ -1398,84 +1245,6 @@ def test_a_lint_outage_on_the_vault_blocks_the_run_before_any_read(
     assert not [
         c for c in fake.calls[before:] if c[1].startswith("/api/users/0/items/E352DFS8")
     ]
-
-
-def test_a_mid_run_move_stops_reading_and_never_reads_the_csl_library(
-    tmp_vault, monkeypatch
-):
-    """After the 412 the run ends with the vault row and sends nothing more:
-    no CSL library read from the database that answered after the move."""
-    second = _second_item()
-    fake = _canned_run(canned_item(FakeZotero()), items=(ITEM, second))
-    canned_item(fake, item=second, children=())
-    client = _client(monkeypatch, fake)
-    real_item = client.item
-    reads = []
-
-    def flipping_item(key):
-        reads.append(key)
-        if len(reads) == 3:
-            fake.server_id = "Tdoqsn2J4q4h"
-        return real_item(key)
-
-    monkeypatch.setattr(client, "item", flipping_item)
-    outcomes = capture.capture(tmp_vault, client, ["E352DFS8", "F441KKD2"])
-    assert [(o.target, o.result) for o in outcomes] == [
-        ("jakesch.etal2023a", Result.MATCHED),
-        ("vault", Result.UNMATCHED),
-    ]
-    assert not [c for c in fake.calls if c[1].startswith("/better-bibtex/library")]
-
-
-def test_the_library_route_is_read_once_when_zotero_did_not_move(
-    tmp_vault, monkeypatch
-):
-    fake = _canned_run(canned_item(FakeZotero()))
-    client = _client(monkeypatch, fake)
-    capture.capture(tmp_vault, client, ["E352DFS8"])
-    library_reads = [c for c in fake.calls if c[1].startswith("/better-bibtex/library")]
-    assert len(library_reads) == 1
-
-
-def test_an_item_without_a_library_envelope_falls_back_to_item_export(
-    tmp_vault, monkeypatch
-):
-    """The library route needs the name the item envelope carries; an envelope
-    without one sends the CSL step straight to item.export over the captured
-    keys (decision 13: no hardcoded library name)."""
-    fake = _canned_run(canned_item(FakeZotero()))
-    client = _client(monkeypatch, fake)
-    capture.capture(tmp_vault, client, ["E352DFS8"])
-    item = json.loads(json.dumps(ITEM))
-    del item["library"]
-    canned_item(fake, item=item)
-    fake.rpc("item.export", [LIBRARY[0]])
-
-    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
-
-    assert outcomes[-1].reason == "matched — item.export fallback"
-
-
-def test_a_csl_schema_violation_is_an_unmatched_row_on_the_csl_file(
-    tmp_vault, monkeypatch
-):
-    fake = _canned_run(canned_item(FakeZotero()))
-    client = _client(monkeypatch, fake)
-
-    def refusing(_vault, _items):
-        raise capture.bibliography.BibliographyError(
-            "id 0 is not a string", Result.UNMATCHED
-        )
-
-    monkeypatch.setattr(capture.bibliography, "write", refusing)
-    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
-    last = outcomes[-1]
-    assert (last.check, last.target, last.result, last.reason) == (
-        "capture",
-        "system/bibliography.json",
-        Result.UNMATCHED,
-        "schema-violation — id 0 is not a string",
-    )
 
 
 def test_best_attachment_keeps_a_key_that_ends_in_x():
@@ -1596,7 +1365,7 @@ def test_capture_one_creates_a_multi_level_missing_vault_directory(tmp_path):
     vault = tmp_path / "missing" / "vault"
     read = capture.ItemRead(ITEM, [], {}, 544)
     now = datetime.datetime(2026, 9, 17, tzinfo=datetime.UTC)
-    capture._capture_one(vault, read, "6LpvURP2E933", now, {})
+    capture._capture_one(vault, read, "6LpvURP2E933", now, {}, LIBRARY[0])
     assert (vault / "literature" / "jakesch.etal2023a.md").is_file()
 
 
@@ -1860,3 +1629,98 @@ def test_a_recapture_after_the_attachment_is_trashed_drops_it_from_the_tuple(
     )
     assert data["attachments"] == []
     assert (text.read_bytes(), text.stat().st_mtime_ns) == (before, stamp)
+
+
+def test_capture_exports_each_rendered_items_entry_before_rendering_and_records_its_hash(
+    tmp_vault, monkeypatch
+):
+    """#196 / Q20: the note carries csl-sha256 of its own entry; the file holds
+    exactly the rendered entries plus the untouched ones."""
+    from research_vault import bibliography
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    bibliography.write(tmp_vault, [{"id": "other2020", "title": "untouched"}])
+    (tmp_vault / "literature" / "other2020.md").write_text(
+        '---\ntype: "literature"\nzotero-server-id: "6LpvURP2E933"\nzotero-item-key: "OTHER001"\n'
+        'zotero-item-version: 1\ncitationKey: "other2020"\nattachments:\nfulltext:\n---\n'
+    )
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result, o.reason) for o in outcomes] == [
+        ("jakesch.etal2023a", Result.MATCHED, "matched"),
+        ("system/bibliography.json", Result.MATCHED, "matched"),
+    ]
+    export_calls = [c for c in fake.calls if c[0] == "RPC" and c[1] == "item.export"]
+    assert export_calls == [
+        ("RPC", "item.export", {"params": [["jakesch.etal2023a"], "Better CSL JSON"]})
+    ]
+    first_render = fake.calls.index(
+        next(c for c in fake.calls if c[1].endswith("/items/E352DFS8?format=json"))
+    )
+    assert (
+        fake.calls.index(export_calls[0]) > first_render
+    )  # read first, then export, then render
+    data, _ = frontmatter.parse(
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
+    )
+    entries = bibliography.load(tmp_vault)
+    assert data["csl-sha256"] == bibliography.entry_sha256(entries["jakesch.etal2023a"])
+    assert entries["other2020"] == {"id": "other2020", "title": "untouched"}
+
+
+def test_an_export_that_returns_no_entry_for_the_key_is_unmatched_and_writes_no_note(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.rpc("item.export", lambda params: [])
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (outcomes[0].result, outcomes[0].reason) == (
+        Result.UNMATCHED,
+        "mismatch — item.export returned no entry for jakesch.etal2023a",
+    )
+    assert not (tmp_vault / "literature" / "jakesch.etal2023a.md").exists()
+
+
+def test_a_refused_export_is_unmatched_and_an_outage_is_unreachable(
+    tmp_vault, monkeypatch
+):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+
+    def refusing(method, params, *, timeout=None):
+        raise zotero.ZoteroError("JSON-RPC error: unknown key", zotero.Result.UNMATCHED)
+
+    monkeypatch.setattr(client, "_rpc", refusing)
+    assert (
+        capture.capture(tmp_vault, client, ["E352DFS8"])[0].result is Result.UNMATCHED
+    )
+
+    def down(method, params, *, timeout=None):
+        raise zotero.ZoteroError("Zotero unreachable")
+
+    monkeypatch.setattr(client, "_rpc", down)
+    assert (
+        capture.capture(tmp_vault, client, ["E352DFS8"])[0].result is Result.UNREACHABLE
+    )
+
+
+def test_noop_includes_the_csl_hash(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert (
+        capture.capture(tmp_vault, client, ["E352DFS8"])[0].reason == "matched — NOOP"
+    )
+    fake.rpc("item.export", lambda params: [{**LIBRARY[0], "title": "T2"}])
+    assert capture.capture(tmp_vault, client, ["E352DFS8"])[0].reason == "matched"
+
+
+def test_export_entry_picks_the_keys_own_entry_from_the_export(monkeypatch):
+    """Better BibTeX may answer more than the one entry; the note hashes the
+    entry whose id is its key, never the first one."""
+    fake = FakeZotero()
+    own = {"id": "jakesch.etal2023a", "title": "T"}
+    fake.rpc("item.export", [{"id": "other2020", "title": "O"}, own])
+    client = _client(monkeypatch, fake)
+    assert capture._export_entry(client, "E352DFS8", "jakesch.etal2023a") == own

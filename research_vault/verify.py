@@ -825,7 +825,11 @@ def _plan_state(
     )
     raw.extend(lints.lint_published_drift(repository, candidate_snapshot))
     raw.extend(propagate.lint_propagation(vault))
-    raw.extend(captured.lint_captured_set(vault, as_of=detection_date))
+    raw.extend(
+        captured.lint_captured_set(
+            vault, as_of=detection_date, bibliography_universe=bibliography_universe
+        )
+    )
     authoritative = [
         outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
     ]

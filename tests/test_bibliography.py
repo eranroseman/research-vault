@@ -93,3 +93,35 @@ def test_write_renders_two_space_indented_json_with_non_ascii_kept(tmp_vault):
             '    "title": "Größe → x"\n  }\n]\n'
         ).encode()
     )
+
+
+def test_entry_sha256_is_the_canonical_json_hash():
+    from research_vault import bibliography
+
+    entry = {"id": "a", "title": "T", "author": [{"family": "S"}]}
+    assert bibliography.entry_sha256(entry) == bibliography.entry_sha256(
+        {"title": "T", "author": [{"family": "S"}], "id": "a"}
+    )
+    assert bibliography.entry_sha256(entry) != bibliography.entry_sha256(
+        {**entry, "title": "U"}
+    )
+
+
+def test_update_replaces_rendered_entries_keeps_the_rest_and_drops_uncaptured_keys(
+    tmp_vault,
+):
+    from research_vault import bibliography
+
+    bibliography.write(
+        tmp_vault,
+        [
+            {"id": "a", "title": "A"},
+            {"id": "b", "title": "B"},
+            {"id": "gone", "title": "G"},
+        ],
+    )
+    bibliography.update(tmp_vault, {"a": {"id": "a", "title": "A2"}}, keep={"a", "b"})
+    assert bibliography.load(tmp_vault) == {
+        "a": {"id": "a", "title": "A2"},
+        "b": {"id": "b", "title": "B"},
+    }

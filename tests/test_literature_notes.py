@@ -414,6 +414,7 @@ PROVENANCE = literature_notes.Provenance(
     ),
     fulltext=({"attachment-key": "D7EJ9FTG", "sha256": "f" * 64},),
     compile_input_sha256="f" * 64,
+    csl_sha256="c" * 64,
 )
 
 
@@ -455,6 +456,8 @@ def test_render_note_carries_snapshot_tuple_and_witness_in_order():
     assert data["citationKey"] == "jakesch.etal2023a"
     assert data["attachments"][0]["md5"] == "aa59569ae4f4b3a7c546158d4771c738"
     assert data["fulltext"] == [{"attachment-key": "D7EJ9FTG", "sha256": "f" * 64}]
+    assert data["csl-sha256"] == "c" * 64
+    assert keys.index("csl-sha256") == keys.index("fulltext") + 1
     assert data["compile-input-sha256"] == "f" * 64
     assert data["accessed"] == "2026-09-07"
     assert data["managed-sha256"] == literature_notes.body_sha256(text)
@@ -819,7 +822,9 @@ def test_rerender_replaces_a_blank_or_non_string_prior_accessed_and_drops_a_stal
             )
         )
         assert data["accessed"] == "2026-09-08"
-    without_digest = dataclasses.replace(PROVENANCE, compile_input_sha256=None)
+    without_digest = dataclasses.replace(
+        PROVENANCE, compile_input_sha256=None, csl_sha256=None
+    )
     data, _ = frontmatter.parse(
         literature_notes.render_note(
             ITEM["data"],
@@ -832,6 +837,7 @@ def test_rerender_replaces_a_blank_or_non_string_prior_accessed_and_drops_a_stal
         )
     )
     assert "compile-input-sha256" not in data
+    assert "csl-sha256" not in data  # a tuple without the hash renders none (#196)
 
 
 def test_duplicate_capture_fields_lists_every_repeated_machine_owned_key_sorted():

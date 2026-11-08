@@ -895,3 +895,43 @@ def test_a_table_escaped_wikilink_is_checked_not_read_as_a_folder(tmp_vault):
             "not-captured — wiki/sources/A.md links [[idea\\|Idea]], not a page and not in the captured set",
         ),
     ]
+
+
+def test_a_csl_entry_that_does_not_match_its_notes_hash_is_a_mismatch_row(tmp_vault):
+    """Designs test 15, Q20's exact backstop: a hand-edited entry, a note
+    reverted without its entry, or an entry that moved alone."""
+
+    from research_vault import bibliography
+
+    _note(tmp_vault, "smith2020", "SMITH001")
+    entry = {"id": "smith2020", "title": "Right"}
+    bibliography.write(tmp_vault, [entry])
+    note = tmp_vault / "literature" / "smith2020.md"
+    note.write_text(
+        note.read_text().replace(
+            "fulltext:\n",
+            f'fulltext:\ncsl-sha256: "{bibliography.entry_sha256(entry)}"\n',
+        )
+    )
+    assert [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ] == []
+    bibliography.write(tmp_vault, [{"id": "smith2020", "title": "Wrong"}])
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert [(o.check, decode_repo_path(o.target), o.reason) for o in rows] == [
+        (
+            "captured-set",
+            b"literature/smith2020.md",
+            "mismatch — csl-sha256 of literature/smith2020.md does not match its system/bibliography.json entry",
+        )
+    ]
+    bibliography.write(tmp_vault, [])
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert (
+        rows[0].reason
+        == "mismatch — literature/smith2020.md records csl-sha256 but system/bibliography.json has no entry for smith2020"
+    )

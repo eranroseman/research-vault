@@ -1,8 +1,10 @@
 """The capture verb: the deterministic copy into the vault (ingest spec §3.3).
 
 One verb, per item or batch, keyed by citation key or item key. Reads are
-version-checked per item and restart when the item moves; the CSL file is
-regenerated whole at the end of the run; NOOP is a result.
+version-checked per item and restart when the item moves; each rendered item's
+CSL entry is exported before its render and the note records its hash, and the
+CSL file is rewritten for those entries alone at the end of the run (#196);
+NOOP is a result.
 """
 
 import datetime
@@ -198,6 +200,7 @@ def _capture_one(
     server_id: str,
     now: datetime.datetime,
     base_fields: Mapping[str, Mapping[str, str]],
+    entry: dict,
 ) -> list[Outcome]:
     item = read.item
     citation_key = item["data"].get("citationKey")
@@ -218,6 +221,8 @@ def _capture_one(
         ),
         fulltext=tuple(entries),
         compile_input_sha256=digest_by_key.get(best) if best else None,
+        # A tuple field, so a changed entry moves the projection and breaks NOOP.
+        csl_sha256=bibliography.entry_sha256(entry),
     )
     existing = None
     if path.is_file():
@@ -305,64 +310,62 @@ def _capture_one(
     return outcomes
 
 
-def _regenerate_csl(
+def _export_entry(
+    client: ZoteroClient, requested_key: str, citation_key: str
+) -> dict | Outcome:
+    """One `item.export` for one key, before the render (Q20): the entry the
+    note will hash, or the item's row. No entry for the key is a mismatch; a
+    refusal or an outage is `lifecycle.blocked`'s split."""
+    try:
+        exported = client.export_csl([citation_key])
+    except ZoteroError as error:
+        return lifecycle.blocked(CHECK, requested_key, error)
+    for entry in exported:
+        if entry.get("id") == citation_key:
+            return entry
+    return Outcome(
+        CHECK,
+        requested_key,
+        Result.UNMATCHED,
+        f"mismatch — item.export returned no entry for {citation_key}",
+    )
+
+
+def _capture_exported(
     vault: Path,
     client: ZoteroClient,
-    library_name: str | None,
-    run_version: int | None,
-    skip=frozenset(),
-) -> Outcome:
-    """§3.3 step 4: one whole-library read, re-read once if Zotero moved, item.export fallback.
+    requested_key: str,
+    read: ItemRead,
+    server_id: str,
+    now: datetime.datetime,
+    base_fields: Mapping[str, Mapping[str, str]],
+    rendered_entries: dict[str, dict],
+) -> list[Outcome]:
+    """Export the item's entry, then render it (§3.3, #196). The entry joins
+    `rendered_entries` only when the note now records its hash (written or
+    NOOP), so an entry never moves without its note."""
+    citation_key = read.item["data"]["citationKey"]
+    # An unsafe key refuses the whole item before anything is exported.
+    literature_notes.note_path(vault, citation_key)
+    entry = _export_entry(client, requested_key, citation_key)
+    if isinstance(entry, Outcome):
+        return [entry]
+    rows = _capture_one(vault, read, server_id, now, base_fields, entry)
+    if rows[0].result is Result.MATCHED:
+        rendered_entries[citation_key] = entry
+    return rows
 
-    The library route needs a name, and decision 13 forbids hardcoding one: it is
-    read from the item envelope this run, so a run that read no item (a refusal,
-    a 404) goes straight to ``item.export`` over the captured keys, which needs none.
-    """
-    captured_keys = sorted(_captured_keys(vault) - set(skip))
-    items = None
-    route = "matched"
-    if library_name is not None:
-        try:
-            items = client.library_csl(library_name)
-            after = _top_version(client)
-            if run_version is not None and after is not None and after != run_version:
-                items = client.library_csl(library_name)
-        except DatabaseChangedError as error:
-            # Never fall into item.export here: neither Better BibTeX call carries
-            # Zotero-Server-ID, so the fallback would write the CSL file from
-            # whichever database now answers and call it matched. The row targets
-            # the vault, not the file: `database-changed` means every recorded
-            # version is void, and the CSL file records no server id, so a finding
-            # on it would name a condition the file cannot have. What is void is
-            # every note this run wrote from the database that answered.
-            return Outcome(
-                CHECK, "vault", Result.UNMATCHED, f"database-changed — {error}"
-            )
-        except ZoteroError:
-            items = None
-    if items is None:
-        try:
-            items = client.export_csl(captured_keys) if captured_keys else []
-            route = "matched — item.export fallback"
-        except ZoteroError as error:
-            # A JSON-RPC error (a stale captured key after a re-key) is UNMATCHED;
-            # only a transport failure is the outage — the four-state split
-            # lifecycle.blocked already makes.
-            return lifecycle.blocked(CHECK, CSL_TARGET, error)
-    selected = [item for item in items if item.get("id") in captured_keys]
+
+def _update_csl(vault: Path, rendered_entries: Mapping[str, dict]) -> Outcome:
+    """The CSL file's row: the rendered entries rewritten, every other captured
+    key's entry kept as it stands, the rest dropped."""
     try:
-        bibliography.write(vault, selected)
+        bibliography.update(vault, rendered_entries, keep=_captured_keys(vault))
     except bibliography.BibliographyError as error:
         return Outcome(
             CHECK, CSL_TARGET, Result.UNMATCHED, f"schema-violation — {error}"
         )
-    return Outcome(CHECK, CSL_TARGET, Result.MATCHED, route)
-
-
-def _top_version(client: ZoteroClient) -> int | None:
-    """Zotero's own library version (decision 13: the BBT library route returns none)."""
-    _payload, headers = client._local_json("/api/users/0/items/top?format=versions")
-    return client._version_header(headers)
+    return Outcome(CHECK, CSL_TARGET, Result.MATCHED, "matched")
 
 
 def _captured_keys(vault: Path) -> set[str]:
@@ -511,8 +514,9 @@ def capture(
     refresh_all: bool = False,
     key_wait_seconds: float = KEY_WAIT_SECONDS,
 ) -> list[Outcome]:
-    """The capture verb (spec §3.3): the linter first, then one read and one
-    render per requested item, then the CSL file whole.
+    """The capture verb (spec §3.3): the linter first, then one read, one CSL
+    export and one render per requested item, then the rendered entries into
+    the CSL file.
 
     ``keys`` are item keys or citation keys (``resolve_keys``); ``refresh_all``
     adds every note under ``literature/`` by its recorded ``citationKey``.
@@ -550,7 +554,7 @@ def capture(
         # `unrequestable` (--all's `_every_note` rows) is already computed
         # here, before `outcomes` even exists; a vault-level lint refusal
         # must not silently drop it either (ADR 0002, same shape as the
-        # _top_version/resolve_keys failure below).
+        # resolve_keys failure below).
         return [*unrequestable, *blocking]
     # The linter targets citation keys; capture resolves item keys. Join the two
     # through the provenance tuples.
@@ -560,17 +564,15 @@ def capture(
     server_id = client.server_id or info["server_id"]
     outcomes: list[Outcome] = []
     outcomes.extend(unrequestable)
-    library_name = None
+    rendered_entries: dict[str, dict] = {}
     aborted: Outcome | None = None
     try:
-        run_version = _top_version(client)
         resolved = resolve_keys(client, requested, item_key_of)
     except ZoteroError as error:
         # `outcomes` may already hold `_every_note`'s unrequestable rows
         # (--all); a vault-level failure here must not silently drop them
         # (ADR 0002).
         return [*outcomes, lifecycle.blocked(CHECK, "vault", error)]
-    re_keyed: set[str] = set()
     for requested_key, item_key in resolved.items():
         if item_key is None:
             outcomes.append(
@@ -586,8 +588,6 @@ def capture(
         refusal = _refused(vault, prior, requested_key, existing, _re_key_target(prior))
         if refusal is not None:
             outcomes.append(refusal)
-            if prior is not None and refusal.reason.startswith("re-keyed — "):
-                re_keyed.add(str(prior.target))
             continue
         try:
             read = _read_keyed(client, item_key, key_wait_seconds)
@@ -601,8 +601,18 @@ def capture(
                     )
                 )
                 continue
-            library_name = library_name or read.item.get("library", {}).get("name")
-            outcomes.extend(_capture_one(vault, read, server_id, now, base_fields))
+            outcomes.extend(
+                _capture_exported(
+                    vault,
+                    client,
+                    requested_key,
+                    read,
+                    server_id,
+                    now,
+                    base_fields,
+                    rendered_entries,
+                )
+            )
         except DatabaseChangedError as error:
             # The database moved mid-run: stop reading. The notes already
             # written stay, and the vault row ends the list.
@@ -646,12 +656,8 @@ def capture(
     if aborted is not None:
         # No CSL file from the database that answered after the move.
         return [*outcomes, aborted]
-    if library_name is not None or existing:
-        outcomes.append(
-            _regenerate_csl(
-                vault, client, library_name, run_version, skip=frozenset(re_keyed)
-            )
-        )
+    if rendered_entries or existing:
+        outcomes.append(_update_csl(vault, rendered_entries))
     return outcomes
 
 

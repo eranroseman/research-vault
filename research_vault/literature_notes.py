@@ -119,6 +119,7 @@ TUPLE_FIELDS: tuple[str, ...] = (
     "citationKey",
     "attachments",
     "fulltext",
+    "csl-sha256",
     "compile-input-sha256",
     # generated is emitted last by render_note, after accessed and managed-sha256
     "generated",
@@ -145,6 +146,8 @@ class Provenance:
     attachments: tuple[dict, ...]
     fulltext: tuple[dict, ...]
     compile_input_sha256: str | None
+    # The hash of the note's own system/bibliography.json entry (#196).
+    csl_sha256: str | None = None
 
 
 def display_text(value) -> str:
@@ -574,6 +577,8 @@ def _tuple_fields(provenance: Provenance) -> list[tuple[str, object]]:
         ("attachments", [dict(a) for a in provenance.attachments]),
         ("fulltext", [dict(f) for f in provenance.fulltext]),
     ]
+    if provenance.csl_sha256:
+        fields.append(("csl-sha256", provenance.csl_sha256))
     if provenance.compile_input_sha256:
         fields.append(("compile-input-sha256", provenance.compile_input_sha256))
     return fields
@@ -663,6 +668,7 @@ def read_provenance(text: str) -> Provenance | None:
             attachments=attachments,
             fulltext=fulltext,
             compile_input_sha256=data.get("compile-input-sha256") or None,
+            csl_sha256=data.get("csl-sha256") or None,
         )
     except (KeyError, TypeError, ValueError):
         return None

@@ -11,7 +11,6 @@ annotation fallback ``item.attachments`` and the CSL fallback ``item.export``.
 import json
 import re
 import urllib.error
-import urllib.parse
 import urllib.request
 from collections.abc import Mapping
 from pathlib import Path
@@ -36,11 +35,11 @@ def header(headers, name: str) -> str | None:
 
 
 _USER = "/api/users/0"
-# Decision 13: the Better BibTeX library route measured 4.78 s cold against
-# the client's 5.0 s default, and a busy Zotero's own retry then timed out
-# too. About six times the cold measurement, so a library three times larger
-# still clears; only the two whole-library export calls use it (never a
-# per-item read, and never `ready()` — a busy Zotero must not hang the loop).
+# Decision 13: the Better BibTeX library route (retired by #196) measured
+# 4.78 s cold against the client's 5.0 s default, and a busy Zotero's own retry
+# then timed out too. About six times the cold measurement; only `export_csl`
+# uses it (never a per-item read, and never `ready()` — a busy Zotero must not
+# hang the loop).
 EXPORT_TIMEOUT = 30.0
 # The consent dialog is answered by a person; a network timeout is the wrong
 # clock for it. Measured 2026-09-16: an unanswered dialog under the default 5 s
@@ -346,20 +345,6 @@ class ZoteroClient:
             self._version_header(headers),
         )
 
-    def library_csl(self, library_name) -> list[dict]:
-        """The whole library as Better CSL JSON in one read (§3.3 step 4).
-
-        Undocumented route; ``export_csl`` is the documented fallback.
-        """
-        quoted = urllib.parse.quote(library_name, safe="")
-        response = self._http(
-            f"{self.base}/better-bibtex/library?/{quoted}.json", timeout=EXPORT_TIMEOUT
-        )
-        if response.status != 200:
-            raise ZoteroError(f"Better BibTeX library route HTTP {response.status}")
-        items = self._decode_json(response.body, "Better BibTeX library export")
-        return self._validate_csl_items(items, "Better BibTeX library export")
-
     # -- local API writes (§2) ------------------------------------------------
 
     def authorize(self, app_name: str = APP_NAME) -> dict:
@@ -510,7 +495,7 @@ class ZoteroClient:
         return self._validate_object_list(result, "item.attachments result")
 
     def export_csl(self, citation_keys: list[str]) -> list[dict]:
-        """BBT ``item.export``: the documented CSL fallback (§3.3 step 4)."""
+        """BBT ``item.export``: one rendered item's CSL entry, before its render (#196)."""
         exported = self._rpc(
             "item.export", [citation_keys, CSL_TRANSLATOR], timeout=EXPORT_TIMEOUT
         )

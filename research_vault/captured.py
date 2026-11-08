@@ -10,7 +10,7 @@ import os
 import re
 from pathlib import Path
 
-from . import clock, frontmatter, links, literature_notes, structure
+from . import bibliography, clock, frontmatter, links, literature_notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
@@ -27,6 +27,9 @@ _LOCATOR = re.compile(r"^fulltext/(?P<key>[A-Z0-9]{8})\.md$")
 # A literature note the reader took: its frontmatter, its provenance tuple and
 # its vault-relative path.
 _Entry = tuple[dict, literature_notes.Provenance, str]
+# `lint_captured_set`'s default: read system/bibliography.json here. Verify
+# passes the universe it already loaded (None when that load failed).
+_LOAD_BIBLIOGRAPHY = object()
 
 
 def _read_notes(vault: Path) -> tuple[list[_Entry], list[Outcome]]:
@@ -241,7 +244,52 @@ def _textual(vault: Path, entries: list[_Entry]) -> list[Outcome]:
     return outcomes
 
 
-def _structural(vault: Path, entries: list[_Entry], as_of=None) -> list[Outcome]:
+def _structural(
+    vault: Path,
+    entries: list[_Entry],
+    as_of=None,
+    bibliography_universe=_LOAD_BIBLIOGRAPHY,
+) -> list[Outcome]:
+    """The ledger half and the CSL half; neither's absence skips the other."""
+    return _ledger_rows(vault, entries, as_of) + _csl_rows(
+        vault, entries, bibliography_universe
+    )
+
+
+def _csl_rows(vault: Path, entries: list[_Entry], by_key) -> list[Outcome]:
+    """#196 / Q20: every note that records `csl-sha256` matches its entry
+    exactly. An unreadable or invalid file is the citation-key check's row."""
+    if by_key is _LOAD_BIBLIOGRAPHY:
+        try:
+            by_key = bibliography.load(vault)
+        except bibliography.BibliographyError:
+            return []
+    if by_key is None:
+        return []
+    outcomes = []
+    for _data, provenance, relative in entries:
+        if provenance.csl_sha256 is None:
+            continue
+        entry = by_key.get(provenance.citation_key)
+        if entry is None:
+            reason = (
+                f"mismatch — {relative} records csl-sha256 but {bibliography.BIB_PATH} "
+                f"has no entry for {provenance.citation_key}"
+            )
+        elif bibliography.entry_sha256(entry) != provenance.csl_sha256:
+            reason = (
+                f"mismatch — csl-sha256 of {relative} does not match its "
+                f"{bibliography.BIB_PATH} entry"
+            )
+        else:
+            continue
+        outcomes.append(
+            Outcome(CHECK, RepoPath(os.fsencode(relative)), Result.UNMATCHED, reason)
+        )
+    return outcomes
+
+
+def _ledger_rows(vault: Path, entries: list[_Entry], as_of=None) -> list[Outcome]:
     ledger = vault / LEDGER_PATH
     if not ledger.is_file():
         return [
@@ -335,11 +383,13 @@ def _structural(vault: Path, entries: list[_Entry], as_of=None) -> list[Outcome]
     return outcomes
 
 
-def lint_captured_set(vault_root, as_of=None) -> list[Outcome]:
+def lint_captured_set(
+    vault_root, as_of=None, bibliography_universe=_LOAD_BIBLIOGRAPHY
+) -> list[Outcome]:
     vault = Path(vault_root)
     entries, outcomes = _read_notes(vault)  # read once, for both halves
     outcomes += _textual(vault, entries)
-    outcomes += _structural(vault, entries, as_of)
+    outcomes += _structural(vault, entries, as_of, bibliography_universe)
     if all(o.result is Result.SKIPPED for o in outcomes):
         # One verdict per run: the summary row exists only when nothing failed or was
         # unreachable in either half, so a report never says matched and unmatched

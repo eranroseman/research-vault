@@ -4793,13 +4793,14 @@ def test_plan_state_forwards_detection_date_as_of_to_lint_captured_set(
 
     seen = []
 
-    def record(vault, as_of=None):
-        seen.append(as_of)
+    def record(vault, as_of=None, bibliography_universe=None):
+        seen.append((as_of, bibliography_universe))
         return []
 
     monkeypatch.setattr(captured_module, "lint_captured_set", record)
     run_verify(net_vault, network=False, detection_date="2026-09-07")
-    assert seen == ["2026-09-07"]
+    # #196: the universe verify loaded once rides along to the csl-sha256 half.
+    assert seen == [("2026-09-07", bibliography.load(net_vault))]
 
 
 def test_claim_bytes_from_text_collects_quote_and_comment_continuations_verbatim():
