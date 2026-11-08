@@ -58,6 +58,9 @@ class Disposition:
     status: str | None = None
     commit: str | None = None
     tag: str | None = None
+    # The gate's re-check base line (`recheck_base`), for the dispositions
+    # that run the gate.
+    recheck: str | None = None
 
 
 def _utc_now() -> datetime.datetime:
@@ -286,6 +289,45 @@ def last_publication(vault) -> str | None:
     )
 
 
+# The vault's own CI workflow, as `scaffold --with-ci` ships it; the commit that
+# first carried the re-check there is where CI's per-commit check began.
+CI_WORKFLOW = ".github/workflows/verify.yml"
+
+
+def recheck_base(vault) -> tuple[str | object, str]:
+    """The publish re-check's base, and one line naming it and its rule (R19).
+
+    In order: the newest publication tag; else the commit that brought
+    `--recheck-commits` into the vault's tracked CI workflow, since every
+    push after it was re-checked there (a fresh scaffold's first commit
+    carries the template, an upgraded vault's its upgrade); else the whole
+    history."""
+    tag = last_publication(vault)
+    if tag is not None:
+        return tag, f"re-check: every commit since {tag} (the newest publication)"
+    seeded = _git(
+        vault,
+        "log",
+        "--reverse",
+        "--format=%H",
+        "-S--recheck-commits",
+        "--",
+        CI_WORKFLOW,
+    )
+    if seeded.returncode != 0:
+        raise PublishError(f"cannot read the history of {CI_WORKFLOW}")
+    commits = seeded.stdout.split()
+    if commits:
+        return commits[0], (
+            f"re-check: every commit since {commits[0]} (the commit that "
+            f"brought --recheck-commits into {CI_WORKFLOW})"
+        )
+    return WHOLE_HISTORY, (
+        "re-check: the whole history (no publication tag, and no "
+        f"--recheck-commits in {CI_WORKFLOW}'s history)"
+    )
+
+
 def _publication_stamp(date) -> tuple[str, str]:
     """A publication's ``<YYYY-MM-DD>`` and ``<HHMMSS>``, from one clock read.
 
@@ -381,20 +423,18 @@ def _publish(vault, project, status, *, base, date, message) -> Disposition:
     date, time = _publication_stamp(date)
     tag = _require_taggable(root, project, date, time)
 
-    # Every commit since the last publication is re-checked against its
+    # Every commit since the re-check's base is re-checked against its
     # parent, so a hand edit committed with `--no-verify` holds publish too.
+    since, recheck = recheck_base(root)
     _report, effective, _hashes, warning_effective = verify_state(
-        root,
-        network=True,
-        base=base,
-        recheck_commits=last_publication(root) or WHOLE_HISTORY,
+        root, network=True, base=base, recheck_commits=since
     )
     # `_effective` already drops every finding a standing acknowledgment
     # closes, so a green decision here *is* spec §6's "green, or every
     # blocking entry carries a standing ack" — never re-check acks by hand.
     decision, blockers = surface_decision("publish", effective, warning_effective)
     if decision:
-        return Disposition(project, decision, blockers)
+        return Disposition(project, decision, blockers, recheck=recheck)
 
     existing = _git(root, "rev-parse", "--verify", "--quiet", f"refs/tags/{tag}")
     if existing.returncode == 0:
@@ -423,7 +463,7 @@ def _publish(vault, project, status, *, base, date, message) -> Disposition:
         raise PublishError("publication produced no commit")
     _create_tag(root, tag, commit)
     disarm(root)
-    return Disposition(project, 0, (), status, commit, tag)
+    return Disposition(project, 0, (), status, commit, tag, recheck)
 
 
 def _create_tag(vault, tag: str, commit: str) -> None:

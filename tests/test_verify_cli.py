@@ -5785,8 +5785,13 @@ def test_recheck_commits_rows_can_be_acknowledged_and_stay_acknowledged(net_vaul
     note.write_text(
         must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
     )
-    _commit_all(net_vault, "bypassed")
-    verify.verify_state(net_vault, network=False, recheck_commits=base)
+    bypassed = _commit_all(net_vault, "bypassed")
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    (row,) = [o for o in effective if "DOI" in o.reason]
+    assert row.extra["commit"] == bypassed
+    assert verify.surface_decision("publish", effective, warning)[0] == 1
     finding = next(
         f
         for f in inbox.open_entries(net_vault)
@@ -5794,10 +5799,12 @@ def test_recheck_commits_rows_can_be_acknowledged_and_stay_acknowledged(net_vaul
     )
     inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran")
     _commit_all(net_vault, "ack")
-    _report, effective, _hashes, warning = verify.verify_state(
-        net_vault, network=False, recheck_commits=base
-    )
-    assert verify.surface_decision("publish", effective, warning)[0] == 0
+    for _run in range(2):
+        _report, effective, _hashes, warning = verify.verify_state(
+            net_vault, network=False, recheck_commits=base
+        )
+        assert not [o for o in effective if "DOI" in o.reason]
+        assert verify.surface_decision("publish", effective, warning)[0] == 0
 
 
 def test_recheck_commits_reads_a_merge_against_every_parent(net_vault):
@@ -6133,9 +6140,10 @@ def test_a_record_moving_a_loser_onto_an_unchanged_survivor_is_read_whole(
     assert not [o for o in effective if o.reason == "drift — literature note deleted"]
 
 
-def test_a_commit_is_rechecked_on_the_files_it_changed(net_vault):
-    """A stale witness committed once is that commit's row; a later commit
-    that leaves the note alone does not raise it again."""
+def test_a_row_later_commits_repeat_is_one_row(net_vault):
+    """R20: the replay lints whole trees, as the hook does, so a stale witness
+    is raised again on every commit that keeps the note's bytes; repeated
+    rows across commits are one row, on the commit that first raised it."""
     note = net_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(note.read_text(), "Retrospective design", "Prospective design")
@@ -6144,7 +6152,7 @@ def test_a_commit_is_rechecked_on_the_files_it_changed(net_vault):
     (net_vault / "projects" / "brief" / "notes.md").write_text(
         '---\ntype: "note"\n---\nunrelated\n'
     )
-    _commit_all(net_vault, "unrelated")
+    later = _commit_all(net_vault, "unrelated")
 
     def witness_rows(since):
         _report, effective, _hashes, _warning = verify.verify_state(
@@ -6156,7 +6164,260 @@ def test_a_commit_is_rechecked_on_the_files_it_changed(net_vault):
             if o.check == "evidence-layer" and "managed-sha256" in o.reason
         ]
 
-    # The worktree leg raises the stale witness the tree still holds; the
-    # re-check's own copy names the commit that made it, and only that one.
     assert witness_rows(f"{stale}^") == [stale]
-    assert witness_rows(stale) == [None]
+    # From `stale` on, the hook at `later` would have raised it too.
+    assert witness_rows(stale) == [later]
+
+
+def test_a_commit_whose_tree_equals_its_parents_is_not_linted(net_vault, monkeypatch):
+    base = _commit_all(net_vault, "base")
+    subprocess.run(
+        ["git", "commit", "-q", "--allow-empty", "-m", "empty"],
+        cwd=net_vault,
+        check=True,
+    )
+    linted = []
+    real = verify._commit_rows
+
+    def spy(repository, commit, bases, candidate):
+        linted.append(commit)
+        return real(repository, commit, bases, candidate)
+
+    monkeypatch.setattr(verify, "_commit_rows", spy)
+    verify.verify_state(net_vault, network=False, recheck_commits=base)
+    assert linted == []
+
+
+def _merge_sides(vault, side_edit, main_edit, *, resolve=None):
+    """Branch `side` off HEAD, apply `side_edit` there and `main_edit` on the
+    original branch, then merge with `--no-ff`; `resolve` writes a conflict's
+    resolution before the merge commit. Returns (base, side, main, merge)."""
+    base = _commit_all(vault, "base")
+    subprocess.run(["git", "switch", "-qc", "side"], cwd=vault, check=True)
+    side_edit()
+    side = _commit_all(vault, "side")
+    subprocess.run(["git", "switch", "-q", "-"], cwd=vault, check=True)
+    main_edit()
+    main_commit = _commit_all(vault, "main")
+    merged = subprocess.run(
+        ["git", "merge", "--no-ff", "--no-commit", "-q", "side"],
+        cwd=vault,
+        capture_output=True,
+        check=False,
+    )
+    if resolve is not None:
+        resolve()
+    else:
+        assert merged.returncode == 0, merged.stderr
+    merge = _commit_all(vault, "merge")
+    return base, side, main_commit, merge
+
+
+def _replayed(vault, since):
+    _report, effective, _hashes, _warning = verify.verify_state(
+        vault, network=False, recheck_commits=since
+    )
+    return [o for o in effective if "commit" in o.extra]
+
+
+def test_a_clean_merge_of_two_edits_to_one_note_raises_nothing_on_the_merge(
+    net_vault,
+):
+    """P28's probe: the DOI on one side, the body on the other, a clean merge.
+    `git diff --cc` is empty; each edit is judged once, at its own commit, so
+    the acks filed there still hold."""
+    note = net_vault / "literature" / "smith2020.md"
+
+    def doi():
+        note.write_text(
+            must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+        )
+
+    def body():
+        note.write_text(
+            must_replace(note.read_text(), "Retrospective design", "Prospective design")
+        )
+
+    base, side, main_commit, merge = _merge_sides(net_vault, doi, body)
+    rows = _replayed(net_vault, base)
+    assert not [o for o in rows if o.extra["commit"] == merge], rows
+    by_reason = {o.reason: o.extra["commit"] for o in rows}
+    assert by_reason["drift — DOI changed without writer attestation"] == side
+    assert (
+        by_reason["drift — literature note body changed without writer attestation"]
+        == main_commit
+    )
+    assert len(rows) == len(by_reason)
+
+
+def test_a_note_no_parent_holds_is_judged_against_every_parent_once(net_vault):
+    """P28: the merge itself adds an unattested note no parent holds; the row
+    is raised against both parents and kept once."""
+    added = net_vault / "literature" / "merged.md"
+
+    def resolve():
+        added.write_text('---\ntype: "literature"\n---\nby hand\n')
+
+    def unrelated(name):
+        def write():
+            (net_vault / "projects" / "brief" / f"{name}.md").write_text(
+                f'---\ntype: "note"\n---\n{name}\n'
+            )
+
+        return write
+
+    *_, merge = _merge_sides(
+        net_vault, unrelated("side"), unrelated("main"), resolve=resolve
+    )
+    rows = [o for o in _replayed(net_vault, "HEAD^") if "merged.md" in str(o.target)]
+    added_rows = [o for o in rows if "added without writer attestation" in o.reason]
+    assert [o.extra["commit"] for o in added_rows] == [merge]
+
+
+def test_a_union_resolved_log_append_is_no_append_only_row(net_vault):
+    """P28: each side appended a line to one day file; the resolution keeps
+    both. Against each parent the other side's line looks like a rewrite, but
+    that parent's own commit was judged already; the merge rewrote nothing."""
+    day = net_vault / "log" / "2026-08-16.md"
+    original = day.read_text()
+    side_line = "- 10:00 research_vault/0.1.0 — side\n"
+    main_line = "- 11:00 research_vault/0.1.0 — main\n"
+
+    def append(line):
+        return lambda: day.write_text(original + line)
+
+    def resolve():
+        day.write_text(original + main_line + side_line)
+
+    base, *_ = _merge_sides(
+        net_vault, append(side_line), append(main_line), resolve=resolve
+    )
+    assert not [o for o in _replayed(net_vault, base) if o.check == "append-only"]
+
+
+def test_the_leg_leaves_every_edit_of_a_range_to_the_replay(net_vault):
+    """P29: commit A hand-edits a note through the hook path and acks it;
+    commit B touches the same note. Over CI's range the leg's copy of A's
+    edit would hash on HEAD's bytes and miss the hook's ack; the replay
+    judges each edit at its own commit: one open record, B's, and A's acked."""
+    _ack_standing_citation_key(net_vault)
+    pr_base = _commit_all(net_vault, "base")
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    _report, effective, hashes, _warning = verify.verify_state(
+        net_vault, network=False, git_base=pr_base, git_candidate="index"
+    )
+    (doi,) = [o for o in effective if "DOI changed" in o.reason]
+    finding = next(
+        f for f in inbox.open_entries(net_vault) if f.target_hash == hashes[id(doi)]
+    )
+    inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran")
+    _commit_all(net_vault, "A: the DOI and its ack")
+    note.write_text(
+        must_replace(note.read_text(), "Retrospective design", "Prospective design")
+    )
+    b = _commit_all(net_vault, "B: a body edit, bypassed")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault,
+        network=False,
+        git_base=pr_base,
+        git_candidate="HEAD",
+        recheck_commits=pr_base,
+    )
+    rows = [o for o in effective if o.check == "evidence-layer"]
+    assert rows
+    assert {o.extra.get("commit") for o in rows} == {b}
+    assert not [o for o in rows if "DOI" in o.reason]
+    hashes_open = {
+        f.target_hash
+        for f in inbox.open_entries(net_vault)
+        if f.check == "evidence-layer"
+    }
+    assert len(hashes_open) == 1
+
+
+def test_a_bypassed_claim_mutation_is_replayed_and_its_ack_holds(net_vault):
+    """P30: a `--no-verify` commit mutates a claim; the replay raises one
+    claim-immutability row stamped with that commit, its `note_path` still a
+    repo path, and an ack on it holds on the next run."""
+    _ack_standing_citation_key(net_vault)
+    base = _commit_all(net_vault, "base")
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(
+            note.read_text(),
+            "Retrospective design [@smith2020, p. 3] ^c-22222222",
+            "Prospective design [@smith2020, p. 3] ^c-22222222",
+        )
+    )
+    mutated = _commit_all(net_vault, "claim mutated, bypassed")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    (row,) = [o for o in effective if o.check == "claim-immutability"]
+    assert row.extra["commit"] == mutated
+    assert row.path_extra_fields == ("note_path",)
+    assert row.extra["note_path"] == encode_repo_path(b"literature/smith2020.md")
+    finding = next(
+        f for f in inbox.open_entries(net_vault) if f.check == "claim-immutability"
+    )
+    inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    assert not [o for o in effective if o.check == "claim-immutability"]
+
+
+def test_a_bypassed_log_rewrite_is_replayed_as_one_append_only_row(net_vault):
+    base = _commit_all(net_vault, "base")
+    day = net_vault / "log" / "2026-08-16.md"
+    day.write_text(must_replace(day.read_text(), "imported smith2020", "edited"))
+    rewritten = _commit_all(net_vault, "log rewritten, bypassed")
+    rows = [o for o in _replayed(net_vault, base) if o.check == "append-only"]
+    assert [(o.target, o.extra["commit"]) for o in rows] == [
+        (encode_repo_path(b"log/2026-08-16.md"), rewritten)
+    ]
+
+
+def test_the_publish_surface_previews_with_publishs_own_recheck_base(
+    net_vault, monkeypatch, capsys
+):
+    """R21: `--surface publish` alone replays from publish's base, so the
+    preview and the publication see the same rows; an explicit
+    `--recheck-commits` wins, and the commit surface does not replay."""
+    import research_vault.__main__ as cli
+    from research_vault import publish
+
+    seen = {}
+
+    def state(vault, **kwargs):
+        seen.update(kwargs)
+        return {"outcomes": [], "counts": {}}, [], {}, {}
+
+    monkeypatch.setattr(cli, "verify_state", state)
+    common = ["verify", "--vault", str(net_vault), "--offline"]
+    since, line = publish.recheck_base(net_vault)
+    cli.main([*common, "--surface", "publish"])
+    assert seen["recheck_commits"] is since
+    assert line in capsys.readouterr().out.splitlines()
+    subprocess.run(
+        ["git", "tag", "published/brief-2026-01-01-090000"], cwd=net_vault, check=True
+    )
+    cli.main([*common, "--surface", "publish"])
+    assert seen["recheck_commits"] == "published/brief-2026-01-01-090000"
+    cli.main([*common, "--surface", "publish", "--recheck-commits", "HEAD"])
+    assert seen["recheck_commits"] == "HEAD"
+    assert (
+        "re-check: every commit since HEAD (--recheck-commits)"
+        in capsys.readouterr().out.splitlines()
+    )
+    cli.main([*common, "--surface", "commit"])
+    assert seen["recheck_commits"] is None
+    assert not [
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("re-check:")
+    ]

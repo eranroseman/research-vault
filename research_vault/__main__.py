@@ -294,12 +294,28 @@ def _as_of(args) -> str | None:
         return None
 
 
+def _recheck(args, surface) -> tuple[str | object | None, str | None]:
+    """The re-check base and the line naming it: an explicit
+    `--recheck-commits` wins; the publish surface otherwise uses publish's
+    own base (R21), so the preview and the publication see the same rows."""
+    if args.recheck_commits == "all":
+        return WHOLE_HISTORY, "re-check: the whole history (--recheck-commits all)"
+    if args.recheck_commits is not None:
+        return args.recheck_commits, (
+            f"re-check: every commit since {args.recheck_commits} (--recheck-commits)"
+        )
+    if surface == "publish":
+        return publish.recheck_base(args.vault)
+    return None, None
+
+
 def cmd_verify(args):
     surface = getattr(args, "surface", "audit")
     as_of = _as_of(args)
     if as_of is None:
         return 2
     try:
+        since, recheck = _recheck(args, surface)
         report, effective, _hashes, warning_effective = verify_state(
             args.vault,
             network=not args.offline,
@@ -310,18 +326,17 @@ def cmd_verify(args):
             git_candidate=args.git_candidate,
             changed_paths_file=args.changed_paths_file,
             commit_projected=args.commit_projected,
-            recheck_commits=(
-                WHOLE_HISTORY if args.recheck_commits == "all" else args.recheck_commits
-            ),
+            recheck_commits=since,
         )
-    except _NAMED_FAILURES as error:
+    except (*_NAMED_FAILURES, publish.PublishError) as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
         return 2
     if not args.rw_csv:
         # Stdout line only — never a review-queue record.
         print("update-notice: RW leg not run (no --rw-csv)")
-    for notice in report.get("notices", ()):
-        print(notice)  # the same: a stdout line, never a record
+    for notice in (recheck, *report.get("notices", ())):
+        if notice is not None:
+            print(notice)  # the same: a stdout line, never a record
     for outcome in effective:
         if outcome.result is not Result.MATCHED:
             print(
@@ -484,6 +499,9 @@ def _run_disposition(action):
     ) as error:
         print(f"cannot complete this disposition: {error}", file=sys.stderr)
         return 2
+    if outcome.recheck is not None:
+        # stderr: stdout is the blockers, or the disposition's JSON.
+        print(outcome.recheck, file=sys.stderr)
     for blocker in outcome.blockers:
         print(blocker)
     if outcome.decision:

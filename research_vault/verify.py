@@ -791,11 +791,31 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
 # --recheck-commits all`, and publish before a project's first publication).
 WHOLE_HISTORY = object()
 
+
 # The two-version lints, the ones that compare a base and a candidate snapshot:
 # the worktree leg runs them once, and the per-commit re-check (spec §5.3.1,
 # Q2) runs them for every commit against its parent. `lint_evidence_layer`
 # also yields Task 4's `capture-monitor` rows and Task 7's verifier-list rows.
-HISTORY_CHECKS = ("evidence-layer", "append-only", "claim-immutability")
+# Each lint is reached through `lints` at call time, so one patched in a test
+# is the one that runs.
+def _evidence_layer(_repository, base_snapshot, candidate_snapshot):
+    return lints.lint_evidence_layer(base_snapshot, candidate_snapshot)
+
+
+def _append_only(repository, base_snapshot, candidate_snapshot):
+    return lints.lint_append_only(repository, base_snapshot, candidate_snapshot)
+
+
+def _claim_immutability(repository, base_snapshot, candidate_snapshot):
+    return lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)
+
+
+_HISTORY_LINTS = {
+    "evidence-layer": _evidence_layer,
+    "append-only": _append_only,
+    "claim-immutability": _claim_immutability,
+}
+HISTORY_CHECKS = tuple(_HISTORY_LINTS)
 
 # Ruling R18: the verifier-list rows hash on the base's tree, so they are
 # per-commit rows, computed only where the base is the candidate's parent. A
@@ -810,9 +830,11 @@ LIST_ROWS_NOTICE = (
 def _history_lints(repository, base_snapshot, candidate_snapshot):
     """The `HISTORY_CHECKS` lints over one base and candidate."""
     return [
-        *lints.lint_evidence_layer(base_snapshot, candidate_snapshot),
-        *lints.lint_append_only(repository, base_snapshot, candidate_snapshot),
-        *lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot),
+        outcome
+        for check in HISTORY_CHECKS
+        for outcome in _HISTORY_LINTS[check](
+            repository, base_snapshot, candidate_snapshot
+        )
     ]
 
 
@@ -847,66 +869,54 @@ def _row_path(outcome):
     return None
 
 
-def _merge_made(outcome, bases, candidate):
-    """Whether the merge's own resolution wrote the row's file: it matches no
-    parent's version (`git diff --cc` lists exactly such paths)."""
-    raw_path = _row_path(outcome)
-    return raw_path is not None and all(
-        gitstate.images_differ(base.image(raw_path), candidate.image(raw_path))
-        for base in bases
-    )
-
-
-def _changed_planes(base, candidate):
-    """``base`` and ``candidate`` cut down to the paths that differ between them.
-
-    A commit's rows are about the files it changed: a row on a file it left
-    alone (a stale witness it did not touch) belongs to the commit that wrote
-    that file, and every two-version row is on a changed path by its
-    definition (added, deleted, renamed, edited). So the lints read only those paths, which keeps a long
-    replay linear in what changed. The one rule that reads an unchanged path
-    is a merge record's `moved` survivor (`lints._departures`), so a commit
-    that touches a propagation record is read whole."""
-    changed = {
-        raw_path
-        for raw_path in set(base.images) | set(candidate.images)
-        if gitstate.images_differ(base.image(raw_path), candidate.image(raw_path))
+def _unmatched(repository, base_snapshot, candidate_snapshot):
+    """The two-version lints' UNMATCHED rows, keyed by check, target, reason."""
+    return {
+        (outcome.check, outcome.target, outcome.reason): outcome
+        for outcome in _history_lints(repository, base_snapshot, candidate_snapshot)
+        if outcome.result is Result.UNMATCHED
     }
-    if any(raw_path.startswith(b"system/propagations/") for raw_path in changed):
-        return base, candidate
-    return (
-        gitstate.Snapshot({p: i for p, i in base.images.items() if p in changed}),
-        gitstate.Snapshot({p: i for p, i in candidate.images.items() if p in changed}),
-    )
+
+
+def _holders(outcome, bases):
+    """The parents that hold the row's path; every parent when none does, or
+    when the row names no path."""
+    raw_path = _row_path(outcome)
+    held = [
+        index
+        for index, base in enumerate(bases)
+        if raw_path is not None and base.image(raw_path) is not None
+    ]
+    return held or range(len(bases))
 
 
 def _commit_rows(repository, commit, bases, candidate):
     """One commit's rows, each with the base it was raised against.
 
-    A single-parent commit keeps every row. A merge keeps a row raised against
-    every parent, and a row on a file the merge itself wrote (one no parent
-    holds as merged): a file taken verbatim from one parent is that parent's
-    change, already replayed on its own commits, while a resolution that
-    hand-edits a note the side branch added is a row against the side branch
-    only and is still kept (Q2 [corrected]). The rows hash on the whole
-    snapshots, not the cut-down planes the lints read."""
-    raised = [
-        {
-            (outcome.check, outcome.target, outcome.reason): outcome
-            for outcome in _history_lints(repository, *_changed_planes(base, candidate))
-            if outcome.result is Result.UNMATCHED
-        }
-        for base in bases
-    ]
+    A single-parent commit keeps every row. A merge reads as `git diff --cc`
+    does (ruling P28): a change that arrived from exactly one side was judged
+    at that side's own commit, which the replay visits, and re-raising it at
+    the merge under the merged bytes would only break the acks filed there. A
+    change the merge itself made shows against every parent that holds the
+    path, and it stays. So a merge row is kept when it is raised against every
+    parent holding its path (a parent lacking the path stands aside; when no
+    parent holds it, against all of them). A candidate-only row (a stale
+    witness, a duplicated field) holds against every parent trivially, so it
+    is kept unless a parent's own tree already raised it: then it arrived
+    from that side. Each kept finding is one row, not one per parent."""
+    raised = [_unmatched(repository, base, candidate) for base in bases]
+    inherited = (
+        set().union(*(_unmatched(repository, base, base) for base in bases))
+        if len(bases) > 1
+        else set()
+    )
     rows = []
     kept = set()
     for base, by_key in zip(bases, raised, strict=True):
         for key, outcome in by_key.items():
-            if key in kept:
+            if key in kept or key in inherited:
                 continue
-            if all(key in other for other in raised) or _merge_made(
-                outcome, bases, candidate
-            ):
+            if all(key in raised[index] for index in _holders(outcome, bases)):
                 kept.add(key)
                 rows.append((_stamped(outcome, commit), base, candidate))
     return rows
@@ -915,8 +925,13 @@ def _commit_rows(repository, commit, bases, candidate):
 def _history_outcomes(repository, base_ref):
     """Every commit since ``base_ref`` against its parents, oldest first:
     ``(outcome, base snapshot, candidate snapshot)``, each outcome's `extra`
-    naming its commit. A root commit's parent is the empty tree. Each tree is
-    read once, and each blob once across them."""
+    naming its commit. A root commit's parent is the empty tree.
+
+    The lints read whole trees, as the pre-commit hook does (ruling R20): a
+    row can depend on a path the commit did not touch. A commit whose tree
+    equals a parent's changed nothing and is skipped; each tree is read once,
+    and each blob once across them; a row repeated on later commits is one
+    row (`_once_each`)."""
     snapshots: dict[str, gitstate.Snapshot] = {}
     blobs: dict[bytes, bytes] = {}
 
@@ -929,25 +944,36 @@ def _history_outcomes(repository, base_ref):
     for commit, parents in gitstate.commit_parents(
         repository, None if base_ref is WHOLE_HISTORY else base_ref
     ):
+        candidate = snapshot(commit)
         bases = [snapshot(parent) for parent in parents] or [
             snapshot(gitstate._empty_tree(repository))
         ]
-        rows.extend(_commit_rows(repository, commit, bases, snapshot(commit)))
+        if any(base.tree == candidate.tree for base in bases):
+            continue
+        rows.extend(_commit_rows(repository, commit, bases, candidate))
     return rows
 
 
 def _two_version_rows(repository, snapshots, recheck_commits):
     """The worktree leg's two-version rows, the re-check's, and any notice.
 
-    The leg keeps its verifier-list rows only where its base is the
-    candidate's parent (`gitstate.base_is_candidates_parent`); over a longer
-    range the re-check computes them per commit (ruling R18)."""
+    Where the leg's base is the candidate's parent
+    (`gitstate.base_is_candidates_parent`) it keeps every row. Over a longer
+    range it leaves the verifier-list rows to the re-check and says so once
+    when none runs (ruling R18); when one runs, it leaves every two-version
+    row to it (ruling P29)."""
     leg = _history_lints(repository, snapshots.base, snapshots.candidate)
     notices = []
     if not gitstate.base_is_candidates_parent(repository, snapshots):
-        leg = [o for o in leg if o.extra.get("hash_basis") != lints.VERIFIER_LISTS]
         if recheck_commits is None:
+            leg = [o for o in leg if o.extra.get("hash_basis") != lints.VERIFIER_LISTS]
             notices.append(LIST_ROWS_NOTICE)
+        else:
+            # Ruling P29: the replay judges each edit at its own commit, on
+            # that commit's bytes, which is where the hook filed its ack; the
+            # leg keeps only its candidate-only rows (a stale witness at HEAD).
+            own = _unmatched(repository, snapshots.candidate, snapshots.candidate)
+            leg = [o for o in leg if (o.check, o.target, o.reason) in own]
     history = (
         _history_outcomes(repository, recheck_commits)
         if recheck_commits is not None

@@ -65,13 +65,13 @@ def _verify_publish(vault: Path) -> PublishState:
     """Run the production network-capable verification transaction."""
     _core_path()
     from research_vault import verify
-    from research_vault.publish import last_publication
+    from research_vault.publish import recheck_base
 
     # The same re-check publish runs, so the gate holds on what publish holds on.
     report, effective, _hashes, warning_effective = verify.verify_state(
         vault,
         network=True,
-        recheck_commits=last_publication(vault) or verify.WHOLE_HISTORY,
+        recheck_commits=recheck_base(vault)[0],
     )
     return PublishState(
         tuple(report["outcomes"]),

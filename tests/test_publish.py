@@ -23,7 +23,7 @@ import pytest
 from research_vault import Result, events, frontmatter, inbox, lints, okf, publish
 from research_vault.__main__ import main
 from research_vault.outcome import Outcome
-from research_vault.verify import _projection_identity
+from research_vault.verify import WHOLE_HISTORY, _projection_identity
 from tests.conftest import must_replace
 
 REPO = Path(__file__).resolve().parents[1]
@@ -1191,3 +1191,89 @@ def test_last_publication_orders_by_the_date_time_not_the_project_name(green_vau
     _git(green_vault, "tag", "published/alpha-2026-01-02-080000")
     _git(green_vault, "tag", "published/not-a-publication")
     assert publish.last_publication(green_vault) == "published/alpha-2026-01-02-080000"
+
+
+def _bypass_add_and_delete(vault, name="x"):
+    note = vault / "literature" / f"{name}.md"
+    note.write_text('---\ntype: "literature"\n---\nbody\n')
+    _git(vault, "add", "-A")
+    _git(vault, "commit", "-qm", f"{name} added, bypassed", "--no-verify")
+    note.unlink()
+    _git(vault, "add", "-A")
+    _git(vault, "commit", "-qm", f"{name} gone, bypassed", "--no-verify")
+
+
+def _commit_workflow(vault, text):
+    workflow = vault / ".github" / "workflows" / "verify.yml"
+    workflow.parent.mkdir(parents=True, exist_ok=True)
+    workflow.write_text(text)
+    _git(vault, "add", "-A")
+    _git(vault, "commit", "-qm", "ci")
+    return _head(vault)
+
+
+def test_the_recheck_base_is_the_whole_history_with_no_tag_and_no_ci_seed(green_vault):
+    """R19, rule 3."""
+    since, line = publish.recheck_base(green_vault)
+    assert since is WHOLE_HISTORY
+    assert line.startswith("re-check: the whole history")
+
+
+def test_the_recheck_base_is_the_commit_that_brought_the_recheck_into_ci(
+    green_vault, monkeypatch
+):
+    """R19, rule 2: CI re-checked every push after that commit, so a bypass
+    before it is not replayed again, and one after it is."""
+    _bypass_add_and_delete(green_vault, "before")
+    _commit_workflow(green_vault, "run: python -m research_vault verify\n")
+    seeded = _commit_workflow(
+        green_vault, 'run: python -m research_vault verify --recheck-commits "$BASE"\n'
+    )
+    since, line = publish.recheck_base(green_vault)
+    assert since == seeded
+    assert line == (
+        f"re-check: every commit since {seeded} (the commit that brought "
+        "--recheck-commits into .github/workflows/verify.yml)"
+    )
+    _tag_clock(monkeypatch, "090000", "100000")
+    assert publish.mark_published(green_vault, "brief").decision == 0
+    draft = _note(green_vault)
+    draft.write_text(
+        must_replace(draft.read_text(), 'status: "published"', 'status: "draft"')
+    )
+    _git(green_vault, "add", "-A")
+    _git(green_vault, "commit", "-qm", "back to draft", "--no-verify")
+    _bypass_add_and_delete(green_vault, "after")
+    refused = publish.mark_corrected(green_vault, "brief")
+    assert refused.decision == 1
+    assert all("after.md" in b for b in refused.blockers if "literature" in b)
+
+
+def test_the_newest_publication_tag_wins_over_the_ci_seed(green_vault, monkeypatch):
+    """R19, rule 1."""
+    seeded = _commit_workflow(green_vault, "run: verify --recheck-commits x\n")
+    _tag_clock(monkeypatch, "090000")
+    published = publish.mark_published(green_vault, "brief")
+    assert published.recheck == (
+        f"re-check: every commit since {seeded} (the commit that brought "
+        "--recheck-commits into .github/workflows/verify.yml)"
+    )
+    since, line = publish.recheck_base(green_vault)
+    assert since == published.tag
+    assert (
+        line == f"re-check: every commit since {published.tag} (the newest publication)"
+    )
+
+
+def test_a_disposition_names_its_recheck_base_on_stderr(green_vault, capsys):
+    assert main(["arm-publish", "brief", "--vault", str(green_vault)]) == 0
+    capsys.readouterr()
+    assert main(["mark-published", "brief", "--vault", str(green_vault)]) == 0
+    captured = capsys.readouterr()
+    assert captured.err.splitlines() == [
+        (
+            "re-check: the whole history (no publication tag, and no "
+            "--recheck-commits in .github/workflows/verify.yml's history)"
+        )
+    ]
+    json.loads(captured.out)
