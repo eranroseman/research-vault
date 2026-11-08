@@ -1,5 +1,12 @@
-"""Live legs against Zotero 10 (spec §7). Read legs need RV_LIVE=1; the write
-leg needs RV_LIVE_WRITE_BASE too and refuses the production instance."""
+"""Live legs against Zotero 10 (spec §7). Read legs need RV_LIVE=1 and read
+``RV_LIVE_WRITE_BASE`` when set, else production (they never write); the write
+legs need RV_LIVE_WRITE_BASE too and refuse the production instance.
+
+Legs: the capture round trip; add/edit/trash/delete; native PMID/PMCID per item
+type (#185, write); the schema fold with a conference paper's venue (#188); the
+schema's CSL text fields for PMID/PMCID; a tagged item's CSL entry carries no
+tags or keyword. Facts a leg measures are one ``LIVE-FACT`` JSON line each on
+stderr (read them under ``-s``), every one naming the base it came from."""
 
 import json
 import os
@@ -109,12 +116,11 @@ def test_add_edit_trash_delete_transitions_and_record_the_trashed_snapshot(tmp_v
     assert row.reason == f"deleted — {item_key}"
 
 
-def _record(record_property, name, facts):
-    """A live fact the controller reads back: a junit property
-    (``--junitxml``) and one stderr line (visible under ``-s``). ruff bans
-    ``print`` in tests; stderr keeps the line out of the captured stdout."""
-    text = json.dumps(facts, sort_keys=True, default=str)
-    record_property(name, text)
+def _record(name, base, facts):
+    """A live fact the controller reads back: one stderr line, visible under
+    ``-s``, naming the base it came from. Not ``record_property``: that needs
+    ``--junitxml`` to be read at all, and ruff bans ``print`` in tests."""
+    text = json.dumps({"base": base, **facts}, sort_keys=True, default=str)
     sys.stderr.write(f"LIVE-FACT {name} {text}\n")
 
 
@@ -129,15 +135,24 @@ def _csl_fact(client, citation_key):
     return {name: entry.get(name) for name in ("PMID", "PMCID")}
 
 
-def _schema_csl_fact(client):
-    """``schema()["csl"]["fields"]["text"]`` entries for PMID/PMCID, ``.get``
-    all the way down: the payload may not carry the key at all."""
-    csl = client.schema().get("csl")
-    fields = csl.get("fields") if isinstance(csl, dict) else None
-    text = fields.get("text") if isinstance(fields, dict) else None
-    if not isinstance(text, dict):
-        return "schema carries no csl.fields.text"
-    return {name: text.get(name, "absent") for name in ("PMID", "PMCID")}
+def _trash_stamped(client, title):
+    """Trash every live top item titled ``title``; the errors, not a raise, so a
+    cleanup failure cannot mask the error that sent the test here."""
+    errors = []
+    try:
+        items, _ = client.top_items()
+        for item in items:
+            if item["data"].get("title") == title:
+                try:
+                    client.trash_item(item["key"], item["version"])
+                except zotero.ZoteroError as error:
+                    errors.append(f"{item['key']}: {error}")
+    except zotero.ZoteroError as error:
+        errors.append(f"listing leftovers: {error}")
+    return errors
+
+
+_IDS = {"PMID": "28503678", "PMCID": "PMC5428074"}
 
 
 @pytest.mark.live
@@ -145,62 +160,86 @@ def _schema_csl_fact(client):
 @pytest.mark.parametrize(
     "item_type", ["journalArticle", "conferencePaper", "book", "preprint", "report"]
 )
-def test_zotero_accepts_pmid_and_pmcid_per_item_type(
-    tmp_vault, item_type, record_property
-):
+def test_zotero_accepts_pmid_and_pmcid_per_item_type(tmp_vault, item_type):
     base = os.environ["RV_LIVE_WRITE_BASE"]
     assert not is_production_base(base), "write legs never touch production"
     client = zotero.ZoteroClient(
         base=base, api_key=os.environ.get("RV_LIVE_WRITE_KEY") or None
     )
-    stamp = time.strftime("%Y%m%d%H%M%S")
-    outcomes = capture.add(
-        tmp_vault,
-        client,
-        [
-            {
-                "itemType": item_type,
-                "title": f"research-vault #185 {item_type} {stamp}",
-                "creators": [
-                    {
-                        "creatorType": "author",
-                        "lastName": "Sitting",
-                        "firstName": "Live",
-                    }
-                ],
-                "date": "2026",
-                "PMID": "28503678",
-                "PMCID": "PMC5428074",
-            }
-        ],
-    )
-    # outcomes[0] is add's own row (created, or Zotero refused the post); the
-    # capture rows follow it. The brief read outcomes[0] as the capture row.
-    created = re.fullmatch(r"matched — created ([A-Z0-9]{8})", outcomes[0].reason)
-    item_key = created.group(1) if created else None
+    title = f"research-vault #185 {item_type} {time.strftime('%Y%m%d%H%M%S')}"
     try:
-        facts = {"item_type": item_type, "add": outcomes[0].reason}
-        if item_key is None:
-            # Zotero refused the post: the field is not accepted for this type.
-            assert outcomes[0].result is Result.UNMATCHED, outcomes
-            facts["verdict"] = "REFUSED (create failed)"
-        else:
-            data = client.item(item_key)["data"]
-            facts["stored"] = {n: data.get(n) for n in ("PMID", "PMCID")}
-            facts["capture"] = [(o.result.name, o.reason) for o in outcomes[1:]]
-            kept = facts["stored"] == {"PMID": "28503678", "PMCID": "PMC5428074"}
-            facts["verdict"] = "ACCEPTED" if kept else "DROPPED (created without them)"
-            facts["csl"] = _csl_fact(client, data.get("citationKey"))
-            facts["schema_csl_text"] = _schema_csl_fact(client)
-            notes = list((tmp_vault / "literature").glob("*.md"))
-            if kept and outcomes[1].result is Result.MATCHED:
-                note, _ = frontmatter.parse(notes[0].read_text())
-                facts["note"] = {n: note.get(n) for n in ("PMID", "PMCID")}
-                assert facts["note"] == facts["stored"], facts
-        _record(record_property, f"#185 {item_type}", facts)
+        outcomes = capture.add(
+            tmp_vault,
+            client,
+            [
+                {
+                    "itemType": item_type,
+                    "title": title,
+                    "creators": [
+                        {
+                            "creatorType": "author",
+                            "lastName": "Sitting",
+                            "firstName": "Live",
+                        }
+                    ],
+                    "date": "2026",
+                    **_IDS,
+                }
+            ],
+        )
+        _check_ids_per_type(tmp_vault, client, base, item_type, outcomes)
     finally:
-        if item_key is not None:
-            client.trash_item(item_key, client.item(item_key)["version"])
+        errors = _trash_stamped(client, title)
+        if errors and sys.exc_info()[0] is None:
+            raise AssertionError(f"cleanup failed: {errors}")
+        if errors:
+            sys.stderr.write(f"LIVE-CLEANUP-FAILED {title}: {errors}\n")
+
+
+def _check_ids_per_type(tmp_vault, client, base, item_type, outcomes):
+    """Record what Zotero did with the two ids, then assert the capture agrees."""
+    # outcomes[0] is add's own row; the capture rows follow it. The brief read
+    # outcomes[0] as the capture row.
+    facts = {"item_type": item_type, "add": outcomes[0].reason}
+    created = re.fullmatch(r"matched — created ([A-Z0-9]{8})", outcomes[0].reason)
+    if created is None:
+        # Only Zotero's own refusal of the post says the field is not accepted;
+        # a denial, not-admitted, outage or database-changed row is not that.
+        refused = outcomes[0].reason.startswith("mismatch — create failed")
+        facts["verdict"] = "REFUSED (create failed)" if refused else "NOT RUN"
+        _record(f"#185 {item_type}", base, facts)
+        assert refused, outcomes
+        return
+    data = client.item(created.group(1))["data"]
+    facts["stored"] = {n: data.get(n) for n in _IDS}
+    facts["per_field"] = {
+        n: "kept" if data.get(n) == v else "dropped" for n, v in _IDS.items()
+    }
+    facts["capture"] = [(o.result.name, o.reason) for o in outcomes[1:]]
+    facts["csl"] = _csl_fact(client, data.get("citationKey"))
+    notes = list((tmp_vault / "literature").glob("*.md"))
+    if notes:
+        note, _ = frontmatter.parse(notes[0].read_text())
+        facts["note"] = {n: note.get(n) for n in _IDS}
+    _record(f"#185 {item_type}", base, facts)  # before any assert: a failure keeps it
+    assert outcomes[1].result is Result.MATCHED, outcomes
+    assert facts.get("note") == facts["stored"], facts
+
+
+@pytest.mark.live
+def test_the_schema_serves_csl_text_fields_for_pmid_and_pmcid():
+    """``schema()["csl"]["fields"]["text"]`` entries for PMID/PMCID, ``.get``
+    all the way down: a payload without the key is a recorded fact, not a
+    failure."""
+    csl = zotero.ZoteroClient(base=READ_BASE).schema().get("csl")
+    fields = csl.get("fields") if isinstance(csl, dict) else None
+    text = fields.get("text") if isinstance(fields, dict) else None
+    fact = (
+        {n: text.get(n, "absent") for n in _IDS}
+        if isinstance(text, dict)
+        else "schema carries no csl.fields.text"
+    )
+    _record("#185 schema csl.fields.text", READ_BASE, {"entries": fact})
 
 
 @pytest.mark.live
@@ -216,20 +255,25 @@ def test_the_local_api_serves_the_schema_and_a_conference_paper_folds(tmp_vault)
             for i in items
             if i["data"].get("itemType") == "conferencePaper"
             and i["data"].get("citationKey")
+            and i["data"].get("proceedingsTitle")
+            and not i["data"].get("publicationTitle")
         ),
         None,
     )
     if paper is None:
-        pytest.skip("no conference paper on this instance")
+        pytest.skip("no conference paper with only a proceedingsTitle on this instance")
     key = paper["data"]["citationKey"]
     outcomes = capture.capture(tmp_vault, client, [key])
     assert outcomes[0].result is Result.MATCHED
     data, _ = frontmatter.parse((tmp_vault / "literature" / f"{key}.md").read_text())
+    # the folded value, as the note renders any string
+    expected = literature_notes.frontmatter_value(paper["data"]["proceedingsTitle"])
+    assert data.get("publicationTitle") == expected
     assert "proceedingsTitle" not in data
 
 
 @pytest.mark.live
-def test_a_tagged_items_csl_entry_carries_no_tags_or_keyword(record_property):
+def test_a_tagged_items_csl_entry_carries_no_tags_or_keyword():
     client = zotero.ZoteroClient(base=READ_BASE)
     items, _ = client.top_items()
     tagged = next(
@@ -239,7 +283,8 @@ def test_a_tagged_items_csl_entry_carries_no_tags_or_keyword(record_property):
     if tagged is None:
         pytest.skip("no tagged item with a citation key on this instance")
     (entry,) = client.export_csl([tagged["data"]["citationKey"]])
-    _record(record_property, "R15 csl keys", sorted(entry))
+    _record("R15 csl keys", READ_BASE, {"keys": sorted(entry)})
     assert "tags" not in entry
-    if not re.search(r"^keyword:", tagged["data"].get("extra") or "", re.MULTILINE):
+    extra = tagged["data"].get("extra") or ""
+    if not re.search(r"^\s*keyword:", extra, re.MULTILINE | re.IGNORECASE):
         assert "keyword" not in entry, entry
