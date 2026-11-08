@@ -147,10 +147,21 @@ def _holder(target: Path) -> tuple[str, str] | None:
     return None if held is None else (held.item_key, held.server_id)
 
 
+def _order(targets: dict[str, str], merges: dict[str, str]) -> list[tuple[str, str]]:
+    """The one order plan and apply walk: by target, then plain re-keys first.
+
+    Where entries share a target, the survivor's own note (a plain re-key of
+    the survivor) takes the rename and every merge loser after it becomes a
+    removal; with no such note, the first loser by key takes it (P25).
+    """
+    return sorted(targets.items(), key=lambda e: (e[1], e[0] in merges, e[0]))
+
+
 def _occupied_refusal(
     old: str,
     new: str,
     held: tuple[str, str] | None,
+    claimant: str | None,
     server_id: str,
     survivor: str | None,
 ) -> Outcome | None:
@@ -163,18 +174,23 @@ def _occupied_refusal(
     only when ``held`` — the target's note, or the earlier entry of this plan
     that claimed it — is the survivor's own in the same database; an
     unrelated note at that path would be recaptured over and lost.
+    ``claimant`` is the earlier entry that claimed the target, if one did.
     """
+    if survivor is not None and held == (survivor, server_id):
+        return None
+    if claimant is not None:
+        return _refusal(
+            old, f"literature/{new}.md is claimed by {claimant} in this plan"
+        )
     if survivor is None:
         return _refusal(
             old, f"literature/{new}.md already exists; nothing is renamed over it"
         )
-    if held != (survivor, server_id):
-        return _refusal(
-            old,
-            f"literature/{new}.md is not item {survivor}'s note; "
-            "the loser's note is not removed for it",
-        )
-    return None
+    return _refusal(
+        old,
+        f"literature/{new}.md is not item {survivor}'s note; "
+        "the loser's note is not removed for it",
+    )
 
 
 def _hashed_surfaces(
@@ -296,12 +312,13 @@ def plan(
     sources, outcomes = _sources(vault, targets)
     item_keys: dict[str, str] = {}
     removes: dict[str, str] = {}
-    # Target name -> (item key, server id) of the entry that will hold it.
-    # Sorted, so apply walks the same order: a later loser for a path an
-    # earlier entry claims (two losers, one note-less survivor) finds it
-    # occupied by the survivor-to-be, and is a removal, not a rename over it.
-    claimed: dict[str, tuple[str, str]] = {}
-    for old, new in sorted(targets.items()):
+    # Target name -> (item key, server id, old key) of the entry that will
+    # hold it. In `_order`, which apply walks too: a later loser for a path an
+    # earlier entry claims (the survivor's own re-keyed note, or the first of
+    # two losers into a note-less survivor) finds it occupied by the
+    # survivor-to-be, and is a removal, not a rename over it.
+    claimed: dict[str, tuple[str, str, str]] = {}
+    for old, new in _order(targets, merges):
         if old not in sources:
             continue
         source, provenance = sources[old]
@@ -313,14 +330,15 @@ def plan(
             continue
         # The note already sitting at its target (a re-run after a partial
         # apply) is not occupied: no rename.
-        held = claimed.get(target.name)
+        claim = claimed.get(target.name)
         if source.name != target.name and (
-            held is not None or target.exists() or target.is_symlink()
+            claim is not None or target.exists() or target.is_symlink()
         ):
             refusal = _occupied_refusal(
                 old,
                 new,
-                held or _holder(target),
+                claim[:2] if claim else _holder(target),
+                claim[2] if claim else None,
                 provenance.server_id,
                 merges.get(old),
             )
@@ -328,7 +346,7 @@ def plan(
                 outcomes.append(refusal)
                 continue
             removes[old] = f"literature/{source.name}"
-        claimed.setdefault(target.name, (item_key, provenance.server_id))
+        claimed.setdefault(target.name, (item_key, provenance.server_id, old))
         # The mapping is verified against Zotero whatever its source: the note's
         # item must carry the new name live. A name nobody in the library holds
         # (a --map typo) is refused here, before it can become a rename; the
@@ -467,6 +485,10 @@ def _apply_entry(
     target = literature_notes.note_path(vault, new)
     if source.name != target.name and removal is None:
         if target.exists() or target.is_symlink():
+            # ADR 0002: the record tells what happened, so an entry refused
+            # here leaves it; lint_propagation reads no re-key that never was.
+            for field in ("mapping", "item_keys", "merges"):
+                document[field].pop(old, None)
             return [
                 _refusal(
                     old,
@@ -564,7 +586,7 @@ def apply(
     document["removed"] = []
     document["moved"] = {}
     outcomes = []
-    for old, new in sorted(targets.items()):
+    for old, new in _order(targets, approved.merges):
         outcomes.extend(
             _apply_entry(vault, client, approved, old, new, sources[old][0], document)
         )

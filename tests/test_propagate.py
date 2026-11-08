@@ -1154,7 +1154,12 @@ def test_lint_reports_a_surface_it_cannot_read_and_judges_the_rest(
 
 
 def _merge_fake(
-    monkeypatch, *, survivor_has_note, citation_key="new2020", losers=("E352DFS8",)
+    monkeypatch,
+    *,
+    survivor_has_note,
+    citation_key="new2020",
+    losers=("E352DFS8",),
+    extra=(),
 ):
     """old2020 (E352DFS8) was merged into NEW00001, whose key is new2020."""
     fake = FakeZotero(server_id="S")
@@ -1171,6 +1176,8 @@ def _merge_fake(
         },
     }
     canned_item(fake, item=survivor)
+    for item in extra:
+        canned_item(fake, item=item, children=())
     fake.get(
         "/api/users/0/items?since=0&format=versions",
         body={"NEW00001": 600, "D7EJ9FTG": 551, "N0TE0001": 552},
@@ -1591,7 +1598,7 @@ def test_apply_entry_never_renames_onto_an_existing_path(tmp_vault, monkeypatch,
         {},
         (),
     )
-    document = {"removed": [], "moved": {}}
+    document = {**propagate._document(approved), "removed": [], "moved": {}}
     outcomes = propagate._apply_entry(
         tmp_vault,
         None,
@@ -1611,6 +1618,156 @@ def test_apply_entry_never_renames_onto_an_existing_path(tmp_vault, monkeypatch,
         )
     ]
     assert seen == []
-    assert document == {"removed": [], "moved": {}}
+    # P26: the refused entry leaves the record; it never happened.
+    assert (document["removed"], document["moved"]) == ([], {})
+    assert (document["mapping"], document["item_keys"], document["merges"]) == (
+        {},
+        {},
+        {},
+    )
     assert (tmp_vault / "literature" / "old2020.md").read_bytes() == loser
     assert target.is_symlink() == (shape == "dangling-symlink")
+
+
+@pytest.mark.parametrize("stale", ["zed2020", "aaa2020"])
+def test_a_survivor_re_keyed_in_the_same_pass_takes_the_rename_and_the_loser_goes(
+    tmp_vault, monkeypatch, capsys, stale
+):
+    """P25: zed2020 is the survivor's own note under a stale key (re-keyed),
+    old2020 a loser merged into it, and new2020.md does not exist. Whatever
+    the keys' sort order, the survivor's note is renamed and recaptured, and
+    the loser is a planned removal that goes after the MATCHED recapture."""
+    real = propagate.capture.capture
+    _seed(tmp_vault)
+    (tmp_vault / "literature" / f"{stale}.md").write_text(_note("NEW00001", stale))
+    for args in (["add", "-A"], ["commit", "-q", "-m", "seed"]):
+        subprocess.run(["git", *args], cwd=tmp_vault, check=True, capture_output=True)
+    base = gitstate.snapshot_tree(tmp_vault, "HEAD")
+    client = _merge_fake(monkeypatch, survivor_has_note=False)
+    planned, path, sha = _planned(tmp_vault, client, mapping=None)
+    assert planned.mapping == {"old2020": "new2020", stale: "new2020"}
+    assert planned.merges == {"old2020": "NEW00001"}
+    assert planned.removes == {"old2020": "literature/old2020.md"}
+    cli, _bases = _cli(monkeypatch, client)
+    assert cli.main(["propagate", "--vault", str(tmp_vault)]) == 0
+    assert capsys.readouterr().out.splitlines()[:2] == [
+        f"rename {stale} → new2020 (item NEW00001)",
+        "merge old2020 → new2020 (item NEW00001); removes literature/old2020.md",
+    ]
+    seen = []
+
+    def capture_(vault, client, keys, **kw):
+        seen.append(
+            (
+                (vault / "literature" / "new2020.md").exists(),
+                (vault / "literature" / "old2020.md").exists(),
+            )
+        )
+        return real(vault, client, keys, **kw)
+
+    monkeypatch.setattr(propagate.capture, "capture", capture_)
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert all(o.result is Result.MATCHED for o in outcomes), outcomes
+    assert seen == [(True, True), (True, True)]  # renamed first; loser kept till then
+    note = (tmp_vault / "literature" / "new2020.md").read_text()
+    assert 'zotero-item-key: "NEW00001"' in note
+    assert not (tmp_vault / "literature" / f"{stale}.md").exists()
+    assert not (tmp_vault / "literature" / "old2020.md").exists()
+    record = json.loads(
+        (
+            tmp_vault / "system" / "propagations" / f"{planned.operation_id}.json"
+        ).read_text()
+    )
+    assert (record["removed"], record["moved"]) == (["literature/old2020.md"], {})
+    rows = lints.lint_evidence_layer(base, gitstate.snapshot_worktree(tmp_vault))
+    assert not [o for o in rows if o.reason == "drift — literature note deleted"], rows
+
+
+def test_two_re_keys_onto_one_key_name_the_claim_not_a_file(tmp_vault, monkeypatch):
+    """P25: the second entry for a path the first claims is refused by the
+    claim; the file does not exist, so "already exists" would be false."""
+    _seed(tmp_vault)
+    (tmp_vault / "literature" / "other2020.md").write_text(
+        _note("F441KKD2", "other2020")
+    )
+    fake = FakeZotero(server_id="S")
+    canned_item(fake, item={**ITEM, "data": {**ITEM["data"], "citationKey": "new2020"}})
+    canned_item(fake, item=_second_item("new2020"), children=())
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    planned, outcomes = propagate.plan(
+        tmp_vault, client, {"old2020": "new2020", "other2020": "new2020"}
+    )
+    assert planned is None
+    assert [(o.target, o.reason) for o in outcomes] == [
+        (
+            "other2020",
+            (
+                "schema-violation — literature/new2020.md is claimed by old2020 "
+                "in this plan"
+            ),
+        )
+    ]
+
+
+def test_a_merge_loser_onto_another_items_claim_names_the_claim(tmp_vault, monkeypatch):
+    """A plain re-key of a different item claims the survivor's path first;
+    the loser is refused by that claim, not removed for it."""
+    _seed(tmp_vault)
+    (tmp_vault / "literature" / "aaa2020.md").write_text(_note("F441KKD2", "aaa2020"))
+    client = _merge_fake(
+        monkeypatch, survivor_has_note=False, extra=(_second_item("new2020"),)
+    )
+    planned, outcomes = propagate.plan(
+        tmp_vault,
+        client,
+        {"aaa2020": "new2020", "old2020": "new2020"},
+        merges={"old2020": "NEW00001"},
+    )
+    assert planned is None
+    assert outcomes[-1].reason == (
+        "schema-violation — literature/new2020.md is claimed by aaa2020 in this plan"
+    )
+
+
+def test_a_backstop_refused_entry_leaves_no_stale_key(tmp_vault, monkeypatch):
+    """P26: the record names only what was applied. An entry the backstop
+    refused keeps its old key live, so lint_propagation must not call the
+    surfaces naming it stale."""
+    _seed(tmp_vault)
+    (tmp_vault / "literature" / "other2020.md").write_text(
+        _note("F441KKD2", "other2020")
+    )
+    (tmp_vault / "wiki" / "sources" / "C.md").write_text(
+        "---\ntype: source\n---\nSee [[other2020]].\n"
+    )
+    fake = FakeZotero(server_id="S")
+    canned_item(fake, item={**ITEM, "data": {**ITEM["data"], "citationKey": "new2020"}})
+    canned_item(fake, item=_second_item("zzz2020"), children=())
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    planned, path, sha = _planned(
+        tmp_vault, client, mapping=(("old2020", "new2020"), ("other2020", "zzz2020"))
+    )
+
+    def capture_(vault, _client, keys, **_kw):
+        # The first entry's recapture leaves a file at the second's target.
+        (vault / "literature" / "zzz2020.md").write_text(_note("F441KKD2", "zzz2020"))
+        return []
+
+    monkeypatch.setattr(propagate.capture, "capture", capture_)
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert outcomes[-1].reason == (
+        "schema-violation — literature/zzz2020.md already exists; "
+        "nothing is renamed over it"
+    )
+    assert (tmp_vault / "literature" / "other2020.md").is_file()
+    record = json.loads(
+        (
+            tmp_vault / "system" / "propagations" / f"{planned.operation_id}.json"
+        ).read_text()
+    )
+    assert record["mapping"] == {"old2020": "new2020"}
+    assert "other2020" not in record["item_keys"]
+    stale = [
+        o for o in propagate.lint_propagation(tmp_vault) if "stale-key" in o.reason
+    ]
+    assert not [o for o in stale if "other2020" in o.reason], stale
