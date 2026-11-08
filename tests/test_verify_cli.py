@@ -30,6 +30,7 @@ from research_vault import (
 )
 from research_vault.__main__ import cmd_inbox, cmd_verify, main
 from research_vault.markers import _mutate_marker, _safe_relative
+from research_vault.outcome import Outcome
 from research_vault.pathcodec import PathCodecError, RepoPath, encode_repo_path
 from research_vault.verify import (
     DEFAULT_BASE,
@@ -5605,3 +5606,104 @@ def test_a_repeat_removal_on_a_newer_base_is_raised_again(net_vault):
     note.write_text(must_replace(note.read_text(), row, ""))
     ((_reason, second),) = _list_rows_open(net_vault)
     assert second != first
+
+
+def _remove_failure_row_and_ack(vault, note, row):
+    """Delete a failure row by hand and accept it; returns the row's hash."""
+    note.write_text(must_replace(note.read_text(), row, ""))
+    ((_reason, digest),) = _list_rows_open(vault)
+    finding = next(f for f in inbox.open_entries(vault) if f.target_hash == digest)
+    inbox.append_ack(vault, finding.id, "manual — accepted", "human:eran", digest)
+    assert _list_rows_open(vault) == []
+    return digest
+
+
+def test_a_repeat_removal_after_the_lists_return_to_where_they_were_is_raised_again(
+    net_vault,
+):
+    """R17: lists L, the person deletes an undated failure row and acks, commits
+    (L'), the row is recorded again and committed (L), and the person deletes it
+    again. The committed lists, the person's events and the reason are the same
+    as the first time; the base tree is not, so the old ack must not cover it."""
+    from tests.test_lints import _with_lists
+
+    note = net_vault / "literature" / "smith2020.md"
+    row = 'failed-verification:\n  - {check: "update-notice", result: "UNMATCHED"}\n'
+    _with_lists(note, [], [("update-notice", "UNMATCHED")])
+    lists = note.read_text()
+    _commit_all(net_vault, "L")
+    first = _remove_failure_row_and_ack(net_vault, note, row)
+    _commit_all(net_vault, "L'")
+    note.write_text(lists)
+    _commit_all(net_vault, "L again")
+    note.write_text(must_replace(note.read_text(), row, ""))
+    second = [digest for _reason, digest in _list_rows_open(net_vault)]
+    assert len(second) == 1
+    assert second != [first]
+
+
+def test_a_list_row_hash_follows_the_base_tree_not_the_base_commit(net_vault):
+    """R17: a commit that changes no content (an amend, a rebase onto the same
+    tree) leaves an acknowledged removal acknowledged."""
+    from tests.test_lints import _with_lists
+
+    note = net_vault / "literature" / "smith2020.md"
+    row = 'failed-verification:\n  - {check: "update-notice", result: "UNMATCHED"}\n'
+    _with_lists(note, [], [("update-notice", "UNMATCHED")])
+    lists = note.read_text()
+    _commit_all(net_vault, "L")
+    note.write_text(must_replace(note.read_text(), row, ""))
+    ((_reason, first),) = _list_rows_open(net_vault)
+    note.write_text(lists)
+    subprocess.run(
+        ["git", "commit", "-q", "--amend", "--no-edit", "--date", "2020-01-01"],
+        cwd=net_vault,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-q", "--allow-empty", "-m", "same tree"],
+        cwd=net_vault,
+        check=True,
+    )
+    note.write_text(must_replace(note.read_text(), row, ""))
+    assert _list_rows_open(net_vault) == [(_reason, first)]
+
+
+def test_two_list_rows_on_one_note_hash_apart(net_vault):
+    from tests.test_lints import _with_lists
+
+    note = net_vault / "literature" / "smith2020.md"
+    _with_lists(
+        note, [], [("citation-key", "UNMATCHED"), ("update-notice", "UNMATCHED")]
+    )
+    _commit_all(net_vault, "two failures")
+    note.write_text(
+        must_replace(
+            note.read_text(),
+            'failed-verification:\n  - {check: "citation-key", result: "UNMATCHED"}\n'
+            '  - {check: "update-notice", result: "UNMATCHED"}\n',
+            "",
+        )
+    )
+    rows = _list_rows_open(net_vault)
+    assert len(rows) == 2
+    assert rows[0][1] != rows[1][1]
+
+
+def test_a_list_row_with_no_tree_behind_the_base_has_no_hash(net_vault):
+    """R17: the basis is the base tree's oid; a base that was not read from a
+    tree (hand-built, or absent) cannot supply one, and that is refused, not
+    hashed on nothing."""
+    outcome = Outcome(
+        "evidence-layer",
+        RepoPath(b"literature/smith2020.md"),
+        Result.UNMATCHED,
+        "drift — verified event removed: doi@2026-09-01 by human:eran",
+        extra={"hash_basis": lints.VERIFIER_LISTS},
+    )
+    candidate = gitstate.snapshot_worktree(net_vault)
+    for base in (None, gitstate.Snapshot({})):
+        with pytest.raises(TypeError, match="base snapshot read from a tree"):
+            verify._target_hash(
+                net_vault, outcome, base_snapshot=base, candidate_snapshot=candidate
+            )

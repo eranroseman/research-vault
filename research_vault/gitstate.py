@@ -7,7 +7,7 @@ import stat
 import subprocess
 import tempfile
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING
@@ -46,6 +46,10 @@ class FileImage:
 @dataclass(frozen=True)
 class Snapshot:
     images: Mapping[bytes, FileImage]
+    # The oid of the git tree `snapshot_tree` read this from, None for any other
+    # snapshot (a worktree, an index overlay, a hand-built one). It names the
+    # whole tree, so a hash can lean on it; it is not content, hence not compared.
+    tree: str | None = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
         copied = {}
@@ -198,7 +202,7 @@ def snapshot_tree(vault_root: Path, tree: str) -> Snapshot:
         elif object_type != b"tree":
             kind = "special"
         images[raw_path] = FileImage(raw_path, kind, normalized_mode, data)
-    return Snapshot(images)
+    return Snapshot(images, tree_oid)
 
 
 def _normalized_live_image(

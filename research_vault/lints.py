@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -748,14 +747,19 @@ MONITOR_EXEMPT = frozenset({"zotero-tags", "tags"})
 # each row is its own queue record and one ack accepts one change (ruling P4).
 MONITOR_ROW = "monitor-row"
 # The `hash_basis` of a #206 verifier-list row: its acknowledgment hash is on
-# the committed lists and the person's additions (`verify._HASH_BASES`): the
-# base's two lists whole (`extra["base_lists"]`), the candidate's hand-written
-# `verified` events (verify's own appends and failure rows are left out, since
-# every verify run rewrites them), and the row's reason. The note's canonical
-# bytes exclude the lists, so hashing the note would let one ack on a removal
-# cover every later well-formed list edit; the reason keeps two list rows on
-# one note apart; the committed lists keep a repeat removal on a later base
-# from inheriting the first removal's ack.
+# the committed tree, the person's additions and the removed entry
+# (`verify._HASH_BASES`): the base snapshot's tree oid, the candidate's
+# hand-written `verified` events (verify's own appends and failure rows are
+# left out, since every verify run rewrites them), and the row's reason. The
+# note's canonical bytes exclude the lists, so hashing the note would let one
+# ack on a removal cover every later well-formed list edit; the reason keeps
+# two list rows on one note apart; the tree oid names the committed lists, and
+# every commit that changes any file moves it, so a repeat removal after a
+# commit (a failure row verify records again, undated, is the same lists
+# every time) is raised again. Accepted cost: an acked removal left
+# uncommitted while other files are committed is raised again after that
+# commit, since its base moved; the hook's normal path (removal and ack in one
+# commit, after which the row is gone) never meets this.
 VERIFIER_LISTS = "verifier-lists"
 _VALUE_CAP = 60
 
@@ -828,23 +832,16 @@ def _failures_of(data: dict | None) -> dict[str, str]:
     return {} if malformed else {row["check"]: row["result"] for row in rows}
 
 
-def _lists_digest(data: dict) -> str:
-    """The two verifier-owned lists exactly as stored, as a short digest."""
-    lists = {key: data.get(key) for key in ("verified", events.FAILURES_FIELD)}
-    canonical = json.dumps(lists, sort_keys=True, default=str)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
 def _verifier_list_outcomes(raw_path, base_data, candidate_data) -> list[Outcome]:
     """#206: `verified` events are append-only; a failure row may be added or
     change its result, and may vanish only when the same diff appends a
-    passing event for its check. These rows hash on the committed lists and the
-    person's additions (`hash_basis`; `extra["base_lists"]` is the committed
-    half, computed here where both sides are held), because the note's
-    canonical bytes exclude the lists."""
+    passing event for its check. These rows hash on the committed tree, the
+    person's additions and the removed entry (`hash_basis`), because the note's
+    canonical bytes exclude the lists; an acked removal left uncommitted while
+    other files are committed is raised again after that commit."""
     if base_data is None or candidate_data is None:
         return []
-    extra = {"hash_basis": VERIFIER_LISTS, "base_lists": _lists_digest(base_data)}
+    extra = {"hash_basis": VERIFIER_LISTS}
 
     def row(reason: str) -> Outcome:
         return Outcome(
