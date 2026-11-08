@@ -248,6 +248,16 @@ class ZoteroClient:
 
     # -- local API reads (§3.3, §3.4) -----------------------------------------
 
+    def schema(self) -> dict:
+        """Zotero's own field schema (#188): type-specific names and their base
+        fields, read once per capture run from the local API."""
+        payload, _ = self._local_json("/api/schema")
+        if not isinstance(payload, Mapping) or not isinstance(
+            payload.get("itemTypes"), list
+        ):
+            raise ZoteroError("malformed schema: expected an object with itemTypes")
+        return dict(payload)
+
     def server_info(self) -> dict:
         """One GET /api/: four facts from one response's headers (§5)."""
         response = self._local("/api/")

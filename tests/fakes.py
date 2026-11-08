@@ -10,6 +10,72 @@ from urllib.parse import urlsplit
 
 from research_vault import zotero
 
+# The subset of Zotero's schema the fold reads (`/api/schema`): every type-specific
+# field names its base field. Shapes from the Zotero schema JSON (version 44 on
+# 10.0.5); only the fields the tests exercise are listed.
+SCHEMA = {
+    "version": 44,
+    "itemTypes": [
+        {
+            "itemType": "journalArticle",
+            "fields": [
+                {"field": "title"},
+                {"field": "publicationTitle"},
+                {"field": "DOI"},
+                {"field": "PMID"},
+                {"field": "PMCID"},
+            ],
+            "creatorTypes": [{"creatorType": "author", "primary": True}],
+        },
+        {
+            "itemType": "conferencePaper",
+            "fields": [
+                {"field": "title"},
+                {"field": "proceedingsTitle", "baseField": "publicationTitle"},
+                {"field": "DOI"},
+                {"field": "pages"},
+            ],
+            "creatorTypes": [{"creatorType": "author", "primary": True}],
+        },
+        {
+            "itemType": "bookSection",
+            "fields": [
+                {"field": "title"},
+                {"field": "bookTitle", "baseField": "publicationTitle"},
+                {"field": "publisher"},
+            ],
+            "creatorTypes": [{"creatorType": "author", "primary": True}],
+        },
+        {
+            "itemType": "webpage",
+            "fields": [
+                {"field": "title"},
+                {"field": "websiteTitle", "baseField": "publicationTitle"},
+                {"field": "url"},
+            ],
+            "creatorTypes": [{"creatorType": "author", "primary": True}],
+        },
+        {
+            "itemType": "report",
+            "fields": [
+                {"field": "title"},
+                {"field": "institution", "baseField": "publisher"},
+                {"field": "reportNumber", "baseField": "number"},
+            ],
+            "creatorTypes": [{"creatorType": "author", "primary": True}],
+        },
+        {
+            "itemType": "preprint",
+            "fields": [
+                {"field": "title"},
+                {"field": "repository", "baseField": "publisher"},
+                {"field": "DOI"},
+            ],
+            "creatorTypes": [{"creatorType": "author", "primary": True}],
+        },
+    ],
+}
+
 
 class FakeZotero:
     def __init__(self, server_id="6LpvURP2E933", library_name="My Library"):
@@ -29,6 +95,7 @@ class FakeZotero:
                 "Zotero-Schema-Version": "44",
             },
         )
+        self.get("/api/schema", body=SCHEMA)
 
     def get(self, path, status=200, body=None, headers=None, method="GET"):
         payload = body if isinstance(body, bytes) else json.dumps(body).encode()

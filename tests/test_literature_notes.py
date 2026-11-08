@@ -7,7 +7,7 @@ import pytest
 
 from research_vault import AGENT_ACTOR, Result, frontmatter, literature_notes
 from tests.conftest import must_replace
-from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM
+from tests.fakes import ATTACHMENT, CHILD_NOTE, ITEM, SCHEMA
 
 LITERATURE = '---\ncitationKey: "smith2020"\ntype: "literature"\n'
 BODY = "# Mortality decline\n"
@@ -869,3 +869,65 @@ def test_snapshot_carries_zoteros_native_identifier_fields():
         literature_notes.SNAPSHOT_FIELDS.index("PMCID")
         == literature_notes.SNAPSHOT_FIELDS.index("DOI") + 2
     )
+
+
+def test_base_field_map_reads_every_declared_base_field():
+    folded = literature_notes.base_field_map(SCHEMA)
+    assert folded["conferencePaper"]["proceedingsTitle"] == "publicationTitle"
+    assert folded["bookSection"]["bookTitle"] == "publicationTitle"
+    assert folded["webpage"]["websiteTitle"] == "publicationTitle"
+    assert folded["report"]["institution"] == "publisher"
+    assert "title" not in folded["journalArticle"]  # a base field names no base
+
+
+def test_snapshot_folds_a_type_specific_field_to_its_base_name():
+    """#188: a conference paper's venue is `proceedingsTitle` in Zotero's JSON and
+    `publicationTitle` in the note, so a change of item type is not read as a
+    removed venue (Q21)."""
+    folded = literature_notes.base_field_map(SCHEMA)["conferencePaper"]
+    fields = dict(
+        literature_notes.snapshot(
+            {
+                "itemType": "conferencePaper",
+                "title": "T",
+                "proceedingsTitle": "CHI 2023",
+                "pages": "1-10",
+            },
+            folded,
+        )
+    )
+    assert fields["publicationTitle"] == "CHI 2023"
+    assert "proceedingsTitle" not in fields
+    assert [
+        k
+        for k, _ in literature_notes.snapshot(
+            {"itemType": "conferencePaper", "proceedingsTitle": "C", "title": "T"},
+            folded,
+        )
+    ] == ["itemType", "title", "publicationTitle"]
+
+
+def test_snapshot_without_a_map_keeps_zoteros_names_as_before():
+    fields = dict(
+        literature_notes.snapshot(
+            {"itemType": "conferencePaper", "proceedingsTitle": "C"}
+        )
+    )
+    assert "publicationTitle" not in fields
+    assert "proceedingsTitle" not in fields
+
+
+def test_snapshot_lets_a_base_named_value_win_over_a_folded_one():
+    folded = {"proceedingsTitle": "publicationTitle"}
+    fields = dict(
+        literature_notes.snapshot(
+            {"proceedingsTitle": "Folded", "publicationTitle": "Base"}, folded
+        )
+    )
+    assert fields["publicationTitle"] == "Base"
+    fields = dict(
+        literature_notes.snapshot(
+            {"publicationTitle": "Base", "proceedingsTitle": "Folded"}, folded
+        )
+    )
+    assert fields["publicationTitle"] == "Base"

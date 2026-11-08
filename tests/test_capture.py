@@ -1596,7 +1596,7 @@ def test_capture_one_creates_a_multi_level_missing_vault_directory(tmp_path):
     vault = tmp_path / "missing" / "vault"
     read = capture.ItemRead(ITEM, [], {}, 544)
     now = datetime.datetime(2026, 9, 17, tzinfo=datetime.UTC)
-    capture._capture_one(vault, read, "6LpvURP2E933", now)
+    capture._capture_one(vault, read, "6LpvURP2E933", now, {})
     assert (vault / "literature" / "jakesch.etal2023a.md").is_file()
 
 
@@ -1618,3 +1618,31 @@ def test_add_accepts_the_native_identifier_fields():
         )
         is None
     )
+
+
+def test_capture_reads_the_schema_once_and_folds_the_venue(tmp_vault, monkeypatch):
+    paper = json.loads(json.dumps(ITEM))
+    paper["data"]["itemType"] = "conferencePaper"
+    paper["data"]["proceedingsTitle"] = paper["data"].pop("publicationTitle")
+    fake = _canned_run(canned_item(FakeZotero(), item=paper), items=(paper,))
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert outcomes[0].result is Result.MATCHED
+    data, _ = frontmatter.parse(
+        (tmp_vault / "literature" / "jakesch.etal2023a.md").read_text()
+    )
+    assert data["publicationTitle"] == "CHI 2023"
+    assert "proceedingsTitle" not in data
+    assert len([c for c in fake.calls if c[1] == "/api/schema"]) == 1
+
+
+def test_capture_refuses_when_the_schema_cannot_be_read(tmp_vault, monkeypatch):
+    """Q21: without the fold the snapshot would carry unfolded names, which the
+    monitor would later read as a removed venue; capture refuses instead."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    fake.get("/api/schema", status=500, body=b"")
+    client = _client(monkeypatch, fake)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result) for o in outcomes] == [("vault", Result.UNREACHABLE)]
+    assert outcomes[0].reason.startswith("outage — ")
+    assert not (tmp_vault / "literature" / "jakesch.etal2023a.md").exists()

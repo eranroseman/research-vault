@@ -159,7 +159,11 @@ def _write_texts(
 
 
 def _capture_one(
-    vault: Path, read: ItemRead, server_id: str, now: datetime.datetime
+    vault: Path,
+    read: ItemRead,
+    server_id: str,
+    now: datetime.datetime,
+    base_fields: Mapping[str, Mapping[str, str]],
 ) -> list[Outcome]:
     item = read.item
     citation_key = item["data"].get("citationKey")
@@ -221,6 +225,7 @@ def _capture_one(
         accessed=now.date().isoformat(),
         generated_at=literature_notes.generated_at_now(now),
         pages=pages,
+        base_fields=base_fields.get(item["data"].get("itemType"), {}),
     )
     outcomes = []
     if existing is not None and not literature_notes.content_changed(
@@ -458,6 +463,12 @@ def capture(
         # A client that still carries an earlier run's server id is refused with
         # 412 before any read; ``blocked`` names that as database-changed.
         return [lifecycle.blocked(CHECK, "vault", error)]
+    try:
+        base_fields = literature_notes.base_field_map(client.schema())
+    except ZoteroError as error:
+        # #188: without the fold the snapshot would carry unfolded names, which
+        # the monitor reads as a removed venue on the next run; refuse instead.
+        return [lifecycle.blocked(CHECK, "vault", error)]
     existing = lifecycle._provenances(vault)
     client.server_id = existing[0][1].server_id if existing else info["server_id"]
     all_keys, unrequestable = _every_note(vault) if refresh_all else ([], [])
@@ -525,7 +536,7 @@ def capture(
                 )
                 continue
             library_name = library_name or read.item.get("library", {}).get("name")
-            outcomes.extend(_capture_one(vault, read, server_id, now))
+            outcomes.extend(_capture_one(vault, read, server_id, now, base_fields))
         except DatabaseChangedError as error:
             # The database moved mid-run: stop reading. The notes already
             # written stay, and the vault row ends the list.

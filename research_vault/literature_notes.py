@@ -5,6 +5,7 @@ import datetime
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -327,15 +328,48 @@ def frontmatter_value(value):
     return value
 
 
-def snapshot(item_data) -> list[tuple[str, object]]:
-    """The fixed subset, verbatim, under Zotero's own names; empty values absent."""
-    fields: list[tuple[str, object]] = []
-    for name in SNAPSHOT_FIELDS:
-        value = item_data.get(name)
-        if value in (None, "", []):
+def base_field_map(schema: Mapping) -> dict[str, dict[str, str]]:
+    """``{itemType: {typeField: baseField}}`` from Zotero's schema (#188): the
+    mapping is Zotero's, read from ``/api/schema``, never ours."""
+    folded: dict[str, dict[str, str]] = {}
+    for item_type in schema.get("itemTypes", []):
+        if not isinstance(item_type, Mapping):
             continue
-        fields.append((name, frontmatter_value(value)))
-    return fields
+        name = item_type.get("itemType")
+        if not isinstance(name, str):
+            continue
+        folded[name] = {
+            field["field"]: field["baseField"]
+            for field in item_type.get("fields", [])
+            if isinstance(field, Mapping)
+            and isinstance(field.get("field"), str)
+            and isinstance(field.get("baseField"), str)
+        }
+    return folded
+
+
+def snapshot(
+    item_data, base_fields: Mapping[str, str] | None = None
+) -> list[tuple[str, object]]:
+    """The fixed subset, verbatim, under Zotero's base field names; empty values absent.
+
+    ``base_fields`` is the item type's row of ``base_field_map``: a value under a
+    type-specific name (``proceedingsTitle``) is carried under its base name
+    (``publicationTitle``), so a change of item type is not a removed field
+    (#188). A base-named value already present wins over a folded one.
+    """
+    folded: dict[str, object] = {}
+    for name, value in item_data.items():
+        key = (base_fields or {}).get(name, name)
+        if key not in SNAPSHOT_FIELDS or value in (None, "", []):
+            continue
+        if key == name or key not in folded:
+            folded[key] = value
+    return [
+        (name, frontmatter_value(folded[name]))
+        for name in SNAPSHOT_FIELDS
+        if name in folded
+    ]
 
 
 class _TextExtractor(HTMLParser):
@@ -491,17 +525,20 @@ def render_note(
     accessed,
     generated_at,
     pages=(),
+    base_fields=None,
 ) -> str:
     """Frontmatter, then only what frontmatter cannot carry, plus the three pointers (§3.3 step 5)."""
     prior = frontmatter.parse(existing)[0] if existing else {}
     prior_items = list(frontmatter._mapping_items(prior))
-    title = display_text(item_data.get("title") or provenance.citation_key)
+    title = display_text(
+        dict(snapshot(item_data, base_fields)).get("title") or provenance.citation_key
+    )
     fields: list[tuple[str, object]] = [
         ("type", "literature"),
         ("title", title),
         ("aliases", [title]),
     ]
-    fields.extend((k, v) for k, v in snapshot(item_data) if k != "title")
+    fields.extend((k, v) for k, v in snapshot(item_data, base_fields) if k != "title")
     fields.extend(_tuple_fields(provenance))
     body = render_body(provenance, children, child_notes, pages)
     prior_body = note_body(existing) if existing else None

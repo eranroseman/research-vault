@@ -673,3 +673,13 @@ def test_live_versions_carry_the_library_version():
     assert versions
     assert isinstance(library_version, int)
     assert all(zotero.ITEM_KEY.match(key) for key in versions)
+
+
+def test_schema_reads_the_local_api_schema_route(monkeypatch):
+    fake = FakeZotero()
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    schema = client.schema()
+    assert isinstance(schema["itemTypes"], list)
+    fake.get("/api/schema", body={"version": 1})
+    with pytest.raises(zotero.ZoteroError, match="malformed schema"):
+        client.schema()
