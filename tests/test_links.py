@@ -956,3 +956,14 @@ def test_rewrite_key_keeps_an_empty_display_text_empty():
         )
         == "[](/literature/new2020.md)\n"
     )
+
+
+def test_normalize_masks_the_last_line_of_a_long_fence(tmp_path):
+    """The fence's span counts each line's ending: a link on the last line
+    of a forty-line fence is still inside it, and the one after it is not."""
+    text = "```\n" + "x\n" * 40 + f"{_L}\n```\n{_L}\n"
+    expected = "```\n" + "x\n" * 40 + f"{_L}\n```\n{_ONLY}\n"
+    assert links.normalize(text, _index(tmp_path), source="projects/a.md") == (
+        expected,
+        [],
+    )
