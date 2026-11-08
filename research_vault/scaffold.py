@@ -156,6 +156,9 @@ def _prepare_repository(vault: Path) -> None:
             f"vault hook lives at {metadata / 'hooks' / 'pre-commit'} and nothing "
             "reads where git would resolve it"
         )
+    # Publication tags are annotated, so `git push` carries them along and a
+    # fresh clone's publish re-check starts at the last publication.
+    _git(vault, "config", "push.followTags", "true")
 
 
 def _is_tracked(vault: Path, relative: str) -> bool:

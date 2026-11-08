@@ -35,6 +35,7 @@ from .pathcodec import (
 )
 from .verify import (
     CLOSING_BY_SURFACE,
+    WHOLE_HISTORY,
     surface_decision,
     verify_state,
 )
@@ -309,6 +310,9 @@ def cmd_verify(args):
             git_candidate=args.git_candidate,
             changed_paths_file=args.changed_paths_file,
             commit_projected=args.commit_projected,
+            recheck_commits=(
+                WHOLE_HISTORY if args.recheck_commits == "all" else args.recheck_commits
+            ),
         )
     except _NAMED_FAILURES as error:
         print(f"verification unavailable: {error}", file=sys.stderr)
@@ -316,6 +320,8 @@ def cmd_verify(args):
     if not args.rw_csv:
         # Stdout line only — never a review-queue record.
         print("update-notice: RW leg not run (no --rw-csv)")
+    for notice in report.get("notices", ()):
+        print(notice)  # the same: a stdout line, never a record
     for outcome in effective:
         if outcome.result is not Result.MATCHED:
             print(
@@ -906,6 +912,12 @@ def main(argv=None):
     verify.add_argument("--changed-paths-file")
     verify.add_argument("--commit-projected")
     verify.add_argument("--as-of", metavar="YYYY-MM-DD")
+    verify.add_argument(
+        "--recheck-commits",
+        metavar="BASE",
+        help="also re-check every commit reachable from HEAD and not from BASE, "
+        "each against its parent; 'all' is the whole history",
+    )
     factcheck_cmd = sub.add_parser("factcheck", parents=[common])
     factcheck_cmd.add_argument("--vault", required=True)
     factcheck_cmd.add_argument("--draft", required=True)

@@ -801,3 +801,111 @@ def test_an_unborn_head_has_the_empty_tree_as_its_base(tmp_path):
         .stdout.decode()
         .strip()
     )
+
+
+def test_commit_parents_lists_oldest_first_with_parents(tmp_vault):
+    def commit(msg):
+        subprocess.run(
+            ["git", "commit", "-q", "--allow-empty", "-m", msg],
+            cwd=tmp_vault,
+            check=True,
+        )
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp_vault,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    first = commit("one")
+    second = commit("two")
+    assert gitstate.commit_parents(tmp_vault, first) == [(second, [first])]
+    everything = gitstate.commit_parents(tmp_vault, None)
+    assert everything[-1] == (second, [first])
+    assert everything[0][1] == []  # the root commit has no parent
+    empty_tree = subprocess.run(
+        ["git", "hash-object", "-w", "-t", "tree", "/dev/null"],
+        cwd=tmp_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert gitstate.commit_parents(tmp_vault, empty_tree) == everything
+
+
+def test_commit_parents_refuses_a_base_that_names_nothing(tmp_vault):
+    """A typo is not "every commit": only a base that resolves to a tree but
+    no commit (CI's empty-tree first-push base) reads as the whole history."""
+    subprocess.run(
+        ["git", "commit", "-q", "--allow-empty", "-m", "one"], cwd=tmp_vault, check=True
+    )
+    with pytest.raises(gitstate.GitStateError, match="not a commit or tree"):
+        gitstate.commit_parents(tmp_vault, "no-such-ref")
+
+
+def test_base_is_candidates_parent_by_construction_by_parent_tree_and_never_for_a_merge(
+    tmp_vault,
+):
+    """R18: where the verifier-list rows are computed."""
+
+    def parent(**kwargs):
+        snapshots = gitstate.resolve_snapshots(tmp_vault, **kwargs)
+        return gitstate.base_is_candidates_parent(tmp_vault, snapshots)
+
+    empty = _git(tmp_vault, "hash-object", "-w", "-t", "tree", "/dev/null")
+    empty = empty.stdout.decode().strip()
+    (tmp_vault / "a.md").write_bytes(b"a\n")
+    _commit(tmp_vault)
+    assert parent(git_base=empty, candidate="HEAD")  # a root commit's first push
+    assert parent()  # the worktree against HEAD
+    assert parent(git_base="HEAD", candidate="index")  # the pre-commit hook
+    (tmp_vault / "b.md").write_bytes(b"b\n")
+    _commit(tmp_vault)
+    assert parent(git_base="HEAD^", candidate="HEAD")
+    assert parent(candidate="HEAD")  # an empty range
+    assert not parent(git_base=empty, candidate="HEAD")
+    assert not parent(git_base="HEAD^")  # the worktree's parent is HEAD
+    _git(tmp_vault, "switch", "-qc", "side", "HEAD^")
+    (tmp_vault / "c.md").write_bytes(b"c\n")
+    _commit(tmp_vault)
+    _git(tmp_vault, "switch", "-q", "-")
+    _git(tmp_vault, "merge", "-q", "--no-ff", "-m", "merge", "side")
+    assert not parent(git_base="HEAD^1", candidate="HEAD")
+
+
+def test_a_malformed_batch_read_fails_closed(tmp_vault, monkeypatch):
+    (tmp_vault / "a.md").write_bytes(b"a\n")
+    commit = _commit(tmp_vault)
+    real = gitstate._git
+
+    def lying(vault, *args, **kwargs):
+        if args[:2] == ("cat-file", "--batch"):
+            return subprocess.CompletedProcess(args, 0, b"deadbeef missing\n", b"")
+        return real(vault, *args, **kwargs)
+
+    monkeypatch.setattr(gitstate, "_git", lying)
+    with pytest.raises(gitstate.GitStateError, match="malformed cat-file batch"):
+        gitstate.snapshot_tree(tmp_vault, commit)
+
+
+def test_a_shared_blob_cache_reads_each_blob_once(tmp_vault, monkeypatch):
+    (tmp_vault / "a.md").write_bytes(b"a\n")
+    first = _commit(tmp_vault)
+    (tmp_vault / "b.md").write_bytes(b"b\n")
+    second = _commit(tmp_vault)
+    real = gitstate._git
+    batches = []
+
+    def counting(vault, *args, **kwargs):
+        if args[:2] == ("cat-file", "--batch"):
+            batches.append(kwargs["stdin"].count(b"\n"))
+        return real(vault, *args, **kwargs)
+
+    monkeypatch.setattr(gitstate, "_git", counting)
+    blobs: dict[bytes, bytes] = {}
+    gitstate.snapshot_tree(tmp_vault, first, blobs)
+    later = gitstate.snapshot_tree(tmp_vault, second, blobs)
+    assert batches == [1, 1]
+    assert later.image(b"a.md").data == b"a\n"
+    assert later.image(b"b.md").data == b"b\n"

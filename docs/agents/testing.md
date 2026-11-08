@@ -36,6 +36,10 @@ Preference order:
    `curl -s -X POST http://localhost:23119/better-bibtex/json-rpc -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"api.ready","id":1}'`
    Record a newly discovered API fact where the design uses it, with its date and how it was established. There is no standing facts file: one went stale for three weeks while claiming to be live-verified.
 
+## The publish re-check
+
+`verify --recheck-commits BASE` (`all` for the whole history) replays the two-version checks (`evidence-layer`, with its `capture-monitor` and verifier-list rows, `append-only`, `claim-immutability`) for every commit reachable from HEAD and not from `BASE`, each against its parent and a merge against every parent; publish runs it from the last publication, and the shipped CI template from its own base. Tests drive it through `verify_state(..., recheck_commits=...)`: the fixture vaults install no hook, so a plain commit there is the `--no-verify` commit the re-check exists to catch. Cost, measured 2026-11-07 on WSL2 by timing `verify._history_outcomes` alone over a synthetic history (301 commits, 300 literature notes, one file changed per commit): 9.3 s, about 30 ms a commit, nearly all of it the three git subprocesses one tree read costs; the lints read only the paths each commit changed.
+
 ## The stale-pyc trap
 
 A same-length edit reverted within the same second is invisible to bytes, to `git status`, and to CPython's timestamp-based `.pyc` validation (mtime + size) — the interpreter keeps running the old bytecode while the source reads correctly. Rules: (1) never run a code-swap experiment (mutation replay, hot-patch trial) in a tree another run is using; (2) set `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` first; (3) if caching is wanted, use hash-based pycs (`compileall --invalidation-mode checked-hash`).

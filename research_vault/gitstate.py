@@ -180,11 +180,39 @@ def _git_mode(mode: int) -> tuple[str, int]:
     return "special", mode
 
 
-def snapshot_tree(vault_root: Path, tree: str) -> Snapshot:
-    """Read one tree recursively without decoding or newline-splitting paths."""
+def _read_blobs(vault_root: Path, oids, blobs: dict[bytes, bytes]) -> None:
+    """Read every blob ``blobs`` lacks into it, in one ``cat-file --batch``."""
+    missing = sorted(set(oids) - set(blobs))
+    if not missing:
+        return
+    stdout = _git(
+        vault_root, "cat-file", "--batch", stdin=b"".join(o + b"\n" for o in missing)
+    ).stdout
+    position = 0
+    try:
+        for oid in missing:
+            end = stdout.index(b"\n", position)
+            named, object_type, size = stdout[position:end].split(b" ")
+            if named != oid or object_type != b"blob":
+                raise ValueError(oid)
+            start = end + 1
+            position = start + int(size) + 1
+            blobs[oid] = stdout[start : position - 1]
+    except ValueError as error:
+        raise GitStateError("malformed cat-file batch record") from error
+
+
+def snapshot_tree(
+    vault_root: Path, tree: str, blobs: dict[bytes, bytes] | None = None
+) -> Snapshot:
+    """Read one tree recursively without decoding or newline-splitting paths.
+
+    ``blobs`` (oid to bytes) is a cache a caller reading many trees shares,
+    so a blob common to them is read once; the per-commit re-check reads
+    every commit's tree."""
     tree_oid = _tree_oid(Path(vault_root), tree, "tree snapshot")
     result = _git(Path(vault_root), "ls-tree", "-rz", "-t", "--full-tree", tree_oid)
-    images = {}
+    records = []
     for record in result.stdout.split(b"\0"):
         if not record:
             continue
@@ -196,12 +224,24 @@ def snapshot_tree(vault_root: Path, tree: str) -> Snapshot:
             raise GitStateError("malformed NUL-delimited ls-tree record") from error
         RepoPath(raw_path)
         kind, normalized_mode = _git_mode(mode)
-        data = None
-        if kind in {"file", "symlink"}:
-            data = _git(Path(vault_root), "cat-file", "blob", oid).stdout
-        elif object_type != b"tree":
+        if kind not in {"file", "symlink"} and object_type != b"tree":
             kind = "special"
-        images[raw_path] = FileImage(raw_path, kind, normalized_mode, data)
+        records.append((raw_path, kind, normalized_mode, oid))
+    blobs = {} if blobs is None else blobs
+    _read_blobs(
+        Path(vault_root),
+        [oid for _path, kind, _mode, oid in records if kind in {"file", "symlink"}],
+        blobs,
+    )
+    images = {
+        raw_path: FileImage(
+            raw_path,
+            kind,
+            mode,
+            blobs[oid] if kind in {"file", "symlink"} else None,
+        )
+        for raw_path, kind, mode, oid in records
+    }
     return Snapshot(images, tree_oid)
 
 
@@ -862,3 +902,61 @@ def outputs_between(before: Snapshot, after: Snapshot) -> tuple[CapturedOutput, 
             )
         outputs.append(CapturedOutput(raw_path, image.mode, image.data or b""))
     return tuple(outputs)
+
+
+def _resolved(vault_root: Path, revision: str, kind: str) -> str | None:
+    result = _git(
+        vault_root, "rev-parse", "--verify", "-q", f"{revision}^{{{kind}}}", check=False
+    )
+    return _oid(result, f"{kind} {revision}") if result.returncode == 0 else None
+
+
+def commit_parents(
+    vault_root: Path, base_ref: str | None
+) -> list[tuple[str, list[str]]]:
+    """``(commit, parents)`` oldest first for every commit reachable from HEAD
+    and not from ``base_ref``; every commit when ``base_ref`` is None.
+
+    CI's first-push base is the empty tree's oid, which names a tree and no
+    commit, and ``--not`` on a tree fails: a base that resolves to a tree but
+    to no commit reads as "every commit", which is what a first push needs.
+    A base that names neither is refused, so a typo is not a full replay."""
+    vault = Path(vault_root)
+    args = ["rev-list", "--reverse", "--parents", "HEAD"]
+    if base_ref is not None:
+        base_commit = _resolved(vault, base_ref, "commit")
+        if base_commit is not None:
+            args.extend(["--not", base_commit])
+        elif _resolved(vault, base_ref, "tree") is None:
+            raise GitStateError(f"recheck base is not a commit or tree: {base_ref}")
+    rows: list[tuple[str, list[str]]] = []
+    for line in _git(vault, *args).stdout.decode("ascii").splitlines():
+        commit, *parents = line.split()
+        rows.append((commit, parents))
+    return rows
+
+
+def base_is_candidates_parent(
+    vault_root: Path, snapshots: VerificationSnapshots
+) -> bool:
+    """Whether one verify run's base is its candidate's parent (ruling R18).
+
+    A worktree or index candidate's parent is HEAD, so the default base (HEAD)
+    is its parent by construction, and so is the pre-commit hook's explicit
+    ``--git-base HEAD``; a base equal to the candidate is an empty range. A
+    HEAD candidate's parent is its one parent commit, or the empty tree for a
+    root commit. Trees are compared, not commits: the rows that need this hash
+    on the base's tree. A merge has no one parent, so it is never a
+    one-commit range; the replay reads it against every parent."""
+    vault = Path(vault_root)
+    if snapshots.base_tree == snapshots.head_tree:
+        return True
+    if snapshots.candidate_name != "HEAD" or snapshots.expected_head is None:
+        return False
+    listed = _git(vault, "rev-list", "--parents", "-n", "1", snapshots.expected_head)
+    parents = listed.stdout.decode("ascii").split()[1:]
+    if not parents:
+        return snapshots.base_tree == _empty_tree(vault)
+    if len(parents) > 1:
+        return False
+    return snapshots.base_tree == _tree_oid(vault, parents[0], "candidate parent")

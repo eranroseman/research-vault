@@ -24,6 +24,7 @@ from research_vault import Result, events, frontmatter, inbox, lints, okf, publi
 from research_vault.__main__ import main
 from research_vault.outcome import Outcome
 from research_vault.verify import _projection_identity
+from tests.conftest import must_replace
 
 REPO = Path(__file__).resolve().parents[1]
 STOP_HOOK = REPO / "hooks" / "stop_publish_gate.py"
@@ -1123,3 +1124,70 @@ def test_a_disposition_on_an_undecodable_project_note_is_a_publish_error(
     # The disposition's own read happened: without it the refusal above would
     # be `project_note`'s, and the guard would go untested.
     assert len(reads) == 2
+
+
+# --- the per-commit re-check (spec §5.3.1, Q2) -----------------------------
+
+
+def test_publish_recheck_blocks_on_a_bypassed_hand_edit_since_the_last_publication(
+    green_vault, monkeypatch
+):
+    _tag_clock(monkeypatch, "090000", "100000")
+    first = publish.mark_published(green_vault, "brief")
+    assert first.decision == 0
+    note = green_vault / "literature" / "x.md"
+    note.write_text(
+        '---\ntype: "literature"\nmanaged-sha256: "' + "0" * 64 + '"\n---\n'
+    )
+    _git(green_vault, "add", "-A")
+    _git(green_vault, "commit", "-qm", "bypassed", "--no-verify")
+    note.unlink()
+    _git(green_vault, "add", "-A")
+    _git(green_vault, "commit", "-qm", "and gone", "--no-verify")
+    draft = _note(green_vault)
+    draft.write_text(
+        must_replace(draft.read_text(), 'status: "published"', 'status: "draft"')
+    )
+    _git(green_vault, "add", "-A")
+    _git(green_vault, "commit", "-qm", "back to draft", "--no-verify")
+    second = publish.mark_corrected(green_vault, "brief")
+    assert second.decision == 1
+    assert any(
+        "evidence-layer" in b and "literature/x.md" in b for b in second.blockers
+    ), second.blockers
+
+
+def test_publish_rechecks_the_whole_history_before_the_first_publication(
+    green_vault, monkeypatch
+):
+    note = green_vault / "literature" / "x.md"
+    note.write_text('---\ntype: "literature"\n---\nbody\n')
+    _git(green_vault, "add", "-A")
+    _git(green_vault, "commit", "-qm", "bypassed", "--no-verify")
+    note.unlink()
+    _git(green_vault, "add", "-A")
+    _git(green_vault, "commit", "-qm", "and gone", "--no-verify")
+    _tag_clock(monkeypatch, "090000")
+    refused = publish.mark_published(green_vault, "brief")
+    assert refused.decision == 1
+    assert any("literature/x.md" in b for b in refused.blockers), refused.blockers
+
+
+def test_publication_tags_are_annotated_and_last_publication_is_the_newest(
+    green_vault, monkeypatch
+):
+    assert publish.last_publication(green_vault) is None
+    _tag_clock(monkeypatch, "090000")
+    publish.mark_published(green_vault, "brief")
+    (tag,) = _tags(green_vault)
+    # Annotated: an object of its own, which push.followTags pushes.
+    assert _git(green_vault, "cat-file", "-t", tag).strip() == "tag"
+    assert publish.last_publication(green_vault) == tag
+
+
+def test_last_publication_orders_by_the_date_time_not_the_project_name(green_vault):
+    """`zebra`'s tag sorts after `alpha`'s by name; the newer one is alpha's."""
+    _git(green_vault, "tag", "published/zebra-2026-01-01-090000")
+    _git(green_vault, "tag", "published/alpha-2026-01-02-080000")
+    _git(green_vault, "tag", "published/not-a-publication")
+    assert publish.last_publication(green_vault) == "published/alpha-2026-01-02-080000"

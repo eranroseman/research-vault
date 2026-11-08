@@ -14,7 +14,7 @@ def test_read_only_ci_has_explicit_base_head_candidate_and_no_repository_authori
     assert "BASE: ${{ steps.base.outputs.sha }}" in text
     assert (
         "python -m research_vault verify --vault . --offline --surface commit "
-        '--git-base "$BASE" --git-candidate HEAD'
+        '--git-base "$BASE" --git-candidate HEAD --recheck-commits "$BASE"'
     ) in text
     assert '--git-base "${{' not in text
     assert "git push" not in text

@@ -698,6 +698,19 @@ def _warning_effectiveness(outcomes, hashes, vault_root):
     return frozen
 
 
+def _filing_key(outcome, target_hash):
+    """The identity one review-queue record files an outcome under: two
+    outcomes with the same key are one record and one ack."""
+    return (
+        outcome.check,
+        outcome.target,
+        outcome.target_kind,
+        outcome.result.value,
+        target_hash,
+        *_notice_fingerprint(outcome),
+    )
+
+
 def _file_effects(vault_root, effective, hashes, warning_effective, detection_date):
     """File findings from the frozen candidate-bound decision state."""
     open_keys = set()
@@ -718,16 +731,7 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
         target_hash = hashes[id(outcome)]
         if outcome.result is not Result.MATCHED:
             notice_class, notice_type, notice_date = _notice_fingerprint(outcome)
-            key = (
-                outcome.check,
-                outcome.target,
-                outcome.target_kind,
-                outcome.result.value,
-                target_hash,
-                notice_class,
-                notice_type,
-                notice_date,
-            )
+            key = _filing_key(outcome, target_hash)
             if key not in open_keys:
                 inbox.append_entry(
                     vault_root,
@@ -783,6 +787,192 @@ def _file_effects(vault_root, effective, hashes, warning_effective, detection_da
                 open_keys.add(key)
 
 
+# The re-check's sentinel for "every commit HEAD reaches" (`verify
+# --recheck-commits all`, and publish before a project's first publication).
+WHOLE_HISTORY = object()
+
+# The two-version lints, the ones that compare a base and a candidate snapshot:
+# the worktree leg runs them once, and the per-commit re-check (spec §5.3.1,
+# Q2) runs them for every commit against its parent. `lint_evidence_layer`
+# also yields Task 4's `capture-monitor` rows and Task 7's verifier-list rows.
+HISTORY_CHECKS = ("evidence-layer", "append-only", "claim-immutability")
+
+# Ruling R18: the verifier-list rows hash on the base's tree, so they are
+# per-commit rows, computed only where the base is the candidate's parent. A
+# range leg over more than one commit leaves them to the re-check, and says so
+# once when no re-check runs, rather than dropping them in silence.
+LIST_ROWS_NOTICE = (
+    "evidence-layer: verifier-list rows are per-commit and this range spans "
+    "more than one commit; they need --recheck-commits"
+)
+
+
+def _history_lints(repository, base_snapshot, candidate_snapshot):
+    """The `HISTORY_CHECKS` lints over one base and candidate."""
+    return [
+        *lints.lint_evidence_layer(base_snapshot, candidate_snapshot),
+        *lints.lint_append_only(repository, base_snapshot, candidate_snapshot),
+        *lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot),
+    ]
+
+
+def _stamped(outcome, commit):
+    """The outcome again, its `extra` carrying the commit that raised it. An
+    `Outcome` stores its repo paths encoded, so they are decoded back into
+    `RepoPath`s to keep their kind (the target's and `note_path`'s)."""
+    target = outcome.target
+    if outcome.target_kind == "repo-path":
+        target = RepoPath(decode_repo_path(target))
+    extra = {
+        key: RepoPath(decode_repo_path(value))
+        if key in outcome.path_extra_fields
+        else value
+        for key, value in outcome.extra.items()
+    }
+    return checks.Outcome(
+        outcome.check,
+        target,
+        outcome.result,
+        outcome.reason,
+        {**extra, "commit": commit},
+    )
+
+
+def _row_path(outcome):
+    """The file a two-version row is about: its target, or a claim's note."""
+    if outcome.target_kind == "repo-path":
+        return decode_repo_path(outcome.target)
+    if "note_path" in outcome.path_extra_fields:
+        return decode_repo_path(outcome.extra["note_path"])
+    return None
+
+
+def _merge_made(outcome, bases, candidate):
+    """Whether the merge's own resolution wrote the row's file: it matches no
+    parent's version (`git diff --cc` lists exactly such paths)."""
+    raw_path = _row_path(outcome)
+    return raw_path is not None and all(
+        gitstate.images_differ(base.image(raw_path), candidate.image(raw_path))
+        for base in bases
+    )
+
+
+def _changed_planes(base, candidate):
+    """``base`` and ``candidate`` cut down to the paths that differ between them.
+
+    A commit's rows are about the files it changed: a row on a file it left
+    alone (a stale witness it did not touch) belongs to the commit that wrote
+    that file, and every two-version row is on a changed path by its
+    definition (added, deleted, renamed, edited). So the lints read only those paths, which keeps a long
+    replay linear in what changed. The one rule that reads an unchanged path
+    is a merge record's `moved` survivor (`lints._departures`), so a commit
+    that touches a propagation record is read whole."""
+    changed = {
+        raw_path
+        for raw_path in set(base.images) | set(candidate.images)
+        if gitstate.images_differ(base.image(raw_path), candidate.image(raw_path))
+    }
+    if any(raw_path.startswith(b"system/propagations/") for raw_path in changed):
+        return base, candidate
+    return (
+        gitstate.Snapshot({p: i for p, i in base.images.items() if p in changed}),
+        gitstate.Snapshot({p: i for p, i in candidate.images.items() if p in changed}),
+    )
+
+
+def _commit_rows(repository, commit, bases, candidate):
+    """One commit's rows, each with the base it was raised against.
+
+    A single-parent commit keeps every row. A merge keeps a row raised against
+    every parent, and a row on a file the merge itself wrote (one no parent
+    holds as merged): a file taken verbatim from one parent is that parent's
+    change, already replayed on its own commits, while a resolution that
+    hand-edits a note the side branch added is a row against the side branch
+    only and is still kept (Q2 [corrected]). The rows hash on the whole
+    snapshots, not the cut-down planes the lints read."""
+    raised = [
+        {
+            (outcome.check, outcome.target, outcome.reason): outcome
+            for outcome in _history_lints(repository, *_changed_planes(base, candidate))
+            if outcome.result is Result.UNMATCHED
+        }
+        for base in bases
+    ]
+    rows = []
+    kept = set()
+    for base, by_key in zip(bases, raised, strict=True):
+        for key, outcome in by_key.items():
+            if key in kept:
+                continue
+            if all(key in other for other in raised) or _merge_made(
+                outcome, bases, candidate
+            ):
+                kept.add(key)
+                rows.append((_stamped(outcome, commit), base, candidate))
+    return rows
+
+
+def _history_outcomes(repository, base_ref):
+    """Every commit since ``base_ref`` against its parents, oldest first:
+    ``(outcome, base snapshot, candidate snapshot)``, each outcome's `extra`
+    naming its commit. A root commit's parent is the empty tree. Each tree is
+    read once, and each blob once across them."""
+    snapshots: dict[str, gitstate.Snapshot] = {}
+    blobs: dict[bytes, bytes] = {}
+
+    def snapshot(revision):
+        if revision not in snapshots:
+            snapshots[revision] = gitstate.snapshot_tree(repository, revision, blobs)
+        return snapshots[revision]
+
+    rows = []
+    for commit, parents in gitstate.commit_parents(
+        repository, None if base_ref is WHOLE_HISTORY else base_ref
+    ):
+        bases = [snapshot(parent) for parent in parents] or [
+            snapshot(gitstate._empty_tree(repository))
+        ]
+        rows.extend(_commit_rows(repository, commit, bases, snapshot(commit)))
+    return rows
+
+
+def _two_version_rows(repository, snapshots, recheck_commits):
+    """The worktree leg's two-version rows, the re-check's, and any notice.
+
+    The leg keeps its verifier-list rows only where its base is the
+    candidate's parent (`gitstate.base_is_candidates_parent`); over a longer
+    range the re-check computes them per commit (ruling R18)."""
+    leg = _history_lints(repository, snapshots.base, snapshots.candidate)
+    notices = []
+    if not gitstate.base_is_candidates_parent(repository, snapshots):
+        leg = [o for o in leg if o.extra.get("hash_basis") != lints.VERIFIER_LISTS]
+        if recheck_commits is None:
+            notices.append(LIST_ROWS_NOTICE)
+    history = (
+        _history_outcomes(repository, recheck_commits)
+        if recheck_commits is not None
+        else []
+    )
+    return leg, history, notices
+
+
+def _once_each(outcomes, hashes, history_ids):
+    """Drop a row the re-check raised again: the same reason under the same
+    filing key is the same row. The oldest commit's copy stands, since it
+    names the commit that introduced it; a leg row the re-check also raised
+    goes. Two reasons under one key stay two rows, filed as one record, as
+    the leg's own rows are."""
+
+    def key(outcome):
+        return (*_filing_key(outcome, hashes[id(outcome)]), outcome.reason)
+
+    first: dict[tuple, int] = {}
+    for outcome in outcomes:
+        if id(outcome) in history_ids:
+            first.setdefault(key(outcome), id(outcome))
+    return [o for o in outcomes if first.get(key(o), id(o)) == id(o)]
+
+
 def _plan_state(
     vault_root,
     network=True,
@@ -792,11 +982,13 @@ def _plan_state(
     *,
     repository_root=None,
     snapshots,
+    recheck_commits=None,
 ):
     """Compute one complete projection inside a materialized candidate.
 
     ``base`` is the Zotero base URL the lifecycle leg reads (ingest spec
-    §3.4); ``verify_state`` forwards it positionally.
+    §3.4); ``verify_state`` forwards it positionally. ``recheck_commits`` is
+    the re-check's base (`_history_outcomes`), None for no re-check.
     """
     vault = Path(vault_root)
     repository = Path(repository_root) if repository_root is not None else vault
@@ -876,33 +1068,19 @@ def _plan_state(
             raw.extend(_network_outcomes(vault, entry, detection_date, notice_lookup))
         else:
             raw.extend(_offline_network_outcomes(entry, detection_date, notice_lookup))
-    base_snapshot = snapshots.base
-    candidate_snapshot = snapshots.candidate
-    raw.extend(lints.lint_evidence_layer(base_snapshot, candidate_snapshot))
-    raw.extend(lints.lint_append_only(repository, base_snapshot, candidate_snapshot))
-    raw.extend(
-        lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)
-    )
-    raw.extend(lints.lint_published_drift(repository, candidate_snapshot))
+    leg, history, notices = _two_version_rows(repository, snapshots, recheck_commits)
+    raw.extend(leg)
+    raw.extend(lints.lint_published_drift(repository, snapshots.candidate))
     raw.extend(propagate.lint_propagation(vault))
     raw.extend(
         captured.lint_captured_set(
             vault, as_of=detection_date, bibliography_universe=bibliography_universe
         )
     )
-    authoritative = [
-        outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
-    ]
-    hashes = {
-        id(outcome): _target_hash(
-            vault,
-            outcome,
-            bibliography_universe,
-            base_snapshot=base_snapshot,
-            candidate_snapshot=candidate_snapshot,
-        )
-        for outcome in authoritative
-    }
+    raw.extend(outcome for outcome, _base, _candidate in history)
+    raw, authoritative, hashes = _hashed(
+        vault, raw, history, bibliography_universe, snapshots
+    )
     effective = _effective(authoritative, hashes, vault)
     warning_effective = _warning_effectiveness(authoritative, hashes, vault)
     _apply_state_transitions(vault, authoritative, detection_date, stamp=effective)
@@ -910,7 +1088,38 @@ def _plan_state(
     counts: dict[str, int] = {}
     for outcome in effective:
         counts[outcome.result.value] = counts.get(outcome.result.value, 0) + 1
-    return {"outcomes": raw, "counts": counts}, effective, hashes, warning_effective
+    report = {"outcomes": raw, "counts": counts, "notices": notices}
+    return report, effective, hashes, warning_effective
+
+
+def _hashed(vault, raw, history, bibliography_universe, snapshots):
+    """Hash every authoritative outcome, then drop the re-check's repeats
+    (`_once_each`).
+
+    A re-check row hashes on its own commit's snapshots, so an ack filed when
+    that commit was verified (the hook's index against HEAD) is the same ack;
+    every other row on the run's base and candidate."""
+    planes = {id(outcome): (base, candidate) for outcome, base, candidate in history}
+    authoritative = [
+        outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
+    ]
+    hashes = {}
+    for outcome in authoritative:
+        base_snapshot, candidate_snapshot = planes.get(
+            id(outcome), (snapshots.base, snapshots.candidate)
+        )
+        hashes[id(outcome)] = _target_hash(
+            vault,
+            outcome,
+            bibliography_universe,
+            base_snapshot=base_snapshot,
+            candidate_snapshot=candidate_snapshot,
+        )
+    if not history:
+        return raw, authoritative, hashes
+    kept = {id(o) for o in _once_each(authoritative, hashes, set(planes))}
+    raw = [o for o in raw if id(o) in kept or o.extra.get("synthetic_offline") is True]
+    return raw, [o for o in authoritative if id(o) in kept], hashes
 
 
 def _candidate_destinations_match_live(snapshots, outputs):
@@ -945,8 +1154,13 @@ def verify_state(
     git_candidate="worktree",
     changed_paths_file=None,
     commit_projected=None,
+    recheck_commits: str | object | None = None,
 ):
-    """Run one immutable collect/plan/apply/manifest/publication transaction."""
+    """Run one immutable collect/plan/apply/manifest/publication transaction.
+
+    ``recheck_commits`` also replays the two-version lints for every commit
+    reachable from HEAD and not from it (a ref, or `WHOLE_HISTORY`), each
+    against its parent, a merge against every parent (spec §5.3.1, Q2)."""
     vault = Path(vault_root)
     resolved_manifest = (
         gitstate.validate_manifest_destination(vault, Path(changed_paths_file))
@@ -969,6 +1183,7 @@ def verify_state(
             base,
             repository_root=vault,
             snapshots=snapshots,
+            recheck_commits=recheck_commits,
         )
         planned_snapshot = gitstate.restore_candidate_nonfiles(
             snapshots.candidate, gitstate.snapshot_worktree(planning)

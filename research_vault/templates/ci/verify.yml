@@ -45,7 +45,7 @@ jobs:
           BASE: ${{ steps.base.outputs.sha }}
         run: |-
           set +e
-          python -m research_vault verify --vault . --offline --surface commit --git-base "$BASE" --git-candidate HEAD
+          python -m research_vault verify --vault . --offline --surface commit --git-base "$BASE" --git-candidate HEAD --recheck-commits "$BASE"
           code=$?
           set -e
           case "$code" in

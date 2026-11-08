@@ -663,3 +663,15 @@ def test_scaffold_skips_a_created_path_the_vaults_own_gitignore_ignores(
     assert "index.md" in committed
     assert git_result(vault, "check-ignore", "-q", "--", "log.md").returncode == 0
     assert git(vault, "ls-files", "--", "log.md") == ""
+
+
+def test_scaffold_sets_push_follow_tags(tmp_path):
+    scaffold.scaffold_vault(tmp_path)
+    value = subprocess.run(
+        ["git", "config", "--get", "push.followTags"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert value == "true"

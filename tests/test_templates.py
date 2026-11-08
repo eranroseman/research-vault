@@ -336,8 +336,7 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     assert 'git cat-file -e "$base^{tree}"' in text
     assert 'printf \'sha=%s\\n\' "$base" >> "$GITHUB_OUTPUT"' in text
     assert "BASE: ${{ steps.base.outputs.sha }}" in text
-    assert 'git-base "$BASE"' in text
-    assert "--git-candidate HEAD" in text
+    assert ('--git-base "$BASE" --git-candidate HEAD --recheck-commits "$BASE"') in text
     assert "git push" not in text
     assert "0) exit 0 ;;" in text
     assert "1) exit 1 ;;" in text

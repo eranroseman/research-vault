@@ -64,6 +64,7 @@ def _verify_args(vault, **overrides):
         "changed_paths_file": None,
         "commit_projected": None,
         "as_of": None,
+        "recheck_commits": None,
     }
     args.update(overrides)
     return type("Args", (), args)()
@@ -979,6 +980,7 @@ def test_verify_passes_every_flag_through_and_prints_sorted_counts(
             "git_candidate": "index",
             "changed_paths_file": None,
             "commit_projected": None,
+            "recheck_commits": None,
         }
     ]
     assert seen[0]["base"].startswith("http")
@@ -5558,8 +5560,17 @@ def _list_rows_open(vault):
 
 
 def _commit_all(vault, message):
+    """Commit everything; the fixture vault has no hook, so this is the
+    `--no-verify` commit a person can always make. Returns the commit id."""
     subprocess.run(["git", "add", "-A"], cwd=vault, check=True)
     subprocess.run(["git", "commit", "-qm", message], cwd=vault, check=True)
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def test_a_pass_fail_pass_cycle_raises_no_list_row_end_to_end(net_vault):
@@ -5708,6 +5719,374 @@ def test_a_list_row_with_no_tree_behind_the_base_has_no_hash(net_vault):
             )
 
 
+# --- the per-commit re-check (spec §5.3.1, Q2; rulings R17, R18) -------------
+
+
+def _ack_standing_citation_key(vault):
+    """The fixture's draft cites `fabricated2020`, a standing citation-key row
+    that holds commit and publish on its own; acknowledged so every decision
+    below is the re-check's."""
+    verify.verify_state(vault, network=False)
+    standing = next(
+        f
+        for f in inbox.open_entries(vault)
+        if f.check == "citation-key" and f.target == "fabricated2020"
+    )
+    inbox.append_ack(vault, standing.id, "manual — accepted", "human:eran")
+
+
+def test_recheck_commits_raises_the_row_a_bypassed_commit_hid(net_vault):
+    """Q2: a `--no-verify` commit moves the base and the worktree diff is
+    empty; the per-commit re-check still finds the hand edit."""
+    _ack_standing_citation_key(net_vault)
+    base = _commit_all(net_vault, "base")
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+    bypassed = _commit_all(net_vault, "hand edit, bypassed")
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    assert not [o for o in effective if o.check == "evidence-layer"]
+    assert verify.surface_decision("commit", effective, warning)[0] == 0
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    (row,) = [o for o in effective if o.check == "evidence-layer" and "DOI" in o.reason]
+    assert row.reason == "drift — DOI changed without writer attestation"
+    assert row.extra["commit"] == bypassed
+    assert verify.surface_decision("publish", effective, warning)[0] == 1
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+
+
+def test_a_row_the_range_leg_and_the_replay_both_raise_is_one_row(net_vault):
+    """CI's shape: the range leg and the replay see the same hand edit on the
+    same bytes, so it is one record and one blocker, stamped with its commit."""
+    base = _commit_all(net_vault, "base")
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+    bypassed = _commit_all(net_vault, "hand edit, bypassed")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault,
+        network=False,
+        git_base=base,
+        git_candidate="HEAD",
+        recheck_commits=base,
+    )
+    rows = [o for o in effective if o.check == "evidence-layer" and "DOI" in o.reason]
+    assert [o.extra.get("commit") for o in rows] == [bypassed]
+
+
+def test_recheck_commits_rows_can_be_acknowledged_and_stay_acknowledged(net_vault):
+    _ack_standing_citation_key(net_vault)
+    base = _commit_all(net_vault, "base")
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+    _commit_all(net_vault, "bypassed")
+    verify.verify_state(net_vault, network=False, recheck_commits=base)
+    finding = next(
+        f
+        for f in inbox.open_entries(net_vault)
+        if f.check == "evidence-layer" and "DOI" in f.reason
+    )
+    inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran")
+    _commit_all(net_vault, "ack")
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    assert verify.surface_decision("publish", effective, warning)[0] == 0
+
+
+def test_recheck_commits_reads_a_merge_against_every_parent(net_vault):
+    """Q2 [corrected]: a merge whose resolution hand-edits a note the side
+    branch added looks `added` against the first parent; combined, it is a row."""
+    base = _commit_all(net_vault, "base")
+    subprocess.run(["git", "switch", "-qc", "side"], cwd=net_vault, check=True)
+    added = net_vault / "literature" / "added.md"
+    added.write_text(
+        must_replace(
+            (net_vault / "literature" / "smith2020.md").read_text(),
+            'citationKey: "smith2020"',
+            'citationKey: "added"',
+        )
+    )
+    _commit_all(net_vault, "side adds a note")
+    subprocess.run(["git", "switch", "-q", "-"], cwd=net_vault, check=True)
+    (net_vault / "projects" / "brief" / "notes.md").write_text(
+        '---\ntype: "note"\n---\nmain moves on\n'
+    )
+    _commit_all(net_vault, "main moves on")
+    subprocess.run(
+        ["git", "merge", "--no-ff", "--no-commit", "-q", "side"],
+        cwd=net_vault,
+        check=True,
+    )
+    added.write_text(
+        must_replace(added.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/evil"')
+    )
+    merge = _commit_all(net_vault, "merge with a hand edit")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    rows = [
+        o
+        for o in effective
+        if o.check == "evidence-layer" and "added.md" in str(o.target)
+    ]
+    assert any(
+        "DOI changed without writer attestation" in o.reason
+        and o.extra["commit"] == merge
+        for o in rows
+    ), rows
+
+
+def test_a_clean_merge_raises_nothing_its_branches_did_not(net_vault):
+    """A merge that takes each path verbatim from one parent made no change of
+    its own; a row the side branch's commit raised is that commit's, once."""
+    base = _commit_all(net_vault, "base")
+    subprocess.run(["git", "switch", "-qc", "side"], cwd=net_vault, check=True)
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+    side = _commit_all(net_vault, "side hand-edits a note")
+    subprocess.run(["git", "switch", "-q", "-"], cwd=net_vault, check=True)
+    (net_vault / "projects" / "brief" / "notes.md").write_text(
+        '---\ntype: "note"\n---\nmain moves on\n'
+    )
+    _commit_all(net_vault, "main moves on")
+    subprocess.run(
+        ["git", "merge", "--no-ff", "-q", "-m", "merge", "side"],
+        cwd=net_vault,
+        check=True,
+    )
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    rows = [o for o in effective if o.check == "evidence-layer" and "DOI" in o.reason]
+    assert [o.extra["commit"] for o in rows] == [side]
+
+
+def test_a_propagation_record_attests_its_removal_per_commit(fixture_vault):
+    """Task 8's record counts where its diff adds it: committed with the
+    loser's removal, the replay of that commit raises nothing; committed apart
+    from it, the removal's own commit is a deletion, as the hook would say."""
+    from tests.test_lints import _merge_record, _write_merge_record
+
+    base = gitstate.resolve_snapshots(fixture_vault).expected_head
+    _write_merge_record(fixture_vault, json.dumps(_merge_record()))
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+    _commit_all(fixture_vault, "propagate apply, one commit")
+
+    def deleted(since):
+        _report, effective, _hashes, _warning = verify.verify_state(
+            fixture_vault, network=False, recheck_commits=since
+        )
+        return [
+            o.extra.get("commit")
+            for o in effective
+            if o.reason == "drift — literature note deleted"
+        ]
+
+    assert deleted(base) == []
+    subprocess.run(
+        ["git", "reset", "-q", "--hard", base], cwd=fixture_vault, check=True
+    )
+    _write_merge_record(fixture_vault, json.dumps(_merge_record()))
+    _commit_all(fixture_vault, "the record alone")
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+    removal = _commit_all(fixture_vault, "the removal alone")
+    assert deleted(base) == [removal]
+
+
+def test_cli_recheck_commits_flag(net_vault, monkeypatch):
+    import research_vault.__main__ as cli
+
+    seen = {}
+
+    def state(vault, **kwargs):
+        seen.update(kwargs)
+        return {"outcomes": [], "counts": {}}, [], {}, {}
+
+    monkeypatch.setattr(cli, "verify_state", state)
+    assert (
+        cli.main(
+            [
+                "verify",
+                "--vault",
+                str(net_vault),
+                "--offline",
+                "--recheck-commits",
+                "abc",
+            ]
+        )
+        == 0
+    )
+    assert seen["recheck_commits"] == "abc"
+    assert (
+        cli.main(
+            [
+                "verify",
+                "--vault",
+                str(net_vault),
+                "--offline",
+                "--recheck-commits",
+                "all",
+            ]
+        )
+        == 0
+    )
+    assert seen["recheck_commits"] is cli.WHOLE_HISTORY
+    assert cli.main(["verify", "--vault", str(net_vault), "--offline"]) == 0
+    assert seen["recheck_commits"] is None
+
+
+def _list_rows(effective):
+    return [o for o in effective if o.extra.get("hash_basis") == lints.VERIFIER_LISTS]
+
+
+_FAILURE_ROW = (
+    'failed-verification:\n  - {check: "update-notice", result: "UNMATCHED"}\n'
+)
+
+
+def _pr_with_a_removal(vault, *, ack):
+    """R18's reproduction: L holds an undated failure row (the PR's base), an
+    unrelated commit, then the row's removal committed through the hook path:
+    the index verified against HEAD, the row acknowledged when `ack`, and the
+    removal and the ack committed together."""
+    from tests.test_lints import _with_lists
+
+    note = vault / "literature" / "smith2020.md"
+    _with_lists(note, [], [("update-notice", "UNMATCHED")])
+    pr_base = _commit_all(vault, "L")
+    (vault / "projects" / "brief" / "notes.md").write_text(
+        '---\ntype: "note"\n---\nunrelated\n'
+    )
+    _commit_all(vault, "unrelated")
+    note.write_text(must_replace(note.read_text(), _FAILURE_ROW, ""))
+    subprocess.run(["git", "add", "-A"], cwd=vault, check=True)
+    head = (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=vault, check=True, capture_output=True
+        )
+        .stdout.decode()
+        .strip()
+    )
+    _report, effective, hashes, _warning = verify.verify_state(
+        vault, network=False, git_base=head, git_candidate="index"
+    )
+    (row,) = _list_rows(effective)
+    if ack:
+        finding = next(
+            f for f in inbox.open_entries(vault) if f.target_hash == hashes[id(row)]
+        )
+        inbox.append_ack(vault, finding.id, "manual — accepted", "human:eran")
+        subprocess.run(["git", "add", "-A"], cwd=vault, check=True)
+        _report, effective, _hashes, _warning = verify.verify_state(
+            vault, network=False, git_base=head, git_candidate="index"
+        )
+        assert _list_rows(effective) == []
+    removal = _commit_all(vault, "the removal and its ack")
+    return pr_base, removal
+
+
+def test_the_hook_ack_holds_in_the_ci_range_leg_and_the_replay(net_vault):
+    """R18: the hook acks against the removal commit's parent; CI's range leg
+    starts at the PR's base. The leg computes no list row over that range,
+    the replay computes it against the parent, so both agree with the hook."""
+    pr_base, _removal = _pr_with_a_removal(net_vault, ack=True)
+    report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, git_base="HEAD^", git_candidate="HEAD"
+    )
+    assert _list_rows(effective) == []
+    assert report["notices"] == []
+    report, effective, _hashes, _warning = verify.verify_state(
+        net_vault,
+        network=False,
+        git_base=pr_base,
+        git_candidate="HEAD",
+        recheck_commits=pr_base,
+    )
+    assert _list_rows(effective) == []
+    assert report["notices"] == []
+
+
+def test_a_multi_commit_range_leg_names_the_list_rows_it_left_to_the_replay(
+    net_vault,
+):
+    """R18: no silent drop. Over more than one commit the leg computes no
+    list row and says so once; the replay raises the removal on its commit."""
+    pr_base, removal = _pr_with_a_removal(net_vault, ack=False)
+    report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, git_base=pr_base, git_candidate="HEAD"
+    )
+    assert _list_rows(effective) == []
+    assert report["notices"] == [verify.LIST_ROWS_NOTICE]
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault,
+        network=False,
+        git_base=pr_base,
+        git_candidate="HEAD",
+        recheck_commits=pr_base,
+    )
+    assert [o.extra["commit"] for o in _list_rows(effective)] == [removal]
+
+
+def test_the_cli_prints_the_list_rows_notice_once(net_vault, capsys):
+    pr_base, _removal = _pr_with_a_removal(net_vault, ack=False)
+    main(
+        [
+            "verify",
+            "--vault",
+            str(net_vault),
+            "--offline",
+            "--git-base",
+            pr_base,
+            "--git-candidate",
+            "HEAD",
+        ]
+    )
+    assert capsys.readouterr().out.splitlines().count(verify.LIST_ROWS_NOTICE) == 1
+    main(
+        [
+            "verify",
+            "--vault",
+            str(net_vault),
+            "--offline",
+            "--git-base",
+            pr_base,
+            "--git-candidate",
+            "HEAD",
+            "--recheck-commits",
+            pr_base,
+        ]
+    )
+    assert verify.LIST_ROWS_NOTICE not in capsys.readouterr().out
+
+
+def test_a_repeat_removal_after_a_commit_is_raised_again_in_the_replay(net_vault):
+    """R17 under the replay: the first removal is acked through the hook; the
+    failure is recorded again, committed, and removed again with `--no-verify`.
+    The second removal's base tree moved, so the replay raises it."""
+    pr_base, first = _pr_with_a_removal(net_vault, ack=True)
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        events.record_failure(note.read_text(), "update-notice", Result.UNMATCHED)
+    )
+    _commit_all(net_vault, "failure re-recorded")
+    note.write_text(must_replace(note.read_text(), _FAILURE_ROW, ""))
+    second = _commit_all(net_vault, "removed again, bypassed")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=pr_base
+    )
+    assert [o.extra["commit"] for o in _list_rows(effective)] == [second]
+    assert first != second
+
+
 def test_two_worktree_runs_on_one_day_leave_one_event_per_check(net_vault):
     """#269: a pass already recorded by the same actor on the same date for the
     same check adds nothing; a run on a later date appends one."""
@@ -5729,3 +6108,55 @@ def test_two_worktree_runs_on_one_day_leave_one_event_per_check(net_vault):
     later = events_by_check()
     assert {at for (_check, at) in later - once} == {"2026-08-17"}
     assert set(later.values()) == {1}
+
+
+def test_a_record_moving_a_loser_onto_an_unchanged_survivor_is_read_whole(
+    fixture_vault,
+):
+    """`lints._departures` reads the survivor's path in the candidate, a path
+    the commit need not touch; a commit with a propagation record is linted
+    over the whole tree, not only the paths it changed."""
+    from tests.test_lints import _merge_record, _write_merge_record
+
+    base = gitstate.resolve_snapshots(fixture_vault).expected_head
+    record = _merge_record(
+        removes={},
+        removed=[],
+        moved={"literature/gone2019.md": "literature/smith2020.md"},
+    )
+    _write_merge_record(fixture_vault, json.dumps(record))
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+    _commit_all(fixture_vault, "propagate apply")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        fixture_vault, network=False, recheck_commits=base
+    )
+    assert not [o for o in effective if o.reason == "drift — literature note deleted"]
+
+
+def test_a_commit_is_rechecked_on_the_files_it_changed(net_vault):
+    """A stale witness committed once is that commit's row; a later commit
+    that leaves the note alone does not raise it again."""
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), "Retrospective design", "Prospective design")
+    )
+    stale = _commit_all(net_vault, "a body hand edit, bypassed")
+    (net_vault / "projects" / "brief" / "notes.md").write_text(
+        '---\ntype: "note"\n---\nunrelated\n'
+    )
+    _commit_all(net_vault, "unrelated")
+
+    def witness_rows(since):
+        _report, effective, _hashes, _warning = verify.verify_state(
+            net_vault, network=False, recheck_commits=since
+        )
+        return [
+            o.extra.get("commit")
+            for o in effective
+            if o.check == "evidence-layer" and "managed-sha256" in o.reason
+        ]
+
+    # The worktree leg raises the stale witness the tree still holds; the
+    # re-check's own copy names the commit that made it, and only that one.
+    assert witness_rows(f"{stale}^") == [stale]
+    assert witness_rows(stale) == [None]

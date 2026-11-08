@@ -2216,3 +2216,26 @@ def test_real_hook_names_the_log_a_day_file_pathspec_commit_must_add(tmp_path):
         check=True,
     ).stdout
     assert "a line" in shown
+
+
+def test_stop_gate_rechecks_every_commit_since_the_last_publication(
+    fixture_vault, monkeypatch
+):
+    """The Stop gate holds on what publish holds on (spec §5.3.1, Q2)."""
+    from research_vault import verify
+
+    hook = _load_stop_hook()
+    seen = {}
+
+    def state(vault, **kwargs):
+        seen.update(kwargs)
+        return {"outcomes": [], "counts": {}}, [], {}, {}
+
+    monkeypatch.setattr(verify, "verify_state", state)
+    hook._verify_publish(fixture_vault)
+    assert seen["recheck_commits"] is verify.WHOLE_HISTORY
+    tag = "published/brief-2026-01-01-090000"
+    subprocess.run(["git", "tag", tag], cwd=fixture_vault, check=True)
+    hook._verify_publish(fixture_vault)
+    assert seen["recheck_commits"] == tag
+    assert seen["network"] is True

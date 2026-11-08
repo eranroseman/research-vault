@@ -28,6 +28,7 @@ from .markers import _read_note_text, _write_note_text
 from .pathcodec import encode_repo_path
 from .verify import (
     DEFAULT_BASE,
+    WHOLE_HISTORY,
     surface_decision,
     verify_state,
 )
@@ -271,6 +272,20 @@ def published_tags(vault, project) -> list[str]:
     )
 
 
+def last_publication(vault) -> str | None:
+    """The newest `published/*` tag of any project, by the date-time its name
+    carries: the publish re-check's base (spec §5.3.1, Q2). The name's tail
+    is a fixed-width ``YYYY-MM-DD-HHMMSS``; the whole name would sort by
+    project first."""
+    listed = _git(vault, "tag", "--list", "published/*")
+    if listed.returncode != 0:
+        raise PublishError("cannot list published tags")
+    tags = [tag for tag in listed.stdout.split() if PUBLISHED_TAG.match(tag)]
+    return max(
+        tags, key=lambda tag: (tag[-len("YYYY-MM-DD-HHMMSS") :], tag), default=None
+    )
+
+
 def _publication_stamp(date) -> tuple[str, str]:
     """A publication's ``<YYYY-MM-DD>`` and ``<HHMMSS>``, from one clock read.
 
@@ -366,8 +381,13 @@ def _publish(vault, project, status, *, base, date, message) -> Disposition:
     date, time = _publication_stamp(date)
     tag = _require_taggable(root, project, date, time)
 
+    # Every commit since the last publication is re-checked against its
+    # parent, so a hand edit committed with `--no-verify` holds publish too.
     _report, effective, _hashes, warning_effective = verify_state(
-        root, network=True, base=base
+        root,
+        network=True,
+        base=base,
+        recheck_commits=last_publication(root) or WHOLE_HISTORY,
     )
     # `_effective` already drops every finding a standing acknowledgment
     # closes, so a green decision here *is* spec §6's "green, or every
@@ -407,7 +427,10 @@ def _publish(vault, project, status, *, base, date, message) -> Disposition:
 
 
 def _create_tag(vault, tag: str, commit: str) -> None:
-    if _git(vault, "tag", tag, commit).returncode != 0:
+    # Annotated (an object of its own): `push.followTags` pushes it, so a fresh
+    # clone's publish re-check starts at the last publication, not at the root.
+    message = f"research-vault publication {tag}"
+    if _git(vault, "tag", "-a", "-m", message, tag, commit).returncode != 0:
         raise PublishError(f"cannot create tag {tag}")
 
 
