@@ -177,3 +177,23 @@ def test_doctor_is_substrate_and_posture_only(tmp_path):
         "remote",
         "backup",
     ]
+
+
+def test_render_log_is_this_text_and_keeps_twenty_entries_by_default(tmp_path):
+    """The whole render, byte for byte: a blank line before each day's
+    heading, the day's lines, its link; twenty entries in all by default,
+    the newest day first, so the older day loses its last two."""
+    (tmp_path / "log").mkdir()
+    (tmp_path / "log" / "2026-08-20.md").write_text(
+        '---\ntype: "log"\n---\n'
+        + "".join(f"- 09:{i:02d} {WRITER} — e{i}\n" for i in range(21))
+    )
+    (tmp_path / "log" / "2026-08-21.md").write_text(
+        f'---\ntype: "log"\n---\n- 10:00 {WRITER} — b\n'
+    )
+    assert okf.render_log(tmp_path) == (
+        '---\ntype: "log"\n---\n# Log\n\n## 2026-08-21\n'
+        f"- 10:00 {WRITER} — b\n- [2026-08-21](/log/2026-08-21.md)\n\n## 2026-08-20\n"
+        + "".join(f"- 09:{i:02d} {WRITER} — e{i}\n" for i in range(19))
+        + "- [2026-08-20](/log/2026-08-20.md)\n"
+    )
