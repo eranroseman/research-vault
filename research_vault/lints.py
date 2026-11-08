@@ -944,12 +944,15 @@ def _capture_monitor_outcomes(raw_path, base_data, candidate_data) -> list[Outco
 _RECORD_PREFIX = b"system/propagations/"
 
 
-def _merged_losers(
+def _merge_removals(
     base_snapshot: gitstate.Snapshot, candidate_snapshot: gitstate.Snapshot
-) -> set[str]:
-    """Citation keys an applied propagation record names as merge losers (#183).
+) -> set[bytes]:
+    """Note paths an applied propagation record says it removed (#183).
 
-    Only a record this diff adds counts: `propagate apply` writes it in the
+    A path counts when the record's `removed` (what apply did) names it and
+    the approved plan's `removes` (what the person approved) does too; a
+    planned removal apply withheld, because the survivor's recapture failed,
+    is in `removes` only. Only a record this diff adds counts: `propagate apply` writes it in the
     same act that removes the loser's note, and records are write-once
     (`_is_append_only_path`), so a record already in the base attests no later
     deletion — a different item may hold the freed key by then. The record is
@@ -959,7 +962,7 @@ def _merged_losers(
     """
     from . import propagate  # propagate imports capture, which imports lints
 
-    losers: set[str] = set()
+    removals: set[bytes] = set()
     for raw_path, image in candidate_snapshot.images.items():
         name = raw_path[len(_RECORD_PREFIX) :]
         if (
@@ -975,16 +978,19 @@ def _merged_losers(
             record = propagate.plan_from_document(document, raw_path)
         except (UnicodeDecodeError, ValueError, KeyError, TypeError):
             continue
-        if isinstance(document.get("applied_at"), str) and isinstance(
-            document.get("approved_plan_sha256"), str
+        removed = document.get("removed")
+        if (
+            isinstance(document.get("applied_at"), str)
+            and isinstance(document.get("approved_plan_sha256"), str)
+            and isinstance(removed, list)
         ):
-            losers.update(record.merges)
-    return losers
-
-
-def _names_loser(image: gitstate.FileImage, losers: set[str]) -> bool:
-    key = _field(_frontmatter(image), "citationKey")
-    return isinstance(key, str) and key in losers
+            approved = set(record.removes.values())
+            removals.update(
+                os.fsencode(path)
+                for path in removed
+                if isinstance(path, str) and path in approved
+            )
+    return removals
 
 
 def lint_evidence_layer(
@@ -1113,9 +1119,8 @@ def lint_evidence_layer(
                 )
             )
     # A merge loser's note goes under the applied plan (ADR 0003's scope note
-    # of 2026-11-07); a base note with a duplicated key names no citationKey
-    # this may trust (#20), so its deletion is reported.
-    losers = _merged_losers(base_snapshot, candidate_snapshot)
+    # of 2026-11-07), which names it by path.
+    removals = _merge_removals(base_snapshot, candidate_snapshot)
     outcomes.extend(
         Outcome(
             "evidence-layer",
@@ -1123,8 +1128,7 @@ def lint_evidence_layer(
             Result.UNMATCHED,
             "drift — literature note deleted",
         )
-        for raw_path in sorted(unpaired_removed)
-        if raw_path in base_duplicated or not _names_loser(base_files[raw_path], losers)
+        for raw_path in sorted(unpaired_removed - removals)
     )
     for raw_path in sorted(set(base_files) & set(candidate_files)):
         if raw_path in duplicated:

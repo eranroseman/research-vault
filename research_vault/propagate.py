@@ -47,6 +47,10 @@ class Plan(NamedTuple):
     # empty for a re-key. The note is verified against, and recaptured as, the
     # survivor, and apply removes it when the survivor already has a note.
     merges: dict[str, str]
+    # A merged loser's citation key -> its note's path, when the survivor
+    # already has a note and apply removes the loser's (ADR 0003's scope note
+    # of 2026-11-07). Hashed with the rest, so the person approves the removal.
+    removes: dict[str, str]
     surfaces: tuple[Surface, ...]
 
 
@@ -118,6 +122,83 @@ def _refusal(old: str, detail: str) -> Outcome:
     return Outcome(CHECK, old, Result.UNMATCHED, f"schema-violation — {detail}")
 
 
+def _targets(mapping: dict[str, str], merges: dict[str, str]) -> dict[str, str]:
+    """Every note one pass touches, old key -> the key it ends under.
+
+    A merge whose survivor carries the loser's own key is an identity entry:
+    the survivor is recaptured over the note, nothing is renamed or rewritten,
+    and it stays out of the plan's ``mapping`` — a record mapping a key to
+    itself would leave every surface naming it stale-key forever. An identity
+    re-key does nothing at all and is dropped.
+    """
+    targets = {old: new for old, new in mapping.items() if old != new or old in merges}
+    targets.update({old: old for old in merges if old not in targets})
+    return targets
+
+
+def _read_provenance(path: Path) -> literature_notes.Provenance | None:
+    if path.is_symlink():
+        return None
+    try:
+        return literature_notes.read_provenance(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError):
+        return None
+
+
+def _occupied_refusal(
+    old: str, new: str, target: Path, server_id: str, survivor: str | None
+) -> Outcome | None:
+    """Why ``old``'s note may not land on the existing ``target``, or None.
+
+    ADR 0003: no transition deletes a literature note, and a POSIX rename over
+    an existing file replaces it silently — a dangling symlink too, which
+    exists() would not see. A merge is the one exception (ADR 0003's scope
+    note of 2026-11-07): apply removes the loser's note, never the target, and
+    only when the target is the survivor's own note in the same database —
+    an unrelated note at that path would be recaptured over and lost.
+    """
+    if survivor is None:
+        return _refusal(
+            old, f"literature/{new}.md already exists; nothing is renamed over it"
+        )
+    held = _read_provenance(target)
+    if held is None or held.item_key != survivor or held.server_id != server_id:
+        return _refusal(
+            old,
+            f"literature/{new}.md is not item {survivor}'s note; "
+            "the loser's note is not removed for it",
+        )
+    return None
+
+
+def _hashed_surfaces(
+    vault: Path, keys: dict[str, str]
+) -> tuple[tuple[Surface, ...], list[Outcome]]:
+    """Every surface naming one of ``keys`` with its hash, or a refusal."""
+    surfaces = []
+    for path, relative in _surfaces(vault):
+        data = path.read_bytes()
+        text = data.decode("utf-8", errors="surrogateescape")
+        found = links.find_links(text)
+        if not any(_names(text, found, old, relative) for old in keys):
+            continue
+        try:
+            relative.encode("utf-8")
+        except UnicodeEncodeError:
+            # The plan is canonical JSON; a path the codec can only spell as
+            # bytes has no place in it, and a traceback is not a verdict.
+            return (), [
+                Outcome(
+                    CHECK,
+                    RepoPath(os.fsencode(relative)),
+                    Result.UNMATCHED,
+                    "schema-violation — surface path is not UTF-8; rename it first",
+                )
+            ]
+        surfaces.append(Surface(relative, hashlib.sha256(data).hexdigest()))
+    return tuple(surfaces), []
+
+
 def _sources(
     vault: Path, mapping: dict[str, str]
 ) -> tuple[dict[str, tuple[Path, literature_notes.Provenance]], list[Outcome]]:
@@ -175,10 +256,10 @@ def plan(
 ) -> tuple[Plan | None, list[Outcome]]:
     """Compute one re-key pass without touching anything (spec §3.5, decision 01).
 
-    ``merges`` names the mapping entries that are Zotero merges (§5.3.6): each
-    is verified against the survivor's item, not the note's, and may land on
-    an existing ``literature/<survivor>.md``. Without ``mapping``, the
-    lifecycle linter supplies both.
+    ``merges`` names the entries that are Zotero merges (§5.3.6): each is
+    verified against the survivor's item, not the note's, and may land on the
+    survivor's existing note, which the plan then ``removes`` the loser's
+    note for. Without ``mapping``, the lifecycle linter supplies both.
     """
     vault = Path(vault_root)
     now = now or datetime.datetime.now(datetime.UTC)
@@ -195,9 +276,9 @@ def plan(
         mapping, merges, blocking = _mapping_from_linter(vault, client)
         if blocking:
             return None, blocking
-    known = merges or {}
-    merges = {old: known[old] for old in mapping if old in known}
-    if not mapping:
+    merges = dict(merges or {})
+    targets = _targets(mapping, merges)
+    if not targets:
         return None, [
             Outcome(
                 CHECK,
@@ -206,9 +287,10 @@ def plan(
                 "no-identifier — nothing to propagate",
             )
         ]
-    sources, outcomes = _sources(vault, mapping)
+    sources, outcomes = _sources(vault, targets)
     item_keys: dict[str, str] = {}
-    for old, new in mapping.items():
+    removes: dict[str, str] = {}
+    for old, new in targets.items():
         if old not in sources:
             continue
         source, provenance = sources[old]
@@ -218,24 +300,16 @@ def plan(
         except literature_notes.InvalidCitationKeyError as error:
             outcomes.append(_refusal(old, str(error)))
             continue
-        if (
-            old not in merges
-            and source.name != target.name
-            and (target.exists() or target.is_symlink())
-        ):
-            # ADR 0003: no transition deletes a literature note, and a POSIX rename
-            # over an existing file replaces it silently — a dangling symlink too,
-            # which exists() would not see. The note already sitting at its target
-            # (a re-run after a partial apply) is one exception: no rename. A
-            # merge is the other: apply removes the loser's note instead (ADR
-            # 0003's scope note of 2026-11-07).
-            outcomes.append(
-                _refusal(
-                    old,
-                    f"literature/{new}.md already exists; nothing is renamed over it",
-                )
+        # The note already sitting at its target (a re-run after a partial
+        # apply) is not occupied: no rename.
+        if source.name != target.name and (target.exists() or target.is_symlink()):
+            refusal = _occupied_refusal(
+                old, new, target, provenance.server_id, merges.get(old)
             )
-            continue
+            if refusal is not None:
+                outcomes.append(refusal)
+                continue
+            removes[old] = f"literature/{source.name}"
         # The mapping is verified against Zotero whatever its source: the note's
         # item must carry the new name live. A name nobody in the library holds
         # (a --map typo) is refused here, before it can become a rename; the
@@ -259,35 +333,19 @@ def plan(
         item_keys[old] = item_key
     if outcomes:
         return None, outcomes
-    surfaces = []
-    for path, relative in _surfaces(vault):
-        data = path.read_bytes()
-        text = data.decode("utf-8", errors="surrogateescape")
-        found = links.find_links(text)
-        if not any(_names(text, found, old, relative) for old in mapping):
-            continue
-        try:
-            relative.encode("utf-8")
-        except UnicodeEncodeError:
-            # The plan is canonical JSON; a path the codec can only spell as
-            # bytes has no place in it, and a traceback is not a verdict.
-            return None, [
-                Outcome(
-                    CHECK,
-                    RepoPath(os.fsencode(relative)),
-                    Result.UNMATCHED,
-                    "schema-violation — surface path is not UTF-8; rename it first",
-                )
-            ]
-        surfaces.append(Surface(relative, hashlib.sha256(data).hexdigest()))
+    rekeys = {old: new for old, new in targets.items() if old != new}
+    surfaces, refused = _hashed_surfaces(vault, rekeys)
+    if refused:
+        return None, refused
     operation_id = "propagate-" + now.strftime("%Y%m%dT%H%M%SZ")
     return Plan(
         operation_id,
         now.date().isoformat(),
-        dict(mapping),
+        rekeys,
         item_keys,
         merges,
-        tuple(surfaces),
+        removes,
+        surfaces,
     ), []
 
 
@@ -299,6 +357,7 @@ def _document(plan: Plan) -> dict:
         "mapping": dict(plan.mapping),
         "item_keys": dict(plan.item_keys),
         "merges": dict(plan.merges),
+        "removes": dict(plan.removes),
         "surfaces": [surface._asdict() for surface in plan.surfaces],
     }
 
@@ -330,6 +389,7 @@ def plan_from_document(data, source) -> Plan:
         dict(data["item_keys"]),
         # Absent from a document written before #183: a re-key.
         dict(data.get("merges", {})),
+        dict(data.get("removes", {})),
         tuple(Surface(str(s["path"]), str(s["sha256"])) for s in data["surfaces"]),
     )
 
@@ -361,15 +421,48 @@ def rewrite_surfaces(vault_root, old: str, new: str) -> list[str]:
     return changed
 
 
-def _move(source: Path, target: Path, *, merged: bool) -> None:
-    if merged and (target.exists() or target.is_symlink()):
-        # §5.3.6: the survivor already has a note; the loser's is wholly
-        # machine-written and its Zotero child notes moved with the merge.
-        # ADR 0003's scope note of 2026-11-07 covers this deletion; the
-        # applied plan under system/propagations/ is its record.
-        source.unlink()
-    else:
+def _apply_entry(
+    vault: Path, client, approved: Plan, old: str, new: str, source: Path
+) -> tuple[list[Outcome], str | None]:
+    """One entry of an approved plan: its outcomes, and the path it removed.
+
+    A planned removal (§5.3.6) waits for the survivor's recapture: the scope
+    note's condition is that the survivor's note is re-rendered in the same
+    act, so the loser's note goes only once capture's row for the survivor's
+    note is MATCHED (written, or already current), and stays — reported —
+    otherwise. A text-check row after the render does not hold the removal. ADR 0003's scope note of 2026-11-07 covers the
+    deletion; the applied record under system/propagations/ names it.
+    """
+    removal = approved.removes.get(old)
+    target = literature_notes.note_path(vault, new)
+    if source.name != target.name and removal is None:
         source.rename(target)
+    changed = rewrite_surfaces(vault, old, new) if old != new else []
+    recapture = capture.capture(vault, client, [approved.item_keys[old]])
+    outcomes = [
+        Outcome(
+            CHECK,
+            new,
+            Result.MATCHED,
+            "matched — rewrote " + (", ".join(changed) or "nothing"),
+        )
+    ]
+    outcomes.extend(o for o in recapture if o.result is not Result.MATCHED)
+    if removal is None:
+        return outcomes, None
+    if not any(o.result is Result.MATCHED and o.target == new for o in recapture):
+        outcomes.append(
+            Outcome(
+                CHECK,
+                old,
+                Result.UNMATCHED,
+                f"merged — kept {removal}: item {approved.item_keys[old]}'s "
+                "recapture did not match; run propagate again",
+            )
+        )
+        return outcomes, None
+    source.unlink()
+    return outcomes, removal
 
 
 def apply(
@@ -417,31 +510,27 @@ def apply(
         ]
     # Resolved again, by recorded key, for the rename itself; the recompute
     # above already proved each note's item key against the approved plan.
-    sources, refused = _sources(vault, approved.mapping)
+    targets = _targets(approved.mapping, approved.merges)
+    sources, refused = _sources(vault, targets)
     if refused:
         return refused
     outcomes = []
-    for old, new in approved.mapping.items():
-        source, _provenance = sources[old]
-        target = literature_notes.note_path(vault, new)
-        if source.name != target.name:
-            _move(source, target, merged=old in approved.merges)
-        changed = rewrite_surfaces(vault, old, new)
-        recapture = capture.capture(vault, client, [approved.item_keys[old]])
-        outcomes.append(
-            Outcome(
-                CHECK,
-                new,
-                Result.MATCHED,
-                "matched — rewrote " + (", ".join(changed) or "nothing"),
-            )
+    removed: list[str] = []
+    for old, new in targets.items():
+        entry, removal = _apply_entry(
+            vault, client, approved, old, new, sources[old][0]
         )
-        outcomes.extend(o for o in recapture if o.result is not Result.MATCHED)
+        outcomes.extend(entry)
+        removed.extend([removal] if removal else [])
     record = vault / RECORD_DIR / f"{approved.operation_id}.json"
     record.parent.mkdir(parents=True, exist_ok=True)
+    # The approved plan verbatim, then what applying it did: `removed` is the
+    # removals that happened, which the evidence-layer lint reads; a planned
+    # one whose recapture failed is in `removes` only.
     document = _document(approved)
     document["applied_at"] = now.replace(microsecond=0).isoformat()
     document["approved_plan_sha256"] = approved_sha256
+    document["removed"] = sorted(removed)
     record.write_text(_canonical(document), encoding="utf-8")
     return outcomes
 

@@ -2046,9 +2046,11 @@ def _merge_record(**overrides):
         "mapping": {"gone2019": "smith2020"},
         "item_keys": {"gone2019": "SMITH020"},
         "merges": {"gone2019": "SMITH020"},
+        "removes": {"gone2019": "literature/gone2019.md"},
         "surfaces": [],
         "applied_at": "2026-10-24T10:00:00",
         "approved_plan_sha256": "0" * 64,
+        "removed": ["literature/gone2019.md"],
     }
     record.update(overrides)
     return {key: value for key, value in record.items() if value is not None}
@@ -2087,10 +2089,20 @@ def test_a_merge_losers_deletion_is_attested_by_the_propagation_record(fixture_v
 @pytest.mark.parametrize(
     "text",
     [
-        pytest.param(json.dumps(_merge_record(merges=None)), id="no-merges"),
+        pytest.param(json.dumps(_merge_record(removed=[])), id="withheld"),
+        pytest.param(json.dumps(_merge_record(removed=None)), id="no-removed"),
         pytest.param(
-            json.dumps(_merge_record(merges={"other2019": "SMITH020"})),
-            id="another-key",
+            json.dumps(_merge_record(removed="literature/gone2019.md")),
+            id="removed-not-a-list",
+        ),
+        pytest.param(
+            json.dumps(_merge_record(removed=["literature/other2019.md"])),
+            id="another-path",
+        ),
+        pytest.param(json.dumps(_merge_record(removes={})), id="never-approved"),
+        pytest.param(
+            json.dumps(_merge_record(removes=["literature/gone2019.md"])),
+            id="removes-list",
         ),
         pytest.param(
             json.dumps(_merge_record(schema="research-vault.other.v1")),
@@ -2112,7 +2124,8 @@ def test_only_an_applied_record_naming_the_loser_attests_its_deletion(
 ):
     """The record must read as `lint_propagation` reads one (`read_plan`'s
     schema and fields), carry the apply's stamp, and name the deleted note's
-    citationKey in `merges`; anything less leaves the deletion row."""
+    path both in `removed` (apply did it) and in `removes` (the person
+    approved it); anything less leaves the deletion row."""
     base = _base_tree(fixture_vault)
     record = _write_merge_record(fixture_vault, "")
     record.write_bytes(text.encode("utf-8", errors="surrogateescape"))
@@ -2136,41 +2149,4 @@ def test_a_record_already_in_the_base_attests_no_later_deletion(fixture_vault):
     )
     base = _base_tree(fixture_vault)
     (fixture_vault / "literature" / "gone2019.md").unlink()
-    assert _gone_deleted(_evidence_rows(fixture_vault, base))
-
-
-def _commit_all(vault, message):
-    subprocess.run(["git", "add", "-A"], cwd=vault, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-q", "-m", message],
-        cwd=vault,
-        check=True,
-        capture_output=True,
-    )
-
-
-@pytest.mark.parametrize(
-    ("line", "replacement"),
-    [
-        pytest.param(
-            'citationKey: "gone2019"\n',
-            'citationKey: "other2019"\ncitationKey: "gone2019"\n',
-            id="duplicated-key",
-        ),
-        pytest.param(
-            'citationKey: "gone2019"\n', "citationKey:\n  - gone2019\n", id="list"
-        ),
-    ],
-)
-def test_a_base_note_whose_citation_key_cannot_be_trusted_is_never_a_loser(
-    fixture_vault, line, replacement
-):
-    """#20: a duplicated key is last-key-wins, so a crafted last value could
-    claim a record's loser; a key that is not a string names no note."""
-    note = fixture_vault / "literature" / "gone2019.md"
-    note.write_text(must_replace(note.read_text(), line, replacement))
-    _commit_all(fixture_vault, "base")
-    base = _base_tree(fixture_vault)
-    _write_merge_record(fixture_vault, json.dumps(_merge_record()))
-    note.unlink()
     assert _gone_deleted(_evidence_rows(fixture_vault, base))
