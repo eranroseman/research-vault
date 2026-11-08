@@ -1828,7 +1828,7 @@ def _surfaces_naming(vault, key):
 def test_a_merge_runs_end_to_end_through_the_residue_and_evidence_checks(
     tmp_vault, monkeypatch, survivor_has_note
 ):
-    """Designs test 8, as §5.3.6 amends it: plan from the linter, apply, then
+    """Designs test 8: as §5.3.6 amends it, plan from the linter, apply, then
     the residue check and the evidence layer over apply's own record. With a
     survivor note the loser's note goes after the survivor's MATCHED
     recapture, and its bibliography entry with it (P36); without one it is
@@ -1875,6 +1875,25 @@ def test_a_merge_runs_end_to_end_through_the_residue_and_evidence_checks(
     ]
     rows = _evidence_rows(tmp_vault)
     assert not [r for r in rows if r[0] == "evidence-layer"], rows
+    from research_vault import verify
+
+    _report, effective, _hashes, warning = verify.verify_state(tmp_vault, network=False)
+    closing = verify.CLOSING_BY_SURFACE["commit"]
+    blocking = [
+        o
+        for o in effective
+        if o.result in (Result.UNMATCHED, Result.UNREACHABLE) and o.check in closing
+    ]
+    # Verify after apply (G15): no stale key, no deletion or rename row, no
+    # bibliography row. What stays is the seed's own `[[older2020]]` (a link
+    # to no note) and, with a survivor note, the monitor's rows for the
+    # survivor's first full render over a bare seed note: values added.
+    expected = {("captured-set", "path-bytes:wiki/sources/A.md")}
+    if survivor_has_note:
+        expected.add(("capture-monitor", "path-bytes:literature/new2020.md"))
+    assert {(o.check, str(o.target)) for o in blocking} == expected
+    assert all(" added: " in o.reason for o in blocking if o.check == "capture-monitor")
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
     bib = bibliography.load(tmp_vault)
     assert sorted(bib) == ["new2020"]
     assert bib["new2020"] == {"id": "new2020", "title": "T"}

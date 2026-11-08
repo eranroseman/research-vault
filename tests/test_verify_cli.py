@@ -5526,7 +5526,7 @@ def test_a_multi_line_abstract_change_holds_commit_with_a_one_line_row(
 
 
 def test_a_checkout_of_an_acked_earlier_render_raises_the_restore_row(net_vault):
-    """Designs test 12 (#205): render A is committed with its row acked; render
+    """Designs test 12: #205, render A is committed with its row acked; render
     B follows; `git checkout <A> -- <note>` restores A's acked bytes, and the
     restore row is raised as its own record the earlier ack does not cover."""
     from tests.test_lints import _recapture
@@ -5571,16 +5571,14 @@ def test_a_checkout_of_an_acked_earlier_render_raises_the_restore_row(net_vault)
     assert [o.reason for o in restored] == [
         "drift — older render restored: version 13 < 14"
     ]
-    assert row_a.reason not in {o.reason for o in effective}
-    open_ids = {
-        f.id for f in inbox.open_entries(net_vault) if f.check == "capture-monitor"
-    }
-    assert row_a.id not in open_ids
-    assert any(
-        f.reason == restored[0].reason
-        for f in inbox.open_entries(net_vault)
-        if f.id in open_ids
-    )
+    # The restore is its own open record: A's ack, on A's bytes and its DOI
+    # row's reason, covers neither its id nor its hash (G14).
+    (record,) = [
+        f for f in inbox.open_entries(net_vault) if f.reason == restored[0].reason
+    ]
+    assert record.id != row_a.id
+    assert record.target_hash != row_a.target_hash
+    assert row_a.id not in {f.id for f in inbox.open_entries(net_vault)}
     assert verify.surface_decision("commit", effective, warning)[0] == 1
 
 

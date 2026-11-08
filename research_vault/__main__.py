@@ -117,17 +117,7 @@ def _print_and_hold(vault, outcomes, check: str) -> int:
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
         if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
-            _hold(
-                vault,
-                check,
-                outcome.target,
-                outcome.result,
-                outcome.reason,
-                target_kind=outcome.target_kind,
-                # A row whose fixed target cannot tell one run from the next
-                # carries its own hash (capture's tags summary, ruling P3).
-                target_hash=outcome.extra.get("target_hash"),
-            )
+            _hold_outcome(vault, check, outcome)
         if outcome.result is Result.UNMATCHED:
             worst = 1
         elif outcome.result is Result.UNREACHABLE and worst == 0:
@@ -175,6 +165,22 @@ def cmd_add(args):
         print(f"add unavailable: {error}", file=sys.stderr)
         return 2
     return _print_and_hold(args.vault, outcomes, capture.CHECK)
+
+
+def _hold_outcome(vault, check: str, outcome) -> None:
+    """One outcome's hold, the one form every print-and-hold loop files: a
+    row whose fixed target cannot tell one run from the next carries its own
+    hash (capture's tags summary, ruling P3)."""
+    target_hash = outcome.extra.get("target_hash")
+    _hold(
+        vault,
+        check,
+        outcome.target,
+        outcome.result,
+        outcome.reason,
+        target_kind=outcome.target_kind,
+        target_hash=target_hash if isinstance(target_hash, str) else None,
+    )
 
 
 def _hold(
@@ -272,17 +278,8 @@ def cmd_propagate(args):
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
         if outcome.result is Result.UNMATCHED:
-            target_hash = outcome.extra.get("target_hash")
-            _hold(
-                args.vault,
-                outcome.check,
-                outcome.target,
-                outcome.result,
-                outcome.reason,
-                target_kind=outcome.target_kind,
-                # Capture's tags summary rides the recapture (ruling P41, P3).
-                target_hash=target_hash if isinstance(target_hash, str) else None,
-            )
+            # Capture's tags summary rides the recapture (ruling P41).
+            _hold_outcome(args.vault, outcome.check, outcome)
             worst = 1
         elif outcome.result is Result.UNREACHABLE and worst == 0:
             worst = 3

@@ -1632,7 +1632,7 @@ def test_a_recapture_that_moved_a_held_value_is_not_summarised(
 
 
 @pytest.mark.parametrize(
-    ("children", "fulltext"),
+    ("children", "fulltext", "moved"),
     [
         pytest.param(
             (
@@ -1643,6 +1643,7 @@ def test_a_recapture_that_moved_a_held_value_is_not_summarised(
                 },
             ),
             None,
+            {"body"},
             id="child-note-body",
         ),
         pytest.param(
@@ -1659,17 +1660,20 @@ def test_a_recapture_that_moved_a_held_value_is_not_summarised(
                 CHILD_NOTE,
             ),
             None,
+            # The body lists each attachment by its filename.
+            {"attachments", "body"},
             id="attachment-version-and-filename",
         ),
         pytest.param(
             (ATTACHMENT, CHILD_NOTE),
             {**FULLTEXT, "content": "Re-indexed text " * 80},
+            {"fulltext", "compile-input-sha256"},
             id="fulltext-re-index",
         ),
     ],
 )
 def test_a_tag_move_beside_an_unheld_change_is_still_summarised(
-    tmp_vault, monkeypatch, children, fulltext
+    tmp_vault, monkeypatch, children, fulltext, moved
 ):
     """R29 (F7): the summary names every note whose tag fields moved and no
     held value moved, so a tag move riding with a child note's body, an
@@ -1690,13 +1694,17 @@ def test_a_tag_move_beside_an_unheld_change_is_still_summarised(
     )
     after_text = note.read_text()
     after = frontmatter.parse(after_text)[0]
-    # The unheld change landed beside the tags.
-    assert (
-        literature_notes.note_body(after_text)
-        != literature_notes.note_body(before_text)
-        or after["attachments"] != before["attachments"]
-        or after["compile-input-sha256"] != before["compile-input-sha256"]
-    )
+    # Exactly the unheld change each case names landed beside the tags (G13).
+    changed = {
+        key
+        for key in ("attachments", "fulltext", "compile-input-sha256")
+        if after[key] != before[key]
+    }
+    if literature_notes.note_body(after_text) != literature_notes.note_body(
+        before_text
+    ):
+        changed.add("body")
+    assert changed == moved
     assert outcomes[0].extra.get("tags-only") is True
     assert [o.reason for o in outcomes if o.target == "tags"] == [
         "drift — tags changed on: jakesch.etal2023a"
@@ -1911,7 +1919,7 @@ def test_a_412_before_any_note_is_written_writes_no_csl_file(tmp_vault, monkeypa
 def test_capturing_x_alone_moves_no_entry_for_y_and_ys_own_recapture_moves_both(
     tmp_vault, monkeypatch
 ):
-    """Designs test 2, as §5.3.7 amends it: an entry moves only with its note.
+    """Designs test 2: as §5.3.7 amends it, an entry moves only with its note.
     Y's DOI moves in Zotero; `capture X` leaves Y's entry and note as they
     were, with no captured-set row for Y; `capture Y` moves both together, and
     the monitor reports the DOI."""
