@@ -8,13 +8,15 @@ def test_read_only_ci_has_explicit_base_head_candidate_and_no_repository_authori
     assert text.count("permissions:") == 1
     assert "permissions:\n  contents: read" in text
     assert "persist-credentials: false" in text
-    assert "git hash-object -w -t tree /dev/null" in text
+    # R27: a created branch replays from publish's base, never the empty tree.
+    assert "git hash-object -w -t tree /dev/null" not in text
+    assert "recheck=publish" in text
     assert 'git fetch --no-tags origin "$base"' in text
     assert 'git cat-file -e "$base^{tree}"' in text
     assert "BASE: ${{ steps.base.outputs.sha }}" in text
     assert (
         "python -m research_vault verify --vault . --offline --surface commit "
-        '--git-base "$BASE" --git-candidate HEAD --recheck-commits "$BASE"'
+        '--git-base "$BASE" --git-candidate HEAD --recheck-commits "$RECHECK"'
     ) in text
     assert '--git-base "${{' not in text
     assert "git push" not in text

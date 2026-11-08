@@ -24,6 +24,8 @@ Do not create directories or files by hand, substitute custom CI, use `git add .
 
 A vault scaffolded with `--with-ci` on or before 2026-09-23 installs `research-vault @ git+…` in its workflow; the label is create-once, so edit the two `pip install` lines to `research-vault-core @ git+https://github.com/eranroseman/research-vault.git` by hand.
 
+After adding CI to an existing vault, run `python3 -m research_vault verify --surface publish --recheck-commits all --vault PATH` once before the first publication: publish re-checks from the commit that brought CI, so nothing else replays the commits before it.
+
 ## Diagnose
 
 Run doctor after scaffold. Either accepted base override position is valid:

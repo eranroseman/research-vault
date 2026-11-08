@@ -6667,6 +6667,13 @@ def test_the_publish_surface_previews_with_publishs_own_recheck_base(
         "re-check: every commit since HEAD (--recheck-commits)"
         in capsys.readouterr().out.splitlines()
     )
+    # R27: `publish` names publish's base on any surface, CI's created ref.
+    cli.main([*common, "--surface", "commit", "--recheck-commits", "publish"])
+    assert seen["recheck_commits"] == "published/brief-2026-01-01-090000"
+    assert (
+        "re-check: every commit since published/brief-2026-01-01-090000 "
+        "(the newest publication)"
+    ) in capsys.readouterr().out.splitlines()
     cli.main([*common, "--surface", "commit"])
     assert seen["recheck_commits"] is None
     assert not [

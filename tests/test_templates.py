@@ -316,7 +316,7 @@ def test_precommit_hook_is_executable_and_has_exact_contract():
 
 def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     text = asset("ci/verify.yml").read_text()
-    assert "name: verify\non: [push, pull_request]" in text
+    assert "name: verify\non:\n  push:\n    branches: ['**']\n  pull_request:\n" in text
     assert "permissions:\n  contents: read" in text
     assert "- uses: actions/checkout@v7" in text
     assert "fetch-depth: 0" in text
@@ -331,12 +331,16 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
     assert "PUSH_BASE: ${{ github.event.before }}" in text
     assert "zero=0000000000000000000000000000000000000000" in text
     assert "persist-credentials: false" in text
-    assert 'empty_tree="$(git hash-object -w -t tree /dev/null)"' in text
+    assert "empty_tree" not in text
     assert 'git fetch --no-tags origin "$base"' in text
     assert 'git cat-file -e "$base^{tree}"' in text
     assert 'printf \'sha=%s\\n\' "$base" >> "$GITHUB_OUTPUT"' in text
+    assert 'printf \'recheck=%s\\n\' "$recheck" >> "$GITHUB_OUTPUT"' in text
     assert "BASE: ${{ steps.base.outputs.sha }}" in text
-    assert ('--git-base "$BASE" --git-candidate HEAD --recheck-commits "$BASE"') in text
+    assert "RECHECK: ${{ steps.base.outputs.recheck }}" in text
+    assert (
+        '--git-base "$BASE" --git-candidate HEAD --recheck-commits "$RECHECK"'
+    ) in text
     assert "git push" not in text
     assert "0) exit 0 ;;" in text
     assert "1) exit 1 ;;" in text
@@ -348,6 +352,102 @@ def test_verify_workflow_has_read_only_base_resolution_and_exit_contract():
         '*)\n              echo "::error::verifier exited unexpectedly with status $code"'
         in text
     )
+
+
+def _verify_steps():
+    import yaml
+
+    workflow = yaml.safe_load(asset("ci/verify.yml").read_text())
+    # YAML 1.1 reads the bare key `on` as True.
+    triggers = workflow[True]
+    steps = {
+        step.get("id", step.get("name")): step
+        for step in workflow["jobs"]["offline-verify"]["steps"]
+    }
+    return triggers, steps
+
+
+def test_verify_workflow_runs_on_branches_and_pull_requests_never_on_a_tag():
+    """R27 (a): publish pushes every publication tag (push.followTags); a
+    `branches` filter alone leaves tag pushes out, so a tag runs nothing."""
+    triggers, _steps = _verify_steps()
+    assert triggers == {"push": {"branches": ["**"]}, "pull_request": None}
+
+
+def test_a_created_branch_replays_from_publishs_base_not_the_empty_tree(
+    net_vault, tmp_path
+):
+    """R27 (b) (F2): a created ref arrives with `before` all zeros. The base
+    step gives the leg HEAD (an empty range) and the replay `publish`, which
+    the CLI resolves through `publish.recheck_base` alone; the run then
+    leaves a pre-seed, never-acked recapture alone, as publish does."""
+    import shlex
+
+    from research_vault.__main__ import main
+    from tests.conftest import must_replace
+    from tests.test_verify_cli import _ack_standing_citation_key, _commit_all
+
+    _ack_standing_citation_key(net_vault)
+    for empty in ("system/templates", "system/bases"):  # so HEAD's tree has them
+        (net_vault / empty / ".gitkeep").write_text("")
+    note = net_vault / "literature" / "smith2020.md"
+    text = must_replace(
+        note.read_text(), 'DOI: "10.1000/xyz"\n', 'DOI: "10.1000/xyz"\nvolume: "3"\n'
+    )
+    note.write_text(
+        must_replace(text, 'at: "2026-08-16T09:00:00Z"', 'at: "2026-08-17T09:00:00Z"')
+    )
+    _commit_all(net_vault, "a recapture before CI, never acknowledged")
+    workflows = net_vault / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "verify.yml").write_bytes(asset("ci/verify.yml").read_bytes())
+    _commit_all(net_vault, "add CI")
+    _triggers, steps = _verify_steps()
+    outputs = tmp_path / "github-output"
+    env = {
+        **os.environ,
+        "EVENT_NAME": "push",
+        "PUSH_BASE": "0" * 40,
+        "PR_BASE": "",
+        "GITHUB_OUTPUT": str(outputs),
+    }
+    subprocess.run(
+        ["bash", "-c", steps["base"]["run"]], cwd=net_vault, env=env, check=True
+    )
+    resolved = dict(line.split("=", 1) for line in outputs.read_text().splitlines())
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=net_vault,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert resolved == {"sha": head, "recheck": "publish"}
+    (command,) = [
+        line.strip()
+        for line in steps["Verify committed changes"]["run"].splitlines()
+        if line.strip().startswith("python -m research_vault verify")
+    ]
+    argv = shlex.split(
+        command.replace('"$BASE"', resolved["sha"]).replace(
+            '"$RECHECK"', resolved["recheck"]
+        )
+    )[3:]
+    assert argv[argv.index("--recheck-commits") + 1] == "publish"
+    argv[argv.index("--vault") + 1] = str(net_vault)
+    assert main(argv) == 0
+    # The empty-tree base this replaced replays the whole history and turns
+    # the pre-CI recapture into a closing row.
+    empty = subprocess.run(
+        ["git", "hash-object", "-t", "tree", "/dev/null"],
+        cwd=net_vault,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    whole = [*argv[: argv.index("--git-base")], "--git-base", empty]
+    whole += ["--git-candidate", "HEAD", "--recheck-commits", empty]
+    assert main(whole) == 1
 
 
 def test_rw_workflow_has_explicit_csv_only_write_boundary():

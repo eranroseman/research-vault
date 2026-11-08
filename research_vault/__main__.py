@@ -300,10 +300,14 @@ def _as_of(args) -> str | None:
 
 def _recheck(args, surface) -> tuple[str | object | None, str | None]:
     """The re-check base and the line naming it: an explicit
-    `--recheck-commits` wins; the publish surface otherwise uses publish's
-    own base (R21), so the preview and the publication see the same rows."""
+    `--recheck-commits` wins (`all` the whole history, `publish` publish's
+    base); the publish surface otherwise uses publish's own base (R21), so
+    the preview and the publication see the same rows."""
     if args.recheck_commits == "all":
         return WHOLE_HISTORY, "re-check: the whole history (--recheck-commits all)"
+    if args.recheck_commits == "publish":
+        # Publish's own base, its rule in one place (R27): CI's created ref.
+        return publish.recheck_base(args.vault)
     if args.recheck_commits is not None:
         return args.recheck_commits, (
             f"re-check: every commit since {args.recheck_commits} (--recheck-commits)"
@@ -936,7 +940,8 @@ def main(argv=None):
         "--recheck-commits",
         metavar="BASE",
         help="also re-check every commit reachable from HEAD and not from BASE, "
-        "each against its parent; 'all' is the whole history",
+        "each against its parent; 'all' is the whole history, 'publish' is "
+        "the base publish re-checks from",
     )
     factcheck_cmd = sub.add_parser("factcheck", parents=[common])
     factcheck_cmd.add_argument("--vault", required=True)

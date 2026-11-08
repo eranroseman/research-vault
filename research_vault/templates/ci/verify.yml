@@ -1,6 +1,9 @@
 ---
 name: verify
-on: [push, pull_request]
+on:
+  push:
+    branches: ['**']
+  pull_request:
 permissions:
   contents: read
 jobs:
@@ -26,26 +29,32 @@ jobs:
         run: |
           set -euo pipefail
           zero=0000000000000000000000000000000000000000
-          empty_tree="$(git hash-object -w -t tree /dev/null)"
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             base="$PR_BASE"
+            recheck="$PR_BASE"
           elif [[ -n "$PUSH_BASE" && "$PUSH_BASE" != "$zero" ]]; then
             base="$PUSH_BASE"
+            recheck="$PUSH_BASE"
           else
-            base="$empty_tree"
+            # A created branch: an empty leg, and the replay starts where
+            # publish's does (its rule lives in publish.recheck_base only).
+            base="$(git rev-parse HEAD)"
+            recheck=publish
           fi
-          if [[ "$base" != "$empty_tree" ]]; then
+          if [[ "$recheck" != publish ]]; then
             git fetch --no-tags origin "$base"
           fi
           git cat-file -e "$base^{tree}"
           printf 'sha=%s\n' "$base" >> "$GITHUB_OUTPUT"
+          printf 'recheck=%s\n' "$recheck" >> "$GITHUB_OUTPUT"
       - name: Verify committed changes
         shell: bash
         env:
           BASE: ${{ steps.base.outputs.sha }}
+          RECHECK: ${{ steps.base.outputs.recheck }}
         run: |-
           set +e
-          python -m research_vault verify --vault . --offline --surface commit --git-base "$BASE" --git-candidate HEAD --recheck-commits "$BASE"
+          python -m research_vault verify --vault . --offline --surface commit --git-base "$BASE" --git-candidate HEAD --recheck-commits "$RECHECK"
           code=$?
           set -e
           case "$code" in

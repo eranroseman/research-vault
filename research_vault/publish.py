@@ -323,10 +323,27 @@ def recheck_base(vault) -> tuple[str | object, str]:
         return commits[0], (
             f"re-check: every commit since {commits[0]} (the commit that "
             f"brought --recheck-commits into {CI_WORKFLOW})"
+            + _uncovered(vault, commits[0])
         )
     return WHOLE_HISTORY, (
         "re-check: the whole history (no publication tag, and no "
         f"--recheck-commits in {CI_WORKFLOW}'s history)"
+    )
+
+
+def _uncovered(vault, seed: str) -> str:
+    """What the seed rule leaves out (R28): the seed's ancestors, which no
+    re-check ran on if CI arrived after them (an upgraded vault), and the one
+    command that covers them."""
+    counted = _git(vault, "rev-list", "--count", seed)
+    if counted.returncode != 0:
+        raise PublishError(f"cannot count the commits before {seed}")
+    earlier = int(counted.stdout) - 1
+    if earlier == 0:
+        return "; no earlier commit"
+    return (
+        f"; {earlier} earlier commit{'s' if earlier > 1 else ''} not re-checked: "
+        "run verify --surface publish --recheck-commits all once to cover them"
     )
 
 
