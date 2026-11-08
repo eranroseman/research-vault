@@ -1996,11 +1996,31 @@ def _commit(vault: Path, env, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _hook_vault(tmp_path: Path) -> tuple[Path, dict[str, str]]:
-    from research_vault import scaffold
+@pytest.fixture(scope="session")
+def hook_vault_template(tmp_path_factory) -> Path:
+    """One scaffolded vault per session, built by the CLI in a subprocess;
+    each real-hook test copies it. Run in-process, `scaffold_vault` maps every
+    scaffold, okf and frontmatter function it reaches to these seven tests in
+    the mutation gate's stats phase, so each of those mutants ran seven full
+    commit legs of about a minute each there (measured 2026-11-07: 4,867 of
+    the 5,729 minutes of test time left in a baseline run). A subprocess is
+    invisible to that phase (the gate header's known measurement limit), and
+    scaffold keeps its own tests."""
+    root = tmp_path_factory.mktemp("hook-vault-template")
+    vault = root / "vault"
+    subprocess.run(
+        ["python3", "-m", "research_vault", "scaffold", "--vault", str(vault)],
+        cwd=root,
+        env=_hook_env(root),
+        capture_output=True,
+        check=True,
+    )
+    return vault
 
+
+def _hook_vault(tmp_path: Path, template: Path) -> tuple[Path, dict[str, str]]:
     vault = tmp_path / "vault"
-    scaffold.scaffold_vault(vault)
+    shutil.copytree(template, vault, symlinks=True)
     env = _hook_env(tmp_path)
     # The import probe must find research_vault from the vault, the hook's own
     # cwd: a hook that cannot import it exits 0 before any assertion below
@@ -2022,8 +2042,8 @@ def _fingerprint(path: Path) -> tuple[bytes, int]:
     return path.read_bytes(), path.stat().st_mtime_ns
 
 
-def test_real_hook_never_stages_untracked_files(tmp_path):
-    vault, env = _hook_vault(tmp_path)
+def test_real_hook_never_stages_untracked_files(tmp_path, hook_vault_template):
+    vault, env = _hook_vault(tmp_path, hook_vault_template)
     strays = {
         "log/2026-10-25.md": "- a hand-typed line\n",
         "inbox/s.md": "a thought\n",
@@ -2068,8 +2088,10 @@ def test_real_hook_never_stages_untracked_files(tmp_path):
         assert f"?? {relative}" in status
 
 
-def test_real_hook_refuses_a_bare_staged_note_until_it_is_restaged(tmp_path):
-    vault, env = _hook_vault(tmp_path)
+def test_real_hook_refuses_a_bare_staged_note_until_it_is_restaged(
+    tmp_path, hook_vault_template
+):
+    vault, env = _hook_vault(tmp_path, hook_vault_template)
     (vault / "daily" / "d.md").write_text("a thought\n")
     subprocess.run(["git", "add", "daily/d.md"], cwd=vault, env=env, check=True)
     refused = _commit(vault, env)
@@ -2091,11 +2113,13 @@ def test_real_hook_refuses_a_bare_staged_note_until_it_is_restaged(tmp_path):
     assert _commit(vault, env).returncode == 0
 
 
-def test_real_hook_under_a_pathspec_commit_passes_on_the_second_run(tmp_path):
+def test_real_hook_under_a_pathspec_commit_passes_on_the_second_run(
+    tmp_path, hook_vault_template
+):
     """`git commit -- <path>` needs the path known to git, so it is added bare
     first; the pathspec commit then builds its temporary index from the
     worktree copy, which the fixer rewrote on the first run."""
-    vault, env = _hook_vault(tmp_path)
+    vault, env = _hook_vault(tmp_path, hook_vault_template)
     (vault / "daily" / "d.md").write_text("a thought\n")
     subprocess.run(["git", "add", "daily/d.md"], cwd=vault, env=env, check=True)
     assert _commit(vault, env, "--", "daily/d.md").returncode == 1
@@ -2111,11 +2135,13 @@ def test_real_hook_under_a_pathspec_commit_passes_on_the_second_run(tmp_path):
     assert shown == '---\ntype: "daily"\n---\na thought\n'
 
 
-def test_real_hook_reports_a_partially_staged_file_and_leaves_it(tmp_path):
+def test_real_hook_reports_a_partially_staged_file_and_leaves_it(
+    tmp_path, hook_vault_template
+):
     """A partially staged note is never rewritten. Its staged copy is judged:
     one the fixer would change refuses the commit before verify; one it
     would leave commits as staged (`git add -p`, Q1), worktree untouched."""
-    vault, env = _hook_vault(tmp_path)
+    vault, env = _hook_vault(tmp_path, hook_vault_template)
     note = vault / "daily" / "d.md"
     note.write_text("a\n")
     subprocess.run(["git", "add", "daily/d.md"], cwd=vault, env=env, check=True)
@@ -2146,11 +2172,13 @@ def test_real_hook_reports_a_partially_staged_file_and_leaves_it(tmp_path):
     assert note.read_text() == '---\ntype: "daily"\n---\na\nb\n'
 
 
-def test_real_hook_refuses_a_retry_until_the_fixed_copy_is_staged(tmp_path):
+def test_real_hook_refuses_a_retry_until_the_fixed_copy_is_staged(
+    tmp_path, hook_vault_template
+):
     """R1: after a refused commit the fixer's own rewrite leaves the note
     partially staged, so a retry with no `git add` must not commit the
     unfixed staged copy; staging it lets the commit through with the fix."""
-    vault, env = _hook_vault(tmp_path)
+    vault, env = _hook_vault(tmp_path, hook_vault_template)
 
     def git(*args: str) -> str:
         return subprocess.run(
@@ -2189,8 +2217,8 @@ def test_real_hook_refuses_a_retry_until_the_fixed_copy_is_staged(tmp_path):
     assert git("status", "--porcelain", "--", "projects") == ""
 
 
-def test_real_hook_regenerates_root_log_and_names_it(tmp_path):
-    vault, env = _hook_vault(tmp_path)
+def test_real_hook_regenerates_root_log_and_names_it(tmp_path, hook_vault_template):
+    vault, env = _hook_vault(tmp_path, hook_vault_template)
     day = vault / "log" / "2026-10-24.md"
     day.write_text('---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — a line\n')
     subprocess.run(["git", "add", "log/2026-10-24.md"], cwd=vault, env=env, check=True)
@@ -2202,11 +2230,13 @@ def test_real_hook_regenerates_root_log_and_names_it(tmp_path):
     assert _commit(vault, env).returncode == 0
 
 
-def test_real_hook_names_the_log_a_day_file_pathspec_commit_must_add(tmp_path):
+def test_real_hook_names_the_log_a_day_file_pathspec_commit_must_add(
+    tmp_path, hook_vault_template
+):
     """The log.md the fixer regenerates lies outside `git commit --
     log/<day>.md`, so staging it cannot reach that commit's temporary index:
     the refusal says to add it to the pathspec, and the widened commit passes."""
-    vault, env = _hook_vault(tmp_path)
+    vault, env = _hook_vault(tmp_path, hook_vault_template)
     day = vault / "log" / "2026-10-24.md"
     day.write_text('---\ntype: "log"\n---\n- 09:00 research_vault/0.1.0 — a line\n')
     subprocess.run(["git", "add", "log/2026-10-24.md"], cwd=vault, env=env, check=True)
