@@ -600,3 +600,40 @@ def test_trust_tier_checks_every_quote_claim_and_ignores_foreign_failure_rows():
     assert events.trust_tier(text) == "machine-confirmed"
     with_foreign_failure = events.record_failure(text, "metadata", Result.UNMATCHED)
     assert events.trust_tier(with_foreign_failure) == "machine-confirmed"
+
+
+def _observe(text, **kwargs):
+    return events.record_pass(text, "doi", Result.MATCHED, once=True, **kwargs)
+
+
+def test_record_pass_once_adds_nothing_the_note_already_records():
+    """#269: the same actor, date and check is one event, however many runs."""
+    once = _observe(BASE, at="2026-08-16")
+    assert _observe(once, at="2026-08-16") == once
+    later = _observe(once, at="2026-08-17")
+    assert [e["at"] for e in events.verified_checks(later)] == [
+        "2026-08-16",
+        "2026-08-17",
+    ]
+    assert (
+        len(events.verified_checks(_observe(once, by="human:eran", at="2026-08-16")))
+        == 2
+    )
+
+
+def test_record_pass_without_once_records_every_act():
+    """A publication is an act each time: two on one day are two events."""
+    once = events.record_pass(BASE, "publish", Result.MATCHED, at="2026-08-16")
+    twice = events.record_pass(once, "publish", Result.MATCHED, at="2026-08-16")
+    assert len(events.verified_checks(twice)) == 2
+
+
+def test_a_pass_that_clears_a_failure_row_appends_even_when_it_repeats_an_event():
+    """#206: a failure row may vanish only with a passing event in the same
+    diff, so the pass that clears one is recorded even on the day an
+    identical event already stands (pass, fail, pass on one date)."""
+    passed = _observe(BASE, at="2026-08-16")
+    failed = events.record_failure(passed, "doi", Result.UNMATCHED)
+    again = _observe(failed, at="2026-08-16")
+    assert "failed-verification" not in frontmatter.parse(again)[0]
+    assert len(events.verified_checks(again)) == 2

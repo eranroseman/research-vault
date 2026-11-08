@@ -359,11 +359,12 @@ def _walkers():
             compile_mod._selected_notes(v, {"smith2020", "gone2019"})
         ),
         "markers": markers._claim_notes,
-        # Each run appends `verified:` markers, so claim line numbers (in
-        # `extra`) move between reads. `evidence-layer` is left out: it judges
-        # the git snapshot's path set (`lints._literature_files`), not a walk.
+        # `extra` included: a second run on one day appends no `verified:`
+        # event (#269), so claim line numbers hold still between reads.
+        # `evidence-layer` is left out: it judges the git snapshot's path set
+        # (`lints._literature_files`), not a walk.
         "verify": lambda v: [
-            (o.check, o.target, o.result, o.reason)
+            (o.check, o.target, o.result, o.reason, o.extra)
             for o in verify.verify_state(v, network=False, git_candidate="worktree")[1]
             if o.check != "evidence-layer"
         ],

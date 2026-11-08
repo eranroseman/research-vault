@@ -649,6 +649,7 @@ def _apply_state_transitions(vault_root, raw, detection_date, *, stamp):
                             check,
                             Result.MATCHED,
                             at=detection_date,
+                            once=True,
                         )
                         if outcome.result is Result.MATCHED
                         else events.record_failure(text, check, outcome.result)

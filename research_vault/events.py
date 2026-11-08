@@ -105,8 +105,14 @@ def record_pass(
     result: Result,
     by: str = AGENT_ACTOR,
     at: str | None = None,
+    *,
+    once: bool = False,
 ) -> str:
-    """Append a verification event for a successful deterministic check."""
+    """Append a verification event for a successful deterministic check.
+
+    ``once`` is for an observation (verify's passes): an event the note
+    already records, the same actor, date and check, is not appended again
+    (#269). A publication is an act each time, so publish leaves it off."""
     if result is not Result.MATCHED:
         raise ValueError(f"only MATCHED mints verified events, got {result}")
     if not _single_line(by):
@@ -126,14 +132,15 @@ def record_pass(
         raise ValueError(
             "failed-verification frontmatter must be a deterministic list of mappings"
         )
-    failures = [row for row in failures if row["check"] != check]
-    events.append(
-        {
-            "by": by,
-            "at": at,
-            "check": check,
-        }
-    )
+    remaining = [row for row in failures if row["check"] != check]
+    # A pass that clears a failure row is appended even under `once`: that row
+    # may vanish only beside a passing event the same diff adds (#206).
+    recorded = {
+        (str(e.get("by")), str(e.get("at")), str(e.get("check"))) for e in events
+    }
+    if not once or (by, at, check) not in recorded or remaining != failures:
+        events.append({"by": by, "at": at, "check": check})
+    failures = remaining
     without_failure = _replace_frontmatter_list(
         note_text, FAILURES_FIELD, failures, body
     )

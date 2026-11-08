@@ -5706,3 +5706,26 @@ def test_a_list_row_with_no_tree_behind_the_base_has_no_hash(net_vault):
             verify._target_hash(
                 net_vault, outcome, base_snapshot=base, candidate_snapshot=candidate
             )
+
+
+def test_two_worktree_runs_on_one_day_leave_one_event_per_check(net_vault):
+    """#269: a pass already recorded by the same actor on the same date for the
+    same check adds nothing; a run on a later date appends one."""
+    note = net_vault / "literature" / "smith2020.md"
+
+    def events_by_check():
+        data, _ = frontmatter.parse(note.read_text())
+        return Counter(
+            (event["check"], event["at"]) for event in data.get("verified") or []
+        )
+
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+    once = events_by_check()
+    assert once
+    assert set(once.values()) == {1}
+    run_verify(net_vault, network=False, detection_date="2026-08-16")
+    assert events_by_check() == once
+    run_verify(net_vault, network=False, detection_date="2026-08-17")
+    later = events_by_check()
+    assert {at for (_check, at) in later - once} == {"2026-08-17"}
+    assert set(later.values()) == {1}
