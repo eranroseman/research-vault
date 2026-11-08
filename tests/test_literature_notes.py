@@ -980,10 +980,11 @@ def test_render_note_title_folds_a_title_shaped_field():
         # U+274C is a Dingbat, outside Obsidian's rejected class: only the space repairs.
         ("❌ nosource", "❌-nosource"),
         ("/unread", "unread"),
+        ("a/", "a"),
+        ("a//b", "a/b"),
         # Obsidian accepts these as written: the identity, not a repair
         ("a--b", "a--b"),
         ("-a-", "-a-"),
-        ("a//b", "a/b"),
         # U+2010, U+2014, U+2019 are in Obsidian's rejected class
         ("a‐b—c’d", "a-b-c-d"),
         ("x[1];y+z", "x-1-y-z"),
@@ -1003,6 +1004,52 @@ def test_slug_tag_repairs_what_obsidian_rejects_and_never_reinterprets_a_valid_t
     tag, slug
 ):
     assert literature_notes.slug_tag(tag) == slug
+
+
+# TAG_REJECT's members: the first and last code point of each range, and each
+# singleton (the ASCII punctuation and JS `\s`'s single characters).
+_REJECTED_ENDPOINTS = (
+    "\u2000\u206f"  # general punctuation
+    "\u2e00\u2e7f"  # supplemental punctuation
+    "'!\"#$%&()*+,.:;<=>?@^`{|}~[]\\"  # ASCII punctuation other than _ - /
+    "\t\n\x0b\x0c\r \u00a0\u1680\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"  # JS \s
+)
+
+
+@pytest.mark.parametrize(
+    "ch", list(_REJECTED_ENDPOINTS), ids=lambda ch: f"U+{ord(ch):04X}"
+)
+def test_slug_tag_repairs_each_rejected_class_member(ch):
+    assert literature_notes.slug_tag(f"a{ch}b") == "a-b"
+
+
+# Just outside each range, JS `\s`'s gaps Python's `\s` has, and the C0
+# controls that are neither: Obsidian accepts all of them inside a word.
+@pytest.mark.parametrize(
+    "ch",
+    list("\u1fff\u2070\u2dff\u2e80\x1c\x1d\x1e\x1f\x85"),
+    ids=lambda ch: f"U+{ord(ch):04X}",
+)
+def test_slug_tag_keeps_a_code_point_obsidian_accepts(ch):
+    assert literature_notes.slug_tag(f"a{ch}b") == f"a{ch}b"
+
+
+@pytest.mark.parametrize(
+    "ch", ["\x01", "\x07", "\x7f"], ids=["U+0001", "U+0007", "U+007F"]
+)
+def test_a_c0_control_obsidian_accepts_passes_slugging_but_frontmatter_refuses_it(
+    ch,
+):
+    # Pins today's behaviour (Task 11b (c)): Obsidian's class lacks these, so
+    # slug_tag and slug_tags keep them; the serializer then refuses the value,
+    # so the whole item is a schema-violation. A defect, filed, not fixed here.
+    tag = f"a{ch}b"
+    assert literature_notes.slug_tag(tag) == tag
+    assert literature_notes.slug_tags([{"tag": tag}]) == [tag]
+    fields = _snapshot_fields(tag)
+    assert fields["tags"] == [tag]
+    with pytest.raises(frontmatter.FrontmatterError, match="control or line-break"):
+        frontmatter.serialize({"tags": fields["tags"]})
 
 
 def test_slug_tags_drops_duplicates_ignoring_case_and_keeps_both_tag_types():

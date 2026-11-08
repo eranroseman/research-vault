@@ -52,7 +52,8 @@ SNAPSHOT_FIELDS: tuple[str, ...] = (
     "abstractNote",
     "extra",
     "accessDate",
-    # #195: `zotero-tags` is Zotero's list exactly (today's `tags`, renamed);
+    # #195: `zotero-tags` is Zotero's list exactly, as `frontmatter_value` writes
+    # strings (today's `tags`, renamed);
     # `tags` is the slugged copy Obsidian reads.
     "zotero-tags",
     "tags",
@@ -74,10 +75,11 @@ _ASCII_DIGITS_ONLY = re.compile(r"^[0-9]+$")
 
 def slug_tag(name: str) -> str | None:
     """A tag Obsidian accepts comes back unchanged; only a rejected one is
-    repaired. Accepted means: no rejected character, not ASCII digits only, no
-    empty `/` segment (leading, trailing or doubled `/`). The repair turns every rejected
-    character into `-`, collapses runs, keeps `/` so it nests, and drops `-`
-    around `/` and at the ends; empty and all-digit results are None (#195, Q9)."""
+    repaired. Accepted means: no rejected character, not ASCII digits only,
+    no empty `/` segment (leading, trailing or doubled `/`). The repair turns
+    every rejected character into `-`, collapses runs, keeps `/` so it nests,
+    and drops `-` around `/` and at the ends; empty and all-digit results are
+    None (#195, Q9)."""
     if (
         name
         and not TAG_REJECT.search(name)
