@@ -1897,3 +1897,89 @@ def test_monitor_runs_across_a_renamed_pair_too(fixture_vault):
         "path-bytes:literature/smith2020b.md",
         'drift — DOI changed: "10.1000/xyz" → "10.1000/abc"',
     ) in _monitor_rows(fixture_vault, base)
+
+
+def _with_lists(path, verified, failures):
+    text = path.read_text()
+    block = ""
+    if verified:
+        block += "verified:\n" + "".join(
+            f'  - {{by: "{e[0]}", at: "{e[1]}", check: "{e[2]}"}}\n' for e in verified
+        )
+    if failures:
+        block += "failed-verification:\n" + "".join(
+            f'  - {{check: "{f[0]}", result: "{f[1]}"}}\n' for f in failures
+        )
+    path.write_text(must_replace(text, "accessed:", block + "accessed:"))
+
+
+def _list_rows(vault, base):
+    return [
+        (item.reason, item.extra.get("hash_basis"))
+        for item in lints.lint_evidence_layer(
+            gitstate.snapshot_tree(vault, base), gitstate.snapshot_worktree(vault)
+        )
+        if item.check == "evidence-layer" and "verif" in item.reason
+    ]
+
+
+def test_removing_a_verified_event_is_drift(fixture_vault):
+    note = fixture_vault / "literature" / "smith2020.md"
+    _with_lists(note, [("research_vault/0.1.0", "2026-09-01", "update-notice")], [])
+    subprocess.run(["git", "commit", "-qam", "events"], cwd=fixture_vault, check=True)
+    base = _base_tree(fixture_vault)
+    _with_lists(note, [], [])
+    note.write_text(
+        must_replace(
+            note.read_text(),
+            'verified:\n  - {by: "research_vault/0.1.0", at: "2026-09-01", check: "update-notice"}\n',
+            "",
+        )
+    )
+    assert _list_rows(fixture_vault, base) == [
+        (
+            "drift — verified event removed: update-notice@2026-09-01 by research_vault/0.1.0",
+            "verifier-lists",
+        )
+    ]
+
+
+def test_a_failure_row_may_change_result_or_be_added_but_not_vanish(fixture_vault):
+    note = fixture_vault / "literature" / "smith2020.md"
+    _with_lists(note, [], [("update-notice", "UNMATCHED")])
+    subprocess.run(["git", "commit", "-qam", "failure"], cwd=fixture_vault, check=True)
+    base = _base_tree(fixture_vault)
+    note.write_text(
+        must_replace(note.read_text(), 'result: "UNMATCHED"', 'result: "UNREACHABLE"')
+    )
+    assert _list_rows(fixture_vault, base) == []
+    note.write_text(
+        must_replace(
+            note.read_text(),
+            'failed-verification:\n  - {check: "update-notice", result: "UNREACHABLE"}\n',
+            "",
+        )
+    )
+    assert _list_rows(fixture_vault, base) == [
+        (
+            "drift — failed-verification row for update-notice removed without a passing event",
+            "verifier-lists",
+        )
+    ]
+
+
+def test_a_failure_row_removed_by_a_passing_event_in_the_same_diff_is_legal(
+    fixture_vault,
+):
+    note = fixture_vault / "literature" / "smith2020.md"
+    _with_lists(note, [], [("update-notice", "UNMATCHED")])
+    subprocess.run(["git", "commit", "-qam", "failure"], cwd=fixture_vault, check=True)
+    base = _base_tree(fixture_vault)
+    note.write_text(
+        must_replace(
+            note.read_text(),
+            'failed-verification:\n  - {check: "update-notice", result: "UNMATCHED"}\n',
+            'verified:\n  - {by: "research_vault/0.1.0", at: "2026-09-02", check: "update-notice"}\n',
+        )
+    )
+    assert _list_rows(fixture_vault, base) == []

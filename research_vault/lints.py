@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import claims as claims_mod
-from . import frontmatter, gitstate, literature_notes, structure
+from . import events, frontmatter, gitstate, literature_notes, structure
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 
@@ -746,6 +746,13 @@ MONITOR_EXEMPT = frozenset({"zotero-tags", "tags"})
 # hash is the note's bytes plus the row's own reason (`verify._HASH_BASES`), so
 # each row is its own queue record and one ack accepts one change (ruling P4).
 MONITOR_ROW = "monitor-row"
+# The `hash_basis` of a #206 verifier-list row: its acknowledgment hash is the
+# candidate's hand-written `verified` events (verify's own appends and its
+# failure rows are left out, since every verify run rewrites them) plus the
+# row's reason (`verify._HASH_BASES`). The note's canonical bytes exclude the
+# lists, so hashing the note would let one ack on a removal cover every later
+# well-formed list edit; the reason keeps two list rows on one note apart.
+VERIFIER_LISTS = "verifier-lists"
 _VALUE_CAP = 60
 
 
@@ -801,6 +808,60 @@ def _restored_reason(base_data: dict, candidate_data: dict) -> str | None:
     if datetime.fromisoformat(new_at) < datetime.fromisoformat(old_at):
         return f"drift — older render restored: generated.at {new_at} < {old_at}"
     return None
+
+
+def _events_of(data: dict | None) -> list[tuple[str, str, str]]:
+    parsed, malformed = events._verified_events(data or {})
+    if malformed:
+        return []
+    return [
+        (str(e.get("by")), str(e.get("at")), str(e.get("check", ""))) for e in parsed
+    ]
+
+
+def _failures_of(data: dict | None) -> dict[str, str]:
+    rows, malformed = events._failure_rows(data or {})
+    return {} if malformed else {row["check"]: row["result"] for row in rows}
+
+
+def _verifier_list_outcomes(raw_path, base_data, candidate_data) -> list[Outcome]:
+    """#206: `verified` events are append-only; a failure row may be added or
+    change its result, and may vanish only when the same diff appends a
+    passing event for its check. These rows hash on the lists themselves
+    (`hash_basis`), because the note's canonical bytes exclude the lists."""
+    if base_data is None or candidate_data is None:
+        return []
+    extra = {"hash_basis": VERIFIER_LISTS}
+
+    def row(reason: str) -> Outcome:
+        return Outcome(
+            "evidence-layer",
+            RepoPath(raw_path),
+            Result.UNMATCHED,
+            reason,
+            extra=extra,
+        )
+
+    rows: list[Outcome] = []
+    before, after = _events_of(base_data), _events_of(candidate_data)
+    remaining = list(after)
+    for event in before:
+        if event in remaining:
+            remaining.remove(event)
+        else:
+            by, at, check = event
+            rows.append(row(f"drift — verified event removed: {check}@{at} by {by}"))
+    passed = {check for _by, _at, check in after} - {
+        check for _by, _at, check in before
+    }
+    vanished = set(_failures_of(base_data)) - set(_failures_of(candidate_data))
+    rows.extend(
+        row(
+            f"drift — failed-verification row for {check} removed without a passing event"
+        )
+        for check in sorted(vanished - passed)
+    )
+    return rows
 
 
 def _capture_monitor_outcomes(raw_path, base_data, candidate_data) -> list[Outcome]:
@@ -977,6 +1038,9 @@ def lint_evidence_layer(
             outcomes.extend(
                 _capture_monitor_outcomes(raw_path, base_data, candidate_data)
             )
+            outcomes.extend(
+                _verifier_list_outcomes(raw_path, base_data, candidate_data)
+            )
         if not attested:
             outcomes.append(
                 Outcome(
@@ -1017,4 +1081,5 @@ def lint_evidence_layer(
             _frontmatter_attestation_outcomes(raw_path, base_data, candidate_data)
         )
         outcomes.extend(_capture_monitor_outcomes(raw_path, base_data, candidate_data))
+        outcomes.extend(_verifier_list_outcomes(raw_path, base_data, candidate_data))
     return _deduplicate(outcomes)

@@ -262,17 +262,61 @@ def _claim_anchor_hash(
     return None
 
 
-def _with_reason(data: bytes, outcome) -> bytes:
+def _with_reason(data: bytes, outcome, _candidate_image) -> bytes:
     return data + b"\x00" + outcome.reason.encode("utf-8")
 
 
+def _verifier_lists_bytes(image) -> bytes:
+    """#206's ack basis: what the lists hold that verify does not itself write.
+
+    A verify run appends `verified` events and rewrites `failed-verification`
+    rows in the candidate it plans over, so hashing the lists whole would
+    change the hash between the run that raises a row and the run after the
+    ack, and the ack would never hold. Verify's own events (machine-class `by`)
+    and the verify-owned failure rows are therefore left out; what remains is
+    the lists' hand-written content, canonical JSON.
+    """
+    data: dict = {}
+    if image is not None and image.kind == "file":
+        try:
+            data, _ = frontmatter.parse(
+                (image.data or b"").decode(errors="surrogateescape")
+            )
+        except frontmatter.FrontmatterError:
+            data = {}
+    parsed, malformed = events._verified_events(data)
+    written = [
+        event
+        for event in parsed
+        if not str(event["by"]).startswith(lints._MACHINE_ACTOR_PREFIX)
+    ]
+    return json.dumps(
+        {"verified": written, "malformed": malformed}, sort_keys=True, default=str
+    ).encode("utf-8")
+
+
+def _lists_with_reason(_data: bytes, outcome, candidate_image) -> bytes:
+    return _with_reason(
+        _verifier_lists_bytes(candidate_image), outcome, candidate_image
+    )
+
+
 # An outcome's `extra["hash_basis"]` names what its repo-path hash covers
-# beyond the target's bytes. Several rows on one note would otherwise share one
-# hash, so `_file_effects` would file the first and one ack would accept all.
+# beyond the target's bytes; each basis is called `(data, outcome,
+# candidate_image)`. Several rows on one note would otherwise share one hash,
+# so `_file_effects` would file the first and one ack would accept all.
 # - `lints.MONITOR_ROW` ("monitor-row"): the note's bytes plus the row's reason;
 #   each capture-monitor row is its own record, and any byte change still
 #   lapses its ack (ruling P4).
-_HASH_BASES = {lints.MONITOR_ROW: _with_reason}
+# - `lints.VERIFIER_LISTS` ("verifier-lists"): the candidate's hand-written
+#   `verified` events as canonical JSON (`_verifier_lists_bytes`) plus the
+#   row's reason, not the note's bytes (which exclude the lists): an ack covers
+#   that row, and a later well-formed list edit by a person changes the hash
+#   and raises it again (#206, rulings P13 and P14).
+_HASH_BASES = {
+    lints.MONITOR_ROW: _with_reason,
+    lints.VERIFIER_LISTS: _lists_with_reason,
+}
 
 
 def _snapshot_path_hash(
@@ -313,7 +357,7 @@ def _snapshot_path_hash(
             data = _note_bytes(data)
     basis = _HASH_BASES.get(outcome.extra.get("hash_basis"))
     if basis is not None:
-        data = basis(data, outcome)
+        data = basis(data, outcome, candidate_image)
     return hashlib.sha256(data).hexdigest()[:16]
 
 

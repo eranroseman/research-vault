@@ -5477,3 +5477,71 @@ def test_each_capture_monitor_row_is_its_own_record(net_vault):
     assert [o.reason for o in effective if o.check == "capture-monitor"] == [
         'drift — DOI changed: "10.1000/xyz" → "10.1000/old"'
     ]
+
+
+def test_a_verifier_list_row_is_acknowledged_on_the_lists_not_the_note(net_vault):
+    """Designs test 16: an ack on 'verified deleted' must not cover every later
+    well-formed list edit, because canonical_content excludes the lists."""
+    from research_vault import inbox, verify
+    from tests.test_lints import _with_lists
+
+    note = net_vault / "literature" / "smith2020.md"
+    _with_lists(note, [], [("update-notice", "UNMATCHED")])
+    subprocess.run(["git", "commit", "-qam", "failure"], cwd=net_vault, check=True)
+    note.write_text(
+        must_replace(
+            note.read_text(),
+            'failed-verification:\n  - {check: "update-notice", result: "UNMATCHED"}\n',
+            "",
+        )
+    )
+    _report, effective, hashes, _warning = verify.verify_state(net_vault, network=False)
+    (row,) = [o for o in effective if "removed without a passing event" in o.reason]
+    first_hash = hashes[id(row)]
+    finding = next(
+        f for f in inbox.open_entries(net_vault) if f.target_hash == first_hash
+    )
+    inbox.append_ack(
+        net_vault, finding.id, "manual — accepted", "human:eran", first_hash
+    )
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False
+    )
+    assert not [o for o in effective if "removed without a passing event" in o.reason]
+    # Verify's first run appended its own `verified:` list; add to that one.
+    note.write_text(
+        must_replace(
+            note.read_text(),
+            "verified:\n",
+            'verified:\n  - {by: "human:eran", at: "2026-09-03", check: "quote:smith2020#^c-11111111:managed-region"}\n',
+        )
+    )
+    _report, effective, hashes, _warning = verify.verify_state(net_vault, network=False)
+    (row,) = [o for o in effective if "removed without a passing event" in o.reason]
+    assert hashes[id(row)] != first_hash
+
+
+def test_verifier_lists_bytes_keeps_hand_written_events_only():
+    from research_vault import gitstate, verify
+
+    def image(text: str):
+        return gitstate.FileImage(b"n.md", "file", 0o100644, text.encode())
+
+    machine = '  - {by: "research_vault/0.1.0", at: "2026-09-01", check: "doi"}\n'
+    human = '  - {by: "human:eran", at: "2026-09-02", check: "doi"}\n'
+    plain = verify._verifier_lists_bytes(image(f"---\nverified:\n{human}---\n"))
+    # Verify's own events and its failure rows do not move the basis.
+    assert plain == verify._verifier_lists_bytes(
+        image(
+            f"---\nverified:\n{machine}{human}failed-verification:\n"
+            '  - {check: "doi", result: "UNMATCHED"}\n---\n'
+        )
+    )
+    # A hand edit does; so does a malformed list, a bad header, or no file.
+    assert plain != verify._verifier_lists_bytes(
+        image("---\nverified:\n" + machine + "---\n")
+    )
+    assert plain != verify._verifier_lists_bytes(image("---\nverified: 3\n---\n"))
+    assert verify._verifier_lists_bytes(image("no frontmatter")) == (
+        verify._verifier_lists_bytes(None)
+    )
