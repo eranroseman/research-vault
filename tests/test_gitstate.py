@@ -779,3 +779,25 @@ def test_allowed_manifest_path_needs_a_file_image_an_md_suffix_and_an_owned_root
     assert allowed(b"literature/x.txt", file_image) is False
     assert allowed(b"system/x.md", file_image) is False
     assert allowed(b"inbox/other.md", file_image) is False
+
+
+def test_a_tree_snapshot_knows_its_tree_oid_and_compares_without_it(tmp_vault):
+    """R17: the oid is how a hash names the whole tree; it is not content."""
+    (tmp_vault / "note.md").write_bytes(b"x\n")
+    commit = _commit(tmp_vault)
+    oid = _git(tmp_vault, "rev-parse", f"{commit}^{{tree}}").stdout.decode().strip()
+    snapshot = gitstate.snapshot_tree(tmp_vault, f"{commit}^{{tree}}")
+    assert snapshot.tree == oid
+    assert gitstate.Snapshot(snapshot.images).tree is None
+    assert gitstate.Snapshot(snapshot.images) == snapshot
+
+
+def test_an_unborn_head_has_the_empty_tree_as_its_base(tmp_path):
+    _git(tmp_path, "init", "-q")
+    base = gitstate.resolve_snapshots(tmp_path).base
+    assert (
+        base.tree
+        == _git(tmp_path, "hash-object", "-t", "tree", "/dev/null")
+        .stdout.decode()
+        .strip()
+    )

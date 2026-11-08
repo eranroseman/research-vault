@@ -262,7 +262,7 @@ def _claim_anchor_hash(
     return None
 
 
-def _with_reason(data: bytes, outcome, _candidate_image) -> bytes:
+def _with_reason(data: bytes, outcome, _candidate_image, _base_snapshot) -> bytes:
     return data + b"\x00" + outcome.reason.encode("utf-8")
 
 
@@ -295,28 +295,38 @@ def _verifier_lists_bytes(image) -> bytes:
     ).encode("utf-8")
 
 
-def _lists_with_reason(_data: bytes, outcome, candidate_image) -> bytes:
-    """The committed lists (digest in `extra`, set by the lint), the person's
-    additions in the candidate, and the row's reason."""
-    committed = str(outcome.extra.get("base_lists", "")).encode("utf-8")
-    basis = committed + b"\x00" + _verifier_lists_bytes(candidate_image)
-    return _with_reason(basis, outcome, candidate_image)
+def _lists_with_reason(_data: bytes, outcome, candidate_image, base_snapshot) -> bytes:
+    """The base's tree oid, the person's additions in the candidate, and the
+    row's reason. The base of a verify run is always a tree snapshot (an unborn
+    HEAD's is the empty tree); one that is not has no oid to stand on."""
+    tree = base_snapshot.tree if base_snapshot is not None else None
+    if tree is None:
+        raise TypeError(
+            "a verifier-list row's hash needs a base snapshot read from a tree"
+        )
+    basis = tree.encode("ascii") + b"\x00" + _verifier_lists_bytes(candidate_image)
+    return _with_reason(basis, outcome, candidate_image, base_snapshot)
 
 
 # An outcome's `extra["hash_basis"]` names what its repo-path hash covers
 # beyond the target's bytes; each basis is called `(data, outcome,
-# candidate_image)`. Several rows on one note would otherwise share one hash,
+# candidate_image, base_snapshot)`. Several rows on one note would otherwise share one hash,
 # so `_file_effects` would file the first and one ack would accept all.
 # - `lints.MONITOR_ROW` ("monitor-row"): the note's bytes plus the row's reason;
 #   each capture-monitor row is its own record, and any byte change still
 #   lapses its ack (ruling P4).
-# - `lints.VERIFIER_LISTS` ("verifier-lists"): the committed lists and the
-#   person's additions, not the note's bytes (which exclude the lists): the
-#   base's two lists whole (`extra["base_lists"]`), the candidate's
-#   hand-written `verified` events (`_verifier_lists_bytes`), and the row's
-#   reason. An ack covers that row; a later well-formed list edit by a person,
-#   or a repeat removal on a newer base, changes the hash and raises it again
-#   (#206, rulings P13, P14, P15 and R16).
+# - `lints.VERIFIER_LISTS` ("verifier-lists"): on the committed tree, the
+#   person's additions and the removed entry, not the note's bytes (which
+#   exclude the lists): the base snapshot's tree oid (the empty tree's when the
+#   base is the empty tree), the candidate's hand-written `verified` events
+#   (`_verifier_lists_bytes`), and the row's reason. An ack covers that row; a
+#   later well-formed list edit by a person, or a repeat removal after any
+#   commit, changes the hash and raises it again (#206, rulings P13, P14, P15,
+#   R16 and R17). The tree oid, not the commit id: two commits with the same
+#   tree hash the same. Accepted cost: an acked removal left uncommitted while
+#   other files are committed is raised again after that commit, since its base
+#   moved; the hook's normal path (removal and ack in one commit, after which
+#   the row is gone) never meets this.
 _HASH_BASES = {
     lints.MONITOR_ROW: _with_reason,
     lints.VERIFIER_LISTS: _lists_with_reason,
@@ -361,7 +371,7 @@ def _snapshot_path_hash(
             data = _note_bytes(data)
     basis = _HASH_BASES.get(outcome.extra.get("hash_basis"))
     if basis is not None:
-        data = basis(data, outcome, candidate_image)
+        data = basis(data, outcome, candidate_image, base_snapshot)
     return hashlib.sha256(data).hexdigest()[:16]
 
 
