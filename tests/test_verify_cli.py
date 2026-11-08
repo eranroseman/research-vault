@@ -6140,10 +6140,11 @@ def test_a_record_moving_a_loser_onto_an_unchanged_survivor_is_read_whole(
     assert not [o for o in effective if o.reason == "drift — literature note deleted"]
 
 
-def test_a_row_later_commits_repeat_is_one_row(net_vault):
-    """R20: the replay lints whole trees, as the hook does, so a stale witness
-    is raised again on every commit that keeps the note's bytes; repeated
-    rows across commits are one row, on the commit that first raised it."""
+def test_a_stale_witness_a_later_commit_leaves_alone_is_not_raised_there(net_vault):
+    """R20, P33: the replay lints whole trees, as the hook does, but a row a
+    parent's own tree raises on the same bytes is not new at a commit: the
+    stale witness stays the commit's that wrote it, and a commit that leaves
+    the note alone never re-stamps it."""
     note = net_vault / "literature" / "smith2020.md"
     note.write_text(
         must_replace(note.read_text(), "Retrospective design", "Prospective design")
@@ -6165,8 +6166,9 @@ def test_a_row_later_commits_repeat_is_one_row(net_vault):
         ]
 
     assert witness_rows(f"{stale}^") == [stale]
-    # From `stale` on, the hook at `later` would have raised it too.
-    assert witness_rows(stale) == [later]
+    # From `stale` on only the leg's copy at HEAD is left; `later` adds none.
+    assert witness_rows(stale) == [None]
+    assert later not in witness_rows(f"{stale}^")
 
 
 def test_a_commit_whose_tree_equals_its_parents_is_not_linted(net_vault, monkeypatch):
@@ -6220,12 +6222,14 @@ def _replayed(vault, since):
     return [o for o in effective if "commit" in o.extra]
 
 
-def test_a_clean_merge_of_two_edits_to_one_note_raises_nothing_on_the_merge(
+def test_a_clean_merge_of_two_edits_to_one_note_raises_only_its_new_bytes(
     net_vault,
 ):
     """P28's probe: the DOI on one side, the body on the other, a clean merge.
-    `git diff --cc` is empty; each edit is judged once, at its own commit, so
-    the acks filed there still hold."""
+    `git diff --cc` is empty, so each edit is judged once, at its own commit,
+    where its ack was filed. The merged bytes are new, so the stale witness
+    they carry is the merge's row (P33), once: a later commit that leaves the
+    note alone does not re-stamp it, and the leg's HEAD copy is the same row."""
     note = net_vault / "literature" / "smith2020.md"
 
     def doi():
@@ -6239,15 +6243,28 @@ def test_a_clean_merge_of_two_edits_to_one_note_raises_nothing_on_the_merge(
         )
 
     base, side, main_commit, merge = _merge_sides(net_vault, doi, body)
-    rows = _replayed(net_vault, base)
-    assert not [o for o in rows if o.extra["commit"] == merge], rows
-    by_reason = {o.reason: o.extra["commit"] for o in rows}
-    assert by_reason["drift — DOI changed without writer attestation"] == side
-    assert (
-        by_reason["drift — literature note body changed without writer attestation"]
-        == main_commit
+    (net_vault / "projects" / "brief" / "notes.md").write_text(
+        '---\ntype: "note"\n---\nlater\n'
     )
-    assert len(rows) == len(by_reason)
+    later = _commit_all(net_vault, "later, unrelated")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    rows = [o for o in effective if o.check == "evidence-layer"]
+    by_commit = sorted((o.extra.get("commit"), o.reason) for o in rows)
+    stale = "schema-violation — stale managed-sha256"
+    assert by_commit == sorted(
+        [
+            (side, "drift — DOI changed without writer attestation"),
+            (
+                main_commit,
+                "drift — literature note body changed without writer attestation",
+            ),
+            (main_commit, stale),
+            (merge, stale),
+        ]
+    )
+    assert later not in {commit for commit, _reason in by_commit}
 
 
 def test_a_note_no_parent_holds_is_judged_against_every_parent_once(net_vault):
@@ -6421,3 +6438,145 @@ def test_the_publish_surface_previews_with_publishs_own_recheck_base(
         for line in capsys.readouterr().out.splitlines()
         if line.startswith("re-check:")
     ]
+
+
+def test_an_ours_merge_that_drops_the_other_sides_note_is_replayed(net_vault):
+    """P31: `git merge -s ours` keeps one parent's tree, so it equals that
+    parent's and still drops the other side's note; a merge is never skipped."""
+    base = _commit_all(net_vault, "base")
+    kept = net_vault / "literature" / "kept.md"
+    kept.write_text(
+        must_replace(
+            (net_vault / "literature" / "smith2020.md").read_text(),
+            'citationKey: "smith2020"',
+            'citationKey: "kept"',
+        )
+    )
+    _commit_all(net_vault, "main adds kept.md")
+    subprocess.run(["git", "switch", "-qc", "side", base], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "merge", "-q", "-s", "ours", "-m", "ours", "-"],
+        cwd=net_vault,
+        check=True,
+    )
+    merge = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=net_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(["git", "switch", "-q", "-"], cwd=net_vault, check=True)
+    subprocess.run(
+        ["git", "merge", "-q", "--ff-only", "side"], cwd=net_vault, check=True
+    )
+    deleted = [
+        o
+        for o in _replayed(net_vault, base)
+        if "kept.md" in str(o.target) and o.reason == "drift — literature note deleted"
+    ]
+    assert [o.extra["commit"] for o in deleted] == [merge]
+
+
+def _old_then_unrelated(vault):
+    old = _commit_all(vault, "old")
+    (vault / "projects" / "brief" / "notes.md").write_text(
+        '---\ntype: "note"\n---\nunrelated\n'
+    )
+    _commit_all(vault, "unrelated")
+    return old
+
+
+def _doi_edit(vault):
+    note = vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+
+
+def _doi_rows(effective):
+    return [
+        o for o in effective if "DOI changed without writer attestation" in o.reason
+    ]
+
+
+def test_an_uncommitted_edit_over_an_older_base_keeps_its_row(net_vault):
+    """P32: the replay covers commits up to HEAD only; the leg over a worktree
+    candidate keeps its two-version rows for the uncommitted edit."""
+    old = _old_then_unrelated(net_vault)
+    _doi_edit(net_vault)
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, git_base=old, recheck_commits=old
+    )
+    assert [o.extra.get("commit") for o in _doi_rows(effective)] == [None]
+
+
+def test_the_publish_preview_over_an_older_base_keeps_an_uncommitted_row(
+    net_vault, capsys
+):
+    """P32 through R21: `verify --surface publish --git-base X`."""
+    old = _old_then_unrelated(net_vault)
+    _doi_edit(net_vault)
+    main(
+        [
+            "verify",
+            "--vault",
+            str(net_vault),
+            "--offline",
+            "--surface",
+            "publish",
+            "--git-base",
+            old,
+        ]
+    )
+    assert any(
+        "DOI changed without writer attestation" in line
+        for line in capsys.readouterr().out.splitlines()
+    )
+
+
+def test_a_leg_base_older_than_the_recheck_base_keeps_the_uncovered_rows(net_vault):
+    """P32: commits between the leg's base and the re-check's are the leg's."""
+    old = _commit_all(net_vault, "old")
+    _doi_edit(net_vault)
+    edited = _commit_all(net_vault, "DOI, bypassed")
+    (net_vault / "projects" / "brief" / "notes.md").write_text(
+        '---\ntype: "note"\n---\nunrelated\n'
+    )
+    _commit_all(net_vault, "unrelated")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault,
+        network=False,
+        git_base=old,
+        git_candidate="HEAD",
+        recheck_commits=edited,
+    )
+    assert [o.extra.get("commit") for o in _doi_rows(effective)] == [None]
+    # A HEAD-candidate run refuses a worktree the last run's filings moved.
+    subprocess.run(["git", "checkout", "--", "."], cwd=net_vault, check=True)
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault,
+        network=False,
+        git_base=old,
+        git_candidate="HEAD",
+        recheck_commits=old,
+    )
+    assert [o.extra.get("commit") for o in _doi_rows(effective)] == [edited]
+
+
+def test_holders_fall_back_to_every_parent_when_none_holds_the_path():
+    """P28's fallback: a parent lacking the path stands aside, unless no
+    parent holds it; then the row must be raised against all of them."""
+    image = gitstate.FileImage(b"literature/n.md", "file", 0o100644, b"x")
+    holding = gitstate.Snapshot({b"literature/n.md": image})
+    empty = gitstate.Snapshot({})
+    row = Outcome(
+        "evidence-layer",
+        RepoPath(b"literature/n.md"),
+        Result.UNMATCHED,
+        "drift — literature note deleted",
+    )
+    assert list(verify._holders(row, [empty, holding])) == [1]
+    assert list(verify._holders(row, [empty, empty])) == [0, 1]
+    claimless = Outcome("evidence-layer", "vault", Result.UNMATCHED, "drift — x")
+    assert list(verify._holders(claimless, [holding, empty])) == [0, 1]

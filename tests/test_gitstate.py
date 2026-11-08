@@ -909,3 +909,23 @@ def test_a_shared_blob_cache_reads_each_blob_once(tmp_vault, monkeypatch):
     assert batches == [1, 1]
     assert later.image(b"a.md").data == b"a\n"
     assert later.image(b"b.md").data == b"b\n"
+
+
+def test_an_unborn_head_has_no_commits_to_recheck(tmp_path):
+    _git(tmp_path, "init", "-q")
+    assert gitstate.commit_parents(tmp_path, None) == []
+
+
+def test_replay_covers_a_base_its_own_base_reaches(tmp_vault):
+    (tmp_vault / "a.md").write_bytes(b"a\n")
+    first = _commit(tmp_vault)
+    (tmp_vault / "b.md").write_bytes(b"b\n")
+    second = _commit(tmp_vault)
+    empty = _git(tmp_vault, "hash-object", "-w", "-t", "tree", "/dev/null")
+    empty = empty.stdout.decode().strip()
+    assert gitstate.replay_covers(tmp_vault, None, first)
+    assert gitstate.replay_covers(tmp_vault, empty, first)  # a tree: every commit
+    assert gitstate.replay_covers(tmp_vault, first, first)
+    assert gitstate.replay_covers(tmp_vault, first, second)
+    assert not gitstate.replay_covers(tmp_vault, second, first)
+    assert not gitstate.replay_covers(tmp_vault, first, empty)

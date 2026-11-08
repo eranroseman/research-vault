@@ -1277,3 +1277,11 @@ def test_a_disposition_names_its_recheck_base_on_stderr(green_vault, capsys):
         )
     ]
     json.loads(captured.out)
+
+
+def test_an_unborn_vault_rechecks_its_whole_history(tmp_path):
+    _git(tmp_path, "init", "-q")
+    assert publish.recheck_base(tmp_path) == (
+        WHOLE_HISTORY,
+        "re-check: the whole history (no commit yet)",
+    )

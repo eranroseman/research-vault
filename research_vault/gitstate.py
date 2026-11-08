@@ -922,6 +922,8 @@ def commit_parents(
     to no commit reads as "every commit", which is what a first push needs.
     A base that names neither is refused, so a typo is not a full replay."""
     vault = Path(vault_root)
+    if _resolved(vault, "HEAD", "commit") is None:
+        return []  # an unborn HEAD has no commits to list
     args = ["rev-list", "--reverse", "--parents", "HEAD"]
     if base_ref is not None:
         base_commit = _resolved(vault, base_ref, "commit")
@@ -934,6 +936,23 @@ def commit_parents(
         commit, *parents = line.split()
         rows.append((commit, parents))
     return rows
+
+
+def replay_covers(vault_root: Path, since: str | None, base: str) -> bool:
+    """Whether a re-check of every commit since ``since`` (every commit when
+    None, or when it names a tree and no commit) covers every commit since
+    ``base``: ``since`` is ``base`` or an ancestor of it (ruling P32)."""
+    vault = Path(vault_root)
+    since_commit = None if since is None else _resolved(vault, since, "commit")
+    if since_commit is None:
+        return True
+    base_commit = _resolved(vault, base, "commit")
+    if base_commit is None:
+        return False
+    ancestor = _git(
+        vault, "merge-base", "--is-ancestor", since_commit, base_commit, check=False
+    )
+    return ancestor.returncode == 0
 
 
 def base_is_candidates_parent(

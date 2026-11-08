@@ -305,6 +305,8 @@ def recheck_base(vault) -> tuple[str | object, str]:
     tag = last_publication(vault)
     if tag is not None:
         return tag, f"re-check: every commit since {tag} (the newest publication)"
+    if _git(vault, "rev-parse", "--verify", "-q", "HEAD").returncode != 0:
+        return WHOLE_HISTORY, "re-check: the whole history (no commit yet)"
     seeded = _git(
         vault,
         "log",
