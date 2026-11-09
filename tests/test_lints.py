@@ -1907,6 +1907,218 @@ def test_monitor_runs_across_a_renamed_pair_too(fixture_vault):
     ) in _monitor_rows(fixture_vault, base)
 
 
+_SMITH = "path-bytes:literature/smith2020.md"
+_DOI_ROW = (_SMITH, 'drift — DOI changed: "10.1000/xyz" → "10.1000/abc"')
+
+
+def _rerender(path, generated, **changes):
+    """A machine render with `generated` written as given (the DOI moved too),
+    for the restore tie-break, which reads `generated.at` itself."""
+    text = must_replace(path.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    for old, new in changes.items():
+        text = must_replace(text, old, new)
+    path.write_text(must_replace(text, _FIXTURE_GENERATED, f"generated: {generated}"))
+    _refresh_body_witness(path)
+
+
+def _commit_note(vault, text, message):
+    note = vault / "literature" / "smith2020.md"
+    note.write_text(text)
+    subprocess.run(["git", "commit", "-qam", message], cwd=vault, check=True)
+    return note, _base_tree(vault)
+
+
+def test_a_newer_version_is_not_a_restore_whatever_its_generated_at(fixture_vault):
+    """#205: an earlier `generated.at` is a tie-break at the same version
+    only; a version that went up is a fresh render, not an older one."""
+    base = _base_tree(fixture_vault)
+    note = fixture_vault / "literature" / "smith2020.md"
+    _rerender(
+        note,
+        '{by: "research_vault/0.1.0", at: "2026-08-15T09:00:00Z"}',
+        **{"zotero-item-version: 12": "zotero-item-version: 13"},
+    )
+    assert _monitor_rows(fixture_vault, base) == [_DOI_ROW]
+
+
+@pytest.mark.parametrize(
+    "generated",
+    [
+        '{by: "research_vault/0.2.0", at: "2026-08-16T09:00:00Z"}',
+        '{by: "research_vault/0.1.0", at: "2026-08-16T09:00:00.000Z"}',
+    ],
+    ids=["another-machine", "fractional-seconds"],
+)
+def test_the_same_instant_at_the_same_version_is_not_a_restore(
+    fixture_vault, generated
+):
+    """#205: only an earlier `generated.at` is an older render; the same
+    instant, from another machine or spelled with fractional seconds, is not."""
+    base = _base_tree(fixture_vault)
+    _rerender(fixture_vault / "literature" / "smith2020.md", generated)
+    assert _monitor_rows(fixture_vault, base) == [_DOI_ROW]
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["", "zotero-item-version: 11.0\n"],
+    ids=["dropped", "not-an-integer"],
+)
+def test_a_version_that_is_not_an_integer_on_one_side_is_no_restore(
+    fixture_vault, version
+):
+    """#205 compares two integer versions; a side without one is no
+    evidence of an older render, and never a comparison that raises."""
+    base = _base_tree(fixture_vault)
+    _recapture(
+        fixture_vault / "literature" / "smith2020.md",
+        **{
+            'DOI: "10.1000/xyz"': 'DOI: "10.1000/abc"',
+            "zotero-item-version: 12\n": version,
+        },
+    )
+    assert _monitor_rows(fixture_vault, base) == [_DOI_ROW]
+
+
+def test_monitor_values_are_json_with_non_ascii_escaped(fixture_vault):
+    """Spec §5.3.1: values are shown as `json.dumps(ensure_ascii=True)`, so a
+    reason stays ASCII whatever the field holds."""
+    base = _base_tree(fixture_vault)
+    _recapture(
+        fixture_vault / "literature" / "smith2020.md",
+        **{'title: "Mortality decline"': 'title: "Café"'},
+    )
+    assert _monitor_rows(fixture_vault, base) == [
+        (_SMITH, 'drift — title changed: "Mortality decline" → "Caf\\u00e9"')
+    ]
+
+
+def test_monitor_values_are_json_with_sorted_keys(fixture_vault):
+    """The reason is part of the row's acknowledgment hash (note bytes plus
+    reason), so a mapping is shown with its keys sorted, not in the order the
+    note happens to hold them."""
+    base = _base_tree(fixture_vault)
+    _recapture(
+        fixture_vault / "literature" / "smith2020.md",
+        **{
+            'DOI: "10.1000/xyz"': 'DOI: "10.1000/xyz"\n'
+            'creators:\n  - {lastName: "S", firstName: "J"}'
+        },
+    )
+    assert _monitor_rows(fixture_vault, base) == [
+        (_SMITH, 'drift — creators added: [{"firstName": "J", "lastName": "S"}]')
+    ]
+
+
+def test_a_value_is_shown_whole_up_to_the_cap_and_cut_to_it_beyond(fixture_vault):
+    """Designs test 9: a value is capped at `_VALUE_CAP` characters, the last
+    one an ellipsis; one that fits is shown whole. The reason is hashed into
+    the row's acknowledgment, so where the cut falls is part of the record."""
+    fits = "t" * (lints._VALUE_CAP - 2)  # 60 characters once JSON-quoted
+    long_doi = "1" * 100
+    base = _base_tree(fixture_vault)
+    _recapture(
+        fixture_vault / "literature" / "smith2020.md",
+        **{
+            'title: "Mortality decline"': f'title: "{fits}"',
+            'DOI: "10.1000/xyz"': f'DOI: "{long_doi}"',
+        },
+    )
+    shown_doi = '"' + "1" * (lints._VALUE_CAP - 2) + "…"
+    assert len(shown_doi) == lints._VALUE_CAP
+    assert _monitor_rows(fixture_vault, base) == [
+        (_SMITH, f'drift — DOI changed: "10.1000/xyz" → {shown_doi}'),
+        (_SMITH, f'drift — title changed: "Mortality decline" → "{fits}"'),
+    ]
+
+
+def test_monitor_reports_a_removed_field_with_its_old_value(fixture_vault):
+    """Spec §5.3.1: every snapshot field a recapture removed is a row, built
+    from the value it held."""
+    base = _base_tree(fixture_vault)
+    _recapture(
+        fixture_vault / "literature" / "smith2020.md", **{'DOI: "10.1000/xyz"\n': ""}
+    )
+    assert _monitor_rows(fixture_vault, base) == [
+        (_SMITH, 'drift — DOI removed: "10.1000/xyz"')
+    ]
+
+
+def test_monitor_reports_a_changed_server_id_at_the_same_path(fixture_vault):
+    """Spec §5.3.1: either half of the identity changing at one path is a row."""
+    base = _base_tree(fixture_vault)
+    _recapture(
+        fixture_vault / "literature" / "smith2020.md",
+        **{'zotero-server-id: "6LpvURP2E933"': 'zotero-server-id: "OTHERSERVER1"'},
+    )
+    assert (
+        _SMITH,
+        "drift — zotero-server-id changed at the same path: 6LpvURP2E933 → OTHERSERVER1",
+    ) in _monitor_rows(fixture_vault, base)
+
+
+def test_an_attachment_entry_without_a_key_is_passed_over(fixture_vault):
+    """A hand-edited attachments list may hold an entry with no `key`; the
+    monitor compares the keyed entries and does not stop at that one."""
+    note = fixture_vault / "literature" / "smith2020.md"
+    keyless = '  - {version: 1, md5: "cc33cc33cc33cc33cc33cc33cc33cc33"}\n'
+    note, base = _commit_note(
+        fixture_vault,
+        must_replace(note.read_text(), "fulltext:\n", keyless + "fulltext:\n"),
+        "a key-less attachment entry",
+    )
+    _recapture(
+        note,
+        **{
+            'md5: "aa11aa11aa11aa11aa11aa11aa11aa11"': 'md5: "bb22bb22bb22bb22bb22bb22bb22bb22"'
+        },
+    )
+    assert _monitor_rows(fixture_vault, base) == [
+        (
+            _SMITH,
+            "drift — attachment ATT00001 md5 changed: aa11aa11aa11aa11aa11aa11aa11aa11 → bb22bb22bb22bb22bb22bb22bb22bb22",
+        )
+    ]
+
+
+_UNPARSEABLE = "\n  bad: nested\n---\n"
+
+
+def test_monitor_files_nothing_when_either_side_does_not_parse(fixture_vault):
+    """P56: an unparseable side is evidence-layer's row (`_write_attested`
+    reads no attestation across it), so the monitor files nothing for it,
+    base or candidate."""
+    note = fixture_vault / "literature" / "smith2020.md"
+    original = note.read_text()
+    close = f"{_FIXTURE_GENERATED}\n---\n"
+    _note, base = _commit_note(
+        fixture_vault,
+        must_replace(original, close, _FIXTURE_GENERATED + _UNPARSEABLE),
+        "an unparseable base",
+    )
+    note.write_text(original)
+    _recapture(note, **{'DOI: "10.1000/xyz"': 'DOI: "10.1000/abc"'})
+    assert (
+        lints._frontmatter(
+            gitstate.snapshot_tree(fixture_vault, base).image(
+                b"literature/smith2020.md"
+            )
+        )
+        is None
+    )
+    assert _monitor_rows(fixture_vault, base) == []
+    attested = note.read_text()
+    _note, base = _commit_note(fixture_vault, original, "a parsed base")
+    note.write_text(must_replace(attested, "\n---\n", _UNPARSEABLE))
+    assert (
+        lints._frontmatter(
+            gitstate.snapshot_worktree(fixture_vault).image(b"literature/smith2020.md")
+        )
+        is None
+    )
+    assert _monitor_rows(fixture_vault, base) == []
+
+
 def test_a_rename_that_drops_a_failure_row_raises_that_one_list_row(fixture_vault):
     """P43 (F19): the rename branch's verifier-list call is the only thing that
     catches a #206 removal riding a propagate rename."""
@@ -2102,6 +2314,40 @@ def test_verifys_own_record_failure_diff_raises_no_list_row(fixture_vault):
     assert _list_rows(fixture_vault, base) == []
 
 
+def test_removing_an_event_without_a_check_names_it_by_its_by_and_at(fixture_vault):
+    """`check` is optional on an event (`events._valid_event`); the removal row
+    names the event as stored, and the reason is part of the row's hash."""
+    note = fixture_vault / "literature" / "smith2020.md"
+    event = 'verified:\n  - {by: "human:x", at: "2026-01-01"}\n'
+    note, base = _commit_note(
+        fixture_vault,
+        must_replace(note.read_text(), "accessed:", event + "accessed:"),
+        "a check-less event",
+    )
+    note.write_text(must_replace(note.read_text(), event, ""))
+    assert _list_rows(fixture_vault, base) == [
+        ("drift — verified event removed: @2026-01-01 by human:x", "verifier-lists")
+    ]
+
+
+def test_an_unparseable_candidate_raises_no_list_row(fixture_vault):
+    """An unparseable candidate is evidence-layer's own row; the verifier-list
+    check compares two parsed lists, so it adds none for the events it can
+    no longer read."""
+    note, base = _event_note(
+        fixture_vault, [("human:eran", "2026-09-01", "update-notice")], []
+    )
+    note.write_text(must_replace(note.read_text(), "\n---\n", _UNPARSEABLE))
+    assert [
+        item
+        for item in lints.lint_evidence_layer(
+            gitstate.snapshot_tree(fixture_vault, base),
+            gitstate.snapshot_worktree(fixture_vault),
+        )
+        if item.extra.get("hash_basis") == lints.VERIFIER_LISTS
+    ] == []
+
+
 def _merge_record(**overrides):
     record = {
         "schema": "research-vault.propagation.v1",
@@ -2266,4 +2512,41 @@ def test_a_move_onto_a_survivor_path_the_candidate_lacks_attests_nothing(
     )
     (fixture_vault / "literature" / "gone2019.md").unlink()
     (fixture_vault / "literature" / "smith2020.md").unlink()
+    assert _gone_deleted(_evidence_rows(fixture_vault, base))
+
+
+def test_an_unreadable_record_does_not_stop_the_next_record_attesting(fixture_vault):
+    """Each added record is read on its own: one that does not parse is
+    `lint_propagation`'s row, and the applied record after it still attests
+    the loser's deletion. Committed, so the candidate is a tree, which reads
+    its paths sorted: the unreadable `a.json` comes first."""
+    base = _base_tree(fixture_vault)
+    _write_merge_record(fixture_vault, json.dumps(_merge_record()))
+    (fixture_vault / "system" / "propagations" / "a.json").write_text("{not json")
+    (fixture_vault / "literature" / "gone2019.md").unlink()
+    subprocess.run(["git", "add", "-A"], cwd=fixture_vault, check=True)
+    subprocess.run(["git", "commit", "-qm", "merge"], cwd=fixture_vault, check=True)
+    rows = lints.lint_evidence_layer(
+        gitstate.snapshot_tree(fixture_vault, base),
+        gitstate.snapshot_tree(fixture_vault, "HEAD"),
+    )
+    assert not _gone_deleted(rows)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    ["system/propagations/sub/x.json", "wiki/x.json", "system/propagations/x.txt"],
+    ids=["nested", "outside-the-record-directory", "not-json"],
+)
+def test_only_a_flat_json_record_under_the_record_directory_attests(
+    fixture_vault, relative
+):
+    """`_merge_removals` reads a record where `lint_propagation` reads one:
+    flat `*.json` under `system/propagations/`. An applied record anywhere
+    else attests nothing, and the deletion row stays."""
+    base = _base_tree(fixture_vault)
+    record = fixture_vault / relative
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(json.dumps(_merge_record()))
+    (fixture_vault / "literature" / "gone2019.md").unlink()
     assert _gone_deleted(_evidence_rows(fixture_vault, base))

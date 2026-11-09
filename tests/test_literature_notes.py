@@ -1131,3 +1131,49 @@ def test_snapshot_keeps_zotero_tags_when_no_tag_survives_slugging():
     fields = _snapshot_fields("2020")
     assert fields["zotero-tags"] == [{"tag": "2020"}]
     assert "tags" not in fields
+
+
+def test_snapshot_drops_an_empty_field_and_a_tags_value_that_is_not_a_list():
+    """The docstring's "empty values absent": an empty string is no value, and
+    a `tags` that is not a list holds no tag to write."""
+    assert literature_notes.snapshot({"title": "T", "abstractNote": ""}) == [
+        ("title", "T")
+    ]
+    assert literature_notes.snapshot({"title": "T", "tags": "foo"}) == [("title", "T")]
+
+
+def test_base_field_map_skips_a_malformed_item_type_and_folds_the_rest():
+    """#188: the map is read from Zotero's schema as it comes; an entry that
+    is not an item type is skipped, one without fields maps to nothing, and
+    a schema without item types is an empty map."""
+    schema = {
+        "itemTypes": [
+            "junk",
+            {"itemType": 1},
+            {"itemType": "note"},
+            {
+                "itemType": "conferencePaper",
+                "fields": [
+                    {"field": "proceedingsTitle", "baseField": "publicationTitle"}
+                ],
+            },
+        ]
+    }
+    assert literature_notes.base_field_map(schema) == {
+        "note": {},
+        "conferencePaper": {"proceedingsTitle": "publicationTitle"},
+    }
+    assert literature_notes.base_field_map({}) == {}
+
+
+def test_slug_tag_strips_only_dashes_and_slashes_at_the_ends():
+    assert literature_notes.slug_tag("Xray!") == "Xray"
+
+
+def test_slug_tags_keeps_slugging_past_a_skipped_tag():
+    """Every tag: a non-string, a duplicate ignoring case and an all-digit tag
+    are each skipped, and the tags after them still count."""
+    assert literature_notes.slug_tags([{"tag": 5}, "a", "A", "2020", "b"]) == [
+        "a",
+        "b",
+    ]

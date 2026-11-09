@@ -107,6 +107,17 @@ def test_entry_sha256_is_the_canonical_json_hash():
     )
 
 
+def test_entry_sha256_layout_is_pinned():
+    """Spec §5.3 amendment (b): sorted keys, no whitespace, non-ASCII as raw
+    UTF-8. Every note records this digest as `csl-sha256`, so a deliberate
+    layout change updates the digest and lapses existing acks: every recorded
+    `csl-sha256` stops matching its entry."""
+    entry = {"id": "a", "title": "Ü", "author": [{"family": "S"}]}
+    assert bibliography.entry_sha256(entry) == (
+        "0271982541223403962339d7e9051e5f99b06d46850ec524c2571aa6b7686ed6"
+    )
+
+
 def test_update_replaces_rendered_entries_keeps_the_rest_and_drops_uncaptured_keys(
     tmp_vault,
 ):

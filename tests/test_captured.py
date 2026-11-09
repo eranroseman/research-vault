@@ -3,6 +3,7 @@ import os
 
 from research_vault import Result, captured, links
 from research_vault.pathcodec import decode_repo_path
+from tests.conftest import must_replace
 
 
 def _note(vault, key, item_key, *, title=None, text_key=None, sha=None):
@@ -988,4 +989,36 @@ def test_an_unterminated_wikilink_after_a_leading_blank_line_counts_it(tmp_vault
     ]
     assert [o.reason for o in rows] == [
         "schema-violation — unterminated [[ on wiki/sources/A.md line 2"
+    ]
+
+
+def test_every_note_recording_csl_sha256_is_compared_past_the_ones_before_it(
+    tmp_vault,
+):
+    """#196 / Q20: a note without `csl-sha256` and a note whose entry matches
+    are passed over; the mismatch after them is still the row."""
+    from research_vault import bibliography
+
+    entries = [{"id": key, "title": key} for key in ("a2020", "b2020", "c2020")]
+    bibliography.write(tmp_vault, entries)
+    recorded = {"b2020": entries[1], "c2020": {"id": "c2020", "title": "other"}}
+    for key, item_key in (
+        ("a2020", "AAAA0001"),
+        ("b2020", "BBBB0001"),
+        ("c2020", "CCCC0001"),
+    ):
+        _note(tmp_vault, key, item_key)
+        if key in recorded:
+            note = tmp_vault / "literature" / f"{key}.md"
+            sha = bibliography.entry_sha256(recorded[key])
+            note.write_text(
+                must_replace(
+                    note.read_text(), "fulltext:\n", f'fulltext:\ncsl-sha256: "{sha}"\n'
+                )
+            )
+    rows = [
+        o for o in captured.lint_captured_set(tmp_vault) if o.result is Result.UNMATCHED
+    ]
+    assert [o.reason for o in rows] == [
+        "mismatch — csl-sha256 of literature/c2020.md does not match its system/bibliography.json entry"
     ]

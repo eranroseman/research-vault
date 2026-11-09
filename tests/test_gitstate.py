@@ -929,3 +929,43 @@ def test_replay_covers_a_base_its_own_base_reaches(tmp_vault):
     assert gitstate.replay_covers(tmp_vault, first, second)
     assert not gitstate.replay_covers(tmp_vault, second, first)
     assert not gitstate.replay_covers(tmp_vault, first, empty)
+
+
+def test_a_tree_snapshot_reads_a_symlink_as_its_target_bytes(tmp_vault):
+    """Read one tree: a symlink entry is kind `symlink` with its target as data."""
+    (tmp_vault / "target.md").write_bytes(b"x\n")
+    os.symlink("target.md", tmp_vault / "link")
+    commit = _commit(tmp_vault)
+    assert gitstate.snapshot_tree(tmp_vault, commit).image(b"link") == (
+        gitstate.FileImage(b"link", "symlink", 0o120000, b"target.md")
+    )
+
+
+def test_a_batch_record_of_another_object_type_fails_closed(tmp_vault):
+    """`ls-tree` types an entry by its mode; a blob-mode entry whose object is
+    a tree (a crafted tree) is answered `tree` by `cat-file --batch`, and is
+    refused rather than read as a file holding the tree's bytes."""
+    empty = _git(tmp_vault, "hash-object", "-w", "-t", "tree", "/dev/null")
+    raw = bytes.fromhex(empty.stdout.decode().strip())
+    crafted = _git(
+        tmp_vault,
+        "hash-object",
+        "-w",
+        "-t",
+        "tree",
+        "--literally",
+        "--stdin",
+        stdin=b"100644 f.md\0" + raw,
+    )
+    tree = crafted.stdout.decode().strip()
+    with pytest.raises(gitstate.GitStateError, match="malformed cat-file batch"):
+        gitstate.snapshot_tree(tmp_vault, tree)
+
+
+def test_commit_parents_refuses_a_range_as_its_base(tmp_vault):
+    """A range names no single commit or tree, so it is refused like a typo."""
+    for message in ("one", "two"):
+        _git(tmp_vault, "commit", "-q", "--allow-empty", "-m", message)
+    first = _git(tmp_vault, "rev-parse", "HEAD^").stdout.decode().strip()
+    with pytest.raises(gitstate.GitStateError, match="not a commit or tree"):
+        gitstate.commit_parents(tmp_vault, f"{first}..HEAD")

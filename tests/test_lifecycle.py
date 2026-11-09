@@ -688,3 +688,28 @@ def test_drift_detail_names_a_trashed_child(tmp_vault, monkeypatch):
     assert _drift_reason(tmp_vault, monkeypatch, fake) == (
         "drift — attachment ATT00001 absent; ATT00001: trashed"
     )
+
+
+def test_drift_detail_walks_every_attachment_the_detail_names(tmp_vault, monkeypatch):
+    """§3.4 step 5: one attachment the detail does not name, one trashed and
+    one the children read lacks are each passed over; the moved one after
+    them is still refined."""
+    keys = ("ATTA0001", "ATTB0001", "ATTC0001", "ATTD0001")
+    attachments = [dict(_ATTACHMENT, key=key) for key in keys]
+    fake = FakeZotero(server_id="Tdoqsn2J4q4h")
+    fake.get(
+        "/api/users/0/items/ALKT2NF7/children",
+        body=[
+            {"key": "ATTA0001", "data": {"md5": "aa11"}},
+            {"key": "ATTD0001", "data": {"md5": "dd44"}},
+        ],
+    )
+    client = fake.install(zotero.ZoteroClient(), monkeypatch)
+    detail = (
+        "drift — attachment ATTB0001 absent; attachment ATTC0001 absent; "
+        "attachment ATTD0001 4 → 5"
+    )
+    live = _live({"ALKT2NF7": 0, "ATTD0001": 5}, {"ATTB0001": 5}, {})
+    assert lifecycle._drift_detail(
+        client, tmp_vault, _prov(attachments=attachments), detail, live
+    ) == (detail + "; ATTB0001: trashed; ATTD0001: file changed")

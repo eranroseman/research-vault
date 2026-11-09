@@ -1384,3 +1384,152 @@ def test_append_log_fixes_the_day_file_and_root_log_only(green_vault):
     publish._append_log(green_vault, "first", date="2026-09-07", now=now)
     assert stray.read_text() == "a thought\n"
     assert "— first" in (green_vault / "log.md").read_text()
+
+
+def test_a_refused_disposition_names_its_recheck_base_on_stderr(blocked_vault, capsys):
+    """`_run_disposition` prints the re-check line for a refusal too: stdout
+    is the blockers, stderr names what was re-checked."""
+    line = (
+        "re-check: the whole history (no publication tag, and no "
+        "--recheck-commits in .github/workflows/verify.yml's history)"
+    )
+    assert main(["arm-publish", "brief", "--vault", str(blocked_vault)]) == 0
+    capsys.readouterr()
+    assert main(["mark-published", "brief", "--vault", str(blocked_vault)]) == 1
+    assert line in capsys.readouterr().err.splitlines()
+    assert publish.mark_published(blocked_vault, "brief").recheck == line
+
+
+def test_a_publication_prints_its_project_status_commit_and_tag(green_vault, capsys):
+    assert main(["arm-publish", "brief", "--vault", str(green_vault)]) == 0
+    capsys.readouterr()
+    assert main(["mark-published", "brief", "--vault", str(green_vault)]) == 0
+    (tag,) = _tags(green_vault)
+    assert json.loads(capsys.readouterr().out) == {
+        "project": "projects/brief",
+        "status": "published",
+        "commit": _head(green_vault),
+        "tag": tag,
+    }
+
+
+def test_the_publish_gate_reads_the_network(tmp_path, monkeypatch):
+    """Spec §6: no synthetic offline outcome mints trust, so the gate runs the
+    network leg: a live update-notice answer is what lets it pass."""
+    from research_vault import checks
+
+    vault = _build_vault(
+        tmp_path,
+        UNCITED_CLAIM,
+        bibliography=[{"id": "x2020", "type": "article-journal", "DOI": "10.1/x"}],
+    )
+    asked = []
+
+    def notice(_vault, entry, _date):
+        asked.append(entry["id"])
+        return Outcome("update-notice", entry["id"], Result.MATCHED, "matched")
+
+    monkeypatch.setattr(checks, "check_update_notice", notice)
+    assert publish.mark_published(vault, "brief").decision == 0
+    assert asked == ["x2020"]
+
+
+def test_the_publish_gate_reads_the_zotero_its_base_names(green_vault, monkeypatch):
+    """mark-published's `base` is the Zotero the gate's lifecycle leg reads."""
+    from research_vault import lifecycle
+
+    bases = []
+
+    def lint(_vault, client):
+        bases.append(client.base)
+        return []
+
+    monkeypatch.setattr(lifecycle, "lint_lifecycle", lint)
+    publish.mark_published(green_vault, "brief", base="http://127.0.0.1:1/api")
+    assert bases == ["http://127.0.0.1:1/api"]
+
+
+def test_a_seed_with_two_commits_before_it_says_so_in_the_plural(tmp_path):
+    """R28's plural form starts at two."""
+    _git(tmp_path, "init", "-q")
+    _commit_workflow(tmp_path, "run: verify\n")
+    _commit_workflow(tmp_path, "run: verify # again\n")
+    seeded = _commit_workflow(tmp_path, "run: verify --recheck-commits x\n")
+    _since, line = publish.recheck_base(tmp_path)
+    assert line == _seed_line(seeded, _uncovered(2))
+    assert "; 2 earlier commits not re-checked" in line
+
+
+def test_last_publication_reads_the_tail_whatever_the_project_names_length(
+    green_vault,
+):
+    """The fixed-width date-time at the end of the name decides, so a short
+    project name and a long one compare by their dates."""
+    _git(green_vault, "tag", "published/zebra-2026-01-01-090000")
+    _git(green_vault, "tag", "published/a-2026-01-02-080000")
+    assert publish.last_publication(green_vault) == "published/a-2026-01-02-080000"
+
+
+def test_the_seed_is_the_first_commit_that_brought_the_recheck_in(green_vault):
+    """R19: a later commit that changes how often the workflow says
+    `--recheck-commits` is not the seed; the first one is."""
+    seeded = _commit_workflow(green_vault, "run: verify --recheck-commits x\n")
+    _commit_workflow(
+        green_vault,
+        "run: verify --recheck-commits x\nrun: verify --recheck-commits y\n",
+    )
+    _since, line = publish.recheck_base(green_vault)
+    assert line.startswith(_seed_line(seeded, ""))
+
+
+def test_the_seed_is_read_from_the_ci_workflow_alone(green_vault):
+    """R19 reads the vault's tracked CI workflow; a note that mentions
+    `--recheck-commits` is not where CI's re-check began."""
+    (green_vault / "wiki" / "ci.md").write_text("we run --recheck-commits in CI\n")
+    _git(green_vault, "add", "-A")
+    _git(green_vault, "commit", "-qm", "a note about CI")
+    seeded = _commit_workflow(green_vault, "run: verify --recheck-commits x\n")
+    _since, line = publish.recheck_base(green_vault)
+    assert line.startswith(_seed_line(seeded, ""))
+
+
+def test_an_unborn_vault_with_a_file_named_head_rechecks_its_whole_history(tmp_path):
+    """`rev-parse --verify` reads HEAD as a revision only; without it, a
+    root file named HEAD answers as a path in an unborn vault."""
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "HEAD").write_text("x")
+    assert publish.recheck_base(tmp_path) == (
+        WHOLE_HISTORY,
+        "re-check: the whole history (no commit yet)",
+    )
+
+
+def test_a_root_seed_beside_a_file_named_after_its_parent_is_still_a_root(tmp_vault):
+    """`_seed_base` asks for the seed's parent as a revision only; a root file
+    spelled `<seed>^` is not one, so the base is still the empty tree."""
+    workflows = tmp_vault / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "verify.yml").write_text("run: verify --recheck-commits x\n")
+    _git(tmp_vault, "add", "-A")
+    _git(tmp_vault, "commit", "-qm", "the whole vault, with CI")
+    seeded = _head(tmp_vault)
+    (tmp_vault / f"{seeded}^").write_text("x")
+    empty = _git(tmp_vault, "hash-object", "-t", "tree", "/dev/null").strip()
+    assert publish.recheck_base(tmp_vault) == (
+        empty,
+        _seed_line(seeded, "no earlier commit"),
+    )
+
+
+def test_a_publication_tag_is_annotated_and_unsigned_whatever_the_signing_config(
+    green_vault,
+):
+    """The tag is made with `-a`: `tag.forceSignAnnotated` signs only a tag
+    made without it, so a vault whose git would sign (and here cannot) still
+    publishes an annotated, unsigned tag."""
+    _git(green_vault, "config", "tag.forceSignAnnotated", "true")
+    _git(green_vault, "config", "gpg.program", "false")
+    published = publish.mark_published(green_vault, "brief")
+    assert published.decision == 0
+    assert _git(green_vault, "cat-file", "-t", published.tag).strip() == "tag"
+    assert "BEGIN PGP" not in _git(green_vault, "cat-file", "-p", published.tag)

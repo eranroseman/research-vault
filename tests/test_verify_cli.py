@@ -5715,6 +5715,61 @@ def test_verifier_lists_bytes_keeps_hand_written_events_only():
     )
 
 
+_LIST_NOTE = (
+    "---\nverified:\n"
+    '  - {check: "doi", by: "human:eran", at: "2026-09-02"}\n'
+    '  - {by: "research_vault/0.1.0", at: "2026-09-01", check: "doi"}\n'
+    "---\n"
+)
+_LIST_REASON = "drift — verified event removed: doi@2026-09-02 by human:eran"
+
+
+def _list_image():
+    return gitstate.FileImage(b"n.md", "file", 0o100644, _LIST_NOTE.encode())
+
+
+def _list_outcome():
+    return Outcome(
+        "evidence-layer",
+        RepoPath(b"literature/n.md"),
+        Result.UNMATCHED,
+        _LIST_REASON,
+        extra={"hash_basis": lints.VERIFIER_LISTS},
+    )
+
+
+def test_verifier_lists_bytes_layout_is_pinned():
+    """The hand-written lists' canonical JSON (sorted keys, the `verified` and
+    `malformed` names) is inside every verifier-list row's acknowledgment
+    hash, so a deliberate layout change updates the digest and lapses
+    existing acks."""
+    basis = verify._verifier_lists_bytes(_list_image())
+    assert hashlib.sha256(basis).hexdigest() == (
+        "c6a7b473e247b6238eda5d5177fa3510b34cf182696259f5a1ce581e67cc5e7d"
+    )
+
+
+def test_lists_with_reason_layout_is_pinned():
+    """A verifier-list row's hash basis is the base tree's oid, a NUL, the
+    lists' bytes, a NUL and the reason; a deliberate layout change updates the
+    digest and lapses existing acks."""
+    base = gitstate.Snapshot({}, "4b825dc642cb6eb9a060e54bf8d69288fbee4904")
+    basis = verify._lists_with_reason(b"", _list_outcome(), _list_image(), base)
+    assert hashlib.sha256(basis).hexdigest() == (
+        "9b824236cb08044c9b6ab3d33e865d868674fb26f66787a11e5bab8de357fc3a"
+    )
+
+
+def test_with_reason_layout_is_pinned():
+    """A capture-monitor row's hash basis is the note's bytes, a NUL and the
+    reason (ruling P4); a deliberate layout change updates the digest and
+    lapses existing acks."""
+    basis = verify._with_reason(b"note bytes", _list_outcome(), None, None)
+    assert hashlib.sha256(basis).hexdigest() == (
+        "637932655c97330df784d4c4784a33e55df12ad2dd7fcc2e69553e54d0ce68cf"
+    )
+
+
 def _list_rows_open(vault):
     _report, effective, hashes, _warning = verify_state(vault, network=False)
     return [
@@ -6717,6 +6772,12 @@ def test_the_publish_surface_previews_with_publishs_own_recheck_base(
         "re-check: every commit since HEAD (--recheck-commits)"
         in capsys.readouterr().out.splitlines()
     )
+    cli.main([*common, "--surface", "publish", "--recheck-commits", "all"])
+    assert seen["recheck_commits"] is verify.WHOLE_HISTORY
+    assert (
+        "re-check: the whole history (--recheck-commits all)"
+        in capsys.readouterr().out.splitlines()
+    )
     # R27: `publish` names publish's base on any surface, CI's created ref.
     cli.main([*common, "--surface", "commit", "--recheck-commits", "publish"])
     assert seen["recheck_commits"] == "published/brief-2026-01-01-090000"
@@ -6967,3 +7028,170 @@ def test_stamp_type_prints_every_problem_after_an_unterminated_block(tmp_path, c
         ),
         "unresolved projects/b/draft.md — [[nowhere]] no file matches; resolve by hand",
     ]
+
+
+def _side_note_copy(vault, key="zed2021"):
+    """A side-branch note: smith2020's text under another citation key, so it
+    sorts after smith2020 and its claims are `zed2021#^c-…` links."""
+    smith = vault / "literature" / "smith2020.md"
+    note = vault / "literature" / f"{key}.md"
+    note.write_text(
+        must_replace(
+            smith.read_text(), 'citationKey: "smith2020"', f'citationKey: "{key}"'
+        )
+    )
+    return note
+
+
+def _unrelated(vault, name):
+    def write():
+        (vault / "projects" / "brief" / f"{name}.md").write_text(
+            f'---\ntype: "note"\n---\n{name}\n'
+        )
+
+    return write
+
+
+def test_a_merge_keeps_every_path_its_resolution_hand_edited(net_vault):
+    """P28: the resolution hand-edits a note both parents hold and one only
+    the side holds; each is the merge's own change and each is a row."""
+    smith = net_vault / "literature" / "smith2020.md"
+    zed = net_vault / "literature" / "zed2021.md"
+
+    def resolve():
+        for note in (smith, zed):
+            note.write_text(
+                must_replace(
+                    note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/evil"'
+                )
+            )
+
+    base, *_, merge = _merge_sides(
+        net_vault,
+        lambda: _side_note_copy(net_vault),
+        _unrelated(net_vault, "main"),
+        resolve=resolve,
+    )
+    rows = [
+        (str(o.target), o.extra["commit"])
+        for o in _replayed(net_vault, base)
+        if o.reason == "drift — DOI changed without writer attestation"
+    ]
+    assert ("path-bytes:literature/smith2020.md", merge) in rows
+    assert ("path-bytes:literature/zed2021.md", merge) in rows
+
+
+def test_a_merge_row_raised_against_both_parents_is_one_row(net_vault):
+    """`_commit_rows`: each kept finding is one row, not one per parent, even
+    where each parent's copy hashes on its own tree (a verifier-list row)."""
+    from tests.test_lints import _with_lists
+
+    note = net_vault / "literature" / "smith2020.md"
+    _with_lists(note, [("human:eran", "2026-09-01", "doi")], [])
+    event = '  - {by: "human:eran", at: "2026-09-01", check: "doi"}\n'
+
+    def resolve():
+        note.write_text(must_replace(note.read_text(), "verified:\n" + event, ""))
+
+    base, *_, merge = _merge_sides(
+        net_vault,
+        _unrelated(net_vault, "side"),
+        _unrelated(net_vault, "main"),
+        resolve=resolve,
+    )
+    rows = [
+        o.extra["commit"]
+        for o in _replayed(net_vault, base)
+        if o.reason.startswith("drift — verified event removed")
+    ]
+    assert rows == [merge]
+
+
+def test_a_claim_in_a_note_only_the_side_holds_is_judged_at_the_merge(net_vault):
+    """`_holders`: a claim row is about its note, so a parent lacking that
+    note stands aside and the side's row is the merge's."""
+    zed = net_vault / "literature" / "zed2021.md"
+
+    def resolve():
+        zed.write_text(
+            must_replace(
+                zed.read_text(),
+                "Mortality fell 12% across all strata.",
+                "Mortality fell 15% across all strata.",
+            )
+        )
+
+    base, *_, merge = _merge_sides(
+        net_vault,
+        lambda: _side_note_copy(net_vault),
+        _unrelated(net_vault, "main"),
+        resolve=resolve,
+    )
+    assert [
+        o.extra["commit"]
+        for o in _replayed(net_vault, base)
+        if o.reason
+        == "drift — claim ^c-11111111 mutated or vanished without deprecation"
+    ] == [merge]
+
+
+def test_an_unchanged_commit_is_skipped_and_the_replay_goes_on(net_vault):
+    """`_history_outcomes`: a commit whose tree equals its parent's is
+    skipped, not the end of the replay."""
+    base = _commit_all(net_vault, "base")
+    subprocess.run(
+        ["git", "commit", "-q", "--allow-empty", "-m", "empty"],
+        cwd=net_vault,
+        check=True,
+    )
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+    bypassed = _commit_all(net_vault, "hand edit, bypassed")
+    assert [
+        o.extra["commit"]
+        for o in _replayed(net_vault, base)
+        if o.reason == "drift — DOI changed without writer attestation"
+    ] == [bypassed]
+
+
+def test_the_replay_reads_each_blob_once_across_its_trees(net_vault, monkeypatch):
+    """`_history_outcomes`: each tree is read once, each blob once across
+    them; a note two commits leave alone is read for neither again."""
+    base = _commit_all(net_vault, "base")
+    for name in ("one", "two"):
+        _unrelated(net_vault, name)()
+        _commit_all(net_vault, name)
+    real = gitstate._git
+    requested: list[bytes] = []
+
+    def counting(vault, *args, **kwargs):
+        if args[:2] == ("cat-file", "--batch"):
+            requested.extend(kwargs["stdin"].split())
+        return real(vault, *args, **kwargs)
+
+    monkeypatch.setattr(gitstate, "_git", counting)
+    verify._history_outcomes(net_vault, base, lambda *_args: "h")
+    assert requested
+    assert len(requested) == len(set(requested))
+
+
+def test_a_row_the_replay_did_not_raise_again_stays_beside_it(net_vault):
+    """`_once_each` drops only a row the re-check raised again; the standing
+    citation-key row the replay never raises stays next to the replayed row,
+    in the effective rows and in the report a reader such as the Stop gate
+    takes them from."""
+    base = _commit_all(net_vault, "base")
+    note = net_vault / "literature" / "smith2020.md"
+    note.write_text(
+        must_replace(note.read_text(), 'DOI: "10.1000/xyz"', 'DOI: "10.1000/abc"')
+    )
+    _commit_all(net_vault, "hand edit, bypassed")
+    report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    for rows in (effective, report["outcomes"]):
+        reasons = {(o.check, str(o.target)) for o in rows}
+        assert ("citation-key", "fabricated2020") in reasons
+        assert ("evidence-layer", "path-bytes:literature/smith2020.md") in reasons

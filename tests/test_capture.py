@@ -2039,9 +2039,9 @@ def test_a_compiled_child_trashed_and_recaptured_leaves_a_not_captured_ledger_ro
     ]
 
 
-def _two_captured(tmp_vault, monkeypatch):
-    second = _second_item()
-    fake = _canned_run(canned_item(FakeZotero()), items=(ITEM, second))
+def _two_item_client(monkeypatch, first=ITEM, second=None):
+    second = second or _second_item()
+    fake = _canned_run(canned_item(FakeZotero(), item=first), items=(first, second))
     canned_item(fake, item=second, children=())
     fake.get(
         "/api/users/0/items?since=0&format=versions",
@@ -2050,7 +2050,11 @@ def _two_captured(tmp_vault, monkeypatch):
     )
     entries = [*LIBRARY, {"id": "second2023", "title": "S"}]
     fake.rpc("item.export", lambda params: [e for e in entries if e["id"] in params[0]])
-    client = _client(monkeypatch, fake)
+    return _client(monkeypatch, fake)
+
+
+def _two_captured(tmp_vault, monkeypatch):
+    client = _two_item_client(monkeypatch)
     capture.capture(tmp_vault, client, ["E352DFS8", "F441KKD2"])
     assert sorted(bibliography.load(tmp_vault)) == ["jakesch.etal2023a", "second2023"]
     return client
@@ -2088,3 +2092,27 @@ def test_an_entry_drops_only_when_its_note_file_is_gone(tmp_vault, monkeypatch):
     (tmp_vault / "literature" / "second2023.md").unlink()
     capture.capture(tmp_vault, client, ["E352DFS8"])
     assert sorted(bibliography.load(tmp_vault)) == ["jakesch.etal2023a"]
+
+
+def test_an_entry_whose_note_path_is_a_directory_drops(tmp_vault, monkeypatch):
+    """Spec §5.3.1 amendment (d): an entry stays only while
+    `literature/<key>.md` is still a file; a directory there holds no note."""
+    client = _two_captured(tmp_vault, monkeypatch)
+    note = tmp_vault / "literature" / "second2023.md"
+    note.unlink()
+    note.mkdir()
+    capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert sorted(bibliography.load(tmp_vault)) == ["jakesch.etal2023a"]
+
+
+def test_a_run_that_retags_two_notes_names_both_in_its_one_row(tmp_vault, monkeypatch):
+    """Spec §5.3.1(m): the run's one tags row names every retagged note."""
+    _two_captured(tmp_vault, monkeypatch)
+    first, second = json.loads(json.dumps(ITEM)), _second_item()
+    for item in (first, second):
+        item["data"]["tags"] = [{"tag": "ai", "type": 1}, {"tag": "#nosource"}]
+    client = _two_item_client(monkeypatch, first, second)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8", "F441KKD2"])
+    assert [o.reason for o in outcomes if o.target == "tags"] == [
+        "drift — tags changed on: jakesch.etal2023a, second2023"
+    ]

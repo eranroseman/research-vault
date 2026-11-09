@@ -1160,8 +1160,10 @@ def _merge_fake(
     citation_key="new2020",
     losers=("E352DFS8",),
     extra=(),
+    live=(),
 ):
-    """old2020 (E352DFS8) was merged into NEW00001, whose key is new2020."""
+    """old2020 (E352DFS8) was merged into NEW00001, whose key is new2020;
+    ``live`` items are also in the library, listed beside the survivor."""
     fake = FakeZotero(server_id="S")
     survivor = {
         **ITEM,
@@ -1176,11 +1178,16 @@ def _merge_fake(
         },
     }
     canned_item(fake, item=survivor)
-    for item in extra:
+    for item in (*extra, *live):
         canned_item(fake, item=item, children=())
     fake.get(
         "/api/users/0/items?since=0&format=versions",
-        body={"NEW00001": 600, "D7EJ9FTG": 551, "N0TE0001": 552},
+        body={
+            "NEW00001": 600,
+            "D7EJ9FTG": 551,
+            "N0TE0001": 552,
+            **{item["key"]: 600 for item in live},
+        },
         headers={"Last-Modified-Version": "600"},
     )
     fake.get(
@@ -1189,7 +1196,7 @@ def _merge_fake(
     )
     fake.get(
         "/api/users/0/items/top?format=json",
-        body=[survivor],
+        body=[survivor, *live],
         headers={"Last-Modified-Version": "600"},
     )
     fake.rpc("item.export", lambda params: [{"id": citation_key, "title": "T"}])
@@ -2154,3 +2161,156 @@ def test_a_removal_approved_before_p39_is_planned_again(tmp_vault, monkeypatch):
     (refused,) = propagate.apply(tmp_vault, client, path, old_sha)
     assert refused.reason.startswith("mismatch — plan changed")
     assert (tmp_vault / "literature" / "old2020.md").is_file()
+
+
+def test_cli_prints_an_identity_merge_under_the_losers_own_key(
+    tmp_vault, monkeypatch, capsys
+):
+    """P21: an identity merge stays out of the plan's mapping, and its line
+    names the key it keeps."""
+    _seed(tmp_vault)
+    client = _merge_fake(monkeypatch, survivor_has_note=False, citation_key="old2020")
+    cli, _bases = _cli(monkeypatch, client)
+    assert cli.main(["propagate", "--vault", str(tmp_vault)]) == 0
+    assert capsys.readouterr().out.splitlines()[0] == (
+        "merge old2020 → old2020 (item NEW00001)"
+    )
+
+
+def test_a_surface_with_a_byte_that_is_not_utf8_is_planned_and_rewritten(
+    tmp_vault, monkeypatch
+):
+    """`rewrite_surfaces` decodes with surrogateescape, and plan reads a
+    surface the same way, so a surface plan accepts is one apply can rewrite."""
+    _seed(tmp_vault)
+    surface = tmp_vault / "wiki" / "sources" / "C.md"
+    surface.write_bytes(b"---\ntype: source\n---\n[@old2020] \xff\n")
+    client = _zotero(monkeypatch)
+    monkeypatch.setattr(
+        propagate.capture, "capture", lambda vault, client, keys, **kw: []
+    )
+    planned, path, sha = _planned(tmp_vault, client)
+    assert "wiki/sources/C.md" in [s.path for s in planned.surfaces]
+    outcomes = propagate.apply(tmp_vault, client, path, sha)
+    assert all(o.result is Result.MATCHED for o in outcomes), outcomes
+    assert surface.read_bytes() == b"---\ntype: source\n---\n[@new2020] \xff\n"
+
+
+def test_the_first_loser_by_key_takes_the_rename_whatever_the_mapping_order(
+    tmp_vault, monkeypatch
+):
+    """P25 (`_order`): with no survivor note, the first loser by key takes
+    the rename and the other is the removal."""
+    _seed(tmp_vault)
+    _seed_second_loser(tmp_vault)
+    planned, outcomes = propagate.plan(
+        tmp_vault,
+        _two_loser_fake(monkeypatch),
+        {"old2021": "new2020", "old2020": "new2020"},
+        merges={"old2021": "NEW00001", "old2020": "NEW00001"},
+    )
+    assert planned is not None, outcomes
+    assert planned.removes == {"old2021": "literature/old2021.md"}
+
+
+_RENAMED_OVER = "schema-violation — literature/old2020.md already exists; nothing is renamed over it"
+
+
+def test_an_identity_merge_onto_a_symlinked_loser_path_is_refused_as_occupied(
+    tmp_vault, monkeypatch
+):
+    """P38's state with the loser's path a symlink: no note is read through
+    it, so nothing says it holds the loser's note, and the path is occupied."""
+    _seed(tmp_vault)
+    literature = tmp_vault / "literature"
+    (tmp_vault / "loser.note").write_bytes((literature / "old2020.md").read_bytes())
+    (literature / "old2020.md").unlink()
+    (literature / "old2020.md").symlink_to(tmp_vault / "loser.note")
+    (literature / "zed2020.md").write_text(_note("NEW00001", "zed2020"))
+    client = _merge_fake(monkeypatch, survivor_has_note=True, citation_key="old2020")
+    planned, outcomes = propagate.plan(tmp_vault, client, None)
+    assert planned is None
+    assert [(o.target, o.reason) for o in outcomes] == [("zed2020", _RENAMED_OVER)]
+
+
+def test_a_second_survivor_note_claiming_the_path_is_not_the_p38_state(
+    tmp_vault, monkeypatch
+):
+    """P38 names a loser's note at the path; when the survivor's own other
+    note claims it first in the plan, the refusal names that claim."""
+    _seed(tmp_vault)
+    literature = tmp_vault / "literature"
+    (literature / "old2020.md").rename(literature / "old2020-merged.md")
+    (literature / "zed2020.md").write_text(_note("NEW00001", "zed2020"))
+    (literature / "old2020.md").write_text(_note("NEW00001", "q2020"))
+    client = _merge_fake(monkeypatch, survivor_has_note=True, citation_key="old2020")
+    planned, outcomes = propagate.plan(tmp_vault, client, None)
+    assert planned is None
+    assert [(o.target, o.reason) for o in outcomes] == [
+        (
+            "zed2020",
+            "schema-violation — literature/old2020.md is claimed by q2020 in this plan",
+        )
+    ]
+
+
+def test_an_unrelated_note_re_keyed_onto_an_identity_merges_key_is_occupied(
+    tmp_vault, monkeypatch
+):
+    """P38 is about the survivor's own note; another item's note re-keyed onto
+    the identity merge's key meets an occupied path, not the P38 refusal."""
+    _seed(tmp_vault)
+    (tmp_vault / "literature" / "zed2020.md").write_text(_note("ZED00001", "zed2020"))
+    other = {
+        **ITEM,
+        "key": "ZED00001",
+        "data": {**ITEM["data"], "key": "ZED00001", "citationKey": "old2020"},
+    }
+    client = _merge_fake(
+        monkeypatch, survivor_has_note=True, citation_key="old2020", live=(other,)
+    )
+    planned, outcomes = propagate.plan(tmp_vault, client, None)
+    assert planned is None
+    assert [(o.target, o.reason) for o in outcomes] == [("zed2020", _RENAMED_OVER)]
+
+
+def test_an_identity_re_key_is_nothing_to_propagate(tmp_vault, monkeypatch):
+    """`_targets`: an identity re-key does nothing at all and is dropped."""
+    _seed(tmp_vault)
+    planned, outcomes = propagate.plan(
+        tmp_vault, _zotero(monkeypatch, citation_key="old2020"), {"old2020": "old2020"}
+    )
+    assert planned is None
+    assert [(o.result, o.reason) for o in outcomes] == [
+        (Result.SKIPPED, "no-identifier — nothing to propagate")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("first", "mapping", "occupied"),
+    [
+        pytest.param("aaa2020", {"aaa2020": "aaa2021"}, False, id="no-source"),
+        pytest.param("bbb2020", {"bbb2020": "a/b"}, False, id="invalid-target"),
+        pytest.param("bbb2020", {"bbb2020": "new2020"}, True, id="occupied"),
+        pytest.param("bbb2020", {"bbb2020": "aaa2021"}, False, id="mismatch"),
+    ],
+)
+def test_a_refused_entry_does_not_end_the_plans_walk(
+    tmp_vault, monkeypatch, first, mapping, occupied
+):
+    """Every entry is judged: the first in plan order refuses, and the later
+    entry's own refusal still comes back."""
+    _seed(tmp_vault)
+    (tmp_vault / "literature" / "bbb2020.md").write_text(_note("E352DFS8", "bbb2020"))
+    if occupied:
+        (tmp_vault / "literature" / "new2020.md").write_text(
+            '---\ntype: "literature"\n---\n'
+        )
+    planned, outcomes = propagate.plan(
+        tmp_vault, _zotero(monkeypatch), {**mapping, "old2020": "zzz2020"}
+    )
+    assert planned is None
+    assert [str(o.target) for o in outcomes] == [first, "old2020"]
+    assert outcomes[1].reason.startswith(
+        "mismatch — item E352DFS8 carries citation key 'new2020', not 'zzz2020'"
+    )
