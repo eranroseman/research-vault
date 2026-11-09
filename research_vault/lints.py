@@ -883,9 +883,8 @@ def _verifier_list_outcomes(raw_path, base_data, candidate_data) -> list[Outcome
 def _capture_monitor_outcomes(raw_path, base_data, candidate_data) -> list[Outcome]:
     """Every attested change to a literature note's snapshot, attachments and
     identity (spec §5.3.1). Attested pairs only: an unattested change is
-    already evidence-layer's row, and a second row would cost a second ack."""
-    if base_data is None or candidate_data is None:
-        return []
+    already evidence-layer's row, and a second row would cost a second ack.
+    An unparseable side attests nothing (`_write_attested`), so it files none."""
     if not _write_attested(base_data, candidate_data):
         return []
     restored = _restored_reason(base_data, candidate_data)

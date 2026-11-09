@@ -964,9 +964,11 @@ def _history_outcomes(repository, base_ref, hasher):
         return snapshots[revision]
 
     def own_rows(tree_snapshot):
+        # A tree's own rows have no base: linted against itself, a tree raises
+        # only candidate-only rows, whose hashes read the candidate alone (P57).
         if tree_snapshot.tree not in own:
             own[tree_snapshot.tree] = {
-                key: hasher(outcome, tree_snapshot, tree_snapshot)
+                key: hasher(outcome, None, tree_snapshot)
                 for key, outcome in _unmatched(
                     repository, tree_snapshot, tree_snapshot
                 ).items()
