@@ -5764,7 +5764,14 @@ def test_with_reason_layout_is_pinned():
     """A capture-monitor row's hash basis is the note's bytes, a NUL and the
     reason (ruling P4); a deliberate layout change updates the digest and
     lapses existing acks."""
-    basis = verify._with_reason(b"note bytes", _list_outcome(), None, None)
+    monitor_row = Outcome(
+        "capture-monitor",
+        RepoPath(b"literature/n.md"),
+        Result.UNMATCHED,
+        _LIST_REASON,
+        extra={"hash_basis": lints.MONITOR_ROW},
+    )
+    basis = verify._with_reason(b"note bytes", monitor_row, None, None)
     assert hashlib.sha256(basis).hexdigest() == (
         "637932655c97330df784d4c4784a33e55df12ad2dd7fcc2e69553e54d0ce68cf"
     )
@@ -7157,8 +7164,8 @@ def test_an_unchanged_commit_is_skipped_and_the_replay_goes_on(net_vault):
 
 
 def test_the_replay_reads_each_blob_once_across_its_trees(net_vault, monkeypatch):
-    """`_history_outcomes`: each tree is read once, each blob once across
-    them; a note two commits leave alone is read for neither again."""
+    """`_history_outcomes`: each blob is read once across the replayed
+    trees; a note two commits leave alone is not read again."""
     base = _commit_all(net_vault, "base")
     for name in ("one", "two"):
         _unrelated(net_vault, name)()
