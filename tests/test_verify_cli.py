@@ -713,11 +713,24 @@ def test_verify_git_candidate_choices_and_git_base_are_parsed(net_vault, capsys)
 
 
 def test_scaffold_and_stamp_type_run_in_process_with_their_flags(tmp_path, capsys):
-    """The dispatch table names them and their flags parse: scaffold's two
+    """The dispatch table names them and their flags parse: scaffold's three
     store_true flags take no value, and stamp-type's --vault is read."""
     vault = tmp_path / "vault"
-    assert main(["scaffold", "--vault", str(vault), "--with-ci", "--with-rw-ci"]) == 0
+    assert (
+        main(
+            [
+                "scaffold",
+                "--vault",
+                str(vault),
+                "--with-ci",
+                "--with-rw-ci",
+                "--with-obsidian",
+            ]
+        )
+        == 0
+    )
     created = capsys.readouterr().out.splitlines()
+    assert ".obsidian/" in created
     assert ".github/workflows/verify.yml" in created
     assert ".github/workflows/rw-batch.yml" in created
     (vault / "inbox" / "idea.md").write_text("a thought\n")

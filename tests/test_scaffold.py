@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 from importlib import resources
@@ -7,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from research_vault import frontmatter, scaffold
+from research_vault import Result, frontmatter, scaffold
 
 VAULT_DIRS = [
     "inbox",
@@ -122,6 +123,7 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
         "{\n"
         '  "claude_obsidian_root": "",\n'
         '  "mailto": "you@example.edu",\n'
+        '  "obsidian_config_dir": "",\n'
         '  "path_map": {\n'
         '    "D:\\\\Zotero\\\\": "/mnt/d/Zotero/"\n'
         "  },\n"
@@ -676,3 +678,74 @@ def test_scaffold_sets_push_follow_tags(tmp_path):
         check=True,
     ).stdout.strip()
     assert value == "true"
+
+
+def test_scaffold_seeds_obsidian_only_when_asked_and_as_one_unit(tmp_path):
+    vault = tmp_path / "vault"
+    created = scaffold.scaffold_vault(vault, with_obsidian=True)
+    assert ".obsidian/" in created
+    assert (vault / ".obsidian").is_dir()
+    assert git(vault, "show", "--format=", "--name-only", "HEAD").splitlines() == (
+        sorted(TRACKABLE_CREATED + git(vault, "ls-files", ".obsidian").splitlines())
+    )
+    # ignored by the seeded gitignore
+    assert git(vault, "ls-files", ".obsidian/workspace.json") == ""
+    plain = tmp_path / "plain"
+    assert ".obsidian/" not in scaffold.scaffold_vault(plain)
+    assert not (plain / ".obsidian").exists()
+
+
+def test_scaffold_leaves_an_existing_obsidian_alone_and_says_so(tmp_path, capsys):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".obsidian").mkdir()
+    (vault / ".obsidian" / "app.json").write_text("{}")
+    created = scaffold.scaffold_vault(vault, with_obsidian=True)
+    assert ".obsidian/" not in created
+    assert (vault / ".obsidian" / "app.json").read_text() == "{}"
+    assert sorted((vault / ".obsidian").iterdir()) == [vault / ".obsidian" / "app.json"]
+    assert (
+        "skipped .obsidian/: already present — to seed it, close Obsidian, move "
+        ".obsidian/ aside and run scaffold again" in capsys.readouterr().out
+    )
+
+
+def test_scaffold_git_cost_does_not_grow_with_the_plugin_count(tmp_path, monkeypatch):
+    """Designs cluster 6(c): one candidate, one created path, whatever the seed holds."""
+    calls: list[tuple] = []
+    real = scaffold._git
+
+    def counting(vault, *args, **kwargs):
+        calls.append(args)
+        return real(vault, *args, **kwargs)
+
+    monkeypatch.setattr(scaffold, "_git", counting)
+    scaffold.scaffold_vault(tmp_path / "small", with_obsidian=True)
+    small = len(calls)
+    calls.clear()
+    seed = tmp_path / "big-seed"
+    with resources.as_file(scaffold._seed_root()) as source:
+        shutil.copytree(source, seed)
+    for i in range(150):
+        (seed / "plugins" / f"p{i}").mkdir(parents=True)
+        (seed / "plugins" / f"p{i}" / "data.json").write_text("{}\n")
+    monkeypatch.setattr(scaffold, "_seed_root", lambda: seed)
+    scaffold.scaffold_vault(tmp_path / "big", with_obsidian=True)
+    assert len(calls) == small
+
+
+def test_a_tracked_but_deleted_obsidian_is_a_conflict(tmp_path):
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault, with_obsidian=True)
+    shutil.rmtree(vault / ".obsidian")
+    git(vault, "add", "-A")
+    with pytest.raises(ValueError, match="conflict"):
+        scaffold.scaffold_vault(vault, with_obsidian=True)
+
+
+def test_doctor_repair_never_seeds_obsidian(tmp_vault):
+    from research_vault import doctor
+
+    probe = doctor._tree_probe(tmp_vault)
+    assert probe.result is Result.MATCHED
+    assert not (tmp_vault / ".obsidian").exists()

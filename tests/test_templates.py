@@ -44,7 +44,9 @@ def test_all_canonical_template_paths_are_packaged():
         for path in TEMPLATES.rglob("*")
         if path.is_file()
     }
-    assert actual == EXPECTED_PATHS
+    seed = {path for path in actual if path.startswith("obsidian/")}
+    assert actual - seed == EXPECTED_PATHS
+    assert seed
     package_data = (REPO / "pyproject.toml").read_text()
     assert '"templates/**/*"' in package_data
 
@@ -221,6 +223,7 @@ def test_bases_and_machine_example_match_canonical_shapes():
     assert machine == {
         "claude_obsidian_root": "",
         "mailto": "you@example.edu",
+        "obsidian_config_dir": "",
         "path_map": {"D:\\Zotero\\": "/mnt/d/Zotero/"},
         "zotero_base": "http://localhost:23119",
         "zotero_profile": "",
@@ -669,3 +672,31 @@ def test_expected_deny_rules_falls_back_to_the_copy_when_hooks_is_absent(monkeyp
     assert doctor.expected_deny_rules() == _roster_rules(
         doctor._ROSTER_DIR_NAMES, doctor._ROSTER_PREFIXES, doctor._ROSTER_FILES
     )
+
+
+def test_package_data_glob_reaches_every_template_file():
+    """Designs cluster 6(a): setuptools' build_py uses the standard-library glob,
+    which skips dot entries at any depth. The hermetic form of that call must
+    equal the rglob file set, and no template path may carry a dot component."""
+    import glob
+
+    globbed = {
+        Path(p).relative_to(TEMPLATES).as_posix()
+        # the stdlib glob is the call under test (setuptools build_py)
+        for p in glob.glob(str(TEMPLATES / "**" / "*"), recursive=True)  # noqa: PTH207
+        if Path(p).is_file()
+    }
+    walked = {
+        p.relative_to(TEMPLATES).as_posix() for p in TEMPLATES.rglob("*") if p.is_file()
+    }
+    assert globbed == walked
+    dotted = [p for p in walked if any(part.startswith(".") for part in p.split("/"))]
+    assert dotted == []
+
+
+def test_no_markdown_under_the_obsidian_seed():
+    """verify walks every *.md in a vault; the seed is excluded there (#194) but a
+    plugin README in the package would be shipped for nothing."""
+    seed = TEMPLATES / "obsidian"
+    assert seed.is_dir()
+    assert list(seed.rglob("*.md")) == []

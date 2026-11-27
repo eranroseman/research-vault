@@ -1,5 +1,6 @@
 """Create a new research-vault vault from packaged templates."""
 
+import os
 import shutil
 import stat
 import subprocess
@@ -22,6 +23,13 @@ PROVISION_COMPANIONS = [
 ]
 _EMPTY_ROOTS = ("daily", "literature", "log", "projects")
 _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".research-vault/machine.json"}
+OBSIDIAN_DIR = ".obsidian"
+OBSIDIAN_TEMPLATE = "obsidian"
+_OBSIDIAN_UNIT = ".obsidian/"
+_SKIPPED_OBSIDIAN = (
+    "skipped .obsidian/: already present — to seed it, close Obsidian, move "
+    ".obsidian/ aside and run scaffold again"
+)
 GLOSSARY_PATH = "system/glossary.md"
 GLOSSARY_ENVELOPE = b'---\ntype: "guide"\n---\n\n'
 
@@ -91,6 +99,30 @@ def _render_glossary_if_absent(vault: Path, templates, created: list[str]) -> No
     created.append(GLOSSARY_PATH)
 
 
+def _seed_root():
+    return resources.files("research_vault").joinpath("templates", OBSIDIAN_TEMPLATE)
+
+
+def _copy_obsidian_seed(vault: Path, created: list[str]) -> None:
+    """Copy the seed as one unit (spec §4.6): into a sibling temporary directory,
+    then one rename into place, so a concurrently created `.obsidian/` makes the
+    rename fail instead of leaving half a seed. An existing folder is left
+    alone and named on stdout; setup-vault relays the line."""
+    target = vault / OBSIDIAN_DIR
+    if target.exists() or target.is_symlink():
+        print(_SKIPPED_OBSIDIAN)  # noqa: T201 -- the skip line setup-vault relays
+        return
+    staging = vault / f"{OBSIDIAN_DIR}.research-vault-seed-{os.getpid()}"
+    with resources.as_file(_seed_root()) as source:
+        shutil.copytree(source, staging)
+    try:
+        staging.rename(target)
+    except OSError:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    created.append(_OBSIDIAN_UNIT)
+
+
 def _add_empty_root_sentinels(vault: Path, created: list[str]) -> None:
     for root in _EMPTY_ROOTS:
         directory = vault / root
@@ -101,7 +133,9 @@ def _add_empty_root_sentinels(vault: Path, created: list[str]) -> None:
             created.append(sentinel.relative_to(vault).as_posix())
 
 
-def _owned_paths(templates, with_ci: bool, with_rw_ci: bool) -> list[str]:
+def _owned_paths(
+    templates, with_ci: bool, with_rw_ci: bool, with_obsidian: bool
+) -> list[str]:
     owned = [*VAULT_DIRS]
     owned.extend(relative for relative, _source in _vault_template_paths(templates))
     owned.append(GLOSSARY_PATH)
@@ -111,6 +145,8 @@ def _owned_paths(templates, with_ci: bool, with_rw_ci: bool) -> list[str]:
         owned.append(".github/workflows/verify.yml")
     if with_rw_ci:
         owned.append(".github/workflows/rw-batch.yml")
+    if with_obsidian:
+        owned.append(OBSIDIAN_DIR)
     return owned
 
 
@@ -176,7 +212,7 @@ def _is_tracked(vault: Path, relative: str) -> bool:
 
 
 def _preflight_conflicts(
-    vault: Path, templates, with_ci: bool, with_rw_ci: bool
+    vault: Path, templates, with_ci: bool, with_rw_ci: bool, with_obsidian: bool
 ) -> None:
     candidates = []
     for relative, _source in _vault_template_paths(templates):
@@ -194,6 +230,9 @@ def _preflight_conflicts(
         candidates.append(".github/workflows/verify.yml")
     if with_rw_ci and not (vault / ".github" / "workflows" / "rw-batch.yml").exists():
         candidates.append(".github/workflows/rw-batch.yml")
+    target = vault / OBSIDIAN_DIR
+    if with_obsidian and not (target.exists() or target.is_symlink()):
+        candidates.append(OBSIDIAN_DIR)
     conflicts = sorted(
         relative for relative in candidates if _is_tracked(vault, relative)
     )
@@ -229,14 +268,19 @@ def _commit_created_paths(vault: Path, created: list[str]) -> None:
     )
 
 
-def scaffold_vault(dest, with_ci: bool = False, with_rw_ci: bool = False) -> list[str]:
-    """Create missing vault assets and commit only the newly created trackable paths."""
+def scaffold_vault(
+    dest, with_ci: bool = False, with_rw_ci: bool = False, with_obsidian: bool = False
+) -> list[str]:
+    """Create missing vault assets and commit only the newly created trackable paths.
+
+    The `.obsidian/` seed is copied only with `with_obsidian`; doctor's repair
+    calls this with the default, so a removed plugin is never reinstalled."""
     vault = Path(dest).absolute()
     templates = resources.files("research_vault").joinpath("templates")
-    owned_paths = _owned_paths(templates, with_ci, with_rw_ci)
+    owned_paths = _owned_paths(templates, with_ci, with_rw_ci, with_obsidian)
     _reject_owned_symlinks(vault, owned_paths)
     _prepare_repository(vault)
-    _preflight_conflicts(vault, templates, with_ci, with_rw_ci)
+    _preflight_conflicts(vault, templates, with_ci, with_rw_ci, with_obsidian)
 
     created: list[str] = []
     for directory in VAULT_DIRS:
@@ -244,6 +288,8 @@ def scaffold_vault(dest, with_ci: bool = False, with_rw_ci: bool = False) -> lis
 
     _copy_vault_templates(vault, templates, created)
     _render_glossary_if_absent(vault, templates, created)
+    if with_obsidian:
+        _copy_obsidian_seed(vault, created)
     if "log.md" in created:
         # Ship a freshly-scaffolded vault's log.md already OKF-conformant
         # (type: "log") rather than leaving the inert packaged placeholder

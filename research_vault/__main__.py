@@ -835,7 +835,10 @@ def cmd_inbox(args):
 
 def cmd_scaffold(args):
     for path in scaffold.scaffold_vault(
-        args.vault, with_ci=args.with_ci, with_rw_ci=args.with_rw_ci
+        args.vault,
+        with_ci=args.with_ci,
+        with_rw_ci=args.with_rw_ci,
+        with_obsidian=args.with_obsidian,
     ):
         print(path)
     return 0
@@ -1057,6 +1060,7 @@ def main(argv=None):
     scaffold_vault.add_argument("--vault", required=True)
     scaffold_vault.add_argument("--with-ci", action="store_true")
     scaffold_vault.add_argument("--with-rw-ci", action="store_true")
+    scaffold_vault.add_argument("--with-obsidian", action="store_true")
     doctor_vault = sub.add_parser("doctor", parents=[common])
     doctor_vault.add_argument("--vault", required=True)
     stamp_type = sub.add_parser("stamp-type", parents=[common])
