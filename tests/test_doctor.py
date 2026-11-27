@@ -29,6 +29,7 @@ PROBE_NAMES = [
     "translator-formats",
     "compile-tool",
     "pyyaml",
+    "deny-rules",
     "remote",
     "backup",
 ]
@@ -41,6 +42,7 @@ WARN_ONLY = [
     "translator-formats",
     "compile-tool",
     "pyyaml",
+    "deny-rules",
     "fulltext-sync",
     "path-shim",
     "advisory",
@@ -1783,3 +1785,29 @@ def test_a_cold_row_that_raises_is_its_own_unmatched_row(tmp_vault, monkeypatch)
         "probe raised RuntimeError: unexpected /some/path",
         facts=(("plugins", ("probe raised RuntimeError",)),),
     )
+
+
+def test_deny_rules_row_compares_the_vault_settings_with_the_roster(tmp_vault):
+    import json
+
+    assert doctor._deny_rules_probe(tmp_vault) == doctor.Probe(
+        "deny-rules",
+        Result.SKIPPED,
+        ".claude/settings.json absent — scaffold seeds it",
+    )
+    settings = tmp_vault / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    settings.write_text(
+        json.dumps({"permissions": {"deny": doctor.expected_deny_rules()}})
+    )
+    probe = doctor._deny_rules_probe(tmp_vault)
+    assert probe.result is Result.MATCHED
+    assert probe.reason == "8 Edit deny rules equal the guard's roster"
+    rules = [*doctor.expected_deny_rules()[:-1], "Edit(/daily/**)"]
+    settings.write_text(json.dumps({"permissions": {"deny": rules}}))
+    probe = doctor._deny_rules_probe(tmp_vault)
+    assert probe.result is Result.UNMATCHED
+    assert "missing Edit(/wiki/**)" in probe.reason
+    assert "extra Edit(/daily/**)" in probe.reason
+    settings.write_text("{not json")
+    assert doctor._deny_rules_probe(tmp_vault).result is Result.UNMATCHED

@@ -18,6 +18,7 @@ VAULT_DIRS = [
     "system/bases",
 ]
 EXPECTED_CREATED = [
+    ".claude/settings.json",
     ".editorconfig",
     ".git/hooks/pre-commit",
     ".gitignore",

@@ -54,21 +54,24 @@ def _copy_if_absent(source, target: Path, relative: str, created: list[str]) -> 
     created.append(relative)
 
 
-# Dotfiles ship dotless (packaging pitfall: a dotfile committed directly as
-# a template asset risks silently failing to package) and are renamed here
-# on write.
+# Dotfiles and dot-directories ship dotless (packaging pitfall: a dotfile
+# committed directly as a template asset risks silently failing to package):
+# a template path's first component is renamed on write.
 _DOTLESS_TEMPLATE_RENAMES = {
     "gitignore": ".gitignore",
     "prettierignore": ".prettierignore",
     "markdownlintignore": ".markdownlintignore",
     "editorconfig": ".editorconfig",
+    "claude": ".claude",
 }
 
 
 def _vault_template_paths(templates):
     source_root = templates.joinpath("vault")
     for relative, source in _template_files(source_root):
-        yield _DOTLESS_TEMPLATE_RENAMES.get(relative, relative), source
+        first, _sep, rest = relative.partition("/")
+        renamed = _DOTLESS_TEMPLATE_RENAMES.get(first, first)
+        yield (f"{renamed}/{rest}" if rest else renamed), source
 
 
 def _copy_vault_templates(vault: Path, templates, created: list[str]) -> None:

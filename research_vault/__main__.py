@@ -59,6 +59,7 @@ DOCTOR_WARN_ONLY = {
     "translator-formats",
     "compile-tool",
     "pyyaml",
+    "deny-rules",
     "fulltext-sync",
     "path-shim",
     "advisory",

@@ -737,6 +737,73 @@ def _pyyaml_probe() -> Probe:
     )
 
 
+# The guard's roster, repeated here only for a pip install that has no hooks/
+# beside the package; `tests/test_templates.py` pins this copy against the
+# guard's constants so the two cannot drift.
+_ROSTER_DIR_NAMES = ("literature", "log", "wiki", "fulltext")
+_ROSTER_PREFIXES = ("system/propagations",)
+_ROSTER_FILES = ("log.md", "inbox/review-queue.md", "system/bibliography.json")
+
+
+def expected_deny_rules() -> list[str]:
+    """The guard's roster as Claude Code deny rules (spec §5.7): one source, the
+    guard file when it is beside the package, the pinned copy otherwise."""
+    import importlib.util
+
+    guard_path = Path(__file__).resolve().parents[1] / "hooks" / "pretooluse_guard.py"
+    dir_names, prefixes, files = _ROSTER_DIR_NAMES, _ROSTER_PREFIXES, _ROSTER_FILES
+    if guard_path.is_file():
+        spec = importlib.util.spec_from_file_location("pretooluse_guard", guard_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"cannot load {guard_path}")
+        guard = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(guard)
+        dir_names = tuple(guard.MACHINE_SURFACE_DIR_NAMES)
+        prefixes = tuple(p.as_posix() for p in guard.MACHINE_SURFACE_PREFIXES)
+        files = tuple(p.as_posix() for p in guard.MACHINE_SURFACE_FILES)
+    return sorted(
+        [f"Edit(/{name}/**)" for name in dir_names]
+        + [f"Edit(/{prefix}/**)" for prefix in prefixes]
+        + [f"Edit(/{path})" for path in files]
+    )
+
+
+def _deny_rules_probe(vault: Path) -> Probe:
+    """The seeded `.claude/settings.json` deny list against the roster (§5.7)."""
+    settings = vault / ".claude" / "settings.json"
+    if not settings.is_file():
+        return Probe(
+            "deny-rules",
+            Result.SKIPPED,
+            ".claude/settings.json absent — scaffold seeds it",
+        )
+    try:
+        document = json.loads(settings.read_text(encoding="utf-8"))
+        deny = document["permissions"]["deny"]
+        if not isinstance(deny, list):
+            raise ValueError("permissions.deny is not a list")
+    except (OSError, UnicodeError, ValueError, KeyError, TypeError) as error:
+        return Probe(
+            "deny-rules", Result.UNMATCHED, f".claude/settings.json unreadable: {error}"
+        )
+    expected = expected_deny_rules()
+    present = {
+        rule for rule in deny if isinstance(rule, str) and rule.startswith("Edit(")
+    }
+    missing = sorted(set(expected) - present)
+    extra = sorted(present - set(expected))
+    if not missing and not extra:
+        return Probe(
+            "deny-rules",
+            Result.MATCHED,
+            f"{len(expected)} Edit deny rules equal the guard's roster",
+        )
+    parts = [f"missing {rule}" for rule in missing] + [
+        f"extra {rule}" for rule in extra
+    ]
+    return Probe("deny-rules", Result.UNMATCHED, "; ".join(parts))
+
+
 # The network-free, repair-free probes capture runs after every successful run
 # (spec §6.4, Q13): the component rows. `tree` repairs, the Zotero rows need
 # the app; `pyyaml`, `deny-rules`, `machine-config`, `remote` and `backup`
@@ -799,6 +866,7 @@ def doctor(vault_root, client=None) -> list[Probe]:
         _translator_formats_probe(client, skip),
         _compile_tool_probe(),
         _pyyaml_probe(),
+        _deny_rules_probe(vault),
         _remote_probe(vault),
         _backup_probe(config),
     ]

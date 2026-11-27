@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/fulltext/**)",
+      "Edit(/inbox/review-queue.md)",
+      "Edit(/literature/**)",
+      "Edit(/log.md)",
+      "Edit(/log/**)",
+      "Edit(/system/bibliography.json)",
+      "Edit(/system/propagations/**)",
+      "Edit(/wiki/**)"
+    ]
+  }
+}

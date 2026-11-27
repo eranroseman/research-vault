@@ -51,6 +51,7 @@ JSON_MANIFESTS = [
     ".claude-plugin/marketplace.json",
     ".github/okf-pin.json",
     "research_vault/templates/research-vault/machine.json.example",
+    "research_vault/templates/vault/claude/settings.json",
 ]
 
 TOML_FILES = ["pyproject.toml"]

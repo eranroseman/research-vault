@@ -891,6 +891,43 @@ def test_pretooluse_is_machine_surface_raises_on_the_degenerate_empty_relative_p
         hook._is_machine_surface(Path())
 
 
+def test_what_detection_covers_and_what_still_passes_is_pinned(fixture_vault):
+    """§5.7: detection is the boundary. An in-format append to `log/` (with its
+    regenerated `log.md`) and to the review queue still pass; closing one of
+    those gaps flips this test on purpose. The fixture vault carries standing
+    findings of its own, so the pin compares the unmatched set with the
+    baseline's rather than a commit decision of 0. The hand-edit cases
+    (literature body, compiled page, text file) belong to the layers that
+    catch them."""
+    from research_vault import okf, verify
+
+    def unmatched():
+        _report, effective, _hashes, _warning = verify.verify_state(
+            fixture_vault, network=False
+        )
+        return sorted(
+            (outcome.check, outcome.target)
+            for outcome in effective
+            if outcome.result is Result.UNMATCHED
+        )
+
+    baseline = unmatched()
+    day = fixture_vault / "log" / "2026-08-16.md"
+    day.write_text(
+        day.read_text()
+        + "- 10:00 research_vault/0.1.0 — a shell append in the writer's format\n"
+    )
+    assert unmatched() != baseline  # #210: root log.md no longer equals its render
+    okf.regenerate_log(fixture_vault)
+    assert unmatched() == baseline  # the append rides through once log.md carries it
+    inbox.append_entry(
+        fixture_vault, "capture", "x", Result.UNMATCHED, "manual — appended"
+    )
+    assert (
+        unmatched() == baseline
+    )  # the gaps that remain: a log/ append, a queue append
+
+
 def test_stop_hooks_manifest_registers_posttooluse_and_stop_commands():
     assert json.loads(HOOKS_MANIFEST.read_text()) == {
         "description": "Research-vault verification hooks",

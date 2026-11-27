@@ -25,6 +25,7 @@ EXPECTED_PATHS = {
     "vault/prettierignore",
     "vault/markdownlintignore",
     "vault/editorconfig",
+    "vault/claude/settings.json",
     "research-vault/machine.json.example",
     "zotero-addons.md",
     "git/pre-commit",
@@ -152,8 +153,18 @@ def test_markdown_templates_match_canonical_content():
         "Literature notes are wholly machine-written: `capture` regenerates "
         "the whole note from Zotero on every run, so per-source prose belongs "
         "in a Zotero child note, which capture renders.\n\n"
-        "Machine surfaces are owner-written: hand or tool edits are "
-        "regenerated away or raise a finding.\n\n"
+        "Machine surfaces are owner-written, and every change to them is "
+        "detected: a hand or shell edit to `literature/`, `wiki/`, root "
+        "`log.md`, `inbox/review-queue.md`, `system/bibliography.json` or "
+        "`system/propagations/` raises a finding at commit, and an edit to "
+        "`fulltext/` at publish. The seeded `.claude/settings.json` refuses "
+        "the common shell forms of such a write (redirects, `tee`, `sed -i`, "
+        "`cp`, `mv`, `touch`, `rm`) in a session started at the vault root; "
+        "an interpreter one-liner, a script or a git restore is caught by "
+        "detection, not refused. What detection does not reach: an in-format "
+        "append to `log/` committed together with a regenerated `log.md`, an "
+        "append to the review queue, and the non-capture keys a literature "
+        "note carries forward.\n\n"
         "`wiki/` is written only by the adopted compile tool's transaction "
         "engine; never `Write` or `Edit` under it. A hand edit under `wiki/` "
         "is reported against the compiled-page record, "
@@ -594,3 +605,56 @@ def test_agents_template_names_capture_as_the_csl_files_writer():
         "rendered from Better BibTeX; users and other tools must not write it."
     ) in text
     assert "Better BibTeX is the sole writer" not in text
+
+
+def _roster_rules(dir_names, prefixes, files):
+    return sorted(
+        [f"Edit(/{name}/**)" for name in dir_names]
+        + [f"Edit(/{prefix}/**)" for prefix in prefixes]
+        + [f"Edit(/{path})" for path in files]
+    )
+
+
+def test_seeded_deny_rules_equal_the_guards_roster():
+    """§5.7: the eight Edit(...) deny rules are the roster, spelled the way
+    Claude Code resolves a /-led project path. One source: the guard."""
+    import json
+
+    guard = _guard_constants()
+    expected = _roster_rules(
+        guard.MACHINE_SURFACE_DIR_NAMES,
+        [prefix.as_posix() for prefix in guard.MACHINE_SURFACE_PREFIXES],
+        [path.as_posix() for path in guard.MACHINE_SURFACE_FILES],
+    )
+    assert len(expected) == 8
+    settings = json.loads(asset("vault/claude/settings.json").read_text())
+    assert settings == {"permissions": {"deny": expected}}
+    assert asset("vault/claude/settings.json").read_text() == (
+        json.dumps(settings, indent=2) + "\n"
+    )
+
+
+def test_doctors_roster_copy_equals_the_guards_constants():
+    """A pip install has no hooks/ beside the package, so doctor repeats the
+    roster; this pins the copy against the guard so the two cannot drift."""
+    from research_vault import doctor
+
+    guard = _guard_constants()
+    assert set(doctor._ROSTER_DIR_NAMES) == set(guard.MACHINE_SURFACE_DIR_NAMES)
+    assert set(doctor._ROSTER_PREFIXES) == {
+        prefix.as_posix() for prefix in guard.MACHINE_SURFACE_PREFIXES
+    }
+    assert set(doctor._ROSTER_FILES) == {
+        path.as_posix() for path in guard.MACHINE_SURFACE_FILES
+    }
+
+
+def test_expected_deny_rules_falls_back_to_the_copy_when_hooks_is_absent(monkeypatch):
+    from research_vault import doctor
+
+    with_guard = doctor.expected_deny_rules()
+    monkeypatch.setattr(Path, "is_file", lambda self: False)
+    assert doctor.expected_deny_rules() == with_guard
+    assert doctor.expected_deny_rules() == _roster_rules(
+        doctor._ROSTER_DIR_NAMES, doctor._ROSTER_PREFIXES, doctor._ROSTER_FILES
+    )
