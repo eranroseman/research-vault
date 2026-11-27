@@ -781,10 +781,12 @@ def component_standing(vault, check, target, target_hash) -> bool:
     stands — open, or closed by an in-scope acknowledgment (spec §6.4: the
     one predicate capture's skip and verify's replay share). The scope is
     `scope_id`'s, so a row from any earlier day counts and a changed hash
-    does not."""
+    does not. Only an UNMATCHED row stands: capture files nothing else, and a
+    hand-filed UNREACHABLE row must not block the real finding."""
     wanted = scope_id(check, target, target_hash)
     return any(
         entry.ack_of is None
+        and entry.result == "UNMATCHED"
         and entry.target_kind == "identifier"
         and scope_id(entry.check, entry.target, entry.target_hash) == wanted
         for entry in load(vault)
@@ -792,11 +794,15 @@ def component_standing(vault, check, target, target_hash) -> bool:
 
 
 def component_rows(vault) -> list[Finding]:
-    """The open component findings verify replays, one per standing scope
-    (the newest), by the same scope as `component_standing`."""
+    """The open UNMATCHED component findings verify replays as UNMATCHED, one
+    per standing scope (the newest), by the same rule as `component_standing`."""
     rows: dict[str, Finding] = {}
     for entry in open_entries(vault):
-        if entry.check in COMPONENT_CHECKS and entry.target_kind == "identifier":
+        if (
+            entry.check in COMPONENT_CHECKS
+            and entry.result == "UNMATCHED"
+            and entry.target_kind == "identifier"
+        ):
             rows[scope_id(entry.check, entry.target, entry.target_hash)] = entry
     return list(rows.values())
 

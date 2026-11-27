@@ -210,7 +210,11 @@ def _profile_facts(config) -> _ProfileFacts | _ProfileHold:
     if not isinstance(value, str):
         return _ProfileHold(Result.UNMATCHED, "zotero_profile must be a string")
     path = Path(value)
-    if not path.is_dir():
+    try:
+        is_dir = path.is_dir()
+    except OSError as error:  # permission denied, a name too long: an outage
+        return _ProfileHold(Result.UNREACHABLE, f"zotero_profile unreadable: {error}")
+    if not is_dir:
         return _ProfileHold(
             Result.UNMATCHED, f"zotero_profile {path} is not a directory"
         )
@@ -746,13 +750,30 @@ def cold_rows(vault_root) -> list[Probe]:
     vault = Path(vault_root)
     config, _machine = _machine_config(vault)
     profile = _profile_facts(config)
-    return [
-        _fulltext_sync_probe(profile),
-        _bbt_git_probe(profile, vault),
-        _plugins_probe(profile, vault),
-        _advisory_probe(profile),
-        _compile_tool_probe(vault),
-    ]
+    probes = (
+        ("fulltext-sync", lambda: _fulltext_sync_probe(profile)),
+        ("bbt-git", lambda: _bbt_git_probe(profile, vault)),
+        ("plugins", lambda: _plugins_probe(profile, vault)),
+        ("advisory", lambda: _advisory_probe(profile)),
+        ("compile-tool", lambda: _compile_tool_probe(vault)),
+    )
+    return [_guarded(check, probe) for check, probe in probes]
+
+
+def _guarded(check: str, probe) -> Probe:
+    """One cold row that cannot end the capture that runs it: a probe that
+    raises is that probe's UNMATCHED row, its fact the exception's type alone
+    (stable across messages), its message in the reason."""
+    try:
+        return probe()
+    except Exception as error:
+        fact = f"probe raised {type(error).__name__}"
+        # `_make`, not `Probe(...)`: the probe-id scan in tests/test_doctor.py
+        # reads literal ids off `Probe(` calls, and this row's id is each
+        # guarded probe's own; its result is UNMATCHED, never UNREACHABLE.
+        return Probe._make(
+            (check, Result.UNMATCHED, f"{fact}: {error}", ((check, (fact,)),))
+        )
 
 
 def doctor(vault_root, client=None) -> list[Probe]:

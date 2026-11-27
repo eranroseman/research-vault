@@ -671,8 +671,26 @@ def _component_findings(vault: Path) -> list[Outcome]:
     the failing facts alone. A failing probe with no facts (a malformed
     `extensions.json` or declaration, a profile hold) is one row whose target
     is the probe id and whose fact is its reason (DP34)."""
+    try:
+        probes = doctor.cold_rows(vault)
+    except Exception as error:
+        # cold_rows guards each probe; this is the read before them. One
+        # stable row, hashed on the exception's type alone.
+        fact = f"cold rows raised {type(error).__name__}"
+        return [
+            Outcome(
+                "plugins",
+                "cold-rows",
+                Result.UNMATCHED,
+                f"mismatch — cold-rows: {fact}: {error}",
+                extra={
+                    "component": True,
+                    "target_hash": hashlib.sha256(fact.encode()).hexdigest()[:16],
+                },
+            )
+        ]
     rows = []
-    for probe in doctor.cold_rows(vault):
+    for probe in probes:
         if (
             probe.result is not Result.UNMATCHED
             or probe.check not in inbox.COMPONENT_CHECKS

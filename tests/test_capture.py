@@ -2326,3 +2326,116 @@ def test_cli_propagate_files_a_recaptured_component_row_once(
         ("plugins", "zoplicate@chenglongma.com", row.reason, "abcdef0123456789")
     ]
     assert "UNMATCHED zoplicate@chenglongma.com" in capsys.readouterr().out
+
+
+def test_a_cold_rows_failure_never_loses_a_finished_capture(tmp_vault, monkeypatch):
+    """Fix round 1: an exception out of the cold rows leaves the run's own
+    outcomes intact and becomes one stable row, hashed on the type alone."""
+    import hashlib
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+
+    def boom(vault):
+        raise PermissionError(13, "Permission denied", "/root/x")
+
+    monkeypatch.setattr(capture.doctor, "cold_rows", boom)
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    assert [(o.target, o.result) for o in outcomes if o.target == "jakesch.etal2023a"]
+    (row,) = [o for o in outcomes if o.extra.get("component") is True]
+    assert (row.check, row.target, row.result) == (
+        "plugins",
+        "cold-rows",
+        Result.UNMATCHED,
+    )
+    assert row.reason.startswith(
+        "mismatch — cold-rows: cold rows raised PermissionError: "
+    )
+    assert (
+        row.extra["target_hash"]
+        == (hashlib.sha256(b"cold rows raised PermissionError").hexdigest()[:16])
+    )
+
+
+def test_a_malformed_queue_refuses_a_component_row_with_the_warning(tmp_vault, capsys):
+    """Fix round 1: the standing check reads the queue; a queue it cannot
+    parse is not a traceback, the row goes on to `_hold`, which refuses it
+    with the one warning, and the exit is the row's."""
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+    from research_vault.outcome import Outcome
+
+    inbox.append_entry(
+        tmp_vault, "capture", "tags", Result.UNMATCHED, "drift — tags changed on: x"
+    )
+    queue = tmp_vault / inbox.INBOX_PATH
+    queue.write_text(queue.read_text(encoding="utf-8") + "garbage line\n")
+    row = Outcome(
+        "plugins",
+        "zoplicate@chenglongma.com",
+        Result.UNMATCHED,
+        "mismatch — zoplicate@chenglongma.com: active (excluded on harm grounds)",
+        extra={"component": True, "target_hash": "abcdef0123456789"},
+    )
+    assert cli._print_and_hold(tmp_vault, [row], capture.CHECK) == 1
+    assert "warning: review record refused: unparseable inbox line" in (
+        capsys.readouterr().err
+    )
+
+
+def test_a_non_unmatched_component_row_neither_stands_nor_replays(tmp_vault):
+    """Fix round 1: a hand-filed UNREACHABLE `plugins` row does not block
+    capture's real UNMATCHED filing and is not one of the replayed rows."""
+    from research_vault import inbox
+
+    inbox.append_entry(
+        tmp_vault,
+        "plugins",
+        "zoplicate@chenglongma.com",
+        Result.UNREACHABLE,
+        "outage — profile unreadable",
+        target_hash="abcdef0123456789",
+    )
+    assert not inbox.component_standing(
+        tmp_vault, "plugins", "zoplicate@chenglongma.com", "abcdef0123456789"
+    )
+    assert inbox.component_rows(tmp_vault) == []
+
+
+def test_capture_files_the_real_cold_rows_once(tmp_vault, tmp_path, monkeypatch):
+    """Fix round 1: no patched cold rows. A profiled vault whose DOI Manager
+    retrieves "long" fails `plugins` through the real probe; capture files
+    one row under its real fact and hash, and a second capture files nothing."""
+    import hashlib
+
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+    from tests.test_doctor import _profile, _profiled_vault
+
+    vault = _profiled_vault(
+        tmp_vault, tmp_path, _profile(tmp_path, doi_retrieve='"long"')
+    )
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    assert (
+        cli._print_and_hold(
+            vault, capture.capture(vault, client, ["E352DFS8"]), capture.CHECK
+        )
+        == 1
+    )
+    fact = 'extensions.shortdoi.autoretrieve not accepted ("none")'
+    assert _component_rows(vault) == [
+        (
+            "plugins",
+            "zoteroshortdoi@wiernik.org",
+            f"mismatch — zoteroshortdoi@wiernik.org: {fact}",
+            hashlib.sha256(fact.encode()).hexdigest()[:16],
+        )
+    ]
+    assert (
+        cli._print_and_hold(
+            vault, capture.capture(vault, client, ["E352DFS8"]), capture.CHECK
+        )
+        == 0
+    )
+    assert len([f for f in inbox.load(vault) if f.check in inbox.COMPONENT_CHECKS]) == 1

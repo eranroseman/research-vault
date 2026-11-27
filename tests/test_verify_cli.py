@@ -7377,3 +7377,22 @@ def test_a_hashless_component_row_replays_without_crashing_verify(net_vault):
     _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
     assert verify.surface_decision("publish", effective, warning)[0] == 1
     assert len([f for f in inbox.load(net_vault) if f.check == "compile-tool"]) == 1
+
+
+def test_a_non_unmatched_component_row_is_not_replayed_or_twinned(net_vault):
+    """Fix round 1: a hand-filed UNREACHABLE `plugins` row is not replayed as
+    UNMATCHED, so verify files no unacknowledgeable same-day twin."""
+    _ack_standing_citation_key(net_vault)
+    inbox.append_entry(
+        net_vault,
+        "plugins",
+        "zoplicate@chenglongma.com",
+        Result.UNREACHABLE,
+        "outage — profile unreadable",
+        target_hash="abcdef0123456789",
+    )
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False
+    )
+    assert not [o for o in effective if o.check == "plugins"]
+    assert len([f for f in inbox.load(net_vault) if f.check == "plugins"]) == 1

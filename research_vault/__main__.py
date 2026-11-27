@@ -137,13 +137,21 @@ def _standing_component(vault, outcome) -> bool:
     """Whether ``outcome`` is a component finding the queue already holds in
     scope (``inbox.component_standing``, spec §6.4): re-filed on a later day
     it would be a second open row for one standing fault."""
+    if outcome.check not in inbox.COMPONENT_CHECKS:
+        return False
     target_hash = outcome.extra.get("target_hash")
-    return outcome.check in inbox.COMPONENT_CHECKS and inbox.component_standing(
-        vault,
-        outcome.check,
-        outcome.target,
-        target_hash if isinstance(target_hash, str) else None,
-    )
+    try:
+        return inbox.component_standing(
+            vault,
+            outcome.check,
+            outcome.target,
+            target_hash if isinstance(target_hash, str) else None,
+        )
+    except (inbox.InboxError, OSError, ValueError):
+        # Not standing: the row goes on to `_hold`, whose `record_finding`
+        # refuses it on the same queue with the one "review record refused"
+        # warning, as before.
+        return False
 
 
 def cmd_capture(args):

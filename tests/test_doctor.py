@@ -1754,3 +1754,32 @@ def test_compile_tool_off_pin_carries_a_fact_without_the_installed_sha(monkeypat
         lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0"}]},
     )
     assert doctor._compile_tool_probe(None).facts == ()  # the optional vault (Plan E)
+
+
+def test_an_unreadable_zotero_profile_path_is_an_outage_not_a_crash():
+    """Fix round 1: `Path.is_dir()` raises on a name too long (ENAMETOOLONG)
+    or a permission-denied parent; that is an outage for every profile
+    probe, never an exception out of doctor or capture."""
+    hold = doctor._profile_facts({"zotero_profile": "/" + "x" * 5000})
+    assert isinstance(hold, doctor._ProfileHold)
+    assert hold.result is Result.UNREACHABLE
+    assert hold.reason.startswith("zotero_profile unreadable: ")
+
+
+def test_a_cold_row_that_raises_is_its_own_unmatched_row(tmp_vault, monkeypatch):
+    """Fix round 1: one probe raising cannot end the cold rows; it is that
+    probe's UNMATCHED row, its fact the exception type alone."""
+
+    def boom(*_a, **_k):
+        raise RuntimeError("unexpected /some/path")
+
+    monkeypatch.setattr(doctor, "_plugins_probe", boom)
+    rows = doctor.cold_rows(tmp_vault)
+    assert [p.check for p in rows] == list(doctor.COMPONENT_PROBES)
+    (plugins,) = [p for p in rows if p.check == "plugins"]
+    assert plugins == doctor.Probe(
+        "plugins",
+        Result.UNMATCHED,
+        "probe raised RuntimeError: unexpected /some/path",
+        facts=(("plugins", ("probe raised RuntimeError",)),),
+    )
