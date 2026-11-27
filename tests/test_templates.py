@@ -191,7 +191,10 @@ def test_markdown_templates_match_canonical_content():
         "Formatters are writers too: `.prettierignore` and `.markdownlintignore` "
         "keep them off the machine surfaces; `.editorconfig` disables an "
         "editor's own trim/final-newline defaults there instead.\n\n"
-        "`.research-vault/` is machine-local: nothing in it travels with the vault.\n"
+        "`.research-vault/` is machine-local: nothing in it travels with the vault.\n\n"
+        "`.obsidian/` is the person's Obsidian configuration, seeded once by "
+        "scaffold; doctor's `obsidian` row compares it with the declared "
+        "settings and never rewrites it.\n"
     )
     assert asset("vault/inbox/review-queue.md").read_text() == (
         '---\ntype: "review-queue"\n---\n'

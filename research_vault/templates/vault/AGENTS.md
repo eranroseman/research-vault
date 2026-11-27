@@ -34,3 +34,5 @@ Machine surfaces are owner-written, and changes to them are detected: a hand or 
 Formatters are writers too: `.prettierignore` and `.markdownlintignore` keep them off the machine surfaces; `.editorconfig` disables an editor's own trim/final-newline defaults there instead.
 
 `.research-vault/` is machine-local: nothing in it travels with the vault.
+
+`.obsidian/` is the person's Obsidian configuration, seeded once by scaffold; doctor's `obsidian` row compares it with the declared settings and never rewrites it.

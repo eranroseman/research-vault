@@ -10,14 +10,14 @@ Use this only when the person explicitly invokes it. Keep the person in control 
 
 ## Scaffold
 
-Ask together: the destination `PATH` and whether they want read-only CI. Ask separately: whether they want the scheduled write-capable RW workflow. Do not infer either consent from the other.
+Ask together: the destination `PATH` and whether they want read-only CI. Ask separately: whether they want the scheduled write-capable RW workflow. Do not infer either consent from the other. Ask separately whether they want the seeded `.obsidian/` (`--with-obsidian`): the plugins the vault declares, vendored at their pins, with their settings. Scaffold copies it once and only into a vault that has none; if it prints `skipped .obsidian/: already present`, relay the line and its fix (close Obsidian, move `.obsidian/` aside, run scaffold again) — never merge files into an existing `.obsidian/` by hand. That line is not a created path. Run scaffold before the compile tool's adopt step: adopt writes `.obsidian/` files when they are missing, and a seed that arrives second is skipped whole.
 
 Fail closed on an ambiguous vault. If the destination is not unambiguous — two candidate vaults in play, "my vault" with no path attached, a `PATH` that could name either an existing vault or a new one — stop and ask which. Never resolve it yourself: not from the working directory, not from the most recently mentioned path, not from the only vault you happen to have seen. Scaffolding into the wrong tree writes files nobody asked for, and repairing a vault the person did not mean is worse; one question costs less than either.
 
 Construct one command, with only the flags the user consented to:
 
 ```sh
-python3 -m research_vault scaffold --vault PATH [--with-ci] [--with-rw-ci]
+python3 -m research_vault scaffold --vault PATH [--with-ci] [--with-rw-ci] [--with-obsidian]
 ```
 
 Do not create directories or files by hand, substitute custom CI, use `git add .`, or make an unrelated commit. Run it: scaffold prints every path it created; report that list verbatim, and never present a path it did not print as committed. Paths such as `AGENTS.md`, `inbox/review-queue.md`, `system/templates/`, `system/bases/`, `system/glossary.md`, and `.git/hooks/pre-commit` are the contract, not an inventory of everything scaffold can create; CI paths appear only for their separately consented flags, and repairing an existing vault may create fewer paths than a fresh one.
@@ -38,6 +38,10 @@ python3 -m research_vault doctor --base URL --vault PATH
 Report every doctor probe, not only failures — every row doctor prints — plus the inbox count and oldest age. `inbox`'s summary reports `oldest_age_days` directly — whole days since that date, 0 for one filed today, `None` only when the queue is empty — so state that figure rather than estimating the age yourself. Do not replace this with a `doctor --url` command or environment variable.
 
 `doctor` always requires `--vault`; it has no vault-less mode. To check Zotero/BBT reachability before a vault exists, or independent of one, run `python3 -m research_vault probe [--base URL]` instead — it is the vault-less reachability instrument and takes no `--vault` flag.
+
+## Obsidian's trust prompt
+
+Obsidian 1.13.7 shows **Do you trust the author of this vault?** on every open of a vault whose `.obsidian/plugins/` holds a loadable manifest, until the person clicks **Trust author and enable plugins**; that click enables exactly the ids in `community-plugins.json` and is the consent step (lanes 2–3 spec §4.7). Tell the person to expect it on the first open and that the choice is kept per vault registration, outside the vault, so a second machine prompts again. Never run `plugins:restrict on` or `eval app.plugins.setEnable(false)`: either silences the prompt for that vault permanently with the plugins off and no message. After the person has clicked, verify with the Obsidian CLI that every seeded plugin loaded — `obsidian eval Object.keys(app.plugins.plugins)` lists the loaded ids and `obsidian dev:errors` must be empty; `plugins:enabled` lists configured ids whether or not they loaded and proves nothing. Novel word count fails to load when the process locale is `C.UTF-8` (`LANG` on WSL and in containers): a `RangeError` in `dev:errors` naming `Intl` is that host fact, not the seed's; tell the person to start Obsidian with `LANG` unset or `C`. Then `python3 -m research_vault seal --vault PATH` after the compile tool's adopt step, so the tool's own files under `wiki/` enter the compiled-page record.
 
 ## Rename by hand
 

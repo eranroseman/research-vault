@@ -171,3 +171,23 @@ def test_no_old_skill_names_survive():
             assert old_name not in file_content, (
                 f"Old skill name '{old_name}' found in content of {skill_file}"
             )
+
+
+def test_setup_vault_seeds_obsidian_and_hands_consent_to_the_trust_prompt():
+    text = _skill_text()
+    assert (
+        "python3 -m research_vault scaffold --vault PATH [--with-ci] [--with-rw-ci] [--with-obsidian]"
+        in text
+    )
+    assert "Do you trust the author of this vault?" in text
+    assert "Trust author and enable plugins" in text
+    assert "eval Object.keys(app.plugins.plugins)" in text
+    assert "dev:errors" in text
+    assert "Never run `plugins:restrict on`" in text
+    assert "setEnable(false)" in text
+    assert (
+        "`plugins:enabled`" in text
+    )  # named as the command that cannot show whether a plugin loaded
+    assert "skipped .obsidian/" in text
+    assert "LANG" in text
+    assert "python3 -m research_vault seal --vault PATH" in text
