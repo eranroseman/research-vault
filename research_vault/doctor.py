@@ -11,7 +11,7 @@ import urllib.parse
 from pathlib import Path
 from typing import NamedTuple
 
-from . import Result, addons, paths
+from . import Result, addons, paths, structure
 from .scaffold import VAULT_DIRS, _git, scaffold_vault
 from .zotero import LocalApiDisabledError, ZoteroClient, ZoteroError, header
 
@@ -791,16 +791,28 @@ def _deny_rules_probe(vault: Path) -> Probe:
         rule for rule in deny if isinstance(rule, str) and rule.startswith("Edit(")
     }
     missing = sorted(set(expected) - present)
-    extra = sorted(present - set(expected))
-    if not missing and not extra:
+    if not missing:
+        # R43: a person's own Edit rules beside the roster are theirs to keep.
         return Probe(
             "deny-rules",
             Result.MATCHED,
-            f"{len(expected)} Edit deny rules equal the guard's roster",
+            f"{len(expected)} Edit deny rules equal the guard's roster"
+            if present == set(expected)
+            else f"the guard's {len(expected)} Edit deny rules are all present",
         )
+    extra = present - set(expected)
+    # W11: a rule that is not UTF-8 text (a lone surrogate JSON allows) would
+    # crash the print, so it is counted, never shown.
+    shown = sorted(rule for rule in extra if structure._is_plain_text(rule))
+    hidden = len(extra) - len(shown)
     parts = [f"missing {rule}" for rule in missing] + [
-        f"extra {rule}" for rule in extra
+        f"extra {rule}" for rule in shown
     ]
+    if hidden:
+        parts.append(
+            f"extra {hidden} rule{' that is' if hidden == 1 else 's that are'} "
+            "not UTF-8 text"
+        )
     return Probe("deny-rules", Result.UNMATCHED, "; ".join(parts))
 
 

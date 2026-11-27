@@ -1811,3 +1811,45 @@ def test_deny_rules_row_compares_the_vault_settings_with_the_roster(tmp_vault):
     assert "extra Edit(/daily/**)" in probe.reason
     settings.write_text("{not json")
     assert doctor._deny_rules_probe(tmp_vault).result is Result.UNMATCHED
+
+
+def test_deny_rules_reports_extras_only_beside_a_missing_rule(tmp_vault):
+    """R43: a complete roster with the person's own Edit rules is MATCHED;
+    a missing roster rule lists the missing ones, then the extras."""
+    import json
+
+    settings = tmp_vault / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    roster = doctor.expected_deny_rules()
+    settings.write_text(
+        json.dumps({"permissions": {"deny": [*roster, "Edit(/daily/**)"]}})
+    )
+    probe = doctor._deny_rules_probe(tmp_vault)
+    assert probe.result is Result.MATCHED
+    assert "daily" not in probe.reason
+    settings.write_text(
+        json.dumps({"permissions": {"deny": [*roster[:-1], "Edit(/daily/**)"]}})
+    )
+    probe = doctor._deny_rules_probe(tmp_vault)
+    assert (probe.result, probe.reason) == (
+        Result.UNMATCHED,
+        f"missing {roster[-1]}; extra Edit(/daily/**)",
+    )
+
+
+def test_a_deny_rule_that_is_not_text_never_reaches_the_reason(tmp_vault):
+    """W11: a lone surrogate in a rule would crash doctor's print."""
+    settings = tmp_vault / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    roster = doctor.expected_deny_rules()
+    settings.write_text(
+        '{"permissions": {"deny": ['
+        + ", ".join(f'"{rule}"' for rule in roster[:-1])
+        + ', "Edit(/x\\ud800)"]}}'
+    )
+    probe = doctor._deny_rules_probe(tmp_vault)
+    assert probe.result is Result.UNMATCHED
+    probe.reason.encode("utf-8")
+    assert probe.reason == (
+        f"missing {roster[-1]}; extra 1 rule that is not UTF-8 text"
+    )
