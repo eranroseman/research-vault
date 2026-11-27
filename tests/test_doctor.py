@@ -548,14 +548,17 @@ BBT = "better-bibtex@iris-advies.com"
 BBT_GIT = "extensions.zotero.translators.better-bibtex.git"
 
 
-def _bbt_git(tmp_vault, tmp_path, monkeypatch, prefs_lines=(), xpis=(), zotero=False):
+BBT_OPT_IN = '[zotero "betterbibtex"]\n\tpush = true\n'
+
+
+def _bbt_git(tmp_vault, tmp_path, monkeypatch, prefs_lines=(), xpis=(), zotero=""):
     profile = _profile_with(
         tmp_path / "bbt-git", [_addon(BBT, "9.0.68")], list(prefs_lines), xpis
     )
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
     if zotero:
         with (vault / ".git" / "config").open("a") as config:
-            config.write("[zotero]\n\tbetterbibtex = true\n")
+            config.write(zotero)
     by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
     return by["bbt-git"]
 
@@ -583,7 +586,7 @@ def test_doctor_bbt_git_config_fails_when_the_vault_opts_in(
     tmp_vault, tmp_path, monkeypatch
 ):
     probe = _bbt_git(
-        tmp_vault, tmp_path, monkeypatch, [(BBT_GIT, '"config"')], zotero=True
+        tmp_vault, tmp_path, monkeypatch, [(BBT_GIT, '"config"')], zotero=BBT_OPT_IN
     )
     assert probe == doctor.Probe(
         "bbt-git",
@@ -591,6 +594,26 @@ def test_doctor_bbt_git_config_fails_when_the_vault_opts_in(
         "git=config — Better BibTeX may run git inside an export target",
         facts=((BBT, ("git not accepted",)),),
     )
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        '[zotero "betterbibtex"]\n\tpush = false\n',
+        "[zotero]\n\tbetterbibtex = true\n",
+        '[zotero "other"]\n\tpush = true\n[core]\n\tpush = true\n',
+    ],
+)
+def test_doctor_bbt_git_config_passes_without_better_bibtexs_opt_in(
+    tmp_vault, tmp_path, monkeypatch, config
+):
+    """Better BibTeX 9.0.77 runs git under `config` only when the repository's
+    .git/config sets `push = true` under `[zotero "betterbibtex"]` (Git.repo,
+    content/better-bibtex.js, read from the test instance's xpi 2026-11-27)."""
+    probe = _bbt_git(
+        tmp_vault, tmp_path, monkeypatch, [(BBT_GIT, '"config"')], zotero=config
+    )
+    assert probe.result is Result.MATCHED, probe
 
 
 def test_doctor_bbt_git_always_fails(tmp_vault, tmp_path, monkeypatch):

@@ -245,7 +245,26 @@ def _fulltext_sync_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
 
 _BBT_GIT = addons.BBT_PREFIX + "git"
 _GIT_RISK = "Better BibTeX may run git inside an export target"
-_ZOTERO_SECTION = re.compile(r"^\s*\[zotero\b", re.IGNORECASE | re.MULTILINE)
+# Better BibTeX 9.0.77's opt-in (Git.repo, measured 2026-11-27): `push = true`
+# under `[zotero "betterbibtex"]`. Matched case-insensitively and on any true
+# spelling, so a doubtful line reads as an opt-in, never as a pass.
+_SECTION = re.compile(r"^\s*\[(?P<name>[^\]]*)\]")
+_BBT_SECTION = re.compile(r'^\s*zotero\s+"betterbibtex"\s*$', re.IGNORECASE)
+_PUSH_TRUE = re.compile(r"^\s*push\s*=\s*\"?true\"?\s*(?:[;#].*)?$", re.IGNORECASE)
+
+
+def _bbt_opts_in(config: str) -> bool:
+    """Whether a .git/config text holds Better BibTeX's git opt-in."""
+    inside = False
+    for line in config.splitlines():
+        section = _SECTION.match(line)
+        if section:
+            inside = _BBT_SECTION.match(section.group("name")) is not None
+        elif inside and _PUSH_TRUE.match(line):
+            return True
+    return False
+
+
 # Ruling 1's roster as vault-relative prefixes a Better BibTeX export must not target.
 _MACHINE_FOLDERS = (
     "literature/",
@@ -308,8 +327,6 @@ def _bbt_git_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
     if value == '"off"':
         return Probe("bbt-git", Result.MATCHED, "git=off")
     if value == '"config"':
-        # The opt-in's key name is measured in Task 4; until then any [zotero]
-        # section counts as one.
         try:
             config = (vault / ".git" / "config").read_text(encoding="utf-8")
         except FileNotFoundError:
@@ -318,7 +335,7 @@ def _bbt_git_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
             return Probe(
                 "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"
             )
-        if not _ZOTERO_SECTION.search(config):
+        if not _bbt_opts_in(config):
             return Probe(
                 "bbt-git",
                 Result.MATCHED,
