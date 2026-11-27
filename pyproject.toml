@@ -8,7 +8,15 @@ requires = [ "setuptools>=77" ]
 [project]
 name = "research-vault-core"
 description = "Deterministic core for the research-vault plugin"
-license = "MIT"
+# The package's own MIT, and every licence the vendored Obsidian plugins and
+# their bundled dependencies carry (their SOURCE.json records; an `A OR MIT`
+# dependency is covered by MIT).
+license = "MIT AND 0BSD AND Apache-2.0 AND BSD-3-Clause AND ISC"
+license-files = [
+  "LICENSE",
+  "research_vault/templates/obsidian/plugins/*/LICENSE",
+  "research_vault/templates/obsidian/plugins/*/THIRD-PARTY-NOTICES",
+]
 # 3.11 is where the stdlib the package and its lane lean on landed: datetime.UTC
 # (clock.py, capture.py), contextlib.chdir (the mutation gate), tomllib (the
 # config-validity tests). Nothing tests or claims 3.10.

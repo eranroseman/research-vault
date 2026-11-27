@@ -1,0 +1,29 @@
+{
+  "repo": "mirnovov/obsidian-homepage",
+  "tag": "4.5.0",
+  "commit": "e80151e0fbb3667c5dcb8bff2c82a62101b759bd",
+  "assets": {
+    "main.js": "567b14e6e7913301b46d9b61fd36a4081fa7de1818f1926c1fcb586792aab201",
+    "manifest.json": "5e7e20085c952d10a10d373ca5718516997f52b2dfeae1627cafc9c70f8df29c",
+    "styles.css": "bf346def46e6626446c54983f7e6ce4775b84b01159cd046301e9be5c3407589"
+  },
+  "licence": "MIT",
+  "bundled": [
+    {
+      "name": "obsidian-daily-notes-interface",
+      "version": "0.9.4",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/obsidian-daily-notes-interface"
+    },
+    {
+      "name": "obsidian-journals-api",
+      "version": "1.0.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/obsidian-journals-api"
+    }
+  ],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

@@ -1,0 +1,22 @@
+{
+  "repo": "farux/obsidian-auto-note-mover",
+  "tag": "1.2.0",
+  "commit": "631c4bec47adfd45a2d83ab886dbeaaa97504977",
+  "assets": {
+    "main.js": "f8ca8bf6733611d186a3fc363a693a1bf943797e488ed9db8ea72b78c65b22a0",
+    "manifest.json": "515cc7f3b28045e92b387f45a3eb9d66d49614cfbf7ce355134a7cb4d63816ce"
+  },
+  "licence": "MIT",
+  "bundled": [
+    {
+      "name": "@popperjs/core",
+      "version": "2.11.2",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@popperjs/core"
+    }
+  ],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

@@ -1,0 +1,16 @@
+{
+  "repo": "vslinko/obsidian-outliner",
+  "tag": "4.10.2",
+  "commit": "b51918d4eaa75223780a404c40f2d9406df6a3c0",
+  "assets": {
+    "main.js": "3d5bc634d3045ead4df9747d07ab51f16d9722f4601f9fee27e0c7fe9828fb33",
+    "manifest.json": "277a8887eb959cc7a4ae047608421153b359bdf451c2d66caab91c35ca98b93f",
+    "styles.css": "7922a264883894e69f22c37f549744f7d46d1de926fc802aa4e94c75cd2fbceb"
+  },
+  "licence": "MIT",
+  "bundled": [],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

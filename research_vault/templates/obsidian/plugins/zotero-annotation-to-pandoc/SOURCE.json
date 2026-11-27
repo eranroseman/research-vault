@@ -1,0 +1,15 @@
+{
+  "repo": "jacquesb26/Zotero-Annotation-Citations",
+  "tag": "1.0.3",
+  "commit": "36390ba4ec942aecdfaa92a3457700d9ce24835a",
+  "assets": {
+    "main.js": "23981c011050a3aeeefdc51c015326e904bc45a0e45aa5da0f06d0d2f5cf1a9c",
+    "manifest.json": "39331bf77930f59d8f5e6ccf810df0aeb284ec395e08f53b59d8d1210f5ca37f"
+  },
+  "licence": "MIT",
+  "bundled": [],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

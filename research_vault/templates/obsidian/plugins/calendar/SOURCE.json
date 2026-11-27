@@ -1,0 +1,40 @@
+{
+  "repo": "liamcain/obsidian-calendar-plugin",
+  "tag": "1.5.10",
+  "commit": "7d2aebda7f4a280bedc6da6d25f4da611d1625ef",
+  "assets": {
+    "main.js": "7fb339e9cf9fdbe5a801fa2b8ab85b366b5b3777fbd193cbc8728bc27711d125",
+    "manifest.json": "f3e9581338648512baa12d5b458490f7fd367918f7bdb6bd86171ce57be7d08b"
+  },
+  "licence": "MIT",
+  "bundled": [
+    {
+      "name": "obsidian-calendar-ui",
+      "version": "0.3.12",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/obsidian-calendar-ui"
+    },
+    {
+      "name": "obsidian-daily-notes-interface",
+      "version": "0.9.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/obsidian-daily-notes-interface"
+    },
+    {
+      "name": "svelte",
+      "version": "3.35.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/svelte"
+    },
+    {
+      "name": "tslib",
+      "version": "2.1.0",
+      "licence": "0BSD",
+      "url": "https://www.npmjs.com/package/tslib"
+    }
+  ],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

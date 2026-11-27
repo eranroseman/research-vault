@@ -1,0 +1,23 @@
+{
+  "repo": "florianwoelki/obsidian-iconize",
+  "tag": "2.14.7",
+  "commit": "1264d5800a027356b69f353b009d40b9f7b47a2c",
+  "assets": {
+    "main.js": "ada0b009706556c98101f953a6a87f5cafd3001085df593d3be28eeeea218201",
+    "manifest.json": "f524a18d69e990a244173a3595681c39a20bcbc9dc18b59af51e45660fef5ca2",
+    "styles.css": "56ffeb8349f4af97dab8a14fcadcb0019d3b37b116d7a34aa21e958e98455a89"
+  },
+  "licence": "MIT",
+  "bundled": [
+    {
+      "name": "jszip",
+      "version": "3.10.1",
+      "licence": "(MIT OR GPL-3.0-or-later)",
+      "url": "https://www.npmjs.com/package/jszip"
+    }
+  ],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

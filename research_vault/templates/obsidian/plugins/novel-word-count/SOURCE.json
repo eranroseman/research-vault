@@ -1,0 +1,16 @@
+{
+  "repo": "isaaclyman/novel-word-count-obsidian",
+  "tag": "5.0.0",
+  "commit": "5bfba093e619ad9492a73e3db60d0fa26c80f807",
+  "assets": {
+    "main.js": "65d5f85af85d0232ba0dd4050f495749e09d8767da609f8943ca5e27ac3a7461",
+    "manifest.json": "6f258b7381b1086bd9dc9ac148498e08da8f062ab8ca831fb993027b204ef62a",
+    "styles.css": "378a6d1dfbffd39ab6c155e6a13b99c8d14faa644e32be23db74d9dc95084ab9"
+  },
+  "licence": "MIT",
+  "bundled": [],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

@@ -4,9 +4,7 @@ research-vault is an original work, MIT licensed. The following third-party
 guidelines, tools, and source informed or are carried by its design. Every
 entry states what was taken and what was not.
 
-Vendored files each carry their own provenance header at the top of the file,
-or directly after the YAML frontmatter when the file must open with one (a
-skill or agent file); this document is the index, not the record.
+A vendored text file carries its provenance header at the top, or directly after the YAML frontmatter when the file must open with one (a skill or agent file). A vendored Obsidian plugin is byte for byte its upstream release and cannot carry a header: its record is `SOURCE.json` beside it (repository, tag, commit, asset hashes, licence, bundled dependencies, method, date), written only by `scripts/vendor_obsidian_plugin.py`. This document is the index, not the record.
 
 ______________________________________________________________________
 
@@ -132,6 +130,36 @@ in the 2026-10 cost tuning, paraphrased Strunk's *The Elements of Style*
 (the 1918 edition, public domain) and Wikipedia's "Signs of AI writing"
 (CC BY-SA); git retains that text.
 
+**Obsidian plugins, seeded** — copied into a new vault's `.obsidian/plugins/`
+by scaffold with `--with-obsidian`, from
+`research_vault/templates/obsidian/plugins/`. Each folder is the release at its
+pin, unmodified, with the repository's `LICENSE`, a `THIRD-PARTY-NOTICES` naming
+every bundled dependency and its licence, and the `SOURCE.json` record. A plugin
+whose licence or a bundled licence carries a source obligation, or whose licence
+cannot be established, is recommended instead and ships no asset
+(`research_vault/templates/obsidian-plugins.md`).
+
+| Plugin                                                                                   | Id                            | Author                                                      | Licence | Pin    |
+| ---------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------- | ------- | ------ |
+| [Dataview](https://github.com/blacksmithgu/obsidian-dataview)                            | `dataview`                    | Michael Brenan                                              | MIT     | 0.5.68 |
+| [Calendar](https://github.com/liamcain/obsidian-calendar-plugin)                         | `calendar`                    | Liam Cain                                                   | MIT     | 1.5.10 |
+| [Periodic Notes](https://github.com/liamcain/obsidian-periodic-notes)                    | `periodic-notes`              | Liam Cain                                                   | MIT     | 0.0.17 |
+| [Homepage](https://github.com/mirnovov/obsidian-homepage)                                | `homepage`                    | novov                                                       | MIT     | 4.5.0  |
+| [Outliner](https://github.com/vslinko/obsidian-outliner)                                 | `obsidian-outliner`           | Viacheslav Slinko                                           | MIT     | 4.10.2 |
+| [Callout Manager](https://github.com/eth-p/obsidian-callout-manager)                     | `callout-manager`             | eth-p                                                       | MIT     | 1.1.2  |
+| [Iconize](https://github.com/florianwoelki/obsidian-iconize)                             | `obsidian-icon-folder`        | Florian Woelki                                              | MIT     | 2.14.7 |
+| [Footnote Shortcut](https://github.com/michabrugger/obsidian-footnotes)                  | `obsidian-footnotes`          | Alexis Rondeau, Micha Brugger, Jason Qin                    | MIT     | 0.2.0  |
+| [Better Word Count](https://github.com/lukeleppan/better-word-count)                     | `better-word-count`           | Luke Leppan                                                 | MIT     | 0.10.1 |
+| [Novel word count](https://github.com/isaaclyman/novel-word-count-obsidian)              | `novel-word-count`            | Isaac Lyman                                                 | MIT     | 5.0.0  |
+| [Hider](https://github.com/kepano/obsidian-hider)                                        | `obsidian-hider`              | kepano                                                      | MIT     | 1.7.1  |
+| [Auto Note Mover](https://github.com/farux/obsidian-auto-note-mover)                     | `auto-note-mover`             | faru                                                        | MIT     | 1.2.0  |
+| [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks)                          | `obsidian-tasks-plugin`       | Clare Macrae and Ilyas Landikov (created by Martin Schenck) | MIT     | 8.4.0  |
+| [Citations](https://github.com/hans/obsidian-citation-plugin)                            | `obsidian-citation-plugin`    | Jon Gauthier                                                | MIT     | 0.4.5  |
+| [Zotero Cite Links](https://github.com/jpeacock29/zotero-cite-links)                     | `zotero-cite-links`           | jpeacock29                                                  | MIT     | 0.2.0  |
+| [Zotero Annotation Citations](https://github.com/jacquesb26/Zotero-Annotation-Citations) | `zotero-annotation-to-pandoc` | jacquesb26                                                  | MIT     | 1.0.3  |
+
+Stop seeding them and a vault keeps ordinary Obsidian plugin folders the person can update or remove from Settings; nothing in the vault's content depends on them.
+
 ## Obsidian resources, screened
 
 Recorded so a later screen starts here rather than from a search. Nothing here is adopted or
@@ -156,8 +184,10 @@ rule arrived at independently.
 
 ## What is not bundled
 
-This repository downloads no plugin binary and installs no Zotero or Obsidian
-extension. Zotero `.xpi` installs are human wizard steps; the vault's README
-table declares which are required and which recommended, and doctor reports
-what it finds. Obsidian community plugins are the person's to install and
-review under their own licences.
+Apart from the seeded Obsidian plugins above, which ship in the package and
+are copied only when the person asks for `--with-obsidian`, this repository
+downloads no plugin binary and installs no Zotero or Obsidian extension. Zotero
+`.xpi` installs are human wizard steps; the vault's README table declares which
+are required and which recommended, and doctor reports what it finds. The
+recommended Obsidian community plugins are the person's to install and review
+under their own licences.

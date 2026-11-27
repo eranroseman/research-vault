@@ -778,7 +778,6 @@ def test_core_settings_files_route_new_notes_off_the_machine_folders():
     }
 
 
-@pytest.mark.xfail(strict=True, reason="Task 3 vendors the assets")
 def test_community_plugins_json_lists_exactly_the_vendored_ids():
     from research_vault import obsidian_plugins
 

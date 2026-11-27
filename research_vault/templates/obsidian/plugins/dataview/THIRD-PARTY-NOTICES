@@ -1,0 +1,43 @@
+@codemirror/language 6.6.0
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/language
+
+@codemirror/state 6.2.1
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/state
+
+@codemirror/view 6.19.0
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/view
+
+emoji-regex 10.2.1
+Licence: MIT
+https://www.npmjs.com/package/emoji-regex
+
+localforage 1.10.0
+Licence: Apache-2.0
+https://www.npmjs.com/package/localforage
+
+luxon 3.4.3
+Licence: MIT
+https://www.npmjs.com/package/luxon
+
+obsidian-calendar-ui 0.3.12
+Licence: MIT
+https://www.npmjs.com/package/obsidian-calendar-ui
+
+papaparse 5.4.1
+Licence: MIT
+https://www.npmjs.com/package/papaparse
+
+parsimmon 1.18.1
+Licence: MIT
+https://www.npmjs.com/package/parsimmon
+
+preact 10.17.1
+Licence: MIT
+https://www.npmjs.com/package/preact
+
+remove-markdown 0.5.5
+Licence: MIT
+https://www.npmjs.com/package/remove-markdown

@@ -1,0 +1,16 @@
+{
+  "repo": "michabrugger/obsidian-footnotes",
+  "tag": "0.2.0",
+  "commit": "0eaeb9a142131b2386dd5bf31907bebef03290f6",
+  "assets": {
+    "main.js": "17e4a96806d23eb87284632653a265a0202dffa4b1825c9f45901f7ec0790ee5",
+    "manifest.json": "579269af9d57b6daec8833d4c81e04c91de71ef442a20fe033aeeb7651dea1ab",
+    "styles.css": "cbb6dfa0c29a5f69b788edc179af0a5f66df23ff9e33491f8b7d0b1eea2a4b42"
+  },
+  "licence": "MIT",
+  "bundled": [],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

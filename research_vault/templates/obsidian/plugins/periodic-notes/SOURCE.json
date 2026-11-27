@@ -1,0 +1,41 @@
+{
+  "repo": "liamcain/obsidian-periodic-notes",
+  "tag": "0.0.17",
+  "commit": "5b96e4f14130b0c024edb5ddb7871d01d61d9522",
+  "assets": {
+    "main.js": "ccf1a18673693d1036fc7614c3af9d23e5edfe425d1053df81dddcc29b1f8b0e",
+    "manifest.json": "bda29323f75d3b3fcbda489335825b97fe4b574914d04635e9a7e67f2414049c",
+    "styles.css": "613f3985d4c84900ed2e25d8a46efb7b3ace6889fb71217055084084eb146238"
+  },
+  "licence": "MIT",
+  "bundled": [
+    {
+      "name": "@popperjs/core",
+      "version": "2.9.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@popperjs/core"
+    },
+    {
+      "name": "obsidian-daily-notes-interface",
+      "version": "0.9.4",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/obsidian-daily-notes-interface"
+    },
+    {
+      "name": "svelte",
+      "version": "3.35.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/svelte"
+    },
+    {
+      "name": "tslib",
+      "version": "2.1.0",
+      "licence": "0BSD",
+      "url": "https://www.npmjs.com/package/tslib"
+    }
+  ],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

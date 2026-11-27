@@ -1,0 +1,47 @@
+{
+  "repo": "hans/obsidian-citation-plugin",
+  "tag": "0.4.5",
+  "commit": "2edeeceaf5f38de90f77f111ab46d24eef3e0bfa",
+  "assets": {
+    "main.js": "0a7d4034854554893693787a7c004b95b739bd3f43181381ef0692ca29b4fded",
+    "manifest.json": "f7c47e064ce818cfdb542efac15b97aceb582875e19e783f115a7c1d0b91a81a",
+    "styles.css": "6b8e77d3f8136633bac089fc38da5f5a50f94b2a93f85838073d2014f168960f"
+  },
+  "licence": "MIT",
+  "bundled": [
+    {
+      "name": "@retorquere/bibtex-parser",
+      "version": "3.2.30",
+      "licence": "ISC",
+      "url": "https://www.npmjs.com/package/@retorquere/bibtex-parser"
+    },
+    {
+      "name": "chokidar",
+      "version": "3.5.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/chokidar"
+    },
+    {
+      "name": "handlebars",
+      "version": "4.7.6",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/handlebars"
+    },
+    {
+      "name": "open",
+      "version": "7.3.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/open"
+    },
+    {
+      "name": "promise-worker",
+      "version": "2.0.1",
+      "licence": "Apache-2.0",
+      "url": "https://www.npmjs.com/package/promise-worker"
+    }
+  ],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

@@ -52,12 +52,13 @@ JSON_MANIFESTS = [
     ".github/okf-pin.json",
     "research_vault/templates/research-vault/machine.json.example",
     "research_vault/templates/vault/claude/settings.json",
-    # The .obsidian/ seed's own JSON; the vendored manifest.json and SOURCE.json
-    # are pinned separately (Plan E Task 3).
+    # The .obsidian/ seed's own JSON, each plugin's data.json and the
+    # SOURCE.json the vendoring script writes; a vendored manifest.json is
+    # upstream's bytes, pinned by its SOURCE.json digest instead.
     *sorted(
         path.relative_to(ROOT).as_posix()
         for path in (ROOT / "research_vault" / "templates" / "obsidian").rglob("*.json")
-        if path.name not in {"manifest.json", "SOURCE.json"}
+        if path.name != "manifest.json"
     ),
 ]
 

@@ -1,0 +1,16 @@
+{
+  "repo": "kepano/obsidian-hider",
+  "tag": "1.7.1",
+  "commit": "418f01f172fd269a3f422ba12589274d404dbc76",
+  "assets": {
+    "main.js": "1aae6b0a59e5212af0547bce86c6df1d1bdf00af2ed5fe427c061246686352be",
+    "manifest.json": "98af5d65438368adb86be18f8afea80f778acfef3a594b179bd1f5a7815ed359",
+    "styles.css": "feea610c7da9b46c8cfbddd7d19f8985ee93454af2c4970d689c00e12e5770c5"
+  },
+  "licence": "MIT",
+  "bundled": [],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

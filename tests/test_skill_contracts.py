@@ -67,9 +67,14 @@ def _shipped_template_files() -> list[Path]:
     # guards, and it is unaffected by the exclusion. obsidian-plugins.md is
     # the Obsidian plugin declaration: its backticked ids and settings keys
     # (`periodic-notes`, `new-note-folder`) are Obsidian's, never skill names.
+    # The vendored Obsidian plugins are upstream's release bytes (main.js
+    # template literals are backticked), never this repository's prose.
     not_routing = {TEMPLATES_DIR / "context.md", TEMPLATES_DIR / "obsidian-plugins.md"}
+    vendored = TEMPLATES_DIR / "obsidian" / "plugins"
     return sorted(
-        p for p in TEMPLATES_DIR.rglob("*") if p.is_file() and p not in not_routing
+        p
+        for p in TEMPLATES_DIR.rglob("*")
+        if p.is_file() and p not in not_routing and vendored not in p.parents
     )
 
 

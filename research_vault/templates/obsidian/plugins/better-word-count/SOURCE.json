@@ -1,0 +1,35 @@
+{
+  "repo": "lukeleppan/better-word-count",
+  "tag": "0.10.1",
+  "commit": "c93e045c213875c07bf8ceca4d960c3d4a57cec9",
+  "assets": {
+    "main.js": "ce8ea4a7c4bb162206e5eb5b27d965883ce4b1beddae1de41fbeba0843c52dc9",
+    "manifest.json": "45d6a1642d7e47e01cc32b602405c651d9289714ca9a0fd1c5e22eb5979e7313",
+    "styles.css": "f279f1989d4e099af82f0bc795beef45ee30685e9744f672dd0c8b50d64d4ee1"
+  },
+  "licence": "MIT",
+  "bundled": [
+    {
+      "name": "chart.js",
+      "version": "4.3.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/chart.js"
+    },
+    {
+      "name": "svelte",
+      "version": "3.38.3",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/svelte"
+    },
+    {
+      "name": "svelte-icons",
+      "version": "2.1.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/svelte-icons"
+    }
+  ],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

@@ -1,0 +1,23 @@
+{
+  "repo": "eth-p/obsidian-callout-manager",
+  "tag": "1.1.2",
+  "commit": "bfdf6969baf0d273cd9cae2816aa77267512209e",
+  "assets": {
+    "main.js": "3c97eba0dd0c7e78bf3faad701cbbc3834754264bcf0717af64403fe152b2f04",
+    "manifest.json": "b0e02242c78b39e1263da891d789e3fcaa0c1f6c48aa1c2bbe4b892ddc8cce0a",
+    "styles.css": "85dd7d013ad642fcf6cc9fbd87a81ad70769276c4725722562e3585f4407aa54"
+  },
+  "licence": "MIT",
+  "bundled": [
+    {
+      "name": "obsidian-extra",
+      "version": "0.1.5",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/obsidian-extra"
+    }
+  ],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

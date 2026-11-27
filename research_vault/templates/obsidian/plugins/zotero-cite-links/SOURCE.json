@@ -1,0 +1,16 @@
+{
+  "repo": "jpeacock29/zotero-cite-links",
+  "tag": "0.2.0",
+  "commit": "dce452ce246be73676aa1704dfa45cabef3ee5e8",
+  "assets": {
+    "main.js": "27832e4143bdee8eb139f302eddf2753d46b0412724328678f5619391e01b6f0",
+    "manifest.json": "4198a28a652183fffa2554f9099e6a0b4680597a2da41ae00976a71e73aaa9d4",
+    "styles.css": "b7c5ad89a0b778eb5a65d3f357b8f726c27deee0c55a5e8549523f8a1b20b9d0"
+  },
+  "licence": "MIT",
+  "bundled": [],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}

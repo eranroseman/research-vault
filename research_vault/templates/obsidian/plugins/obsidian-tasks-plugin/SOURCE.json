@@ -1,0 +1,77 @@
+{
+  "repo": "obsidian-tasks-group/obsidian-tasks",
+  "tag": "8.4.0",
+  "commit": "9173205606e49846f456caf438fdc0e5baded77e",
+  "assets": {
+    "main.js": "c1e3333bce3fee7c1a06397ea2989cd27e1659cc30795c53ed5a60e7941e48fa",
+    "manifest.json": "499cfa146ba9cbdd70ccfc9d16b6b6cbfb4243158d14335b2b336259e867c33f",
+    "styles.css": "3b2ca53d3b74162b5899b251d18b695f532546181ebaed6354befbe72c29935d"
+  },
+  "licence": "MIT",
+  "bundled": [
+    {
+      "name": "@floating-ui/dom",
+      "version": "1.7.6",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@floating-ui/dom"
+    },
+    {
+      "name": "boon-js",
+      "version": "2.0.5",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/boon-js"
+    },
+    {
+      "name": "chrono-node",
+      "version": "2.3.9",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/chrono-node"
+    },
+    {
+      "name": "eventemitter2",
+      "version": "6.4.5",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/eventemitter2"
+    },
+    {
+      "name": "flatpickr",
+      "version": "4.6.13",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/flatpickr"
+    },
+    {
+      "name": "i18next",
+      "version": "24.2.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/i18next"
+    },
+    {
+      "name": "mustache",
+      "version": "4.2.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/mustache"
+    },
+    {
+      "name": "mustache-validator",
+      "version": "0.2.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/mustache-validator"
+    },
+    {
+      "name": "rrule",
+      "version": "2.8.1",
+      "licence": "BSD-3-Clause",
+      "url": "https://www.npmjs.com/package/rrule"
+    },
+    {
+      "name": "safe-regex2",
+      "version": "5.1.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/safe-regex2"
+    }
+  ],
+  "source": null,
+  "redistributable": true,
+  "measured": "2026-11-27",
+  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+}
