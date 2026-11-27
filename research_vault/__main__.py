@@ -60,6 +60,7 @@ DOCTOR_WARN_ONLY = {
     "pyyaml",
     "fulltext-sync",
     "path-shim",
+    "advisory",
 }
 # Named domain failures only, shared by the verbs whose run can fail outside
 # their own four-state handling (`verify`, `capture`, `add`, `compile`): each
@@ -880,22 +881,22 @@ def cmd_stamp_type(args):
 
 def cmd_doctor(args):
     probes = doctor(args.vault, ZoteroClient(base=args.base))
-    for check, result, reason in probes:
+    for probe in probes:
         prefix = (
             "warn:"
-            if check in DOCTOR_WARN_ONLY
-            and result in {Result.UNMATCHED, Result.UNREACHABLE}
+            if probe.check in DOCTOR_WARN_ONLY
+            and probe.result in {Result.UNMATCHED, Result.UNREACHABLE}
             else ""
         )
-        print(f"{prefix}{result.value} {check} — {reason}")
+        print(f"{prefix}{probe.result.value} {probe.check} — {probe.reason}")
     if any(
-        check in DOCTOR_HARD_UNMATCHED and result is Result.UNMATCHED
-        for check, result, _reason in probes
+        probe.check in DOCTOR_HARD_UNMATCHED and probe.result is Result.UNMATCHED
+        for probe in probes
     ):
         return 1
     if any(
-        check in DOCTOR_HARD_UNREACHABLE and result is Result.UNREACHABLE
-        for check, result, _reason in probes
+        probe.check in DOCTOR_HARD_UNREACHABLE and probe.result is Result.UNREACHABLE
+        for probe in probes
     ):
         return 3
     return 0

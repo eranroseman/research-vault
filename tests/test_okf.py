@@ -170,6 +170,7 @@ def test_doctor_is_substrate_and_posture_only(tmp_path):
         "bbt",
         "bbt-git",
         "plugins",
+        "advisory",
         "path-shim",
         "translator-formats",
         "compile-tool",

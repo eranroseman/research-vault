@@ -9,6 +9,7 @@ import pytest
 from research_vault import Result, addons, doctor, paths, scaffold, zotero
 from tests.conftest import package_ast
 from tests.fakes import FakeZotero
+from tests.test_addons import _xpi
 
 # Captured before _hermetic_host (below) ever runs, so the plugin-registry
 # test can re-patch past that fixture's stand-in and exercise the real read.
@@ -23,6 +24,7 @@ PROBE_NAMES = [
     "bbt",
     "bbt-git",
     "plugins",
+    "advisory",
     "path-shim",
     "translator-formats",
     "compile-tool",
@@ -41,10 +43,11 @@ WARN_ONLY = [
     "pyyaml",
     "fulltext-sync",
     "path-shim",
+    "advisory",
 ]
 READY = {"zotero": "10.0.1", "betterbibtex": "9.0.63"}
 COMPILE_PLUGIN = "claude-obsidian@agricidaniel-claude-obsidian"
-PROFILE_PROBES = ("fulltext-sync", "bbt-git", "plugins")
+PROFILE_PROBES = ("fulltext-sync", "bbt-git", "plugins", "advisory")
 LISTING = (
     "/api/users/0/items?itemType=attachment&sort=dateAdded&direction=asc"
     "&limit=50&start={start}&format=json"
@@ -72,8 +75,14 @@ def _hermetic_host(monkeypatch):
 
 
 def _probes(**states):
+    """Real four-field Probe rows (DP13): cmd_doctor reads them by field name."""
     return [
-        (name, states.get(name, Result.MATCHED), f"{name} detail")
+        doctor.Probe(
+            name,
+            states.get(name, Result.MATCHED),
+            f"{name} detail",
+            facts=(("component@x", ("a fact",)),),
+        )
         for name in PROBE_NAMES
     ]
 
@@ -228,36 +237,50 @@ def _ready_client(monkeypatch, versions=READY):
     return fake.install(zotero.ZoteroClient(), monkeypatch)
 
 
-def _profile(tmp_path, *, doi_auto=True, addons=None):
+def _profile(tmp_path, *, doi_retrieve='"none"', addons=None):
+    """A profile whose declared values hold: Better BibTeX active, DOI Manager
+    2.2.0 active with its two values, an undeclared add-on beside them."""
     profile = tmp_path / "profile"
     profile.mkdir()
     if addons is None:
         addons = [
-            {
-                "id": "better-bibtex@iris-advies.com",
-                "type": "extension",
-                "location": "app-profile",
-                "version": "9.0.63",
-                "active": True,
-                "appDisabled": False,
-            },
-            {
-                "id": "zoteroshortdoi@wiernik.org",
-                "type": "extension",
-                "location": "app-profile",
-                "version": "1.6.0",
-                "active": False,
-                "appDisabled": True,
-            },
+            _addon("better-bibtex@iris-advies.com", "9.0.63"),
+            _addon("zoteroshortdoi@wiernik.org", "2.2.0"),
+            _addon("someone-else@example.org", "0.1"),
         ]
     (profile / "extensions.json").write_text(json.dumps({"addons": addons}))
     (profile / "prefs.js").write_text(
         'user_pref("extensions.zotero.sync.fulltext.enabled", false);\n'
         'user_pref("extensions.zotero.sync.storage.protocol", "webdav");\n'
-        f'user_pref("extensions.shortdoi.autoretrieve", {str(doi_auto).lower()});\n'
-        'user_pref("extensions.zotero.pmcid.auto", true);\n'
+        f'user_pref("extensions.shortdoi.autoretrieve", {doi_retrieve});\n'
+        'user_pref("extensions.shortdoi.monthly_verify", false);\n'
+        'user_pref("extensions.zotero.pmcid.auto", false);\n'
+        'user_pref("extensions.zotero.pmcid.tags", false);\n'
     )
     return profile
+
+
+def _profile_with(tmp_path, addons_list, prefs_lines, xpis=()):
+    profile = tmp_path / "profile"
+    profile.mkdir(parents=True)
+    (profile / "extensions.json").write_text(json.dumps({"addons": addons_list}))
+    (profile / "prefs.js").write_text(
+        "".join(f'user_pref("{k}", {v});\n' for k, v in prefs_lines)
+    )
+    for addon_id, files in xpis:
+        _xpi(profile, addon_id, files)
+    return profile
+
+
+def _addon(addon_id, version="1.0.0", active=True, app_disabled=False):
+    return {
+        "id": addon_id,
+        "type": "extension",
+        "location": "app-profile",
+        "version": version,
+        "active": active,
+        "appDisabled": app_disabled,
+    }
 
 
 def _doctor_fake(monkeypatch, tmp_path):
@@ -327,8 +350,10 @@ def test_doctor_reports_the_thirteen_probes_in_order(tmp_vault, tmp_path, monkey
         "sync.fulltext.enabled=False storage.protocol=webdav"
     )
     assert by["bbt-git"].result is Result.MATCHED
-    assert by["plugins"].result is Result.MATCHED  # DOI Manager is recommended
-    assert "zoteroshortdoi@wiernik.org appDisabled" in by["plugins"].reason
+    assert by["plugins"].result is Result.MATCHED
+    assert "zoteroshortdoi@wiernik.org active" in by["plugins"].reason
+    assert "someone-else@example.org undeclared" in by["plugins"].reason
+    assert by["advisory"].result is Result.MATCHED
     assert by["path-shim"].result is Result.MATCHED
     assert by["translator-formats"].result is Result.MATCHED
     assert by["compile-tool"].result is Result.MATCHED
@@ -384,7 +409,7 @@ def test_doctor_returns_thirteen_tuple_probes_and_repairs_tree(tmp_vault, monkey
     probes = doctor.doctor(vault, client=_ready_client(monkeypatch))
 
     assert [probe.check for probe in probes] == PROBE_NAMES
-    assert all(isinstance(probe, tuple) and len(probe) == 3 for probe in probes)
+    assert all(isinstance(probe, tuple) and len(probe) == 4 for probe in probes)
     assert (vault / "projects").is_dir()
     assert probes[0].result is Result.MATCHED
     by = {p.check: p for p in probes}
@@ -508,23 +533,79 @@ def test_doctor_classifies_machine_remote_and_backup_conditions(tmp_vault, monke
     )
 
 
-def test_doctor_bbt_git_warns_when_better_bibtex_may_run_git(
+BBT = "better-bibtex@iris-advies.com"
+BBT_GIT = "extensions.zotero.translators.better-bibtex.git"
+
+
+def _bbt_git(tmp_vault, tmp_path, monkeypatch, prefs_lines=(), xpis=(), zotero=False):
+    profile = _profile_with(
+        tmp_path / "bbt-git", [_addon(BBT, "9.0.68")], list(prefs_lines), xpis
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    if zotero:
+        with (vault / ".git" / "config").open("a") as config:
+            config.write("[zotero]\n\tbetterbibtex = true\n")
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    return by["bbt-git"]
+
+
+def test_doctor_bbt_git_reads_off_from_prefs_js_or_the_shipped_default(
     tmp_vault, tmp_path, monkeypatch
 ):
-    profile = _profile(tmp_path)
-    with (profile / "prefs.js").open("a") as prefs:
-        prefs.write(
-            'user_pref("extensions.zotero.translators.better-bibtex.git", "config");\n'
-        )
-    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    assert _bbt_git(
+        tmp_vault, tmp_path, monkeypatch, [(BBT_GIT, '"off"')]
+    ) == doctor.Probe("bbt-git", Result.MATCHED, "git=off")
 
-    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
-    assert by["bbt-git"].result is Result.UNMATCHED
-    assert (
-        by["bbt-git"].reason
-        == "git=config — Better BibTeX may run git inside an export target"
+def test_doctor_bbt_git_reads_the_relative_default_through_the_prefix(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """BBT 9.0.68 ships `pref("git", "config")`: prefs.js lacking the key reads
+    it through the key-prefix cell; no `[zotero]` section in .git/config passes."""
+    xpis = [(BBT, {"prefs.js": 'pref("git", "config")\n'})]
+    probe = _bbt_git(tmp_vault, tmp_path, monkeypatch, xpis=xpis)
+    assert probe.result is Result.MATCHED
+    assert probe.reason.startswith("git=config")
+
+
+def test_doctor_bbt_git_config_fails_when_the_vault_opts_in(
+    tmp_vault, tmp_path, monkeypatch
+):
+    probe = _bbt_git(
+        tmp_vault, tmp_path, monkeypatch, [(BBT_GIT, '"config"')], zotero=True
     )
+    assert probe == doctor.Probe(
+        "bbt-git",
+        Result.UNMATCHED,
+        "git=config — Better BibTeX may run git inside an export target",
+        facts=((BBT, ('git="config"',)),),
+    )
+
+
+def test_doctor_bbt_git_always_fails(tmp_vault, tmp_path, monkeypatch):
+    probe = _bbt_git(tmp_vault, tmp_path, monkeypatch, [(BBT_GIT, '"always"')])
+    assert probe == doctor.Probe(
+        "bbt-git",
+        Result.UNMATCHED,
+        "git=always — Better BibTeX may run git inside an export target",
+        facts=((BBT, ('git="always"',)),),
+    )
+
+
+def test_doctor_bbt_git_unset_passes(tmp_vault, tmp_path, monkeypatch):
+    assert _bbt_git(tmp_vault, tmp_path, monkeypatch) == doctor.Probe(
+        "bbt-git", Result.MATCHED, "git unset"
+    )
+
+
+def test_doctor_bbt_git_unreadable_xpi_is_an_outage(tmp_vault, tmp_path, monkeypatch):
+    profile = _profile_with(tmp_path / "p", [_addon(BBT, "9.0.68")], [])
+    (profile / "extensions").mkdir()
+    (profile / "extensions" / f"{BBT}.xpi").write_bytes(b"not a zip")
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["bbt-git"].result is Result.UNREACHABLE
+    assert f"{BBT}.xpi" in by["bbt-git"].reason
 
 
 def test_doctor_plugins_fails_on_a_missing_required_addon_and_names_it(
@@ -536,27 +617,17 @@ def test_doctor_plugins_fails_on_a_missing_required_addon_and_names_it(
     by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
 
     assert by["plugins"] == doctor.Probe(
-        "plugins", Result.UNMATCHED, "Better BibTeX missing"
+        "plugins",
+        Result.UNMATCHED,
+        "Better BibTeX missing",
+        facts=(("better-bibtex@iris-advies.com", ("missing",)),),
     )
 
 
-def test_doctor_plugins_fails_when_an_active_addon_has_automatic_mode_off(
+def test_doctor_plugins_fails_when_an_active_addons_value_is_not_accepted(
     tmp_vault, tmp_path, monkeypatch
 ):
-    active = {
-        "type": "extension",
-        "location": "app-profile",
-        "active": True,
-        "appDisabled": False,
-    }
-    profile = _profile(
-        tmp_path,
-        doi_auto=False,
-        addons=[
-            {"id": "better-bibtex@iris-advies.com", "version": "9.0.63", **active},
-            {"id": "zoteroshortdoi@wiernik.org", "version": "1.6.0", **active},
-        ],
-    )
+    profile = _profile(tmp_path, doi_retrieve='"long"')
     vault = _profiled_vault(tmp_vault, tmp_path, profile)
 
     by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
@@ -564,7 +635,13 @@ def test_doctor_plugins_fails_when_an_active_addon_has_automatic_mode_off(
     assert by["plugins"] == doctor.Probe(
         "plugins",
         Result.UNMATCHED,
-        "DOI Manager automatic mode off (extensions.shortdoi.autoretrieve)",
+        'DOI Manager extensions.shortdoi.autoretrieve="long" (accepted "none")',
+        facts=(
+            (
+                "zoteroshortdoi@wiernik.org",
+                ('extensions.shortdoi.autoretrieve="long" (accepted "none")',),
+            ),
+        ),
     )
 
 
@@ -1229,3 +1306,231 @@ def test_pyyaml_row_without_pyyaml_names_the_exit_and_the_remedy(monkeypatch):
             "pip install PyYAML into the environment that runs research_vault"
         ),
     )
+
+
+def test_plugins_reads_the_xpi_default_when_prefs_js_lacks_the_key(
+    tmp_vault, tmp_path, monkeypatch
+):
+    profile = _profile_with(
+        tmp_path,
+        [
+            _addon(BBT, "9.0.68"),
+            _addon("zotero-pmcid-fetcher@iris-advies.com", "1.0.3"),
+        ],
+        [],
+        xpis=[
+            (
+                "zotero-pmcid-fetcher@iris-advies.com",
+                {
+                    "prefs.js": 'pref("extensions.zotero.pmcid.auto", true);\n'
+                    'pref("extensions.zotero.pmcid.tags", false);\n'
+                },
+            )
+        ],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].result is Result.UNMATCHED
+    assert (
+        by["plugins"].reason
+        == "PMCID fetcher extensions.zotero.pmcid.auto=true (accepted false)"
+    )
+
+
+def test_plugins_is_unreachable_when_a_needed_default_cannot_be_read(
+    tmp_vault, tmp_path, monkeypatch
+):
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68"), _addon("zotero-pmcid-fetcher@iris-advies.com")],
+        [],
+    )
+    (profile / "extensions").mkdir(exist_ok=True)
+    (profile / "extensions" / "zotero-pmcid-fetcher@iris-advies.com.xpi").write_bytes(
+        b"not a zip"
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].result is Result.UNREACHABLE
+    assert "zotero-pmcid-fetcher@iris-advies.com.xpi" in by["plugins"].reason
+
+
+def test_plugins_is_unreachable_when_a_prefs_js_line_naming_a_key_is_unreadable(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """DP22 / spec 6.1: never `unset` for a key on a line the grammar refuses."""
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68"), _addon("zoteroshortdoi@wiernik.org", "2.2.0")],
+        [("extensions.shortdoi.monthly_verify", "false")],
+    )
+    with (profile / "prefs.js").open("a") as prefs:
+        prefs.write("user_pref(extensions.shortdoi.autoretrieve, 'none');\n")
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].result is Result.UNREACHABLE
+    assert "extensions.shortdoi.autoretrieve" in by["plugins"].reason
+
+
+def test_an_unmatched_addon_outranks_an_unreadable_default(
+    tmp_vault, tmp_path, monkeypatch
+):
+    profile = _profile_with(
+        tmp_path,
+        [
+            _addon(BBT, "9.0.68"),
+            _addon("zotero-pmcid-fetcher@iris-advies.com"),
+            _addon("zoteroshortdoi@wiernik.org", "2.2.0"),
+        ],
+        [
+            ("extensions.shortdoi.autoretrieve", '"long"'),
+            ("extensions.shortdoi.monthly_verify", "false"),
+        ],
+    )
+    (profile / "extensions").mkdir(exist_ok=True)
+    (profile / "extensions" / "zotero-pmcid-fetcher@iris-advies.com.xpi").write_bytes(
+        b"not a zip"
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].result is Result.UNMATCHED
+
+
+def test_advisory_warns_on_an_app_disabled_recommended_and_an_active_excluded_addon(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """#191: 1.6.0 appDisabled is advisory's warning while plugins passes; an
+    active excluded add-on is advisory's."""
+    profile = _profile_with(
+        tmp_path,
+        [
+            _addon(BBT, "9.0.68"),
+            _addon(
+                "zoteroshortdoi@wiernik.org", "1.6.0", active=False, app_disabled=True
+            ),
+            _addon("zoplicate@chenglongma.com", "5.1.1"),
+        ],
+        [],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].result is Result.MATCHED
+    assert by["advisory"] == doctor.Probe(
+        "advisory",
+        Result.UNMATCHED,
+        "DOI Manager appDisabled (recommended); "
+        "Zoplicate active (excluded on harm grounds)",
+        facts=(
+            ("zoteroshortdoi@wiernik.org", ("appDisabled (recommended)",)),
+            ("zoplicate@chenglongma.com", ("active (excluded on harm grounds)",)),
+        ),
+    )
+
+
+def test_advisory_leaves_an_app_disabled_required_addon_to_plugins(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """DP26: advisory's appDisabled branch covers recommended only."""
+    profile = _profile_with(
+        tmp_path, [_addon(BBT, "9.0.68", active=False, app_disabled=True)], []
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].reason == "Better BibTeX appDisabled"
+    assert by["advisory"].result is Result.MATCHED
+
+
+def test_advisory_is_skipped_when_extensions_json_is_the_plugins_fault(
+    tmp_vault, tmp_path, monkeypatch
+):
+    profile = _profile(tmp_path)
+    (profile / "extensions.json").write_text("{not json")
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["advisory"].result is Result.SKIPPED
+
+
+def test_an_active_build_below_the_floor_fails_plugins(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """#191, DP16, DP18: the reason shows the installed version; the hashable
+    fact does not."""
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68"), _addon("zoteroshortdoi@wiernik.org", "1.7.0-beta")],
+        [
+            ("extensions.shortdoi.autoretrieve", '"none"'),
+            ("extensions.shortdoi.monthly_verify", "false"),
+        ],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"] == doctor.Probe(
+        "plugins",
+        Result.UNMATCHED,
+        "DOI Manager 1.7.0-beta below 2.2.0",
+        facts=(("zoteroshortdoi@wiernik.org", ("below 2.2.0",)),),
+    )
+
+
+def test_an_unreadable_version_against_a_floor_fails_plugins(
+    tmp_vault, tmp_path, monkeypatch
+):
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68"), _addon("zoteroshortdoi@wiernik.org", "v2")],
+        [
+            ("extensions.shortdoi.autoretrieve", '"none"'),
+            ("extensions.shortdoi.monthly_verify", "false"),
+        ],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"] == doctor.Probe(
+        "plugins",
+        Result.UNMATCHED,
+        "DOI Manager version 'v2' unreadable against floor 2.2.0",
+        facts=(
+            ("zoteroshortdoi@wiernik.org", ("version unreadable against floor 2.2.0",)),
+        ),
+    )
+
+
+def test_bbt_auto_export_into_the_vault_fails_plugins(tmp_vault, tmp_path, monkeypatch):
+    """DP15: tmp_vault is tmp_path, and path_map maps D:\\Zotero\\ onto it."""
+    export = json.dumps(
+        {
+            "type": "library",
+            "path": "D:\\Zotero\\system\\bibliography.json",
+            "translatorID": "x",
+        }
+    )
+    elsewhere = json.dumps({"type": "library", "path": "D:\\Zotero\\exports\\a.bib"})
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68")],
+        [
+            (BBT_GIT.replace("git", "autoExport.abc"), json.dumps(export)),
+            (BBT_GIT.replace("git", "autoExport.def"), json.dumps(elsewhere)),
+        ],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"] == doctor.Probe(
+        "plugins",
+        Result.UNMATCHED,
+        "Better BibTeX auto-export targets system/bibliography.json",
+        facts=((BBT, ("auto-export targets system/bibliography.json",)),),
+    )
+
+
+def test_an_unreadable_bbt_auto_export_is_an_outage(tmp_vault, tmp_path, monkeypatch):
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68")],
+        [(BBT_GIT.replace("git", "autoExport.bad"), json.dumps("{not json"))],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].result is Result.UNREACHABLE
+    assert "autoExport.bad" in by["plugins"].reason

@@ -17,11 +17,16 @@ from .zotero import LocalApiDisabledError, ZoteroClient, ZoteroError, header
 
 
 class Probe(NamedTuple):
-    """One doctor row, in the Outcome vocabulary (check/result/reason)."""
+    """One doctor row, in the Outcome vocabulary (check/result/reason).
+
+    `facts` are the per-component failing facts, one entry per component id:
+    hashable, so they never carry an installed version (DP18).
+    """
 
     check: str
     result: Result
     reason: str
+    facts: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 def _machine_config(vault: Path) -> tuple[dict, Probe]:
@@ -94,10 +99,15 @@ class _ProfileHold(NamedTuple):
 
 
 class _ProfileFacts(NamedTuple):
-    """A readable zotero_profile directory and its prefs.js."""
+    """A readable zotero_profile directory and its prefs.js.
+
+    `unreadable` holds the prefs.js lines the grammar refused: a declared key
+    named on one is UNREACHABLE, never unset (spec §6.1).
+    """
 
     path: Path
     prefs: dict[str, str | bool | int]
+    unreadable: tuple[str, ...] = ()
 
 
 _OLD_LITERATURE_ROOT = "literatures"
@@ -206,11 +216,12 @@ def _profile_facts(config) -> _ProfileFacts | _ProfileHold:
         )
     try:
         prefs = addons.read_prefs(path)
+        unreadable = addons.unreadable_pref_lines(path)
     except OSError as error:
         return _ProfileHold(Result.UNREACHABLE, f"prefs.js unreadable: {error}")
     except (UnicodeError, ValueError) as error:
         return _ProfileHold(Result.UNMATCHED, f"prefs.js unparseable: {error}")
-    return _ProfileFacts(path, prefs)
+    return _ProfileFacts(path, prefs, unreadable)
 
 
 def _fulltext_sync_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
@@ -227,20 +238,164 @@ def _fulltext_sync_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
     )
 
 
-def _bbt_git_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
+_BBT_GIT = addons.BBT_PREFIX + "git"
+_GIT_RISK = "Better BibTeX may run git inside an export target"
+_ZOTERO_SECTION = re.compile(r"^\s*\[zotero\b", re.IGNORECASE | re.MULTILINE)
+# Ruling 1's roster as vault-relative prefixes a Better BibTeX export must not target.
+_MACHINE_FOLDERS = (
+    "literature/",
+    "wiki/",
+    "log/",
+    "fulltext/",
+    "system/propagations/",
+    "log.md",
+    "inbox/review-queue.md",
+    "system/bibliography.json",
+)
+_WINDOWS_PATH = re.compile(r"^[A-Za-z]:\\|^\\\\")
+
+
+def _shown(value: str) -> str:
+    """A prefs.js literal as a reason shows it: a string without its quotes."""
+    if value.startswith('"'):
+        try:
+            decoded = json.loads(value)
+        except ValueError:
+            return value
+        if isinstance(decoded, str):
+            return decoded
+    return value
+
+
+def _names_key(lines: tuple[str, ...], key: str, key_prefix: str | None) -> bool:
+    return any(addons.line_names_key(line, (key,), key_prefix) for line in lines)
+
+
+def _bbt_git_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
+    """`git` resolved through the key prefix (spec §6.1): `off` passes, `config`
+    passes only when the vault's .git/config holds no Better BibTeX opt-in."""
     if isinstance(profile, _ProfileHold):
         return Probe("bbt-git", profile.result, profile.reason)
-    value = profile.prefs.get("extensions.zotero.translators.better-bibtex.git", "off")
-    if value == "off":
+    if _BBT_GIT not in profile.prefs and _names_key(
+        profile.unreadable, _BBT_GIT, addons.BBT_PREFIX
+    ):
+        return Probe(
+            "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"
+        )
+    try:
+        defaults = addons.xpi_defaults(
+            profile.path, addons.BBT_ID, keys=(_BBT_GIT,), key_prefix=addons.BBT_PREFIX
+        )
+    except addons.DefaultsUnreadableError as error:
+        return Probe(
+            "bbt-git", Result.UNREACHABLE, f"Better BibTeX defaults unreadable: {error}"
+        )
+    value = addons.effective_value(profile.prefs, defaults, _BBT_GIT, addons.BBT_PREFIX)
+    if value == "unset":
+        return Probe("bbt-git", Result.MATCHED, "git unset")
+    if value == '"off"':
         return Probe("bbt-git", Result.MATCHED, "git=off")
+    if value == '"config"':
+        # The opt-in's key name is measured in Task 4; until then any [zotero]
+        # section counts as one.
+        try:
+            config = (vault / ".git" / "config").read_text(encoding="utf-8")
+        except FileNotFoundError:
+            config = ""
+        except (OSError, UnicodeError) as error:
+            return Probe(
+                "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"
+            )
+        if not _ZOTERO_SECTION.search(config):
+            return Probe(
+                "bbt-git",
+                Result.MATCHED,
+                "git=config, no Better BibTeX opt-in in .git/config",
+            )
     return Probe(
         "bbt-git",
         Result.UNMATCHED,
-        f"git={value} — Better BibTeX may run git inside an export target",
+        f"git={_shown(value)} — {_GIT_RISK}",
+        facts=((addons.BBT_ID, (f"git={value}",)),),
     )
 
 
-def _plugins_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
+def _export_targets_vault(export: dict, vault: Path) -> str | None:
+    """The vault-relative machine path a Better BibTeX auto-export writes, if any
+    (spec §6.2; Windows paths through `paths.to_local`)."""
+    raw = export.get("path")
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        local = paths.to_local(raw, vault) if _WINDOWS_PATH.match(raw) else Path(raw)
+        relative = local.resolve().relative_to(vault.resolve()).as_posix()
+    except (paths.PathError, OSError, ValueError, AttributeError, TypeError):
+        return None
+    if any(relative == f or relative.startswith(f) for f in _MACHINE_FOLDERS):
+        return relative
+    return None
+
+
+def _addon_state(seen: dict | None) -> str:
+    if seen is None:
+        return "missing"
+    if seen["appDisabled"]:
+        return "appDisabled"
+    if not seen["active"]:
+        return "inactive"
+    return "active"
+
+
+def _setting_findings(profile: _ProfileFacts, addon, settings):
+    """(facts, unreachable) for one active add-on's declared settings."""
+    facts: list[str] = []
+    unreachable: list[str] = []
+    keys = tuple(setting.pref for setting in settings)
+    defaults: dict[str, str] | None
+    defaults_error = ""
+    try:
+        defaults = addons.xpi_defaults(
+            profile.path, addon.addon_id, keys=keys, key_prefix=addon.key_prefix
+        )
+    except addons.DefaultsUnreadableError as error:
+        defaults, defaults_error = None, str(error)
+    for setting in settings:
+        if setting.pref not in profile.prefs:
+            if _names_key(profile.unreadable, setting.pref, addon.key_prefix):
+                unreachable.append(
+                    f"{addon.name}: prefs.js line naming {setting.pref} unreadable"
+                )
+                continue
+            if defaults is None:
+                unreachable.append(
+                    f"{addon.name}: {setting.pref} needs the shipped default and "
+                    f"{defaults_error}"
+                )
+                continue
+        value = addons.effective_value(
+            profile.prefs, defaults or {}, setting.pref, addon.key_prefix
+        )
+        if value not in setting.accepted:
+            facts.append(
+                f"{setting.pref}={value} (accepted {', '.join(setting.accepted)})"
+            )
+    return facts, unreachable
+
+
+def _grouped(
+    found: list[tuple[str, str, str]],
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """(id, fact, shown) entries as one facts entry per component id (DP24)."""
+    by_id: dict[str, list[str]] = {}
+    for addon_id, fact, _shown_text in found:
+        by_id.setdefault(addon_id, []).append(fact)
+    return tuple((addon_id, tuple(facts)) for addon_id, facts in by_id.items())
+
+
+def _plugins_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
+    """Required add-ons active, the minimum versions, every active add-on's
+    effective value accepted, no Better BibTeX auto-export into the vault
+    (spec §6.1, §6.2). A failure outranks an outage."""
     if isinstance(profile, _ProfileHold):
         return Probe("plugins", profile.result, profile.reason)
     try:
@@ -252,35 +407,110 @@ def _plugins_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
     except (UnicodeError, ValueError, KeyError, AttributeError, TypeError) as error:
         return Probe("plugins", Result.UNMATCHED, f"extensions.json malformed: {error}")
     try:
-        declared = addons.declared()
+        declaration = addons.declared()
     except (OSError, ValueError) as error:
         return Probe(
             "plugins", Result.UNMATCHED, f"add-on declaration malformed: {error}"
         )
-    failures: list[str] = []
+    found: list[tuple[str, str, str]] = []  # (addon id, hashable fact, shown)
+    unreachable: list[str] = []
     notes_out: list[str] = []
-    for addon in declared:
+    for addon in declaration.addons:
+        if addon.need == "excluded":
+            continue
         seen = observed.get(addon.addon_id)
-        if seen is None:
-            state = "missing"
-        elif seen["appDisabled"]:
-            state = "appDisabled"
-        elif not seen["active"]:
-            state = "inactive"
-        else:
-            state = "active"
+        state = _addon_state(seen)
         notes_out.append(f"{addon.addon_id} {state}")
         if addon.need == "required" and state != "active":
-            failures.append(f"{addon.name} {state}")
-        if (
-            addon.auto_pref
-            and state == "active"
-            and profile.prefs.get(addon.auto_pref) is not True
-        ):
-            failures.append(f"{addon.name} automatic mode off ({addon.auto_pref})")
-    if failures:
-        return Probe("plugins", Result.UNMATCHED, "; ".join(failures))
+            found.append((addon.addon_id, state, state))
+        if seen is None or state != "active":
+            continue
+        if addon.min_version:
+            version = seen["version"] or ""
+            at_least = addons.version_at_least(version, addon.min_version)
+            floor = addon.min_version
+            if at_least is None:
+                found.append(
+                    (
+                        addon.addon_id,
+                        f"version unreadable against floor {floor}",
+                        f"version {seen['version']!r} unreadable against floor {floor}",
+                    )
+                )
+            elif not at_least:
+                found.append(
+                    (addon.addon_id, f"below {floor}", f"{version} below {floor}")
+                )
+        settings = declaration.settings_for(addon.addon_id)
+        if settings:
+            facts, lost = _setting_findings(profile, addon, settings)
+            found.extend((addon.addon_id, fact, fact) for fact in facts)
+            unreachable.extend(lost)
+    notes_out.extend(
+        f"{addon_id} undeclared"
+        for addon_id in sorted(set(observed) - set(declaration.by_id))
+    )
+    try:
+        exports = addons.bbt_auto_exports(profile.prefs)
+    except ValueError as error:
+        exports = []
+        unreachable.append(f"Better BibTeX auto-export unreadable: {error}")
+    for export in exports:
+        hit = _export_targets_vault(export, vault)
+        if hit is not None:
+            fact = f"auto-export targets {hit}"
+            found.append((addons.BBT_ID, fact, fact))
+    if found:
+        shown = "; ".join(
+            f"{declaration.by_id[addon_id].name} {text}" for addon_id, _f, text in found
+        )
+        return Probe("plugins", Result.UNMATCHED, shown, facts=_grouped(found))
+    if unreachable:
+        return Probe("plugins", Result.UNREACHABLE, "; ".join(unreachable))
     return Probe("plugins", Result.MATCHED, "; ".join(notes_out))
+
+
+def _advisory_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
+    """Warn-only (#191, Q14): a recommended add-on Zotero refuses to load, and
+    an add-on excluded on harm grounds that is active. A required add-on's
+    fault stays the plugins row's (DP26)."""
+    if isinstance(profile, _ProfileHold):
+        return Probe("advisory", profile.result, profile.reason)
+    try:
+        observed = addons.observe(profile.path)
+        declaration = addons.declared()
+    except (
+        OSError,
+        UnicodeError,
+        ValueError,
+        KeyError,
+        AttributeError,
+        TypeError,
+    ) as error:
+        return Probe(
+            "advisory", Result.SKIPPED, f"plugins row carries the fault: {error}"
+        )
+    found: list[tuple[str, str, str]] = []
+    for addon in declaration.addons:
+        seen = observed.get(addon.addon_id)
+        if seen is None:
+            continue
+        if addon.need == "recommended" and seen["appDisabled"]:
+            fact = f"appDisabled ({addon.need})"
+            found.append((addon.addon_id, fact, fact))
+        elif addon.need == "excluded" and seen["active"]:
+            fact = "active (excluded on harm grounds)"
+            found.append((addon.addon_id, fact, fact))
+    if found:
+        shown = "; ".join(
+            f"{declaration.by_id[addon_id].name} {text}" for addon_id, _f, text in found
+        )
+        return Probe("advisory", Result.UNMATCHED, shown, facts=_grouped(found))
+    return Probe(
+        "advisory",
+        Result.MATCHED,
+        "no appDisabled recommended add-on, no active excluded add-on",
+    )
 
 
 def _is_stored_file(row) -> bool:
@@ -479,8 +709,9 @@ def doctor(vault_root, client=None) -> list[Probe]:
         _write_guard_probe(client, skip),
         _fulltext_sync_probe(profile),
         _bbt_probe(client, zotero_probe),
-        _bbt_git_probe(profile),
-        _plugins_probe(profile),
+        _bbt_git_probe(profile, vault),
+        _plugins_probe(profile, vault),
+        _advisory_probe(profile),
         _path_shim_probe(client, skip, vault),
         _translator_formats_probe(client, skip),
         _compile_tool_probe(),
