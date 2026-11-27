@@ -116,16 +116,17 @@ def stamp_text(relative: str, text: str) -> tuple[str | None, str | None]:
         derived = structure.expected_type(relative)
     else:
         derived = structure.expected_type(relative)
-        if derived is None and (
-            structure.is_fleeting(relative)
-            or ("/" not in relative and not _near_block(text))
+        if (
+            derived is None
+            and not _near_block(text)
+            and (structure.is_fleeting(relative) or "/" not in relative)
         ):
             # Designs cluster 6(e): a bare file at the vault root (Tasks'
-            # status report, Web viewer's extract) is stamped fleeting; a
-            # root file carrying frontmatter without a type stays reported,
-            # and so does one whose block a BOM or a leading blank line
-            # hides from `_has_delimiter`: a second block would be stacked
-            # on the person's own.
+            # status report, Web viewer's extract) is stamped fleeting, as
+            # one in `inbox/` is; a file carrying frontmatter without a
+            # type stays reported, and so does one whose block a BOM or a
+            # leading blank line hides from `_has_delimiter`: a second
+            # block would be stacked on the person's own.
             derived = "fleeting"
 
     if derived is None:

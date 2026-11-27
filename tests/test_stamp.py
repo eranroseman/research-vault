@@ -373,6 +373,10 @@ def test_a_bare_root_note_is_stamped_fleeting(tmp_path):
 @pytest.mark.parametrize(
     "text", ["\ufeff---\ntitle: x\n---\nbody\n", "\n---\ntitle: x\n---\nbody\n"]
 )
-def test_a_root_note_whose_block_hides_behind_a_bom_or_blank_line_is_reported(text):
-    """The root fallback never stacks a second block on a person's own."""
-    assert stamp.stamp_text("a.md", text) == (None, "no-type")
+@pytest.mark.parametrize("relative", ["a.md", "inbox/a.md"])
+def test_a_fallback_note_whose_block_hides_behind_a_bom_or_blank_line_is_reported(
+    text, relative
+):
+    """The fleeting fallback, at the root or in `inbox/`, never stacks a
+    second block on a person's own."""
+    assert stamp.stamp_text(relative, text) == (None, "no-type")
