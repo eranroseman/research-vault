@@ -48,13 +48,13 @@ __all__ = [
     "SCHEMA",
     "Outcome",
     "RecordError",
+    "in_compiled_layer",
     "journal_hashes",
     "lint_compiled_layer",
     "load_record",
     "only_link_targets_changed",
     "seal",
     "snapshot_base",
-    "snapshot_rows",
     "wiki_files",
     "write_record",
 ]
@@ -107,10 +107,13 @@ def write_record(vault_root, pages: Mapping[str, str]) -> Path:
 def _walk(vault: Path) -> tuple[dict[str, bytes], dict[str, str]]:
     """Every non-excluded regular file under `wiki/` with its bytes, and every
     other node there (a symlink, to a file or a directory, or a special
-    file) with what it is. Symlinks are never followed."""
+    file) with what it is. Symlinks are never followed: a symlinked `wiki`
+    itself is one node, and nothing behind it is read."""
     files: dict[str, bytes] = {}
     others: dict[str, str] = {}
     wiki = vault / "wiki"
+    if wiki.is_symlink():
+        return files, {"wiki": "symlink"}
     if not wiki.is_dir():
         return files, others
     for root, dirnames, filenames in os.walk(wiki, followlinks=False):
@@ -152,13 +155,18 @@ def _not_a_file(relative: str, kind: str) -> Outcome:
     )
 
 
-def snapshot_rows(snapshot) -> list[Outcome]:
-    """The symlinks and special files under `wiki/` in a git snapshot. The
-    materialised tree verify lints in holds no such node
-    (`gitstate.materialize_snapshot`), so verify adds these beside the lint."""
-    rows = []
+def in_compiled_layer(raw_path: bytes) -> bool:
+    """`wiki` itself or a path under it."""
+    return raw_path == b"wiki" or raw_path.startswith(b"wiki/")
+
+
+def _snapshot_nodes(snapshot) -> dict[str, str]:
+    """The symlinks and special files in or at `wiki` in a git snapshot. The
+    materialised tree verify lints holds no such node
+    (`gitstate.materialize_snapshot`), so verify hands the lint the snapshot."""
+    nodes = {}
     for raw_path, image in sorted(snapshot.images.items()):
-        if not raw_path.startswith(b"wiki/") or image.kind not in {
+        if not in_compiled_layer(raw_path) or image.kind not in {
             "symlink",
             "special",
         }:
@@ -167,8 +175,16 @@ def snapshot_rows(snapshot) -> list[Outcome]:
         anchor = Path("/vault")
         if structure.is_excluded(anchor / relative, anchor):
             continue
-        rows.append(_not_a_file(relative, image.kind))
-    return rows
+        nodes[relative] = image.kind
+    return nodes
+
+
+def _behind(relative: str, others: Mapping[str, str]) -> str | None:
+    """The symlinked directory (or `wiki` itself) ``relative`` lies behind."""
+    for node in others:
+        if relative.startswith(node + "/"):
+            return node
+    return None
 
 
 def journal_hashes(repository_root) -> dict[str, str | None]:
@@ -467,6 +483,7 @@ def lint_compiled_layer(
     repository_root=None,
     base: Base | None = None,
     journal: bool = True,
+    snapshot=None,
 ) -> list[Outcome]:
     """Every file under `wiki/` against the record, and every symlink or
     special file there as a row.
@@ -477,13 +494,17 @@ def lint_compiled_layer(
     history). ``journal`` accepts the latest complete journal write of a path
     as MATCHED: only on the worktree candidate (C6), since a page committed
     unsealed would hold every later replay; the hook's index and CI's HEAD
-    pass ``journal=False``."""
+    pass ``journal=False``. ``snapshot`` is the git snapshot ``vault_root``
+    was materialised from: its symlinks and special files, which the
+    materialised tree lacks, are rows too."""
     vault = Path(vault_root)
-    if not (vault / "wiki").is_dir():
+    files, others = _walk(vault)
+    if snapshot is not None:
+        others = {**others, **_snapshot_nodes(snapshot)}
+    if not (vault / "wiki").is_dir() and not others:
         return [
             Outcome(CHECK, "wiki", Result.SKIPPED, "no-identifier — no compiled layer")
         ]
-    files, others = _walk(vault)
     try:
         record = load_record(vault)
     except RecordError as error:
@@ -513,6 +534,8 @@ def lint_compiled_layer(
             )
         )
     for relative in sorted(set(record) - set(files) - set(others)):
+        if _behind(relative, others) is not None:
+            continue  # the symlink's own row stands for it
         if journal_writes.get(relative, "") is None:
             continue  # the tool deleted it; seal drops the entry
         rows.append(
@@ -546,9 +569,15 @@ def seal(
     witness = _Witness(vault, _Local(repository))
     refusals: list[Outcome] = []
     sealed = 0
+    refused_nodes: set[str] = set()
     for relative in sorted(wanted):
-        if relative in others:
-            refusals.append(_not_a_file(relative, others[relative]))
+        node = relative if relative in others else _behind(relative, others)
+        if node is not None:
+            # A symlink (a symlinked `wiki` included) is one refusal; the
+            # entries behind it stay as they are.
+            if node not in refused_nodes:
+                refused_nodes.add(node)
+                refusals.append(_not_a_file(node, others[node]))
             continue
         if relative not in files:
             if relative in record and journal.get(relative, "") is None:

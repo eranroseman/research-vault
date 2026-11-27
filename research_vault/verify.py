@@ -828,18 +828,18 @@ def _compiled_layer(repository, base_snapshot, candidate_snapshot):
     files, so the candidate is materialised; no journal is read, as in CI;
     and a rename's or a propagation's reseal is judged against the pair's
     base (`compiled.snapshot_base`), the sealed bytes looked up by hash. The
-    materialised tree holds no symlink, so those rows come from the snapshot
-    (`compiled.snapshot_rows`). A tree with nothing under `wiki/` has no
+    materialised tree holds no symlink, so the lint is handed the snapshot
+    for those rows. A tree with nothing at or under `wiki` has no
     compiled layer and is not materialised."""
-    if not any(path.startswith(b"wiki/") for path in candidate_snapshot.images):
+    if not any(compiled.in_compiled_layer(path) for path in candidate_snapshot.images):
         return []
     with tempfile.TemporaryDirectory(prefix="research-vault-compiled-") as temporary:
         gitstate.materialize_snapshot(candidate_snapshot, Path(temporary))
-        rows = compiled.lint_compiled_layer(
+        return compiled.lint_compiled_layer(
             Path(temporary),
             base=compiled.snapshot_base(base_snapshot, repository),
+            snapshot=candidate_snapshot,
         )
-    return rows + compiled.snapshot_rows(candidate_snapshot)
 
 
 _HISTORY_LINTS = {
@@ -1212,9 +1212,9 @@ def _plan_state(
             vault,
             repository_root=repository,
             journal=snapshots.candidate_name == "worktree",
+            snapshot=snapshots.candidate,
         )
     )
-    raw.extend(compiled.snapshot_rows(snapshots.candidate))
     raw.extend(
         captured.lint_captured_set(
             vault, as_of=detection_date, bibliography_universe=bibliography_universe

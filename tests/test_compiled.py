@@ -548,3 +548,53 @@ def test_a_symlink_under_wiki_is_a_row_and_never_sealed(wiki_vault, tmp_path_fac
         "path-bytes:wiki/linked.md",
     ]
     assert compiled.load_record(wiki_vault) == {}
+
+
+def test_a_symlinked_wiki_is_one_row_and_nothing_behind_it_is_read(wiki_vault):
+    """Round 2: `wiki` itself may be the symlink; its target lies outside
+    the compiled layer, and the record's entries behind it are the symlink's
+    row, not each "recorded but absent"."""
+    page = _page(wiki_vault, "wiki/sources/A.md", "---\ntype: source\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)
+    moved = wiki_vault / "projects" / "w"
+    (wiki_vault / "wiki").rename(moved)
+    (moved / "hand.md").write_text("---\ntype: source\n---\nby hand\n")
+    (wiki_vault / "wiki").symlink_to(moved, target_is_directory=True)
+    expected = [
+        (
+            Result.UNMATCHED,
+            "path-bytes:wiki",
+            "drift — wiki is a symlink; a compiled page is a file",
+        )
+    ]
+    assert [
+        (o.result, o.target, o.reason) for o in compiled.lint_compiled_layer(wiki_vault)
+    ] == expected
+    assert [
+        (o.result, o.target, o.reason) for o in compiled.seal(wiki_vault)
+    ] == expected
+    assert [
+        (o.result, o.target, o.reason)
+        for o in compiled.seal(wiki_vault, ["wiki/hand.md", "wiki/sources/A.md"])
+    ] == expected
+    assert list(compiled.load_record(wiki_vault)) == ["wiki/sources/A.md"]
+
+
+def test_a_recorded_page_behind_a_symlinked_folder_is_the_symlink_s_row(
+    wiki_vault, tmp_path_factory
+):
+    page = _page(wiki_vault, "wiki/sources/A.md", "---\ntype: source\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)
+    outside = tmp_path_factory.mktemp("outside")
+    shutil.move(str(wiki_vault / "wiki" / "sources"), str(outside / "sources"))
+    (wiki_vault / "wiki" / "sources").symlink_to(
+        outside / "sources", target_is_directory=True
+    )
+    assert [(o.target, o.reason) for o in compiled.lint_compiled_layer(wiki_vault)] == [
+        (
+            "path-bytes:wiki/sources",
+            "drift — wiki/sources is a symlink; a compiled page is a file",
+        )
+    ]

@@ -7647,3 +7647,61 @@ def test_the_recheck_accepts_only_a_propagation_record_the_commit_adds(
     ]
     held = ("path-bytes:wiki/concepts/citing.md", rewritten) in rows
     assert held is record_in_base
+
+
+def _symlink_the_wiki(vault):
+    """Round 2's probe: wiki/ moved under projects/, an unsealed page beside
+    it, and `wiki` a symlink to it."""
+    moved = vault / "projects" / "w"
+    (vault / "wiki").rename(moved)
+    (moved / "hand.md").write_text(
+        '---\ntitle: "h"\ntype: "concept"\nstatus: "draft"\n---\nby hand\n'
+    )
+    (vault / "wiki").symlink_to("projects/w", target_is_directory=True)
+
+
+_WIKI_SYMLINK_ROW = (
+    "path-bytes:wiki",
+    "drift — wiki is a symlink; a compiled page is a file",
+)
+
+
+def _compiled_rows(effective):
+    return [
+        (o.target, o.reason)
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ]
+
+
+def test_a_symlinked_wiki_holds_the_worktree_and_the_index(net_vault):
+    _symlink_the_wiki(net_vault)
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    assert _compiled_rows(effective) == [_WIKI_SYMLINK_ROW]
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+    subprocess.run(["git", "add", "-A"], cwd=net_vault, check=True)
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, git_candidate="index"
+    )
+    assert _compiled_rows(effective) == [_WIKI_SYMLINK_ROW]
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+
+
+def test_the_recheck_finds_a_symlinked_wiki_at_its_commit(net_vault):
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=net_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    _symlink_the_wiki(net_vault)
+    bypassed = _commit_all(net_vault, "wiki symlinked, bypassed")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    assert (*_WIKI_SYMLINK_ROW, bypassed) in [
+        (o.target, o.reason, o.extra.get("commit"))
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ]
