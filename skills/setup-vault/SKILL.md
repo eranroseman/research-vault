@@ -64,4 +64,4 @@ Doctor's `compile-tool` probe reports the installed commit against the pin `32ac
 
 Once adopted, run the tool's wiki-lint skill over the vault once; its report is the tool's own health check, distinct from `doctor`.
 
-The vault runs the tool in `generic` mode (`CONTEXT.md`'s paths); `python3 "$ROOT/scripts/claude-obsidian.py" mode get PATH` reads it back. No doctor row observes it yet (lane 3a).
+The vault runs the tool in `generic` mode (`CONTEXT.md`'s paths); `python3 "$ROOT/scripts/claude-obsidian.py" mode get PATH` reads it back. Doctor's `compile-tool` row reports it beside the tool's pin; a mode other than generic is a warning.

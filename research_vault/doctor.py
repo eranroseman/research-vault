@@ -8,10 +8,11 @@ import json
 import re
 import subprocess
 import urllib.parse
+from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
 
-from . import Result, addons, paths, structure
+from . import Result, addons, obsidian_plugins, paths, structure
 from .scaffold import VAULT_DIRS, _git, scaffold_vault
 from .zotero import LocalApiDisabledError, ZoteroClient, ZoteroError, header
 
@@ -508,10 +509,59 @@ def _plugins_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
     return Probe("plugins", Result.MATCHED, "; ".join(notes_out))
 
 
-def _advisory_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
-    """Warn-only (#191, Q14): a recommended add-on Zotero refuses to load, and
-    an add-on excluded on harm grounds that is active. A required add-on's
-    fault stays the plugins row's (DP26)."""
+def _excluded_obsidian_plugins(vault: Path, config: dict) -> list[tuple[str, str, str]]:
+    """Enabled Obsidian plugins the declaration excludes (Plan E deviation 5).
+    A folder that is absent or will not read is the `obsidian` row's to name."""
+    _name, folder = _obsidian_folder(vault, config)
+    try:
+        enabled = _enabled_obsidian_plugins(folder)
+        declaration = obsidian_plugins.declared()
+    except (OSError, ValueError):
+        return []
+    fact = "enabled (excluded Obsidian plugin)"
+    return [
+        (plugin.plugin_id, fact, f"{plugin.name} {fact}")
+        for plugin in declaration.plugins
+        if plugin.need == "excluded" and plugin.plugin_id in enabled
+    ]
+
+
+def _advisory_probe(
+    profile: _ProfileFacts | _ProfileHold, vault: Path, config: dict
+) -> Probe:
+    """Warn-only (#191, Q14; R40): a recommended add-on Zotero refuses to load,
+    an add-on excluded on harm grounds that is active, and an excluded
+    Obsidian plugin that is enabled (R38). A required add-on's fault stays
+    the plugins row's (DP26); the Obsidian fact stands whatever the profile."""
+    obsidian = _excluded_obsidian_plugins(vault, config)
+    zotero = _advisory_addons(profile)
+    if isinstance(zotero, Probe):
+        if not obsidian:
+            return zotero
+        found = obsidian
+        held = f"; {zotero.reason}"
+    else:
+        found = [
+            *((addon_id, fact, f"{name} {fact}") for addon_id, name, fact in zotero),
+            *obsidian,
+        ]
+        held = ""
+    if found:
+        shown = "; ".join(text for _id, _fact, text in found) + held
+        return Probe("advisory", Result.UNMATCHED, shown, facts=_grouped(found))
+    return Probe(
+        "advisory",
+        Result.MATCHED,
+        "no appDisabled recommended add-on, no active excluded add-on, "
+        "no enabled excluded Obsidian plugin",
+    )
+
+
+def _advisory_addons(
+    profile: _ProfileFacts | _ProfileHold,
+) -> list[tuple[str, str, str]] | Probe:
+    """(id, name, fact) for each Zotero add-on advisory warns on, or the row a
+    held profile or the plugins row's fault leaves."""
     if isinstance(profile, _ProfileHold):
         return Probe("advisory", profile.result, profile.reason)
     try:
@@ -534,21 +584,12 @@ def _advisory_probe(profile: _ProfileFacts | _ProfileHold) -> Probe:
         if seen is None:
             continue
         if addon.need == "recommended" and seen["appDisabled"]:
-            fact = f"appDisabled ({addon.need})"
-            found.append((addon.addon_id, fact, fact))
+            found.append((addon.addon_id, addon.name, f"appDisabled ({addon.need})"))
         elif addon.need == "excluded" and seen["active"]:
-            fact = "active (excluded on harm grounds)"
-            found.append((addon.addon_id, fact, fact))
-    if found:
-        shown = "; ".join(
-            f"{declaration.by_id[addon_id].name} {text}" for addon_id, _f, text in found
-        )
-        return Probe("advisory", Result.UNMATCHED, shown, facts=_grouped(found))
-    return Probe(
-        "advisory",
-        Result.MATCHED,
-        "no appDisabled recommended add-on, no active excluded add-on",
-    )
+            found.append(
+                (addon.addon_id, addon.name, "active (excluded on harm grounds)")
+            )
+    return found
 
 
 def _is_stored_file(row) -> bool:
@@ -674,31 +715,177 @@ def _translator_formats_probe(client, skip: str | None) -> Probe:
     )
 
 
-def _compile_tool_probe(_vault: Path | None = None) -> Probe:
-    """The compile tool at its pin. The vault is unread until Plan E reads the
-    mode from it. An UNMATCHED row's one fact names the pin, never the
-    installed sha (DP34): a move between two wrong shas re-fires nothing."""
+def _compile_mode(vault: Path) -> tuple[str, str | None]:
+    """The compile tool's mode as (shown, fact): absent `.vault-meta/mode.json`
+    is generic (`wiki-mode.py:12` @32ac5a0); fact is None when generic, and
+    never names the mode found (DP34)."""
+    path = vault / ".vault-meta" / "mode.json"
+    try:
+        mode = json.loads(path.read_text(encoding="utf-8")).get("mode")
+    except FileNotFoundError:
+        return "mode generic (no .vault-meta/mode.json)", None
+    except (OSError, UnicodeError, ValueError, AttributeError):
+        return "mode.json unreadable", "mode.json unreadable"
+    if mode == "generic":
+        return "mode generic", None
+    shown = mode if isinstance(mode, str) else json.dumps(mode)
+    return (
+        f"mode {shown}, the vault runs generic (CONTEXT.md's paths)",
+        "mode not generic",
+    )
+
+
+def _compile_tool_probe(vault: Path) -> Probe:
+    """The compile tool at its pin, and the vault's mode (#161): both findings
+    share the one cell (assembly §9's accepted defect). An UNMATCHED row's
+    facts name the pin and generic, never the installed sha or the mode
+    found (DP34): a move between two wrong values re-fires nothing."""
     records = _installed_plugins().get(_COMPILE_PLUGIN)
     record = records[0] if isinstance(records, list) and records else None
     if not isinstance(record, dict):
         return Probe("compile-tool", Result.SKIPPED, f"{_COMPILE_PLUGIN} not installed")
     sha = str(record.get("gitCommitSha") or "")
+    mode, mode_fact = _compile_mode(vault)
+    facts = [] if sha.startswith(_COMPILE_PIN) else [f"off pin {_COMPILE_PIN}"]
+    if mode_fact is not None:
+        facts.append(mode_fact)
     if sha.startswith(_COMPILE_PIN):
-        return Probe("compile-tool", Result.MATCHED, f"{_COMPILE_PLUGIN} at {sha[:7]}")
-    facts = ((_COMPILE_PLUGIN, (f"off pin {_COMPILE_PIN}",)),)
-    if not sha:
-        return Probe(
-            "compile-tool",
-            Result.UNMATCHED,
-            f"{_COMPILE_PLUGIN} record has no gitCommitSha, pin is {_COMPILE_PIN}",
-            facts=facts,
-        )
+        pin = f"{_COMPILE_PLUGIN} at {sha[:7]}"
+    elif not sha:
+        pin = f"{_COMPILE_PLUGIN} record has no gitCommitSha, pin is {_COMPILE_PIN}"
+    else:
+        pin = f"{_COMPILE_PLUGIN} at {sha[:7]}, pin is {_COMPILE_PIN}"
+    if not facts:
+        return Probe("compile-tool", Result.MATCHED, f"{pin}; {mode}")
     return Probe(
         "compile-tool",
         Result.UNMATCHED,
-        f"{_COMPILE_PLUGIN} at {sha[:7]}, pin is {_COMPILE_PIN}",
-        facts=facts,
+        f"{pin}; {mode}",
+        facts=((_COMPILE_PLUGIN, tuple(facts)),),
     )
+
+
+def _obsidian_folder(vault: Path, config: dict) -> tuple[str, Path]:
+    """The configured Obsidian folder (`obsidian_config_dir`, default `.obsidian`)."""
+    configured = config.get("obsidian_config_dir")
+    name = (
+        configured.strip()
+        if isinstance(configured, str) and configured.strip()
+        else ".obsidian"
+    )
+    return name, vault / name
+
+
+def _config_json(folder: Path, relative: str, shape: type):
+    """A config file's JSON, or None when absent; an unparseable or misshapen
+    file raises `ConfigUnreadableError` naming the file."""
+    try:
+        document = json.loads((folder / relative).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeError, ValueError) as error:
+        raise obsidian_plugins.ConfigUnreadableError(f"{relative}: {error}") from error
+    if not isinstance(document, shape):
+        raise obsidian_plugins.ConfigUnreadableError(
+            f"{relative}: expected a JSON {shape.__name__}"
+        )
+    return document
+
+
+def _enabled_obsidian_plugins(folder: Path) -> set[str]:
+    enabled = _config_json(folder, "community-plugins.json", list) or []
+    return {plugin_id for plugin_id in enabled if isinstance(plugin_id, str)}
+
+
+def _obsidian_probe(vault: Path, config: dict) -> Probe:
+    """Spec §6.3: cold reads of the configured Obsidian folder against the
+    packaged declaration. UNMATCHED only for a declared key off its values on
+    an enabled plugin (or Core); an unparseable file is UNREACHABLE (Obsidian
+    rewrites them non-atomically); drift from the seed is a note; an absent
+    folder is SKIPPED. An enabled excluded plugin is a note here and an
+    `advisory` fact (Plan E deviation 5)."""
+    name, folder = _obsidian_folder(vault, config)
+    if not folder.is_dir():
+        return Probe("obsidian", Result.SKIPPED, f"{name} absent")
+    try:
+        declaration = obsidian_plugins.declared()
+    except (OSError, ValueError) as error:
+        return Probe(
+            "obsidian", Result.UNMATCHED, f"plugin declaration malformed: {error}"
+        )
+    seed = _OBSIDIAN_SEED.joinpath("core-plugins.json").read_text(encoding="utf-8")
+    seed_core = json.loads(seed)
+    found: list[tuple[str, str, str]] = []  # (component, hashable fact, shown)
+    notes_out: list[str] = []
+    try:
+        enabled = _enabled_obsidian_plugins(folder)
+        core = _config_json(folder, "core-plugins.json", dict) or {}
+        for core_id, value in sorted(core.items()):
+            if core_id in seed_core and seed_core[core_id] != value:
+                notes_out.append(
+                    f"core-plugins.json drifts: {core_id}={json.dumps(value)}"
+                )
+        for plugin in declaration.plugins:
+            manifest = f"plugins/{plugin.plugin_id}/manifest.json"
+            if plugin.need == "excluded":
+                if plugin.plugin_id in enabled:
+                    notes_out.append(f"excluded plugin {plugin.plugin_id} enabled")
+                continue
+            installed = _config_json(folder, manifest, dict)
+            if installed is None:
+                continue
+            if plugin.need == "recommended":
+                notes_out.append(f"recommended plugin {plugin.plugin_id} installed")
+            elif installed.get("version") != plugin.pin:
+                notes_out.append(
+                    f"{plugin.plugin_id} pinned {plugin.pin}, "
+                    f"installed {installed.get('version')}"
+                )
+        for setting in declaration.settings:
+            if setting.plugin == obsidian_plugins.CORE:
+                component, relative = "core", setting.file
+            else:
+                plugin_id = declaration.by_name[setting.plugin].plugin_id
+                if plugin_id not in enabled:
+                    continue
+                component, relative = plugin_id, f"plugins/{plugin_id}/{setting.file}"
+            try:
+                value = obsidian_plugins.read_key(folder / relative, setting.key)
+            except obsidian_plugins.ConfigUnreadableError as error:
+                # read_key names the file's basename; name it from the folder
+                raise obsidian_plugins.ConfigUnreadableError(
+                    f"{relative}: {error.__cause__}"
+                ) from error
+            if value not in setting.accepted:
+                accepted = ", ".join(setting.accepted)
+                # the hashed fact keys off the setting, never its value (DP46)
+                found.append(
+                    (
+                        component,
+                        f"{setting.file} {setting.key} not accepted ({accepted})",
+                        f"{setting.file} {setting.key}={value} (accepted {accepted})",
+                    )
+                )
+    except obsidian_plugins.ConfigUnreadableError as error:
+        return Probe(
+            "obsidian",
+            Result.UNREACHABLE,
+            f"{name}: config unreadable, read again: {error}",
+        )
+    if found:
+        names = {"core": obsidian_plugins.CORE}
+        names.update((p.plugin_id, p.name) for p in declaration.plugins)
+        shown = "; ".join(f"{names[c]} {text}" for c, _fact, text in found)
+        return Probe("obsidian", Result.UNMATCHED, shown, facts=_grouped(found))
+    detail = (
+        "; ".join(notes_out)
+        if notes_out
+        else "every declared key holds; no drift from the seed"
+    )
+    return Probe("obsidian", Result.MATCHED, f"{name}: {detail}")
+
+
+_OBSIDIAN_SEED = resources.files("research_vault").joinpath("templates", "obsidian")
 
 
 def _bbt_probe(client, zotero_probe: Probe) -> Probe:
@@ -825,7 +1012,14 @@ def _deny_rules_probe(vault: Path) -> Probe:
 # (spec §6.4, Q13): the component rows. `tree` repairs, the Zotero rows need
 # the app; `pyyaml`, `deny-rules`, `machine-config`, `remote` and `backup`
 # are setup facts, not components (DP40).
-COMPONENT_PROBES = ("fulltext-sync", "bbt-git", "plugins", "advisory", "compile-tool")
+COMPONENT_PROBES = (
+    "fulltext-sync",
+    "bbt-git",
+    "plugins",
+    "advisory",
+    "compile-tool",
+    "obsidian",
+)
 
 
 def cold_rows(vault_root) -> list[Probe]:
@@ -838,8 +1032,9 @@ def cold_rows(vault_root) -> list[Probe]:
         ("fulltext-sync", lambda: _fulltext_sync_probe(profile)),
         ("bbt-git", lambda: _bbt_git_probe(profile, vault)),
         ("plugins", lambda: _plugins_probe(profile, vault)),
-        ("advisory", lambda: _advisory_probe(profile)),
+        ("advisory", lambda: _advisory_probe(profile, vault, config)),
         ("compile-tool", lambda: _compile_tool_probe(vault)),
+        ("obsidian", lambda: _obsidian_probe(vault, config)),
     )
     return [_guarded(check, probe) for check, probe in probes]
 
@@ -878,10 +1073,11 @@ def doctor(vault_root, client=None) -> list[Probe]:
         _bbt_probe(client, zotero_probe),
         _bbt_git_probe(profile, vault),
         _plugins_probe(profile, vault),
-        _advisory_probe(profile),
+        _advisory_probe(profile, vault, config),
         _path_shim_probe(client, skip, vault),
         _translator_formats_probe(client, skip),
-        _compile_tool_probe(),
+        _compile_tool_probe(vault),
+        _obsidian_probe(vault, config),
         _pyyaml_probe(),
         _deny_rules_probe(vault),
         _remote_probe(vault),

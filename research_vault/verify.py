@@ -87,6 +87,7 @@ CLOSING_BY_SURFACE = {
             "plugins",
             "bbt-git",
             "compile-tool",
+            "obsidian",
         }
     ),
 }

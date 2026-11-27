@@ -2434,6 +2434,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "plugins",
                 "bbt-git",
                 "compile-tool",
+                "obsidian",
                 "compiled-layer",
             }
         ),

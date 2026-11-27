@@ -28,13 +28,22 @@ PROBE_NAMES = [
     "path-shim",
     "translator-formats",
     "compile-tool",
+    "obsidian",
     "pyyaml",
     "deny-rules",
     "remote",
     "backup",
 ]
-HARD_UNMATCHED = ["tree", "machine-config", "zotero", "bbt", "write-guard", "plugins"]
-HARD_UNREACHABLE = ["zotero", "bbt", "write-guard", "plugins"]
+HARD_UNMATCHED = [
+    "tree",
+    "machine-config",
+    "zotero",
+    "bbt",
+    "write-guard",
+    "plugins",
+    "obsidian",
+]
+HARD_UNREACHABLE = ["zotero", "bbt", "write-guard", "plugins", "obsidian"]
 WARN_ONLY = [
     "remote",
     "backup",
@@ -1027,21 +1036,21 @@ def test_doctor_base_routes_before_and_after_subcommand(
 
 
 def test_compile_tool_probe_names_the_seven_char_sha_and_reads_an_empty_record_list(
-    monkeypatch,
+    tmp_path, monkeypatch
 ):
     monkeypatch.setattr(
         doctor,
         "_installed_plugins",
         lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0"}]},
     )
-    probe = doctor._compile_tool_probe()
+    probe = doctor._compile_tool_probe(tmp_path)
     assert (probe.check, probe.result, probe.reason) == (
         "compile-tool",
         Result.MATCHED,
-        f"{COMPILE_PLUGIN} at 32ac5a0",
+        f"{COMPILE_PLUGIN} at 32ac5a0; mode generic (no .vault-meta/mode.json)",
     )
     monkeypatch.setattr(doctor, "_installed_plugins", lambda: {COMPILE_PLUGIN: []})
-    probe = doctor._compile_tool_probe()
+    probe = doctor._compile_tool_probe(tmp_path)
     assert (probe.result, probe.reason) == (
         Result.SKIPPED,
         f"{COMPILE_PLUGIN} not installed",
@@ -1736,7 +1745,9 @@ def test_cold_rows_run_no_network_and_no_repair(tmp_vault, tmp_path, monkeypatch
     )
 
 
-def test_compile_tool_off_pin_carries_a_fact_without_the_installed_sha(monkeypatch):
+def test_compile_tool_off_pin_carries_a_fact_without_the_installed_sha(
+    tmp_path, monkeypatch
+):
     """DP34: every UNMATCHED component probe files, so compile-tool's two
     UNMATCHED rows carry one fact; the fact names the pin, never the
     installed sha, so a move between two wrong shas re-fires nothing."""
@@ -1747,7 +1758,7 @@ def test_compile_tool_off_pin_carries_a_fact_without_the_installed_sha(monkeypat
             "_installed_plugins",
             lambda record=record: {COMPILE_PLUGIN: [record]},
         )
-        probe = doctor._compile_tool_probe()
+        probe = doctor._compile_tool_probe(tmp_path)
         assert probe.result is Result.UNMATCHED
         assert probe.facts == expected
     monkeypatch.setattr(
@@ -1755,7 +1766,7 @@ def test_compile_tool_off_pin_carries_a_fact_without_the_installed_sha(monkeypat
         "_installed_plugins",
         lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0"}]},
     )
-    assert doctor._compile_tool_probe(None).facts == ()  # the optional vault (Plan E)
+    assert doctor._compile_tool_probe(tmp_path).facts == ()
 
 
 def test_an_unreadable_zotero_profile_path_is_an_outage_not_a_crash():
@@ -1853,3 +1864,188 @@ def test_a_deny_rule_that_is_not_text_never_reaches_the_reason(tmp_vault):
     assert probe.reason == (
         f"missing {roster[-1]}; extra 1 rule that is not UTF-8 text"
     )
+
+
+def _seeded_vault(tmp_path):
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault, with_obsidian=True)
+    (vault / ".research-vault" / "machine.json").write_text(
+        json.dumps({"mailto": "e@example.edu"})
+    )
+    return vault
+
+
+def test_obsidian_probe_passes_a_fresh_seed_with_no_notes(tmp_path):
+    vault = _seeded_vault(tmp_path)
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe == doctor.Probe(
+        "obsidian",
+        Result.MATCHED,
+        ".obsidian: every declared key holds; no drift from the seed",
+    )
+
+
+def test_obsidian_probe_notes_a_version_bump_and_core_drift_but_fails_only_a_declared_key(
+    tmp_path,
+):
+    vault = _seeded_vault(tmp_path)
+    manifest = vault / ".obsidian" / "plugins" / "dataview" / "manifest.json"
+    manifest.write_text(
+        json.dumps({**json.loads(manifest.read_text()), "version": "0.5.69"})
+    )
+    core = vault / ".obsidian" / "core-plugins.json"
+    core.write_text(json.dumps({**json.loads(core.read_text()), "slides": False}))
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.MATCHED
+    assert "dataview pinned 0.5.68, installed 0.5.69" in probe.reason
+    assert "core-plugins.json drifts: slides=false" in probe.reason
+    core.write_text(json.dumps({**json.loads(core.read_text()), "sync": True}))
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.UNMATCHED
+    assert probe.reason == "Core core-plugins.json sync=true (accepted false)"
+    # DP46: the hashed fact keys off the setting, never its value.
+    assert probe.facts == (("core", ("core-plugins.json sync not accepted (false)",)),)
+
+
+def test_obsidian_probe_judges_a_data_json_key_only_on_an_enabled_plugin(tmp_path):
+    vault = _seeded_vault(tmp_path)
+    data = vault / ".obsidian" / "plugins" / "dataview" / "data.json"
+    data.write_text(json.dumps({"enableDataviewJs": True}))
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.UNMATCHED
+    assert (
+        probe.reason
+        == "Dataview data.json enableDataviewJs=true (accepted false, unset)"
+    )
+    assert probe.facts == (
+        ("dataview", ("data.json enableDataviewJs not accepted (false, unset)",)),
+    )
+    enabled = vault / ".obsidian" / "community-plugins.json"
+    enabled.write_text(
+        json.dumps([p for p in json.loads(enabled.read_text()) if p != "dataview"])
+    )
+    # a disabled plugin's key is not judged
+    assert doctor._obsidian_probe(vault, {}).result is Result.MATCHED
+
+
+def test_obsidian_probe_is_unreachable_on_a_truncated_config_file(tmp_path):
+    """Screen B §7.37: Obsidian rewrites these files non-atomically; a 0-byte or
+    half-written file is an outage to read again, never a verdict."""
+    vault = _seeded_vault(tmp_path)
+    data = vault / ".obsidian" / "plugins" / "dataview" / "data.json"
+    data.write_text('{"enableDataviewJs": fal')
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.UNREACHABLE
+    assert "plugins/dataview/data.json" in probe.reason
+    data.write_text("{}")
+    (vault / ".obsidian" / "community-plugins.json").write_text("")
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.UNREACHABLE
+    assert "community-plugins.json" in probe.reason
+
+
+def test_obsidian_probe_reads_the_configured_folder_and_skips_an_absent_one(tmp_path):
+    vault = _seeded_vault(tmp_path)
+    (vault / ".obsidian").rename(vault / "obsidian-work")
+    assert doctor._obsidian_probe(vault, {}) == doctor.Probe(
+        "obsidian", Result.SKIPPED, ".obsidian absent"
+    )
+    probe = doctor._obsidian_probe(vault, {"obsidian_config_dir": "obsidian-work"})
+    assert probe.result is Result.MATCHED
+    assert probe.reason.startswith("obsidian-work:")
+
+
+def test_obsidian_probe_reports_recommended_and_excluded_plugins_present(tmp_path):
+    vault = _seeded_vault(tmp_path)
+    (vault / ".obsidian" / "plugins" / "omnisearch" / "manifest.json").write_text(
+        json.dumps({"id": "omnisearch", "version": "1.31.0"})
+    )
+    enabled = vault / ".obsidian" / "community-plugins.json"
+    enabled.write_text(
+        json.dumps([*json.loads(enabled.read_text()), "omnisearch", "obsidian-git"])
+    )
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.MATCHED
+    assert "recommended plugin omnisearch installed" in probe.reason
+    assert "excluded plugin obsidian-git enabled" in probe.reason
+
+
+def test_advisory_warns_on_an_enabled_excluded_obsidian_plugin(tmp_path):
+    """Plan E deviation 5, R38: an excluded plugin in community-plugins.json is
+    an advisory fact, whatever the Zotero profile's state; advisory is
+    warn-only and holds nothing (R40)."""
+    vault = _seeded_vault(tmp_path)
+    enabled = vault / ".obsidian" / "community-plugins.json"
+    enabled.write_text(json.dumps([*json.loads(enabled.read_text()), "obsidian-git"]))
+    config, _machine = doctor._machine_config(vault)
+    probe = doctor._advisory_probe(doctor._profile_facts(config), vault, config)
+    assert probe == doctor.Probe(
+        "advisory",
+        Result.UNMATCHED,
+        # the Zotero half's hold rides along in the reason, never as a fact
+        "Git enabled (excluded Obsidian plugin); zotero_profile not configured",
+        facts=(("obsidian-git", ("enabled (excluded Obsidian plugin)",)),),
+    )
+    (vault / ".obsidian").rename(vault / "work")
+    config = {**config, "obsidian_config_dir": "work"}
+    probe = doctor._advisory_probe(doctor._profile_facts(config), vault, config)
+    assert probe.result is Result.UNMATCHED
+    enabled = vault / "work" / "community-plugins.json"
+    enabled.write_text(
+        json.dumps([p for p in json.loads(enabled.read_text()) if p != "obsidian-git"])
+    )
+    probe = doctor._advisory_probe(doctor._profile_facts(config), vault, config)
+    assert probe.result is not Result.UNMATCHED
+
+
+def test_compile_tool_probe_reads_the_vaults_mode(tmp_vault, monkeypatch):
+    monkeypatch.setattr(
+        doctor,
+        "_installed_plugins",
+        lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0"}]},
+    )
+    assert (
+        doctor._compile_tool_probe(tmp_vault).reason
+        == f"{COMPILE_PLUGIN} at 32ac5a0; mode generic (no .vault-meta/mode.json)"
+    )
+    meta = tmp_vault / ".vault-meta"
+    meta.mkdir()
+    (meta / "mode.json").write_text(json.dumps({"mode": "generic"}))
+    assert doctor._compile_tool_probe(tmp_vault) == doctor.Probe(
+        "compile-tool", Result.MATCHED, f"{COMPILE_PLUGIN} at 32ac5a0; mode generic"
+    )
+    (meta / "mode.json").write_text(json.dumps({"mode": "lyt"}))
+    probe = doctor._compile_tool_probe(tmp_vault)
+    assert probe.result is Result.UNMATCHED
+    assert "mode lyt, the vault runs generic" in probe.reason
+    # DP34: the fact names generic, never the mode found.
+    assert probe.facts == ((COMPILE_PLUGIN, ("mode not generic",)),)
+    (meta / "mode.json").write_text("{bad")
+    probe = doctor._compile_tool_probe(tmp_vault)
+    assert probe.result is Result.UNMATCHED
+    assert probe.facts == ((COMPILE_PLUGIN, ("mode.json unreadable",)),)
+    monkeypatch.setattr(
+        doctor,
+        "_installed_plugins",
+        lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "deadbeef"}]},
+    )
+    probe = doctor._compile_tool_probe(tmp_vault)
+    assert probe.reason == (
+        f"{COMPILE_PLUGIN} at deadbee, pin is 32ac5a0; mode.json unreadable"
+    )
+    assert probe.facts == (
+        (COMPILE_PLUGIN, ("off pin 32ac5a0", "mode.json unreadable")),
+    )
+
+
+def test_cold_rows_carry_the_obsidian_row_capture_files(tmp_path):
+    """§6.4: `obsidian` is a cold component row, read from machine.json's folder."""
+    from research_vault import inbox
+
+    vault = _seeded_vault(tmp_path)
+    data = vault / ".obsidian" / "plugins" / "dataview" / "data.json"
+    data.write_text(json.dumps({"enableDataviewJs": True}))
+    (row,) = [p for p in doctor.cold_rows(vault) if p.check == "obsidian"]
+    assert row.result is Result.UNMATCHED
+    assert row.facts[0][0] == "dataview"
+    assert "obsidian" in inbox.COMPONENT_CHECKS

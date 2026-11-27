@@ -99,13 +99,16 @@ CHECK_IDS = frozenset(
         "bbt-git",
         "advisory",
         "compile-tool",
+        "obsidian",
         # The compiled-page record (spec §5.4, #212).
         "compiled-layer",
     }
 )
 # The cold-row probe ids capture files as component findings (spec §6.4). All
-# four are filed; `advisory` is warn-only and closes no surface (R40).
-COMPONENT_CHECKS = frozenset({"plugins", "bbt-git", "advisory", "compile-tool"})
+# five are filed; `advisory` is warn-only and closes no surface (R40).
+COMPONENT_CHECKS = frozenset(
+    {"plugins", "bbt-git", "advisory", "compile-tool", "obsidian"}
+)
 _REASON = re.compile(
     rf"(?:{'|'.join(re.escape(code) for code in sorted(REASON_CODES, key=len, reverse=True))})(?:$|\s+\S.*)"
 )

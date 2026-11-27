@@ -234,7 +234,7 @@ Installing a Zotero add-on is a human step in the setup wizard. Doctor reads the
 
 ## Obsidian plugins
 
-A new vault's `.obsidian/` is seeded by `scaffold --with-obsidian` from this declaration (packaged as `research_vault/templates/obsidian-plugins.md`): seeded plugins are vendored at their pin (their licence permits redistribution with no source obligation), recommended ones ship only their settings and are installed by the person from Obsidian's community list, excluded ones are not declared further. Doctor's `obsidian` row compares the configured folder with it.
+A new vault's `.obsidian/` is seeded by `scaffold --with-obsidian` from this declaration (packaged as `research_vault/templates/obsidian-plugins.md`): seeded plugins are vendored at their pin (their licence permits redistribution with no source obligation), recommended ones ship only their settings and are installed by the person from Obsidian's community list, excluded ones are not declared further. Doctor's `obsidian` row compares the configured folder (`obsidian_config_dir` in `machine.json`, default `.obsidian`) with it: it fails when an enabled plugin's, or Core's, declared key is off its accepted values, and notes a version off the pin, a core plugin toggled away from the seed, and an installed recommended plugin; its `advisory` row warns when an excluded plugin is enabled.
 
 ### Plugins
 
