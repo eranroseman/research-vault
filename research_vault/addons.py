@@ -340,10 +340,18 @@ def _literal_token(raw: str) -> str:
 def accepts(accepted: tuple[str, ...], value: str) -> bool:
     """Whether an effective value is one of the accepted literals. `set` takes
     any value but an absent or empty one, the mirror of `unset` (R37), for a
-    setting whose value is the person's own, such as a folder."""
+    setting whose value is the person's own, such as a folder. Only a string
+    the reader decoded counts as set: a token kept as written was never read,
+    and an unread value is never a pass (spec §6.1)."""
     if value in accepted:
         return True
-    return "set" in accepted and value not in {"unset", '""'}
+    if "set" not in accepted or not value.startswith('"'):
+        return False
+    try:
+        decoded = json.loads(value)
+    except ValueError:
+        return False
+    return isinstance(decoded, str) and decoded != ""
 
 
 def effective_value(

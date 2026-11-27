@@ -358,7 +358,11 @@ def test_set_accepts_any_value_but_an_absent_or_empty_one():
     """R37: `set` mirrors `unset` for a setting whose value is the person's own
     (MarkDB-Connect's source folder): any effective value but none or `""`."""
     assert addons.accepts(("set",), '"/v/literature"')
-    assert addons.accepts(("set",), "true")
+    # only a decoded string is set: a token the reader kept as written was
+    # never read, and a boolean is not a folder
+    assert not addons.accepts(("set",), "true")
+    assert not addons.accepts(("set",), "JSON.stringify('')")
+    assert not addons.accepts(("set",), "'a\\\\b'")
     assert not addons.accepts(("set",), '""')
     assert not addons.accepts(("set",), "unset")
     assert addons.accepts(('"none"', "unset"), "unset")
