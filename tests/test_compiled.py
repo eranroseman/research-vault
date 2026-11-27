@@ -738,3 +738,77 @@ def test_a_moved_old_record_is_still_old(wiki_vault):
     assert row.result is Result.UNMATCHED
     (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
     assert row.result is Result.UNMATCHED
+
+
+def _raw_record(vault, name, operation_id, *, compact=False):
+    """A propagation record mapping old2020 → new2020, in a spelling
+    `propagate._canonical` never writes."""
+    folder = vault / propagate.RECORD_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    document = {
+        "schema": propagate.SCHEMA,
+        "operation_id": operation_id,
+        "date": "2026-01-01",
+        "mapping": {"old2020": "new2020"},
+        "item_keys": {"old2020": "E352DFS8"},
+        "merges": {},
+        "removes": {},
+        "surfaces": [],
+    }
+    separators = (",", ":") if compact else None
+    (folder / name).write_text(
+        json.dumps(document, separators=separators, ensure_ascii=False)
+    )
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "compact"),
+    [("20260101T000000Z", True), (20260101, False), ("opé-1", False)],
+    ids=["compact", "non-string-id", "non-ascii-id"],
+)
+def test_an_old_record_in_any_spelling_never_vouches(wiki_vault, operation_id, compact):
+    """N1 (C10): a record is known by its parsed operation id, never by its
+    bytes, so an old record committed compact, with a number for its id, or
+    with an id outside ASCII is still old."""
+    _raw_record(wiki_vault, "old.json", operation_id, compact=compact)
+    _commit(wiki_vault, "an old propagation")
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    _commit(wiki_vault, "the old rewrite replayed by hand")
+    (row,) = compiled.lint_compiled_layer(wiki_vault)
+    assert row.result is Result.UNMATCHED
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "compact"),
+    [("20261127T000000Z", True), ("opé-2", False)],
+    ids=["compact", "non-ascii-id"],
+)
+def test_a_post_seal_record_in_any_spelling_still_vouches(
+    wiki_vault, operation_id, compact
+):
+    """The R41 control under C10: a record committed after the seal vouches
+    whatever its spelling."""
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    _raw_record(wiki_vault, "new.json", operation_id, compact=compact)
+    _commit(wiki_vault, "the rewrite and its record, by hand")
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (row.result, row.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def test_an_unparseable_record_in_history_never_vouches(wiki_vault):
+    """C10: a blob under system/propagations/ that does not parse may be any
+    record, so the lookup is undecided and nothing vouches."""
+    folder = wiki_vault / propagate.RECORD_DIR
+    folder.mkdir(parents=True)
+    (folder / "broken.json").write_text("{not json")
+    _commit(wiki_vault, "a broken record")
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    _raw_record(wiki_vault, "new.json", "20261127T000000Z")
+    _commit(wiki_vault, "the rewrite and its record, by hand")
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED

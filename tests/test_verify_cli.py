@@ -7819,3 +7819,50 @@ def test_the_recheck_knows_a_moved_record_by_its_operation_id(net_vault):
         for o in effective
         if o.check == "compiled-layer" and o.result is Result.UNMATCHED
     ]
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "compact"),
+    [("20261127T000000Z", True), (20261127, False), ("opé-3", False)],
+    ids=["compact", "non-string-id", "non-ascii-id"],
+)
+def test_the_recheck_knows_an_old_record_in_any_spelling(
+    net_vault, operation_id, compact
+):
+    """N1 in the replay (C10): the base's records are parsed, so an old one
+    in any spelling never vouches for a hand rewrite in a later commit."""
+    from research_vault import propagate
+
+    folder = net_vault / propagate.RECORD_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    document = {
+        "schema": propagate.SCHEMA,
+        "operation_id": operation_id,
+        "date": "2026-11-27",
+        "mapping": {"smith2020": "smith2020a"},
+        "item_keys": {"smith2020": "SMITH020"},
+        "merges": {},
+        "removes": {},
+        "surfaces": [],
+    }
+    (folder / "old.json").write_text(
+        json.dumps(
+            document,
+            separators=(",", ":") if compact else None,
+            ensure_ascii=False,
+        )
+    )
+    page = net_vault / "wiki" / "concepts" / "citing.md"
+    page.write_text('---\ntype: "concept"\n---\nAs [@smith2020] shows.\n')
+    _seal_as_it_stands(net_vault)
+    base = _commit_all(net_vault, "sealed, the record old")
+    page.write_text('---\ntype: "concept"\n---\nAs [@smith2020a] shows.\n')
+    rewritten = _commit_all(net_vault, "rewritten by hand")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    assert ("path-bytes:wiki/concepts/citing.md", rewritten) in [
+        (o.target, o.extra.get("commit"))
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ]

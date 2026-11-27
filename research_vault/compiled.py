@@ -365,9 +365,28 @@ class Base:
         raise NotImplementedError
 
 
-def _operation_needle(operation: str) -> bytes:
-    """How `propagate._canonical` spells a record's operation id."""
-    return b'"operation_id": ' + json.dumps(operation).encode("utf-8")
+class _UndecidedError(Exception):
+    """A record lookup that could not be completed: the record never vouches."""
+
+
+def _parsed_operation(data: bytes) -> str | None:
+    """A record file's operation id, normalised as `plan_from_document`
+    normalises it (``str()``); None for a JSON object without one. A file
+    that is not JSON is undecided (C10: fail closed), since it may be a
+    record in any spelling."""
+    try:
+        document = json.loads(data.decode("utf-8"))
+    except (UnicodeError, ValueError) as error:
+        raise _UndecidedError(str(error)) from error
+    if isinstance(document, dict) and "operation_id" in document:
+        return str(document["operation_id"])
+    return None
+
+
+# How many commits touching `system/propagations/` the local judge parses
+# for the one that introduced a record's operation id (C10). Past the bound
+# the lookup is undecided and the record does not vouch.
+RECORD_HISTORY_BOUND = 200
 
 
 class _Local(Base):
@@ -398,7 +417,10 @@ class _Local(Base):
         when the entry is not committed: the seal is then newer than HEAD.
         The record is known by its operation id (M2): a `git mv` of an old
         record keeps the commit that first introduced it."""
-        added = self._introducing_commit(operation)
+        try:
+            added = self._introducing_commit(operation)
+        except _UndecidedError:
+            return False  # C10: a lookup that could not finish never vouches
         if added is None:
             return True
         sealing = self._sealing_commit(page, recorded)
@@ -443,11 +465,18 @@ class _Local(Base):
         return None
 
     def _introducing_commit(self, operation: str) -> str | None:
-        """The oldest commit HEAD reaches that introduced a record naming
-        ``operation`` anywhere under `system/propagations/`; None when no
-        commit does."""
+        """The oldest commit HEAD reaches whose tree holds a record under
+        `system/propagations/` whose parsed operation id is ``operation``
+        (C10: by content, never by bytes); None when no commit does.
+        `_UndecidedError` when git fails, a blob there does not parse, or the
+        history passes `RECORD_HISTORY_BOUND` commits."""
         if not (self._repository / ".git").exists():
             return None
+        head = gitstate._git(
+            self._repository, "rev-parse", "--verify", "-q", "HEAD", check=False
+        )
+        if head.returncode:
+            return None  # no commit yet: nothing is committed before the seal
         # Imported here: propagate imports capture, which imports this module.
         from . import propagate
 
@@ -456,15 +485,59 @@ class _Local(Base):
             "log",
             "-m",
             "--reverse",
-            b"-S" + _operation_needle(operation),
             "--format=%H",
             "HEAD",
             "--",
             propagate.RECORD_DIR,
             check=False,
         )
-        commits = log.stdout.decode("ascii", errors="replace").split()
-        return commits[0] if commits else None
+        if log.returncode:
+            raise _UndecidedError("git log failed")
+        commits = list(dict.fromkeys(log.stdout.decode("ascii").split()))
+        if len(commits) > RECORD_HISTORY_BOUND:
+            raise _UndecidedError("record history past the bound")
+        parsed: dict[bytes, str | None] = {}
+        for commit in commits:
+            tree = gitstate._git(
+                self._repository,
+                "ls-tree",
+                "-r",
+                "-z",
+                commit,
+                "--",
+                propagate.RECORD_DIR,
+                check=False,
+            )
+            if tree.returncode:
+                raise _UndecidedError("git ls-tree failed")
+            oids = []
+            for entry in tree.stdout.split(b"\0"):
+                if not entry:
+                    continue
+                header = entry.split(b"\t", 1)[0].split()
+                if len(header) == 3 and header[1] == b"blob":
+                    oids.append(header[2])
+            fresh = [oid for oid in oids if oid not in parsed]
+            if fresh:
+                batch = gitstate._git(
+                    self._repository,
+                    "cat-file",
+                    "--batch",
+                    stdin=b"\n".join(fresh) + b"\n",
+                    check=False,
+                )
+                data = batch.stdout
+                for oid in fresh:
+                    line, _, data = data.partition(b"\n")
+                    parts = line.split()
+                    if len(parts) != 3 or parts[1] != b"blob":
+                        raise _UndecidedError("git cat-file failed")
+                    size = int(parts[2])
+                    parsed[oid] = _parsed_operation(data[:size])
+                    data = data[size + 1 :]
+            if any(parsed[oid] == operation for oid in oids):
+                return commit
+        return None
 
 
 class _Snapshot(Base):
@@ -482,13 +555,18 @@ class _Snapshot(Base):
         return _history_blob(self._repository, relative, sha)
 
     def _names_operation(self, operation: str) -> bool:
-        needle = _operation_needle(operation)
-        return any(
-            raw.startswith(b"system/propagations/")
-            and image.kind == "file"
-            and needle in (image.data or b"")
-            for raw, image in self._snapshot.images.items()
-        )
+        """Whether any file under `system/propagations/` in the base names
+        ``operation``, by its parsed id; a file that does not parse counts
+        as naming it (C10: fail closed)."""
+        for raw, image in self._snapshot.images.items():
+            if not raw.startswith(b"system/propagations/") or image.kind != "file":
+                continue
+            try:
+                if _parsed_operation(image.data or b"") == operation:
+                    return True
+            except _UndecidedError:
+                return True
+        return False
 
 
 def snapshot_base(snapshot, repository) -> Base:
