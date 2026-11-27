@@ -47,12 +47,13 @@ def test_declared_parses_both_tables_strictly():
         )
         in declaration.settings
     )
-    # DP9: onAdded stays false until Task 4's live leg verifies the key set
+    # DP9: onAdded is true once Task 4's live leg verified the key set
+    # (2026-11-27: 29 keys in the 3.3.2 xpi; only lossless writes on add)
     assert (
         addons.Setting(
             "Linter for Zotero",
             "extensions.zotero.formatmetadata.lint.onAdded",
-            ("false",),
+            ("true",),
         )
         in declaration.settings
     )

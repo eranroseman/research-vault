@@ -65,7 +65,7 @@
 | Meta Refresh                  | `extensions.zotero.metarefresh.useOpenAlex`                                    | `false`              |
 | Meta Refresh                  | `extensions.zotero.metarefresh.fieldConferenceName`                            | `false`              |
 | Meta Refresh                  | `extensions.zotero.metarefresh.backupToExtra`                                  | `false`              |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.lint.onAdded`                                | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.lint.onAdded`                                | `true`               |
 | Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-language`                       | `false`              |
 | Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-doi`                            | `false`              |
 | Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-journal-abbr`                   | `false`              |
