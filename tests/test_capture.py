@@ -2528,3 +2528,71 @@ def test_an_unsealed_page_files_once_and_refiles_when_it_changes(
     page.write_text('---\ntype: "concept"\n---\nby hand, again\n')
     assert run() == 1
     assert len({f.target_hash for f in filed()}) == 2
+
+
+def _capture_rows(tmp_vault, monkeypatch):
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    return [
+        o
+        for o in capture.capture(tmp_vault, client, ["E352DFS8"])
+        if o.check == "compiled-layer"
+    ]
+
+
+def test_an_unreadable_record_is_its_own_row_not_a_folded_drift(tmp_vault, monkeypatch):
+    """I1: only drift folds; the record's schema violation keeps its reason."""
+    (tmp_vault / "system" / "compiled-pages.json").write_text("{not json")
+    (row,) = _capture_rows(tmp_vault, monkeypatch)
+    assert (row.result, row.target) == (
+        Result.UNMATCHED,
+        "path-bytes:system/compiled-pages.json",
+    )
+    assert row.reason.startswith("schema-violation — compiled-page record unreadable")
+
+
+def test_a_page_whose_yaml_fails_keeps_its_error_beside_the_folded_drift(
+    tmp_vault, monkeypatch
+):
+    """I1: a compile-tool page with invalid frontmatter is its own row with
+    the YAML error; an unsealed hand page beside it folds as drift."""
+    import hashlib
+
+    from tests.test_compiled import _journal
+
+    bad = tmp_vault / "wiki" / "concepts" / "b.md"
+    bad.write_text("---\ntitle: A: B\n---\n")
+    _journal(
+        tmp_vault,
+        "op1",
+        {"wiki/concepts/b.md": hashlib.sha256(bad.read_bytes()).hexdigest()},
+    )
+    (tmp_vault / "wiki" / "concepts" / "hand.md").write_text("---\ntype: x\n---\n")
+    folded, yaml = _capture_rows(tmp_vault, monkeypatch)
+    assert (folded.target, folded.reason) == (
+        "system/compiled-pages.json",
+        (
+            "drift — seal refused wiki/concepts/hand.md; write them through the "
+            "compile tool (its journal) and seal, seal where custody allows, or "
+            "revert them to the sealed bytes"
+        ),
+    )
+    assert yaml.target == "path-bytes:wiki/concepts/b.md"
+    assert yaml.reason.startswith(
+        "schema-violation — wiki/concepts/b.md: frontmatter is not valid YAML ("
+    )
+
+
+def test_names_that_are_not_utf8_are_counted_once(tmp_vault, monkeypatch):
+    """M4: the reason cannot carry them, so they are a count."""
+    import os
+
+    try:
+        for raw in (b"caf\xe9.md", b"na\xefve.md"):
+            (tmp_vault / "wiki" / "concepts" / os.fsdecode(raw)).write_text("x\n")
+    except OSError:
+        pytest.skip("the filesystem refuses a name that is not UTF-8")
+    (row,) = _capture_rows(tmp_vault, monkeypatch)
+    assert row.reason.startswith(
+        "drift — seal refused 2 files whose name is not UTF-8 text; "
+    )

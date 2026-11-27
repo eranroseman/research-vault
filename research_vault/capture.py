@@ -742,10 +742,35 @@ def _current(vault: Path, row: Outcome) -> str:
         return f"unreadable {type(error).__name__}"
 
 
+def _names(rows: list[Outcome]) -> str:
+    """The refused paths, each once; names that are not UTF-8 text as a
+    count (M4), since the reason cannot carry them."""
+    shown: set[str] = set()
+    hidden = 0
+    for row in rows:
+        target = str(row.target)
+        name = (
+            os.fsdecode(decode_repo_path(target))
+            if row.target_kind == "repo-path"
+            else target
+        )
+        if compiled._shown(name) == name:
+            shown.add(name)
+        else:
+            hidden += 1
+    names = sorted(shown)
+    if hidden:
+        names.append(
+            f"{hidden} file{'s' if hidden > 1 else ''} whose name is not UTF-8 text"
+        )
+    return ", ".join(names)
+
+
 def _sealed(vault: Path) -> list[Outcome]:
     """Spec §5.4: capture runs after compile, so it seals what the compile
     tool wrote. A row only when the seal did something: `matched — sealed N`,
-    or one row folding every refusal. ``seal=False`` is propagate's recapture,
+    or one row folding every drift refusal, beside each schema violation as
+    seal reported it. ``seal=False`` is propagate's recapture,
     which seals once its record names the rewrite.
 
     R42: the folded row is hashed on the failing facts alone, each refused
@@ -754,26 +779,25 @@ def _sealed(vault: Path) -> list[Outcome]:
     and skipped while it stands, and a changed page files again."""
     rows = compiled.seal(vault)
     refused = [row for row in rows if row.result is not Result.MATCHED]
-    if refused:
-        facts = sorted(f"{row.target} {_current(vault, row)}" for row in refused)
+    # Only drift folds (I1): a schema violation (the record unreadable, a
+    # page's frontmatter not YAML) is its own row, with its own reason.
+    drift = [row for row in refused if row.reason.startswith("drift — ")]
+    out = [row for row in refused if not row.reason.startswith("drift — ")]
+    if drift:
+        facts = sorted(f"{row.target} {_current(vault, row)}" for row in drift)
         digest = hashlib.sha256("\n".join(facts).encode("utf-8")).hexdigest()[:16]
-        names = ", ".join(
-            sorted(
-                compiled._shown(os.fsdecode(decode_repo_path(str(row.target))))
-                if row.target_kind == "repo-path"
-                else str(row.target)
-                for row in refused
-            )
-        )
-        return [
+        out.insert(
+            0,
             Outcome(
                 compiled.CHECK,
                 compiled.RECORD_PATH,
                 Result.UNMATCHED,
-                f"drift — seal refused {names}; {_SEAL_REMEDY}",
+                f"drift — seal refused {_names(drift)}; {_SEAL_REMEDY}",
                 extra={"standing": True, "target_hash": digest},
-            )
-        ]
+            ),
+        )
+    if out:
+        return out
     if rows and rows[0].reason != "matched — sealed 0":
         return [
             Outcome(
