@@ -2473,7 +2473,11 @@ def test_capture_reports_what_its_seal_did(tmp_vault, monkeypatch):
         "compiled-layer",
         "system/compiled-pages.json",
         Result.UNMATCHED,
-        "drift — a; b",
+        (
+            "drift — seal refused wiki/a.md, wiki/b.md; write them through the "
+            "compile tool (its journal) and seal, seal where custody allows, or "
+            "revert them to the sealed bytes"
+        ),
     )
 
 
@@ -2487,3 +2491,40 @@ def test_capture_with_seal_off_does_not_seal(tmp_vault, monkeypatch):
     )
     capture.capture(tmp_vault, client, ["jakesch.etal2023a"], seal=False)
     assert calls == []
+
+
+def test_an_unsealed_page_files_once_and_refiles_when_it_changes(
+    tmp_vault, monkeypatch
+):
+    """R42: the folded seal refusal is hashed on the refused paths and their
+    current bytes, so a page left unsealed is filed once (exit 1) and stands
+    on the next capture (exit 0); a change to it files again."""
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    page = tmp_vault / "wiki" / "concepts" / "hand.md"
+    page.write_text('---\ntype: "concept"\n---\nby hand\n')
+
+    def run():
+        return cli._print_and_hold(
+            tmp_vault, capture.capture(tmp_vault, client, ["E352DFS8"]), capture.CHECK
+        )
+
+    def filed():
+        return [
+            f
+            for f in inbox.load(tmp_vault)
+            if f.target == "system/compiled-pages.json" and f.ack_of is None
+        ]
+
+    assert run() == 1
+    (first,) = filed()
+    assert first.check == "capture"
+    assert first.reason.startswith("drift — seal refused wiki/concepts/hand.md; ")
+    assert run() == 0
+    assert len(filed()) == 1
+    page.write_text('---\ntype: "concept"\n---\nby hand, again\n')
+    assert run() == 1
+    assert len({f.target_hash for f in filed()}) == 2

@@ -122,11 +122,12 @@ def _print_and_hold(vault, outcomes, check: str) -> int:
     worst = 0
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
-        if _standing_component(vault, outcome):
+        component = outcome.check in inbox.COMPONENT_CHECKS
+        held = outcome.check if component else check
+        if _standing_component(vault, outcome, held):
             continue
         if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
-            component = outcome.check in inbox.COMPONENT_CHECKS
-            _hold_outcome(vault, outcome.check if component else check, outcome)
+            _hold_outcome(vault, held, outcome)
         if outcome.result is Result.UNMATCHED:
             worst = 1
         elif outcome.result is Result.UNREACHABLE and worst == 0:
@@ -134,17 +135,23 @@ def _print_and_hold(vault, outcomes, check: str) -> int:
     return worst
 
 
-def _standing_component(vault, outcome) -> bool:
+def _standing_component(vault, outcome, held: str) -> bool:
     """Whether ``outcome`` is a component finding the queue already holds in
     scope (``inbox.component_standing``, spec §6.4): re-filed on a later day
-    it would be a second open row for one standing fault."""
-    if outcome.check not in inbox.COMPONENT_CHECKS:
+    it would be a second open row for one standing fault. A row marked
+    ``standing`` in its extra (capture's folded seal refusal, R42) is
+    judged the same way under the check it is ``held`` under, so a page left
+    unsealed is filed once, not once per capture."""
+    if (
+        outcome.check not in inbox.COMPONENT_CHECKS
+        and outcome.extra.get("standing") is not True
+    ):
         return False
     target_hash = outcome.extra.get("target_hash")
     try:
         return inbox.component_standing(
             vault,
-            outcome.check,
+            held,
             outcome.target,
             target_hash if isinstance(target_hash, str) else None,
         )
@@ -320,7 +327,7 @@ def cmd_propagate(args):
     worst = 0
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
-        if _standing_component(args.vault, outcome):
+        if _standing_component(args.vault, outcome, outcome.check):
             continue
         if outcome.result is Result.UNMATCHED:
             # Capture's tags summary rides the recapture (ruling P41).

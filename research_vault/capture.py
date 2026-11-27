@@ -30,7 +30,7 @@ from . import (
     structure,
 )
 from .outcome import Outcome, Result
-from .pathcodec import RepoPath
+from .pathcodec import RepoPath, decode_repo_path
 from .zotero import (
     ITEM_KEY,
     ApiKeyRejectedError,
@@ -714,21 +714,64 @@ def _component_findings(vault: Path) -> list[Outcome]:
     return rows
 
 
+_SEAL_REMEDY = (
+    "write them through the compile tool (its journal) and seal, seal where "
+    "custody allows, or revert them to the sealed bytes"
+)
+
+
+def _current(vault: Path, row: Outcome) -> str:
+    """A refused path's state as the folded row hashes it: its bytes'
+    sha256, or what stands there instead."""
+    target = str(row.target)
+    raw = (
+        decode_repo_path(target)
+        if row.target_kind == "repo-path"
+        else os.fsencode(target)
+    )
+    path = vault / os.fsdecode(raw)
+    if path.is_symlink():
+        return "symlink"
+    if not path.exists():
+        return "absent"
+    if not path.is_file():
+        return "special"
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError as error:
+        return f"unreadable {type(error).__name__}"
+
+
 def _sealed(vault: Path) -> list[Outcome]:
     """Spec §5.4: capture runs after compile, so it seals what the compile
     tool wrote. A row only when the seal did something: `matched — sealed N`,
     or one row folding every refusal. ``seal=False`` is propagate's recapture,
-    which seals once its record names the rewrite."""
+    which seals once its record names the rewrite.
+
+    R42: the folded row is hashed on the failing facts alone, each refused
+    path with its current state, as `_component_findings` hashes a
+    component's, and marked ``standing``: a page left unsealed is filed once
+    and skipped while it stands, and a changed page files again."""
     rows = compiled.seal(vault)
     refused = [row for row in rows if row.result is not Result.MATCHED]
     if refused:
+        facts = sorted(f"{row.target} {_current(vault, row)}" for row in refused)
+        digest = hashlib.sha256("\n".join(facts).encode("utf-8")).hexdigest()[:16]
+        names = ", ".join(
+            sorted(
+                compiled._shown(os.fsdecode(decode_repo_path(str(row.target))))
+                if row.target_kind == "repo-path"
+                else str(row.target)
+                for row in refused
+            )
+        )
         return [
             Outcome(
                 compiled.CHECK,
                 compiled.RECORD_PATH,
                 Result.UNMATCHED,
-                "drift — "
-                + "; ".join(row.reason.split(" — ", 1)[-1] for row in refused),
+                f"drift — seal refused {names}; {_SEAL_REMEDY}",
+                extra={"standing": True, "target_hash": digest},
             )
         ]
     if rows and rows[0].reason != "matched — sealed 0":
