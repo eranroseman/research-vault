@@ -1154,7 +1154,10 @@ def _plan_state(
     raw.extend(structure.check_reserved(vault))
     raw.extend(structure.check_log_dir(vault))
     raw.extend(structure.check_tree(vault, candidate_name=snapshots.candidate_name))
-    raw.extend(structure.check_text_layer(vault))
+    # `fulltext/` is ignored: the index and HEAD candidates cannot show it, so
+    # its absence there is no observation and the check files no row (R34).
+    if snapshots.candidate_name == "worktree":
+        raw.extend(structure.check_text_layer(vault))
     if network:
         raw.extend(lifecycle.lint_lifecycle(vault, ZoteroClient(base=base)))
     else:

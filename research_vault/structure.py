@@ -498,8 +498,10 @@ def _is_citation_key_note(vault: Path, path: Path) -> bool:
 def check_text_layer(vault_root) -> list[Outcome]:
     """#207 and #211: every file under fulltext/ is `<attachment key>.md` carrying a
     valid self-witness. Rows carry no note path, claim id or line number, so verify
-    never writes a marker into a text file. A missing text is no row: a fresh clone
-    has none."""
+    never writes a marker into a text file. A vault without `fulltext/` yields one
+    SKIPPED row, as a fresh clone has none. The folder is ignored, so only the
+    worktree candidate can see it: the caller runs this check there alone, and the
+    index and HEAD candidates file no text-layer row (R34)."""
     from . import fulltext
 
     vault = Path(vault_root)

@@ -7284,6 +7284,38 @@ def test_a_force_added_text_file_is_refused_at_commit(net_vault):
     )
 
 
+def test_an_index_candidate_files_no_text_layer_row(net_vault):
+    """R34: `fulltext/` cannot be seen on the index candidate (it is ignored),
+    so "absent" there is no observation: the check does not run, no row is
+    emitted and no inbox entry is filed. The worktree candidate reports the
+    same vault's missing folder as its SKIPPED row."""
+    from research_vault import inbox, verify
+
+    assert not (net_vault / "fulltext").exists()
+    report, _effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, git_candidate="index"
+    )
+    assert [o for o in report["outcomes"] if o.check == "text-layer"] == []
+    assert [e for e in inbox.load(net_vault) if e.check == "text-layer"] == []
+
+
+def test_a_worktree_verify_without_fulltext_yields_the_skipped_text_layer_row(
+    net_vault,
+):
+    """R34: on the worktree the folder is visible, so a vault without
+    `fulltext/` keeps the SKIPPED "no text layer" row."""
+    from research_vault import verify
+
+    assert not (net_vault / "fulltext").exists()
+    report, _effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, git_candidate="worktree"
+    )
+    rows = [o for o in report["outcomes"] if o.check == "text-layer"]
+    assert [(o.result, o.reason) for o in rows] == [
+        (Result.SKIPPED, "no-identifier — no text layer")
+    ]
+
+
 def test_a_non_utf8_name_under_fulltext_does_not_crash_verify(net_vault):
     """A raw file name that is not UTF-8 reaches verify as a path-bytes target,
     on a force-added index candidate and on the worktree."""
