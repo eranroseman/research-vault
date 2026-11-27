@@ -1094,6 +1094,20 @@ def _once_each(outcomes, hashes, history_ids):
     return [o for o in outcomes if first.get(key(o), id(o)) == id(o)]
 
 
+def _tracked_texts(repository, snapshots) -> set[bytes]:
+    """The paths under `fulltext/` HEAD or the index tracks, for the worktree
+    candidate (W1): publish verifies the worktree, where the ignored layer
+    shows whether or not git holds a text. A failed index read is no path;
+    the hook's index candidate reports those itself."""
+    if snapshots.candidate_name != "worktree":
+        return set()
+    tracked = {raw for raw in snapshots.head.images if raw.startswith(b"fulltext/")}
+    listed = gitstate._git(repository, "ls-files", "-z", "--", "fulltext", check=False)
+    if not listed.returncode:
+        tracked.update(raw for raw in listed.stdout.split(b"\0") if raw)
+    return tracked
+
+
 def _plan_state(
     vault_root,
     network=True,
@@ -1156,7 +1170,13 @@ def _plan_state(
         raw.extend(structure.check_note_frontmatter(vault, path))
     raw.extend(structure.check_reserved(vault))
     raw.extend(structure.check_log_dir(vault))
-    raw.extend(structure.check_tree(vault, candidate_name=snapshots.candidate_name))
+    raw.extend(
+        structure.check_tree(
+            vault,
+            candidate_name=snapshots.candidate_name,
+            tracked=_tracked_texts(repository, snapshots),
+        )
+    )
     # `fulltext/` is ignored: the index and HEAD candidates cannot show it, so
     # its absence there is no observation and the check files no row (R34).
     if snapshots.candidate_name == "worktree":

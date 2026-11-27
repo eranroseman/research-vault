@@ -21,6 +21,7 @@ any non-empty ``type`` (an appendix, a supplementary note, ...).
 import datetime
 import os
 import re
+from collections.abc import Iterable
 from pathlib import Path
 
 from . import frontmatter, literature_notes
@@ -408,7 +409,9 @@ def check_reserved(vault_root) -> list[Outcome]:
     return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]
 
 
-def check_tree(vault_root, candidate_name: str = "worktree") -> list[Outcome]:
+def check_tree(
+    vault_root, candidate_name: str = "worktree", *, tracked: Iterable[bytes] = ()
+) -> list[Outcome]:
     """Vault-wide directory scaffolding attestation (verify-side; see doctor.doctor).
 
     Doctor keeps a separate `tree` probe for repair-at-setup; this is a
@@ -420,6 +423,10 @@ def check_tree(vault_root, candidate_name: str = "worktree") -> list[Outcome]:
     `<citation key>.md` (#211): a PDF, a text file, a name no key gives, a
     dot-named file. OS litter and a dot-directory (a sync tool's store, #194)
     are no entry: log/'s one rule (`check_log_dir`).
+
+    On an index or HEAD candidate every file under `fulltext/` is a row; on
+    the worktree, every path under it in ``tracked`` (what HEAD or the index
+    tracks), since there the ignored layer shows whether or not git holds it.
     """
     from . import scaffold
 
@@ -466,22 +473,42 @@ def check_tree(vault_root, candidate_name: str = "worktree") -> list[Outcome]:
                         "<citation key>.md and .gitkeep",
                     )
                 )
-    text_layer = vault / "fulltext"
-    if candidate_name != "worktree" and text_layer.is_dir():
-        # #211: the layer is gitignored; a path under it on a committed candidate
-        # is a force-added text, licensed material with no finding otherwise.
-        for path in sorted(text_layer.rglob("*")):
-            if path.is_file() and not is_excluded(path, vault):
-                relative = path.relative_to(vault).as_posix()
-                rows.append(
-                    Outcome(
-                        "tree",
-                        _repo_path(relative),
-                        Result.UNMATCHED,
-                        "schema-violation — fulltext/ is never committed",
-                    )
-                )
+    # #211: the layer is gitignored; a path under it on a committed candidate
+    # is a force-added text, licensed material with no finding otherwise. Every
+    # tracked path is one, a dot-named one too (W9): no walker filter applies.
+    committed: set[bytes] = set()
+    if candidate_name != "worktree":
+        committed.update(_committed_texts(vault))
+    else:
+        # W1: the worktree is what publish verifies, and the layer it shows is
+        # the ignored one; a text HEAD or the index tracks is committed all
+        # the same.
+        committed.update(
+            raw for raw in tracked if raw.startswith(_FULLTEXT_DIR.encode() + b"/")
+        )
+    rows.extend(
+        Outcome(
+            "tree",
+            RepoPath(raw),
+            Result.UNMATCHED,
+            "schema-violation — fulltext/ is never committed",
+        )
+        for raw in sorted(committed)
+    )
     return rows
+
+
+def _committed_texts(vault: Path) -> set[bytes]:
+    """Every file under `fulltext/` in a committed candidate's tree: each is a
+    tracked text, so no walker predicate filters them (W9)."""
+    text_layer = vault / _FULLTEXT_DIR
+    if not text_layer.is_dir():
+        return set()
+    return {
+        os.fsencode(path.relative_to(vault).as_posix())
+        for path in text_layer.rglob("*")
+        if path.is_file()
+    }
 
 
 def _is_citation_key_note(vault: Path, path: Path) -> bool:
@@ -518,7 +545,11 @@ def check_text_layer(vault_root) -> list[Outcome]:
     rows: list[Outcome] = []
     seen = False
     for child in sorted(folder.iterdir()):
-        if is_excluded(child, vault):
+        # `literature/`'s convention (W9): the sentinel, OS litter and a
+        # dot-directory are no entry; a dot-named file is a stray.
+        if child.name == ".gitkeep" or is_os_litter(child.name):
+            continue
+        if child.is_dir() and is_excluded(child, vault):
             continue
         relative = f"{fulltext.FULLTEXT_DIR}/{child.name}"
         if (

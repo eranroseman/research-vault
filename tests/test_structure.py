@@ -405,6 +405,7 @@ _NOT_NOTE_WALKS = {
     "scaffold.py::_add_empty_root_sentinels": "asks only whether a root is empty, to seed .gitkeep",
     "scaffold.py::_preflight_conflicts": "the same emptiness question, asked before any write",
     "compiled.py::journal_hashes": "the compile tool's own journals under .vault-meta/transactions/, a dot-directory by design",
+    "structure.py::_committed_texts": "every tracked path under fulltext/ is licensed text, a dot-named one too (W9)",
 }
 _WALK_CALLS = frozenset({"glob", "rglob", "iterdir", "walk"})
 _SCOPES = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp, ast.stmt)
@@ -1181,4 +1182,40 @@ def test_a_non_utf8_name_under_fulltext_is_a_row_not_a_crash(tmp_path):
             "path-bytes:fulltext/bad-%FF.pdf",
             "schema-violation — fulltext/ is never committed",
         ),
+    ]
+
+
+def test_a_dot_named_text_is_reported_by_both_checks(tmp_path):
+    """W9: `literature/`'s convention: only `.gitkeep` and OS litter are no
+    entry; a dot-named file is a stray to text-layer, and every tracked path
+    under fulltext/ is a tree row on a committed candidate."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    path = _text(tmp_path)
+    (tmp_path / "fulltext" / ".D7EJ9FTG.md").write_bytes(path.read_bytes())
+    (tmp_path / "fulltext" / ".versions").mkdir()
+    (tmp_path / "fulltext" / ".versions" / "D7EJ9FTG.md").write_bytes(path.read_bytes())
+    (tmp_path / "fulltext" / ".gitkeep").write_bytes(b"")
+    (tmp_path / "fulltext" / ".DS_Store").write_bytes(b"")
+    assert [
+        (o.target, o.reason)
+        for o in structure.check_text_layer(tmp_path)
+        if o.result is Result.UNMATCHED
+    ] == [
+        (
+            "path-bytes:fulltext/.D7EJ9FTG.md",
+            "schema-violation — fulltext/ holds only <attachment key>.md",
+        )
+    ]
+    assert [
+        o.target
+        for o in structure.check_tree(tmp_path, candidate_name="index")
+        if "fulltext" in str(o.target)
+    ] == [
+        "path-bytes:fulltext/.D7EJ9FTG.md",
+        "path-bytes:fulltext/.DS_Store",
+        "path-bytes:fulltext/.gitkeep",
+        "path-bytes:fulltext/.versions/D7EJ9FTG.md",
+        "path-bytes:fulltext/D7EJ9FTG.md",
     ]

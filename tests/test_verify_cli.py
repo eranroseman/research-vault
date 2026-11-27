@@ -7968,3 +7968,35 @@ def test_deleting_all_of_wiki_holds_every_candidate(net_vault):
         and o.result is Result.UNMATCHED
         and o.extra.get("commit") == removed
     } == expected
+
+
+def test_a_committed_text_file_holds_publish(net_vault):
+    """W1: a text force-added and committed with `--no-verify` is tracked by
+    HEAD, so the worktree candidate publish verifies reports it too."""
+    from research_vault import fulltext
+
+    base = _head(net_vault)
+    fulltext.write(
+        net_vault,
+        "ATT00001",
+        "SMITH020",
+        {"content": "x" * 600, "indexedPages": 1, "totalPages": 1},
+    )
+    subprocess.run(
+        ["git", "add", "-f", "fulltext/ATT00001.md"], cwd=net_vault, check=True
+    )
+    subprocess.run(
+        ["git", "commit", "-qm", "text, bypassed", "--no-verify"],
+        cwd=net_vault,
+        check=True,
+    )
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    _decision, blockers = verify.surface_decision("publish", effective, warning)
+    assert [b for b in blockers if b.startswith("UNMATCHED tree")] == [
+        (
+            "UNMATCHED tree path-bytes:fulltext/ATT00001.md — schema-violation — "
+            "fulltext/ is never committed"
+        )
+    ]
