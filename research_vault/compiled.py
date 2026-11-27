@@ -275,12 +275,12 @@ def propagated_by(
             record = propagate.read_plan(path)
         except (OSError, ValueError, KeyError, TypeError):
             continue  # lint_propagation reports the unreadable record
-        if not base.vouches(record.operation_id, source, recorded):
-            continue
         text = old
         for before, after in propagate.rewrites(record):
             text = propagate.rewrite_text(text, before, after, source=source)
-        if text == new:
+        # The replay first (P1): the custody lookup reads git, and only a
+        # record that reproduces the page needs it.
+        if text == new and base.vouches(record.operation_id, source, recorded):
             return record.operation_id
     return None
 
@@ -383,15 +383,30 @@ def _parsed_operation(data: bytes) -> str | None:
     return None
 
 
-# How many commits touching `system/propagations/` the local judge parses
-# for the one that introduced a record's operation id (C10). Past the bound
-# the lookup is undecided and the record does not vouch.
-RECORD_HISTORY_BOUND = 200
+def is_record_file(raw_path: bytes) -> bool:
+    """A path `propagated_by` reads as a propagation record (P2):
+    `system/propagations/<name>.json`, not nested, not excluded. A stray
+    `notes.txt` beside the records is no record and decides nothing."""
+    prefix = b"system/propagations/"
+    if not raw_path.startswith(prefix):
+        return False
+    name = raw_path[len(prefix) :]
+    if b"/" in name or not name.endswith(b".json"):
+        return False
+    anchor = Path("/vault")
+    return not structure.is_excluded(anchor / os.fsdecode(raw_path), anchor)
 
 
 class _Local(Base):
     """The local judge: the seal store, then HEAD, then the path's history;
-    the change's base is HEAD."""
+    the change's base is HEAD. With no `.git` at all every record vouches:
+    there is no history for a record to predate."""
+
+    def __init__(self, repository: Path) -> None:
+        super().__init__(repository)
+        # operation id -> the commits that introduced a record of it, built
+        # once per judge (P1); an _UndecidedError when that read failed.
+        self._introductions: dict[str, list[str]] | _UndecidedError | None = None
 
     def sealed(self, relative: str, sha: str) -> bytes | None:
         stored = self._repository / SEALED_STORE / sha
@@ -408,9 +423,9 @@ class _Local(Base):
         return _history_blob(self._repository, relative, sha)
 
     def vouches(self, operation: str, page: str, recorded: str) -> bool:
-        """R41: a record vouches only when the commit that introduced its
-        operation id is not an ancestor of the commit that introduced the
-        page's sealed entry, so `seal <path>` still accepts a key rewrite
+        """R41: a record vouches only when no commit that introduced its
+        operation id is an ancestor of the commit that introduced the page's
+        sealed entry, so `seal <path>` still accepts a key rewrite
         committed with its record by hand. A record no commit holds is newer
         than any committed seal. A record from before the seal (a key a later
         item took included) never vouches, and neither does a committed one
@@ -418,23 +433,28 @@ class _Local(Base):
         The record is known by its operation id (M2): a `git mv` of an old
         record keeps the commit that first introduced it."""
         try:
-            added = self._introducing_commit(operation)
+            introduced = self._introduced(operation)
         except _UndecidedError:
             return False  # C10: a lookup that could not finish never vouches
-        if added is None:
+        if not introduced:
             return True
         sealing = self._sealing_commit(page, recorded)
         if sealing is None:
             return False
-        ancestor = gitstate._git(
-            self._repository,
-            "merge-base",
-            "--is-ancestor",
-            added,
-            sealing,
-            check=False,
-        )
-        return ancestor.returncode == 1
+        # Every commit that introduced the id must be after the seal: one
+        # that is an ancestor of the sealing commit makes the record old.
+        for added in introduced:
+            ancestor = gitstate._git(
+                self._repository,
+                "merge-base",
+                "--is-ancestor",
+                added,
+                sealing,
+                check=False,
+            )
+            if ancestor.returncode != 1:
+                return False
+        return True
 
     def _sealing_commit(self, page: str, recorded: str) -> str | None:
         """The newest commit whose record introduced ``page``'s entry
@@ -464,19 +484,29 @@ class _Local(Base):
                 return commit
         return None
 
-    def _introducing_commit(self, operation: str) -> str | None:
-        """The oldest commit HEAD reaches whose tree holds a record under
-        `system/propagations/` whose parsed operation id is ``operation``
-        (C10: by content, never by bytes); None when no commit does.
-        `_UndecidedError` when git fails, a blob there does not parse, or the
-        history passes `RECORD_HISTORY_BOUND` commits."""
+    def _introduced(self, operation: str) -> list[str]:
+        if self._introductions is None:
+            try:
+                self._introductions = self._read_introductions()
+            except _UndecidedError as error:
+                self._introductions = error
+        if isinstance(self._introductions, _UndecidedError):
+            raise self._introductions
+        return self._introductions.get(operation, [])
+
+    def _read_introductions(self) -> dict[str, list[str]]:
+        """Every operation id a record HEAD reaches ever carried, with the
+        commits that introduced a blob of it (C10: by parsed content, never
+        by bytes), from one `git log --raw` and one `git cat-file --batch`
+        (P1). Only record files count (`is_record_file`, P2). Raises
+        `_UndecidedError` when git fails or a record blob does not parse."""
         if not (self._repository / ".git").exists():
-            return None
+            return {}
         head = gitstate._git(
             self._repository, "rev-parse", "--verify", "-q", "HEAD", check=False
         )
         if head.returncode:
-            return None  # no commit yet: nothing is committed before the seal
+            return {}  # no commit yet: nothing is committed before the seal
         # Imported here: propagate imports capture, which imports this module.
         from . import propagate
 
@@ -485,7 +515,12 @@ class _Local(Base):
             "log",
             "-m",
             "--reverse",
-            "--format=%H",
+            "--topo-order",
+            "--raw",
+            "-z",
+            "--no-renames",
+            "--no-abbrev",
+            "--format=%x01%H",
             "HEAD",
             "--",
             propagate.RECORD_DIR,
@@ -493,51 +528,51 @@ class _Local(Base):
         )
         if log.returncode:
             raise _UndecidedError("git log failed")
-        commits = list(dict.fromkeys(log.stdout.decode("ascii").split()))
-        if len(commits) > RECORD_HISTORY_BOUND:
-            raise _UndecidedError("record history past the bound")
-        parsed: dict[bytes, str | None] = {}
-        for commit in commits:
-            tree = gitstate._git(
-                self._repository,
-                "ls-tree",
-                "-r",
-                "-z",
-                commit,
-                "--",
-                propagate.RECORD_DIR,
-                check=False,
-            )
-            if tree.returncode:
-                raise _UndecidedError("git ls-tree failed")
-            oids = []
-            for entry in tree.stdout.split(b"\0"):
-                if not entry:
+        blobs: dict[bytes, list[str]] = {}
+        for chunk in log.stdout.split(b"\x01")[1:]:
+            tokens = chunk.split(b"\0")
+            commit = tokens[0].decode("ascii")
+            meta: bytes | None = None
+            for raw_token in tokens[1:]:
+                token = raw_token.lstrip(b"\n")
+                if token.startswith(b":"):
+                    meta = token
                     continue
-                header = entry.split(b"\t", 1)[0].split()
-                if len(header) == 3 and header[1] == b"blob":
-                    oids.append(header[2])
-            fresh = [oid for oid in oids if oid not in parsed]
-            if fresh:
-                batch = gitstate._git(
-                    self._repository,
-                    "cat-file",
-                    "--batch",
-                    stdin=b"\n".join(fresh) + b"\n",
-                    check=False,
-                )
-                data = batch.stdout
-                for oid in fresh:
-                    line, _, data = data.partition(b"\n")
-                    parts = line.split()
-                    if len(parts) != 3 or parts[1] != b"blob":
-                        raise _UndecidedError("git cat-file failed")
-                    size = int(parts[2])
-                    parsed[oid] = _parsed_operation(data[:size])
-                    data = data[size + 1 :]
-            if any(parsed[oid] == operation for oid in oids):
-                return commit
-        return None
+                if meta is None or not token:
+                    continue
+                fields = meta.split()
+                meta = None
+                if len(fields) < 5 or not is_record_file(token):
+                    continue
+                new = fields[3]
+                if new.strip(b"0"):
+                    commits = blobs.setdefault(new, [])
+                    if commit not in commits:
+                        commits.append(commit)
+        if not blobs:
+            return {}
+        oids = list(blobs)
+        batch = gitstate._git(
+            self._repository,
+            "cat-file",
+            "--batch",
+            stdin=b"\n".join(oids) + b"\n",
+            check=False,
+        )
+        data = batch.stdout
+        introductions: dict[str, list[str]] = {}
+        for oid in oids:
+            line, _, data = data.partition(b"\n")
+            parts = line.split()
+            if len(parts) != 3 or parts[1] != b"blob":
+                raise _UndecidedError("git cat-file failed")
+            size = int(parts[2])
+            operation = _parsed_operation(data[:size])
+            data = data[size + 1 :]
+            if operation is not None:
+                listed = introductions.setdefault(operation, [])
+                listed.extend(c for c in blobs[oid] if c not in listed)
+        return introductions
 
 
 class _Snapshot(Base):
@@ -559,7 +594,7 @@ class _Snapshot(Base):
         ``operation``, by its parsed id; a file that does not parse counts
         as naming it (C10: fail closed)."""
         for raw, image in self._snapshot.images.items():
-            if not raw.startswith(b"system/propagations/") or image.kind != "file":
+            if not is_record_file(raw) or image.kind != "file":
                 continue
             try:
                 if _parsed_operation(image.data or b"") == operation:

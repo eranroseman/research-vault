@@ -812,3 +812,49 @@ def test_an_unparseable_record_in_history_never_vouches(wiki_vault):
     _commit(wiki_vault, "the rewrite and its record, by hand")
     (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
     assert row.result is Result.UNMATCHED
+
+
+def test_a_stray_file_beside_the_records_decides_nothing(wiki_vault):
+    """P2: only the files `propagated_by` reads are records; a committed
+    `notes.txt` beside them leaves the R41 control vouched for."""
+    folder = wiki_vault / propagate.RECORD_DIR
+    folder.mkdir(parents=True)
+    (folder / "notes.txt").write_text("not a record\n")
+    _commit(wiki_vault, "a stray note")
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    _raw_record(wiki_vault, "new.json", "20261127T000000Z")
+    _commit(wiki_vault, "the rewrite and its record, by hand")
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (row.result, row.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def test_the_record_lookup_costs_a_bounded_number_of_git_calls(wiki_vault, monkeypatch):
+    """P1: 150 records, each in its own commit, then the R41 control. The
+    replay runs first and the operation-id map is read once, so the git
+    calls do not grow with records times commits."""
+    page = _sealed_citing_page(wiki_vault)
+    folder = wiki_vault / propagate.RECORD_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    script = (
+        'for i in $(seq 1 150); do printf \'{"schema": "research-vault.propagation.v1",'
+        ' "operation_id": "op-%s", "date": "2026-11-27", "mapping": {"x%s": "y%s"},'
+        ' "item_keys": {}, "merges": {}, "removes": {}, "surfaces": []}\' "$i" "$i" "$i"'
+        " > system/propagations/op-$i.json && git add -A"
+        ' && git commit -qm "record $i" --no-verify || exit 1; done'
+    )
+    subprocess.run(["bash", "-c", script], cwd=wiki_vault, check=True)
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    _raw_record(wiki_vault, "new.json", "20261127T000000Z")
+    _commit(wiki_vault, "the rewrite and its record, by hand")
+    calls = []
+    real = compiled.gitstate._git
+
+    def counting(*args, **kwargs):
+        calls.append(args[1:3])
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(compiled.gitstate, "_git", counting)
+    (row,) = compiled.lint_compiled_layer(wiki_vault)
+    assert row.result is Result.MATCHED
+    assert len(calls) <= 12, calls
