@@ -10,6 +10,54 @@
   "licence": "MIT",
   "bundled": [
     {
+      "name": "@codemirror/state",
+      "version": "6.5.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@codemirror/state"
+    },
+    {
+      "name": "@codemirror/view",
+      "version": "6.38.6",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@codemirror/view"
+    },
+    {
+      "name": "@marijn/find-cluster-break",
+      "version": "1.0.2",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@marijn/find-cluster-break"
+    },
+    {
+      "name": "@types/codemirror",
+      "version": "5.60.8",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@types/codemirror"
+    },
+    {
+      "name": "@types/estree",
+      "version": "1.0.8",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@types/estree"
+    },
+    {
+      "name": "@types/tern",
+      "version": "0.23.9",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@types/tern"
+    },
+    {
+      "name": "crelt",
+      "version": "1.0.6",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/crelt"
+    },
+    {
+      "name": "moment",
+      "version": "2.29.4",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/moment"
+    },
+    {
       "name": "obsidian-daily-notes-interface",
       "version": "0.9.4",
       "licence": "MIT",
@@ -20,10 +68,28 @@
       "version": "1.0.0",
       "licence": "MIT",
       "url": "https://www.npmjs.com/package/obsidian-journals-api"
+    },
+    {
+      "name": "style-mod",
+      "version": "4.1.3",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/style-mod"
+    },
+    {
+      "name": "tslib",
+      "version": "2.1.0",
+      "licence": "0BSD",
+      "url": "https://www.npmjs.com/package/tslib"
+    },
+    {
+      "name": "w3c-keyname",
+      "version": "2.2.8",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/w3c-keyname"
     }
   ],
   "source": null,
   "redistributable": true,
   "measured": "2026-11-27",
-  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+  "method": "LICENSE at the tag's commit (SPDX read from its text); bundled is the production closure of package-lock.json at the commit, plus each package.json devDependency whose name occurs in main.js, less obsidian and any @codemirror/* or electron pinned to a GitHub ref under obsidianmd/ or lishid/, each licence read from registry.npmjs.org at its version; main.js scanned for a copyleft licence banner, none found; the assets are the GitHub release artifacts at the tag"
 }

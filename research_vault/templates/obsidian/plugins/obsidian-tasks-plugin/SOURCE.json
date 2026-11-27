@@ -10,10 +10,34 @@
   "licence": "MIT",
   "bundled": [
     {
+      "name": "@babel/runtime",
+      "version": "7.27.6",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@babel/runtime"
+    },
+    {
+      "name": "@codemirror/view",
+      "version": "6.2.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@codemirror/view"
+    },
+    {
+      "name": "@floating-ui/core",
+      "version": "1.7.5",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@floating-ui/core"
+    },
+    {
       "name": "@floating-ui/dom",
       "version": "1.7.6",
       "licence": "MIT",
       "url": "https://www.npmjs.com/package/@floating-ui/dom"
+    },
+    {
+      "name": "@floating-ui/utils",
+      "version": "0.2.11",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@floating-ui/utils"
     },
     {
       "name": "boon-js",
@@ -28,8 +52,14 @@
       "url": "https://www.npmjs.com/package/chrono-node"
     },
     {
+      "name": "dayjs",
+      "version": "1.10.7",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/dayjs"
+    },
+    {
       "name": "eventemitter2",
-      "version": "6.4.5",
+      "version": "6.4.7",
       "licence": "MIT",
       "url": "https://www.npmjs.com/package/eventemitter2"
     },
@@ -46,6 +76,12 @@
       "url": "https://www.npmjs.com/package/i18next"
     },
     {
+      "name": "moment",
+      "version": "2.29.4",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/moment"
+    },
+    {
       "name": "mustache",
       "version": "4.2.0",
       "licence": "MIT",
@@ -58,6 +94,12 @@
       "url": "https://www.npmjs.com/package/mustache-validator"
     },
     {
+      "name": "ret",
+      "version": "0.5.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/ret"
+    },
+    {
       "name": "rrule",
       "version": "2.8.1",
       "licence": "BSD-3-Clause",
@@ -68,10 +110,16 @@
       "version": "5.1.1",
       "licence": "MIT",
       "url": "https://www.npmjs.com/package/safe-regex2"
+    },
+    {
+      "name": "tslib",
+      "version": "2.8.1",
+      "licence": "0BSD",
+      "url": "https://www.npmjs.com/package/tslib"
     }
   ],
   "source": null,
   "redistributable": true,
   "measured": "2026-11-27",
-  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+  "method": "LICENSE at the tag's commit (SPDX read from its text); bundled is the production closure of yarn.lock at the commit, plus each package.json devDependency whose name occurs in main.js, less obsidian and any @codemirror/* or electron pinned to a GitHub ref under obsidianmd/ or lishid/, each licence read from registry.npmjs.org at its version; main.js scanned for a copyleft licence banner, none found; the assets are the GitHub release artifacts at the tag"
 }

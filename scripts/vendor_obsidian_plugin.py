@@ -2,13 +2,46 @@
 
 Run by hand, with network: it resolves the plugin's repository from the
 community registry, fetches the release assets at the tag byte for byte, reads
-the licence at the tag's commit and every runtime dependency's licence from the
+the licence at the tag's commit and every bundled package's licence from the
 npm registry, and writes the plugin folder under
 research_vault/templates/obsidian/plugins/<id>/ with LICENSE,
 THIRD-PARTY-NOTICES and SOURCE.json. A licence with a source obligation, or one
 that cannot be established, makes the plugin recommended: data.json stays, no
 asset is written, SOURCE.json says why. The script never edits the declaration
 table; a test compares the two.
+
+What is bundled (R50, #306). The rule is chosen so that any error is
+over-attribution: THIRD-PARTY-NOTICES and SOURCE.json's `bundled` list
+
+1. the lockfile's full transitive production closure: package-lock.json or
+   npm-shrinkwrap.json (every entry npm does not mark `dev`), else yarn.lock v1
+   or pnpm-lock.yaml v9 (the closure of package.json's dependencies and
+   optionalDependencies through the lockfile's entries), each package at every
+   version installed;
+2. plus every package.json devDependency whose name occurs in main.js, at each
+   version the lockfile installs, because bundlers inline runtime libraries
+   listed under dev. "Occurs" is in_bundle: the exact, case-sensitive name not
+   continued by `[A-Za-z0-9_-]` on either side, anywhere in the file (a
+   require, an import path, a comment, or an unrelated word that is also the
+   name, which over-attributes); deterministic for a given main.js;
+3. less HOST_PROVIDED, the only subtraction: `obsidian` always (its npm package
+   is type declarations only), and `@codemirror/*` or `electron` only where the
+   lockfile's `resolved` (or, without a lockfile, package.json's spec) is a
+   GitHub ref under `obsidianmd/` or `lishid/`, the app's own sources
+   (APP_SOURCES; the measurement is recorded beside it). A registry tarball
+   of upstream CodeMirror stays listed.
+
+A plugin with no lockfile records no install, so the closure is walked through
+registry.npmjs.org from package.json at each range's floor (unlocked): it
+over-attributes names and records floor versions, and SOURCE.json's method
+says so. A stale npm or pnpm lockfile (its root record names other
+dependencies than package.json) is refused as not describing the build, and
+the next lockfile, or the walk, is used instead (obsidian-icon-folder's
+package-lock.json, measured 2026-11-27, gives way to its pnpm-lock.yaml). A plugin with no package.json lists nothing. A package is not
+enumerated from a licence banner: dev-only transitive code that left no name in
+main.js (tslib's helpers, inlined by a TypeScript plugin) is not listed. The
+main.js banner scan (copyleft_banner) only demotes, for copyleft code that kept
+its banner whichever package carried it.
 
 GitHub's unauthenticated API allows 60 requests an hour; a token in
 GITHUB_TOKEN (for instance `GITHUB_TOKEN=$(gh auth token)`) rides the API
@@ -27,7 +60,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGINS = ROOT / "research_vault" / "templates" / "obsidian" / "plugins"
@@ -45,9 +78,20 @@ PERMISSIVE = re.compile(
     re.IGNORECASE,
 )
 # The plugin API package: every plugin's bundler marks it external and the
-# running app supplies it (`require("obsidian")` in main.js), so none of it is
-# in the asset. Often pinned to a git ref the npm registry cannot answer.
+# running app supplies it (`require("obsidian")` in main.js); the npm package
+# ships type declarations only, so none of it can be in the asset. Often pinned
+# to a git ref the npm registry cannot answer.
 HOST_PROVIDED = {"obsidian"}
+# Libraries the app also supplies, subtracted only where the lockfile pins
+# them to the app's own sources. Measured 2026-11-27 across the sixteen
+# lockfiles: `obsidian` resolves to registry.npmjs.org or to
+# git+ssh://git@github.com/obsidianmd/obsidian-api.git#<sha>;
+# `@codemirror/language` to git+ssh://git@github.com/lishid/cm-language.git#<sha>
+# (Obsidian's fork) in dataview and obsidian-icon-folder; every other
+# `@codemirror/*` to registry.npmjs.org, which is upstream CodeMirror a plugin
+# could inline as well as the app supplies it; `electron` in none.
+APP_SUPPLIED = re.compile(r"^(@codemirror/[^/]+|electron)$")
+APP_SOURCES = re.compile(r"github\.com[:/](obsidianmd|lishid)/")
 COPYLEFT_BANNER = re.compile(
     r"GNU (?:Lesser |Library |Affero )?General Public License"
     r"|Mozilla Public License|European Union Public Licen[cs]e"
@@ -129,9 +173,8 @@ def _term(tokens: list[str]) -> tuple[bool | None, list[str]]:
 
 def copyleft_banner(main_js: bytes) -> str | None:
     """The first copyleft licence banner bundled code left in main.js, or None.
-    package.json's dependencies are not all that a bundler inlines
-    (devDependencies and transitive packages are too), so the asset itself is
-    read as well."""
+    It demotes and does not enumerate: code a lockfile does not name is
+    caught here only if it kept its banner."""
     match = COPYLEFT_BANNER.search(main_js.decode("utf-8", errors="replace"))
     return match.group(0) if match else None
 
@@ -233,59 +276,358 @@ def _spdx_from_text(text: str) -> str | None:
     return None
 
 
-def _locked_versions(repo: str, commit: str) -> dict[str, str]:
-    """name -> version from package-lock.json at the commit (v1, v2 or v3); empty without one."""
-    try:
-        lock = _json(
-            f"https://raw.githubusercontent.com/{repo}/{commit}/package-lock.json"
+# Read in this order; a stale one is skipped. Yarn 2+ and pnpm before
+# lockfileVersion 9 are refused, not read.
+LOCKFILES = ("package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml")
+
+
+_NAME_CHAR = re.compile(r"[A-Za-z0-9_-]+")
+
+
+class Locked(NamedTuple):
+    """One package a lockfile installs: production when the plugin's runtime
+    dependencies reach it, otherwise dev-only."""
+
+    name: str
+    version: str
+    production: bool
+    resolved: str
+
+
+def is_host_provided(package: Locked) -> bool:
+    """The HOST_PROVIDED subtraction: `obsidian` always, an APP_SUPPLIED name
+    only when the lockfile pins it to APP_SOURCES."""
+    if package.name in HOST_PROVIDED:
+        return True
+    return bool(
+        APP_SUPPLIED.match(package.name) and APP_SOURCES.search(package.resolved)
+    )
+
+
+def in_bundle(name: str, main_js: str, tokens: set[str] | None = None) -> bool:
+    """The name occurs in main.js as a whole package name: not continued by a
+    letter, digit, `_` or `-` on either side. A require or import path
+    (`"jszip"`, `node_modules/jszip/lib`), a minified `e("pako")` and a comment
+    all count; so does an unrelated word that happens to be the name, which
+    over-attributes and never misses a spelled-out name. Case-sensitive, as
+    npm names are. `tokens`, main.js's maximal runs of those characters, is
+    the same test for a name made only of them."""
+    if tokens is not None and _NAME_CHAR.fullmatch(name):
+        return name in tokens
+    start = main_js.find(name)
+    while start != -1:
+        before, after = main_js[start - 1 : start], main_js[start + len(name) :][:1]
+        if not (start and _NAME_CHAR.match(before)) and not _NAME_CHAR.match(after):
+            return True
+        start = main_js.find(name, start + 1)
+    return False
+
+
+def npm_lock(lock: dict) -> list[Locked]:
+    """package-lock.json or npm-shrinkwrap.json, lockfileVersion 1, 2 or 3. npm
+    marks a package reached only through devDependencies `dev`; every other
+    entry (optional, peer, devOptional) is production."""
+    out = []
+    for key, entry in (lock.get("packages") or {}).items():
+        if "node_modules/" not in key or entry.get("link"):
+            continue  # the root project, a workspace or a link to one
+        name = entry.get("name") or key.rsplit("node_modules/", 1)[1]
+        out.append(
+            Locked(
+                name,
+                str(entry.get("version", "")),
+                not entry.get("dev"),
+                str(entry.get("resolved", "")),
+            )
         )
-    except urllib.error.HTTPError:
-        return {}
-    out = {
-        key.removeprefix("node_modules/"): entry["version"]
-        for key, entry in (lock.get("packages") or {}).items()
-        if key.startswith("node_modules/")
-        and "/node_modules/" not in key
-        and "version" in entry
-    }
-    for name, entry in (lock.get("dependencies") or {}).items():
-        out.setdefault(name, entry.get("version", ""))
+    if out or "packages" in lock:
+        return out
+
+    def walk(dependencies: dict) -> None:  # lockfileVersion 1 nests its tree
+        for name, entry in dependencies.items():
+            out.append(
+                Locked(
+                    name,
+                    str(entry.get("version", "")),
+                    not entry.get("dev"),
+                    str(entry.get("resolved", "")),
+                )
+            )
+            walk(entry.get("dependencies") or {})
+
+    walk(lock.get("dependencies") or {})
     return out
 
 
-def bundled_dependencies(repo: str, commit: str) -> list[dict]:
-    """Every runtime dependency of package.json at the commit, with the licence
-    the npm registry records for the version package-lock.json resolves (or the
-    range's floor when there is no lockfile). A version the registry cannot
-    answer is recorded with licence None, which demotes. HOST_PROVIDED
-    packages are not bundled and are skipped."""
-    try:
-        package = _json(
-            f"https://raw.githubusercontent.com/{repo}/{commit}/package.json"
-        )
-    except urllib.error.HTTPError:  # no package.json: no declared dependencies
-        return []
-    locked = _locked_versions(repo, commit)
-    out = []
-    for name, spec in sorted((package.get("dependencies") or {}).items()):
-        if name in HOST_PROVIDED:
+def yarn_lock(text: str, package: dict) -> list[Locked]:
+    """yarn.lock v1, which records no dev flag: production is the closure of
+    package.json's dependencies and optionalDependencies through each entry's
+    dependencies, and every other entry is dev-only. Yarn 2+ (`__metadata`)
+    is refused rather than misread."""
+    if "__metadata:" in text:
+        raise SystemExit("yarn.lock is Yarn 2+, which this script does not read")
+    entries: dict[str, dict] = {}
+    current: dict = {}
+    section = False
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
             continue
-        floor = re.sub(r"^[\^~>=<\s]+", "", str(spec)).split(" ")[0] or "latest"
-        version = locked.get(name) or floor
+        if not line.startswith(" "):
+            current = {"version": "", "resolved": "", "dependencies": {}}
+            for spec in line.rstrip(":").split(","):
+                entries[spec.strip().strip('"')] = current
+            section = False
+        elif line.startswith("    ") and section:
+            name, _, spec = line.strip().partition(" ")
+            current["dependencies"][name.strip('"')] = spec.strip('"')
+        else:
+            key, _, value = line.strip().partition(" ")
+            section = key in ("dependencies:", "optionalDependencies:")
+            if key in ("version", "resolved"):
+                current[key] = value.strip('"')
+
+    def spec_name(spec: str) -> str:
+        return spec[: spec.index("@", 1)]
+
+    production: set[int] = set()
+    queue = [
+        f"{name}@{spec}"
+        for field in ("dependencies", "optionalDependencies")
+        for name, spec in (package.get(field) or {}).items()
+    ]
+    while queue:
+        entry = entries.get(queue.pop())
+        if entry is None or id(entry) in production:
+            continue
+        production.add(id(entry))
+        queue.extend(f"{n}@{s}" for n, s in entry["dependencies"].items())
+    out, seen = [], set()
+    for spec, entry in entries.items():
+        if id(entry) not in seen:
+            seen.add(id(entry))
+            out.append(
+                Locked(
+                    spec_name(spec),
+                    entry["version"],
+                    id(entry) in production,
+                    entry["resolved"],
+                )
+            )
+    return out
+
+
+def pnpm_lock(text: str, package: dict) -> list[Locked] | None:
+    """pnpm-lock.yaml lockfileVersion 9, read line by line (stdlib only):
+    production is the closure of the root importer's dependencies and
+    optionalDependencies through `snapshots`, every other snapshot dev-only.
+    A version keeps pnpm's spelling minus the `(peer)` suffix; a git or URL
+    version is also `resolved`. None when the root importer names other
+    dependencies than package.json (stale). Another lockfileVersion is
+    refused rather than misread."""
+    if not re.search(r"^lockfileVersion: '?9\.", text, re.MULTILINE):
+        raise SystemExit("pnpm-lock.yaml is not lockfileVersion 9")
+    root: dict[str, dict[str, str]] = {}
+    snapshots: dict[str, dict[str, str]] = {}
+    section = field = name = key = ""
+
+    def unquote(value: str) -> str:
+        return value.strip().strip("'\"")
+
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        head, _, value = line.strip().partition(": ")
+        head = unquote(head.rstrip(":"))
+        if indent == 0:
+            section = head
+        elif section == "importers":
+            if indent == 2:
+                key = head
+            elif key == "." and indent == 4:
+                field = head
+                root.setdefault(field, {})
+            elif key == "." and indent == 6:
+                name = head
+            elif key == "." and indent == 8 and head == "version":
+                root[field][name] = unquote(value)
+        elif section == "snapshots":
+            if indent == 2:
+                key = head
+                snapshots[key] = {}
+            elif indent == 4:
+                field = head
+            elif indent == 6 and field in ("dependencies", "optionalDependencies"):
+                snapshots[key][head] = unquote(value)
+    if any(set(root.get(f) or {}) != set(package.get(f) or {}) for f in _FIELDS):
+        return None
+    production: set[str] = set()
+    queue = [
+        f"{n}@{v}"
+        for f in ("dependencies", "optionalDependencies")
+        for n, v in (root.get(f) or {}).items()
+    ]
+    while queue:
+        key = queue.pop()
+        if key in production or key not in snapshots:
+            continue
+        production.add(key)
+        queue.extend(f"{n}@{v}" for n, v in snapshots[key].items())
+    out = []
+    for key in snapshots:
+        name, version = key[: key.index("@", 1)], key[key.index("@", 1) + 1 :]
+        version = version.split("(", 1)[0]
+        resolved = version if "/" in version else ""
+        out.append(Locked(name, version, key in production, resolved))
+    return out
+
+
+def _floor(spec: object) -> str:
+    """The lowest version a range admits, as the registry spells versions:
+    the first `||` alternative, operators dropped, `x`/`*` parts as 0, padded
+    to three parts. A git or URL spec passes through (the registry refuses it)."""
+    first = str(spec).split("||")[0].strip()
+    floor = re.sub(r"^[\^~>=<v\s]+", "", first).split(" ")[0]
+    if floor in ("", "*", "x", "X"):
+        return "latest"
+    if not re.fullmatch(r"[\dxX*]+(\.[\dxX*]+){0,2}", floor):
+        return floor
+    parts = [re.sub(r"[xX*]", "0", part) for part in floor.split(".")]
+    return ".".join([*parts, "0", "0"][:3])
+
+
+def _registry(name: str, version: str) -> dict | None:
+    try:
+        metadata = _json(f"https://registry.npmjs.org/{name}/{version}")
+    except (urllib.error.HTTPError, ValueError):
+        return None
+    return metadata if isinstance(metadata, dict) else None
+
+
+def unlocked(package: dict) -> list[Locked]:
+    """No lockfile at the commit: nothing records what the release build
+    installed, so the closure is walked through registry.npmjs.org, each range
+    at its floor. The names over-attribute (a floor can require more than the
+    build's version did); a version is the floor's, not the build's. The
+    package.json spec stands in for `resolved`, so a git or URL pin is still
+    what is_host_provided reads; the registry cannot answer one, which
+    demotes unless the package is subtracted."""
+    out: list[Locked] = []
+    seen: set[tuple[str, str]] = set()
+
+    def walk(dependencies: dict, production: bool) -> None:
+        for name, spec in sorted(dependencies.items()):
+            version = _floor(spec)
+            if (name, version) in seen:
+                continue
+            seen.add((name, version))
+            out.append(Locked(name, version, production, str(spec)))
+            if production and name not in HOST_PROVIDED:
+                walk((_registry(name, version) or {}).get("dependencies") or {}, True)
+
+    walk(
+        {
+            **(package.get("dependencies") or {}),
+            **(package.get("optionalDependencies") or {}),
+        },
+        True,
+    )
+    walk(package.get("devDependencies") or {}, False)
+    return out
+
+
+_FIELDS = ("dependencies", "devDependencies", "optionalDependencies")
+
+
+def stale(lock: dict, package: dict) -> bool:
+    """An npm lockfile (v2, v3) whose root record names other dependencies
+    than package.json does, in any of _FIELDS: it describes an earlier tree,
+    not the build at the commit. Its root `version` is not compared, as it
+    routinely lags (measured 2026-11-27: seven of eleven lockfiles)."""
+    root = (lock.get("packages") or {}).get("")
+    return root is not None and any(
+        set(root.get(field) or {}) != set(package.get(field) or {}) for field in _FIELDS
+    )
+
+
+def installed(repo: str, commit: str) -> tuple[str, dict, list[Locked]]:
+    """(how the packages were read, package.json, every package installed).
+    The first of LOCKFILES that is present and not stale is read; with none,
+    the registry walk (unlocked). No package.json: no packages."""
+    raw = f"https://raw.githubusercontent.com/{repo}/{commit}/"
+    try:
+        package = _json(f"{raw}package.json")
+    except urllib.error.HTTPError:
+        return "no package.json at the commit, so no package", {}, []
+    refused = []
+    for name in LOCKFILES:
         try:
-            metadata = _json(f"https://registry.npmjs.org/{name}/{version}")
-            licence = metadata.get("license")
-            if isinstance(licence, dict):
-                licence = licence.get("type")
-            version = metadata.get("version", version)
-        except (urllib.error.HTTPError, ValueError):
-            licence = None
+            body = _get(f"{raw}{name}")
+        except urllib.error.HTTPError:
+            continue
+        closure = f"the production closure of {name} at the commit"
+        if name == "yarn.lock":
+            return closure, package, yarn_lock(body.decode("utf-8"), package)
+        if name == "pnpm-lock.yaml":
+            pnpm = pnpm_lock(body.decode("utf-8"), package)
+            if pnpm is None:
+                refused.append(name)
+                continue
+            return closure, package, pnpm
+        lock = json.loads(body.decode("utf-8"))
+        if stale(lock, package):
+            refused.append(name)
+            continue
+        return closure, package, npm_lock(lock)
+    why = (
+        f"{' and '.join(refused)} names other dependencies than package.json"
+        if refused
+        else "no lockfile this script reads at the commit"
+    )
+    walk = (
+        f"{why}, so the production closure of package.json walked through "
+        "registry.npmjs.org at each range's floor"
+    )
+    return walk, package, unlocked(package)
+
+
+def enumerate_bundled(
+    packages: list[Locked], package: dict, main_js: str | None
+) -> list[Locked]:
+    """R50: the production closure, plus every package.json devDependency
+    whose name in_bundle finds in main.js (each version the lockfile installs),
+    less is_host_provided. Without main.js (a plugin already demoted by its own
+    licence) only the closure is listed."""
+    tokens = set(_NAME_CHAR.findall(main_js)) if main_js is not None else set()
+    dev = {
+        name
+        for name in package.get("devDependencies") or {}
+        if main_js is not None and in_bundle(name, main_js, tokens)
+    }
+    picked = {
+        (p.name, p.version): p
+        for p in packages
+        if not is_host_provided(p) and (p.production or p.name in dev)
+    }
+    return [picked[key] for key in sorted(picked)]
+
+
+def licensed(packages: list[Locked]) -> list[dict]:
+    """Each package with the licence registry.npmjs.org records for its
+    version. A version the registry cannot answer is recorded with licence
+    None, which demotes."""
+    out = []
+    for package in packages:
+        metadata = _registry(package.name, package.version or "latest")
+        licence = (metadata or {}).get("license")
+        if isinstance(licence, dict):
+            licence = licence.get("type")
         out.append(
             {
-                "name": name,
-                "version": version,
+                "name": package.name,
+                "version": (metadata or {}).get("version", package.version),
                 "licence": licence,
-                "url": f"https://www.npmjs.com/package/{name}",
+                "url": f"https://www.npmjs.com/package/{package.name}",
             }
         )
     return out
@@ -297,10 +639,11 @@ def write_plugin(
     repo = resolve_repo(plugin_id, registry)
     commit = commit_for(repo, tag)
     spdx, licence_bytes, holder = licence_at(repo, commit)
-    bundled = bundled_dependencies(repo, commit)
-    decision = verdict(spdx, bundled, holder=holder)
+    closure, package, packages = installed(repo, commit)
+    decision = verdict(spdx, [], holder=holder)
     downloaded: dict[str, bytes] = {}
     banner = None
+    main_js = None
     if decision == "seeded":
         urls = {
             a["name"]: a["browser_download_url"] for a in release(repo, tag)["assets"]
@@ -316,9 +659,15 @@ def write_plugin(
                 f"{plugin_id}: manifest version {manifest.get('version')!r} "
                 f"(id {manifest.get('id')!r}) is not the tag {tag!r}"
             )
+        main_js = downloaded["main.js"].decode("utf-8", errors="replace")
+    bundled = licensed(enumerate_bundled(packages, package, main_js))
+    decision = verdict(spdx, bundled, holder=holder)
+    if decision == "seeded":
         banner = copyleft_banner(downloaded["main.js"])
         if banner:
-            decision, downloaded = "recommended", {}
+            decision = "recommended"
+    if decision != "seeded":
+        downloaded = {}
     source = {
         "repo": repo,
         "tag": tag,
@@ -334,14 +683,18 @@ def write_plugin(
         "redistributable": decision == "seeded",
         "measured": today or datetime.datetime.now(datetime.UTC).date().isoformat(),
         "method": (
-            "LICENSE at the tag's commit (SPDX read from its text); package.json "
-            "dependencies at the commit, at package-lock.json's version or the range's "
-            "floor, resolved against registry.npmjs.org; the assets are the GitHub "
-            "release artifacts at the tag"
+            "LICENSE at the tag's commit (SPDX read from its text); bundled is "
+            f"{closure}, plus each package.json devDependency whose name occurs "
+            "in main.js, less obsidian and any @codemirror/* or electron pinned "
+            "to a GitHub ref under obsidianmd/ or lishid/, each licence read from "
+            "registry.npmjs.org at its version; main.js scanned for a copyleft "
+            "licence banner, none found; the assets are the GitHub release "
+            "artifacts at the tag"
             if decision == "seeded"
             else f"demoted to recommended: licence {spdx!r}, holder {holder!r}, "
-            f"bundled {[(d['name'], d['licence']) for d in bundled]}, "
+            f"bundled {[(d['name'], d['licence']) for d in bundled]} from {closure}, "
             f"main.js banner {banner!r}"
+            + ("" if main_js is not None else " (main.js not fetched)")
         ),
     }
     folder = PLUGINS / plugin_id
@@ -359,7 +712,7 @@ def write_plugin(
                 f"{d['name']} {d['version']}\nLicence: {d['licence']}\n{d['url']}"
                 for d in bundled
             )
-            or "No bundled third-party dependencies declared at the pin."
+            or "No bundled third-party package found at the pin."
         )
         (folder / "THIRD-PARTY-NOTICES").write_text(notices + "\n", encoding="utf-8")
     (folder / "SOURCE.json").write_text(

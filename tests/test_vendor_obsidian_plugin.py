@@ -183,7 +183,8 @@ def test_pyproject_license_expression_names_every_vendored_licence():
         for p in _seeded()
     }
     # The bundled code ships inside main.js, so its licences ride too; an
-    # `A OR B` choice is covered when the expression names one side.
+    # `A OR B` choice is covered when the expression names one side, an
+    # `A AND B` side when it names both.
     bundled = {
         dep["licence"]
         for p in _seeded()
@@ -193,7 +194,8 @@ def test_pyproject_license_expression_names_every_vendored_licence():
     }
     for licence in licences | bundled | {"MIT"}:
         choices = licence.strip("()").split(" OR ")
-        assert any(choice in expression.split(" AND ") for choice in choices), licence
+        named = set(expression.split(" AND "))
+        assert any(set(choice.split(" AND ")) <= named for choice in choices), licence
     files = pyproject["project"]["license-files"]
     assert "research_vault/templates/obsidian/plugins/*/LICENSE" in files
     assert "research_vault/templates/obsidian/plugins/*/THIRD-PARTY-NOTICES" in files
@@ -215,7 +217,10 @@ def _web(
     *,
     licence=_MIT,
     dependencies=None,
+    dev_dependencies=None,
     lock=None,
+    yarn=None,
+    main_js=b"console.log('x')\n",
     styles=True,
     version="1.2.0",
     npm=None,
@@ -223,7 +228,7 @@ def _web(
     api = "https://api.github.com/repos/" + _REPO
     raw = f"https://raw.githubusercontent.com/{_REPO}/{_COMMIT}/"
     assets = {
-        "main.js": b"console.log('x')\n",
+        "main.js": main_js,
         "manifest.json": json.dumps(
             {"id": "sample-plugin", "version": version}
         ).encode(),
@@ -249,7 +254,12 @@ def _web(
             }
         ).encode(),
         f"{raw}LICENSE": licence,
-        f"{raw}package.json": json.dumps({"dependencies": dependencies or {}}).encode(),
+        f"{raw}package.json": json.dumps(
+            {
+                "dependencies": dependencies or {},
+                "devDependencies": dev_dependencies or {},
+            }
+        ).encode(),
         f"{api}/releases/tags/1.2.0": json.dumps(
             {
                 "assets": [
@@ -261,6 +271,8 @@ def _web(
     }
     if lock is not None:
         pages[f"{raw}package-lock.json"] = json.dumps(lock).encode()
+    if yarn is not None:
+        pages[f"{raw}yarn.lock"] = yarn.encode()
     for name, body in assets.items():
         pages[f"https://dl/{name}"] = body
     for url, body in (npm or {}).items():
@@ -382,3 +394,333 @@ def test_write_plugin_refuses_a_manifest_off_the_tag_and_writes_nothing(fake):
     with pytest.raises(SystemExit, match="manifest version"):
         vendor.write_plugin("sample-plugin", "1.2.0", registry="registry")
     assert not folder.exists() or not any(folder.iterdir())
+
+
+def _names(folder):
+    source = json.loads((folder / "SOURCE.json").read_text())
+    return [(d["name"], d["version"]) for d in source["bundled"]]
+
+
+def _mit(*specs):
+    return {s: {"version": s.split("/")[-1], "license": "MIT"} for s in specs}
+
+
+def test_bundled_is_the_lockfiles_transitive_production_closure(fake):
+    # jszip's pako is two levels down and nested at a second version; npm marks
+    # the dev-only tree `dev`, which stays out.
+    pages, _ = _web(
+        dependencies={"jszip": "^3.10.1"},
+        dev_dependencies={"jest": "^29"},
+        lock={
+            "lockfileVersion": 3,
+            "packages": {
+                "": {
+                    "name": "sample-plugin",
+                    "dependencies": {"jszip": "^3.10.1"},
+                    "devDependencies": {"jest": "^29"},
+                },
+                "node_modules/jszip": {"version": "3.10.1"},
+                "node_modules/lie": {"version": "3.3.0"},
+                "node_modules/pako": {"version": "1.0.11"},
+                "node_modules/lie/node_modules/pako": {"version": "2.1.0"},
+                "node_modules/jest": {"version": "29.7.0", "dev": True},
+                "node_modules/ms": {"version": "2.1.3", "dev": True},
+                "node_modules/fsevents": {"version": "2.3.3", "devOptional": True},
+            },
+        },
+        npm=_mit(
+            "jszip/3.10.1", "lie/3.3.0", "pako/1.0.11", "pako/2.1.0", "fsevents/2.3.3"
+        ),
+    )
+    folder = fake(pages)
+    assert vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == (
+        "seeded"
+    )
+    assert _names(folder) == [
+        ("fsevents", "2.3.3"),
+        ("jszip", "3.10.1"),
+        ("lie", "3.3.0"),
+        ("pako", "1.0.11"),
+        ("pako", "2.1.0"),
+    ]
+    notices = (folder / "THIRD-PARTY-NOTICES").read_text()
+    assert "pako 1.0.11" in notices
+    assert "jest" not in notices
+    method = json.loads((folder / "SOURCE.json").read_text())["method"]
+    assert "production closure of package-lock.json" in method
+    assert "main.js scanned for a copyleft licence banner" in method
+
+
+def test_yarn_v1_closure_follows_entries_and_v1_npm_nests():
+    yarn = (
+        "# yarn lockfile v1\n\n"
+        '"handlebars@^4.7.6":\n  version "4.7.8"\n'
+        '  resolved "https://registry.yarnpkg.com/handlebars/-/h.tgz"\n'
+        '  dependencies:\n    source-map "^0.6.1"\n'
+        '    "@x/y" "1"\n\n'
+        'source-map@^0.6.1, source-map@~0.6.0:\n  version "0.6.1"\n\n'
+        '"@x/y@1":\n  version "1.0.0"\n\n'
+        'jest@^29:\n  version "29.7.0"\n'
+    )
+    package = {"dependencies": {"handlebars": "^4.7.6"}, "devDependencies": {}}
+    locked = {
+        (p.name, p.version, p.production) for p in vendor.yarn_lock(yarn, package)
+    }
+    assert locked == {
+        ("handlebars", "4.7.8", True),
+        ("source-map", "0.6.1", True),
+        ("@x/y", "1.0.0", True),
+        ("jest", "29.7.0", False),
+    }
+    v1 = {
+        "lockfileVersion": 1,
+        "dependencies": {
+            "a": {"version": "1.0.0", "dependencies": {"b": {"version": "2.0.0"}}},
+            "c": {"version": "3.0.0", "dev": True},
+        },
+    }
+    assert {(p.name, p.production) for p in vendor.npm_lock(v1)} == {
+        ("a", True),
+        ("b", True),
+        ("c", False),
+    }
+    with pytest.raises(SystemExit, match="Yarn 2"):
+        vendor.yarn_lock("__metadata:\n  version: 6\n", package)
+
+
+def test_a_dev_dependency_named_in_main_js_is_bundled(fake):
+    pages, _ = _web(
+        dev_dependencies={"moment": "^2", "tslib": "^2", "ms": "^2", "rollup": "^4"},
+        main_js=b'var m = require("moment");\n// items, msg, 100ms\n'
+        b"/* rollup's commonjs helpers */\n",
+        lock={
+            "packages": {
+                "node_modules/moment": {"version": "2.29.4", "dev": True},
+                "node_modules/tslib": {"version": "2.8.1", "dev": True},
+                "node_modules/ms": {"version": "2.1.3", "dev": True},
+                "node_modules/rollup": {"version": "4.0.0", "dev": True},
+            }
+        },
+        npm=_mit("moment/2.29.4", "rollup/4.0.0"),
+    )
+    folder = fake(pages)
+    assert vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == (
+        "seeded"
+    )
+    assert _names(folder) == [("moment", "2.29.4"), ("rollup", "4.0.0")]
+
+
+@pytest.mark.parametrize(
+    ("name", "text", "present"),
+    [
+        ("pako", 'i=e("pako"),s=e("./utils")', True),
+        ("pako", "this._pakoAction=e", False),
+        ("jszip", "node_modules/jszip/lib/index.js", True),
+        ("lodash.merge", "// lodash.merge 4.6.2", True),
+        ("lodash", "lodash.merge", True),
+        ("@codemirror/view", 'require("@codemirror/view")', True),
+        ("ms", "100ms items", False),
+        ("Moment", "moment", False),
+    ],
+)
+def test_in_bundle_matches_a_whole_name_case_sensitively(name, text, present):
+    tokens = set(vendor._NAME_CHAR.findall(text))
+    assert vendor.in_bundle(name, text) is present
+    assert vendor.in_bundle(name, text, tokens) is present
+
+
+def test_host_provided_subtracts_obsidian_and_app_sourced_codemirror(fake):
+    lishid = "git+ssh://git@github.com/lishid/cm-language.git#1aadcc2"
+    pages, _ = _web(
+        dependencies={
+            "obsidian": "^1.4.0",
+            "@codemirror/language": "https://github.com/lishid/cm-language",
+            "@codemirror/state": "^6.0.1",
+            "electron": "^30",
+        },
+        lock={
+            "packages": {
+                "node_modules/obsidian": {
+                    "version": "1.4.11",
+                    "resolved": "https://registry.npmjs.org/obsidian/-/obsidian-1.4.11.tgz",
+                },
+                "node_modules/@codemirror/language": {
+                    "version": "6.6.0",
+                    "resolved": lishid,
+                },
+                "node_modules/@codemirror/state": {
+                    "version": "6.2.1",
+                    "resolved": "https://registry.npmjs.org/@codemirror/state/-/state-6.2.1.tgz",
+                },
+                "node_modules/electron": {
+                    "version": "30.0.0",
+                    "resolved": "https://registry.npmjs.org/electron/-/electron-30.0.0.tgz",
+                },
+            }
+        },
+        npm={
+            "@codemirror/state/6.2.1": {"version": "6.2.1", "license": "MIT"},
+            "electron/30.0.0": {"version": "30.0.0", "license": "MIT"},
+        },
+    )
+    folder = fake(pages)
+    assert vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == (
+        "seeded"
+    )
+    # Upstream CodeMirror and electron from the registry are not the app's own
+    # sources, so they stay listed: the error is over-attribution.
+    assert _names(folder) == [("@codemirror/state", "6.2.1"), ("electron", "30.0.0")]
+    assert (
+        vendor.is_host_provided(
+            vendor.Locked("electron", "1", True, "github:obsidianmd/electron")
+        )
+        is False
+    )  # `github:` shorthand is no URL; only a github.com ref is read
+    assert vendor.is_host_provided(
+        vendor.Locked("electron", "1", True, "git+https://github.com/obsidianmd/x.git")
+    )
+    assert not vendor.is_host_provided(
+        vendor.Locked("@lezer/lr", "1", True, lishid)
+    )  # not an app-supplied name
+
+
+def test_without_a_lockfile_the_closure_walks_the_registry_at_range_floors(fake):
+    pages, _ = _web(
+        dependencies={"chart.js": "^4.3.0"},
+        dev_dependencies={
+            "@codemirror/language": "https://github.com/lishid/cm-language",
+            "@codemirror/view": "^6.4.0",
+            "typescript": "^5",
+        },
+        main_js=b'require("@codemirror/language");require("@codemirror/view")\n',
+        npm={
+            "chart.js/4.3.0": {
+                "version": "4.3.0",
+                "license": "MIT",
+                "dependencies": {"@kurkle/color": "^0.3.0"},
+            },
+            "@kurkle/color/0.3.0": {"version": "0.3.0", "license": "MIT"},
+            "@codemirror/view/6.4.0": {"version": "6.4.0", "license": "MIT"},
+        },
+    )
+    folder = fake(pages)
+    assert vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == (
+        "seeded"
+    )
+    assert _names(folder) == [
+        ("@codemirror/view", "6.4.0"),
+        ("@kurkle/color", "0.3.0"),
+        ("chart.js", "4.3.0"),
+    ]
+    method = json.loads((folder / "SOURCE.json").read_text())["method"]
+    assert "no lockfile this script reads at the commit" in method
+
+
+def test_without_a_package_json_nothing_is_bundled(fake):
+    pages, _ = _web()
+    del pages[f"https://raw.githubusercontent.com/{_REPO}/{_COMMIT}/package.json"]
+    folder = fake(pages)
+    assert vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == (
+        "seeded"
+    )
+    assert _names(folder) == []
+    assert (
+        "No bundled third-party package" in (folder / "THIRD-PARTY-NOTICES").read_text()
+    )
+    method = json.loads((folder / "SOURCE.json").read_text())["method"]
+    assert "no package.json at the commit" in method
+
+
+def test_a_stale_lockfile_is_refused_for_the_registry_walk(fake):
+    # The lockfile's root still lists a runtime dependency package.json moved
+    # to dev: it describes an earlier tree, whose babel would be "production".
+    pages, _ = _web(
+        dependencies={"jszip": "^3.10.1"},
+        dev_dependencies={"@rollup/plugin-babel": "^6"},
+        lock={
+            "lockfileVersion": 2,
+            "packages": {
+                "": {
+                    "version": "0.0.1",
+                    "dependencies": {"jszip": "^3.10.1", "@rollup/plugin-babel": "^6"},
+                },
+                "node_modules/jszip": {"version": "3.10.1"},
+                "node_modules/@rollup/plugin-babel": {"version": "6.0.4"},
+                "node_modules/caniuse-lite": {"version": "1.0.3"},
+            },
+        },
+        npm={
+            "jszip/3.10.1": {
+                "version": "3.10.1",
+                "license": "(MIT OR GPL-3.0-or-later)",
+                "dependencies": {"pako": "~1.0.2"},
+            },
+            "pako/1.0.2": {"version": "1.0.2", "license": "(MIT AND Zlib)"},
+        },
+    )
+    folder = fake(pages)
+    assert vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == (
+        "seeded"
+    )
+    assert _names(folder) == [("jszip", "3.10.1"), ("pako", "1.0.2")]
+    method = json.loads((folder / "SOURCE.json").read_text())["method"]
+    assert "package-lock.json names other dependencies than package.json" in method
+    assert not vendor.stale({"packages": {"": {"version": "9"}}}, {"version": "1"})
+
+
+def test_pnpm_v9_closure_follows_snapshots_and_refuses_a_stale_root():
+    pnpm = (
+        "lockfileVersion: '9.0'\n\nimporters:\n\n  .:\n    dependencies:\n"
+        "      jszip:\n        specifier: ^3.10.1\n        version: 3.10.1\n"
+        "    devDependencies:\n      '@codemirror/language':\n"
+        "        specifier: https://github.com/lishid/cm-language\n"
+        "        version: https://codeload.github.com/lishid/cm-language/tar.gz/cc6a\n"
+        "\npackages:\n\n  jszip@3.10.1:\n    resolution: {integrity: x}\n"
+        "\nsnapshots:\n\n  jszip@3.10.1:\n    dependencies:\n      pako: 1.0.11\n"
+        "      lie: 3.3.0(peer@1.0.0)\n\n  lie@3.3.0(peer@1.0.0): {}\n\n"
+        "  pako@1.0.11: {}\n\n"
+        "  '@codemirror/language@https://codeload.github.com/lishid/cm-language/tar.gz/cc6a':\n"
+        "    dependencies:\n      '@lezer/lr': 1.4.0\n\n  '@lezer/lr@1.4.0': {}\n"
+    )
+    package = {
+        "dependencies": {"jszip": "^3.10.1"},
+        "devDependencies": {"@codemirror/language": "x"},
+    }
+    locked = vendor.pnpm_lock(pnpm, package)
+    assert locked is not None
+    assert {(p.name, p.version, p.production) for p in locked} == {
+        ("jszip", "3.10.1", True),
+        ("pako", "1.0.11", True),
+        ("lie", "3.3.0", True),
+        (
+            "@codemirror/language",
+            "https://codeload.github.com/lishid/cm-language/tar.gz/cc6a",
+            False,
+        ),
+        ("@lezer/lr", "1.4.0", False),
+    }
+    language = next(p for p in locked if p.name == "@codemirror/language")
+    assert vendor.is_host_provided(language)
+    assert vendor.pnpm_lock(pnpm, {"dependencies": {"other": "1"}}) is None
+    with pytest.raises(SystemExit, match="lockfileVersion 9"):
+        vendor.pnpm_lock("lockfileVersion: '6.0'\n", package)
+
+
+@pytest.mark.parametrize(
+    ("spec", "floor"),
+    [
+        ("^2.11.2", "2.11.2"),
+        ("0.10.x", "0.10.0"),
+        ("~0.6", "0.6.0"),
+        ("^1 || ^2", "1.0.0"),
+        (">=1.2 <2", "1.2.0"),
+        ("*", "latest"),
+        ("2.0.0-beta.1", "2.0.0-beta.1"),
+        (
+            "https://github.com/lishid/cm-language",
+            "https://github.com/lishid/cm-language",
+        ),
+    ],
+)
+def test_floor_is_a_registry_version(spec, floor):
+    assert vendor._floor(spec) == floor

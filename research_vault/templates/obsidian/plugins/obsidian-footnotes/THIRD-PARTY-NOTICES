@@ -1,1 +1,3 @@
-No bundled third-party dependencies declared at the pin.
+@codemirror/view 6.38.6
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/view

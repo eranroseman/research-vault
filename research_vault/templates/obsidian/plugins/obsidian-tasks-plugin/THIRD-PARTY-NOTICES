@@ -1,6 +1,22 @@
+@babel/runtime 7.27.6
+Licence: MIT
+https://www.npmjs.com/package/@babel/runtime
+
+@codemirror/view 6.2.0
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/view
+
+@floating-ui/core 1.7.5
+Licence: MIT
+https://www.npmjs.com/package/@floating-ui/core
+
 @floating-ui/dom 1.7.6
 Licence: MIT
 https://www.npmjs.com/package/@floating-ui/dom
+
+@floating-ui/utils 0.2.11
+Licence: MIT
+https://www.npmjs.com/package/@floating-ui/utils
 
 boon-js 2.0.5
 Licence: MIT
@@ -10,7 +26,11 @@ chrono-node 2.3.9
 Licence: MIT
 https://www.npmjs.com/package/chrono-node
 
-eventemitter2 6.4.5
+dayjs 1.10.7
+Licence: MIT
+https://www.npmjs.com/package/dayjs
+
+eventemitter2 6.4.7
 Licence: MIT
 https://www.npmjs.com/package/eventemitter2
 
@@ -22,6 +42,10 @@ i18next 24.2.1
 Licence: MIT
 https://www.npmjs.com/package/i18next
 
+moment 2.29.4
+Licence: MIT
+https://www.npmjs.com/package/moment
+
 mustache 4.2.0
 Licence: MIT
 https://www.npmjs.com/package/mustache
@@ -30,6 +54,10 @@ mustache-validator 0.2.0
 Licence: MIT
 https://www.npmjs.com/package/mustache-validator
 
+ret 0.5.0
+Licence: MIT
+https://www.npmjs.com/package/ret
+
 rrule 2.8.1
 Licence: BSD-3-Clause
 https://www.npmjs.com/package/rrule
@@ -37,3 +65,7 @@ https://www.npmjs.com/package/rrule
 safe-regex2 5.1.1
 Licence: MIT
 https://www.npmjs.com/package/safe-regex2
+
+tslib 2.8.1
+Licence: 0BSD
+https://www.npmjs.com/package/tslib

@@ -1,3 +1,67 @@
+@codemirror/state 6.4.1
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/state
+
+@codemirror/view 6.26.0
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/view
+
+@rollup/plugin-commonjs 28.0.1
+Licence: MIT
+https://www.npmjs.com/package/@rollup/plugin-commonjs
+
+core-util-is 1.0.3
+Licence: MIT
+https://www.npmjs.com/package/core-util-is
+
+immediate 3.0.6
+Licence: MIT
+https://www.npmjs.com/package/immediate
+
+inherits 2.0.4
+Licence: ISC
+https://www.npmjs.com/package/inherits
+
+isarray 1.0.0
+Licence: MIT
+https://www.npmjs.com/package/isarray
+
 jszip 3.10.1
 Licence: (MIT OR GPL-3.0-or-later)
 https://www.npmjs.com/package/jszip
+
+lie 3.3.0
+Licence: MIT
+https://www.npmjs.com/package/lie
+
+pako 1.0.11
+Licence: (MIT AND Zlib)
+https://www.npmjs.com/package/pako
+
+process-nextick-args 2.0.1
+Licence: MIT
+https://www.npmjs.com/package/process-nextick-args
+
+readable-stream 2.3.8
+Licence: MIT
+https://www.npmjs.com/package/readable-stream
+
+rollup 4.27.4
+Licence: MIT
+https://www.npmjs.com/package/rollup
+
+safe-buffer 5.1.2
+Licence: MIT
+https://www.npmjs.com/package/safe-buffer
+
+setimmediate 1.0.5
+Licence: MIT
+https://www.npmjs.com/package/setimmediate
+
+string_decoder 1.1.1
+Licence: MIT
+https://www.npmjs.com/package/string_decoder
+
+util-deprecate 1.0.2
+Licence: MIT
+https://www.npmjs.com/package/util-deprecate

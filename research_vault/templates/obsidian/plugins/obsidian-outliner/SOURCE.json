@@ -8,9 +8,40 @@
     "styles.css": "7922a264883894e69f22c37f549744f7d46d1de926fc802aa4e94c75cd2fbceb"
   },
   "licence": "MIT",
-  "bundled": [],
+  "bundled": [
+    {
+      "name": "@codemirror/language",
+      "version": "6.12.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@codemirror/language"
+    },
+    {
+      "name": "@codemirror/state",
+      "version": "6.5.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@codemirror/state"
+    },
+    {
+      "name": "@codemirror/view",
+      "version": "6.38.6",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@codemirror/view"
+    },
+    {
+      "name": "debug",
+      "version": "4.4.3",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/debug"
+    },
+    {
+      "name": "typescript-eslint",
+      "version": "8.56.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/typescript-eslint"
+    }
+  ],
   "source": null,
   "redistributable": true,
   "measured": "2026-11-27",
-  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+  "method": "LICENSE at the tag's commit (SPDX read from its text); bundled is the production closure of package-lock.json at the commit, plus each package.json devDependency whose name occurs in main.js, less obsidian and any @codemirror/* or electron pinned to a GitHub ref under obsidianmd/ or lishid/, each licence read from registry.npmjs.org at its version; main.js scanned for a copyleft licence banner, none found; the assets are the GitHub release artifacts at the tag"
 }

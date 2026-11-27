@@ -10,10 +10,46 @@
   "licence": "MIT",
   "bundled": [
     {
+      "name": "@babel/runtime-corejs3",
+      "version": "7.12.5",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@babel/runtime-corejs3"
+    },
+    {
       "name": "@retorquere/bibtex-parser",
       "version": "3.2.30",
       "licence": "ISC",
       "url": "https://www.npmjs.com/package/@retorquere/bibtex-parser"
+    },
+    {
+      "name": "@rollup/plugin-commonjs",
+      "version": "15.1.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@rollup/plugin-commonjs"
+    },
+    {
+      "name": "anymatch",
+      "version": "3.1.1",
+      "licence": "ISC",
+      "url": "https://www.npmjs.com/package/anymatch"
+    },
+    {
+      "name": "binary-extensions",
+      "version": "2.2.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/binary-extensions"
+    },
+    {
+      "name": "braces",
+      "version": "3.0.2",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/braces"
+    },
+    {
+      "name": "chevrotain",
+      "version": "7.1.0",
+      "licence": "Apache-2.0",
+      "url": "https://www.npmjs.com/package/chevrotain"
     },
     {
       "name": "chokidar",
@@ -22,10 +58,94 @@
       "url": "https://www.npmjs.com/package/chokidar"
     },
     {
+      "name": "core-js-pure",
+      "version": "3.8.2",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/core-js-pure"
+    },
+    {
+      "name": "fill-range",
+      "version": "7.0.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/fill-range"
+    },
+    {
+      "name": "fsevents",
+      "version": "2.3.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/fsevents"
+    },
+    {
+      "name": "glob-parent",
+      "version": "5.1.1",
+      "licence": "ISC",
+      "url": "https://www.npmjs.com/package/glob-parent"
+    },
+    {
       "name": "handlebars",
       "version": "4.7.6",
       "licence": "MIT",
       "url": "https://www.npmjs.com/package/handlebars"
+    },
+    {
+      "name": "is-binary-path",
+      "version": "2.1.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/is-binary-path"
+    },
+    {
+      "name": "is-docker",
+      "version": "2.1.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/is-docker"
+    },
+    {
+      "name": "is-extglob",
+      "version": "2.1.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/is-extglob"
+    },
+    {
+      "name": "is-glob",
+      "version": "4.0.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/is-glob"
+    },
+    {
+      "name": "is-number",
+      "version": "7.0.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/is-number"
+    },
+    {
+      "name": "is-wsl",
+      "version": "2.2.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/is-wsl"
+    },
+    {
+      "name": "lodash",
+      "version": "4.17.20",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/lodash"
+    },
+    {
+      "name": "minimist",
+      "version": "1.2.5",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/minimist"
+    },
+    {
+      "name": "neo-async",
+      "version": "2.6.2",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/neo-async"
+    },
+    {
+      "name": "normalize-path",
+      "version": "3.0.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/normalize-path"
     },
     {
       "name": "open",
@@ -34,14 +154,92 @@
       "url": "https://www.npmjs.com/package/open"
     },
     {
+      "name": "picomatch",
+      "version": "2.2.2",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/picomatch"
+    },
+    {
       "name": "promise-worker",
       "version": "2.0.1",
       "licence": "Apache-2.0",
       "url": "https://www.npmjs.com/package/promise-worker"
+    },
+    {
+      "name": "readdirp",
+      "version": "3.5.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/readdirp"
+    },
+    {
+      "name": "regenerator-runtime",
+      "version": "0.13.7",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/regenerator-runtime"
+    },
+    {
+      "name": "regexp-to-ast",
+      "version": "0.5.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/regexp-to-ast"
+    },
+    {
+      "name": "rollup",
+      "version": "2.34.2",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/rollup"
+    },
+    {
+      "name": "rollup-plugin-web-worker-loader",
+      "version": "1.5.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/rollup-plugin-web-worker-loader"
+    },
+    {
+      "name": "source-map",
+      "version": "0.6.1",
+      "licence": "BSD-3-Clause",
+      "url": "https://www.npmjs.com/package/source-map"
+    },
+    {
+      "name": "to-regex-range",
+      "version": "5.0.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/to-regex-range"
+    },
+    {
+      "name": "typescript",
+      "version": "4.1.3",
+      "licence": "Apache-2.0",
+      "url": "https://www.npmjs.com/package/typescript"
+    },
+    {
+      "name": "uglify-js",
+      "version": "3.12.4",
+      "licence": "BSD-2-Clause",
+      "url": "https://www.npmjs.com/package/uglify-js"
+    },
+    {
+      "name": "unicode2latex",
+      "version": "2.1.35",
+      "licence": "ISC",
+      "url": "https://www.npmjs.com/package/unicode2latex"
+    },
+    {
+      "name": "wordwrap",
+      "version": "1.0.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/wordwrap"
+    },
+    {
+      "name": "xregexp",
+      "version": "4.4.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/xregexp"
     }
   ],
   "source": null,
   "redistributable": true,
   "measured": "2026-11-27",
-  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+  "method": "LICENSE at the tag's commit (SPDX read from its text); bundled is the production closure of package-lock.json at the commit, plus each package.json devDependency whose name occurs in main.js, less obsidian and any @codemirror/* or electron pinned to a GitHub ref under obsidianmd/ or lishid/, each licence read from registry.npmjs.org at its version; main.js scanned for a copyleft licence banner, none found; the assets are the GitHub release artifacts at the tag"
 }

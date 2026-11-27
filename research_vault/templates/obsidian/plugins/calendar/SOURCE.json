@@ -9,10 +9,40 @@
   "licence": "MIT",
   "bundled": [
     {
+      "name": "@types/codemirror",
+      "version": "0.0.108",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@types/codemirror"
+    },
+    {
+      "name": "@types/estree",
+      "version": "0.0.47",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@types/estree"
+    },
+    {
+      "name": "@types/tern",
+      "version": "0.23.3",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@types/tern"
+    },
+    {
+      "name": "moment",
+      "version": "2.29.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/moment"
+    },
+    {
       "name": "obsidian-calendar-ui",
       "version": "0.3.12",
       "licence": "MIT",
       "url": "https://www.npmjs.com/package/obsidian-calendar-ui"
+    },
+    {
+      "name": "obsidian-daily-notes-interface",
+      "version": "0.8.4",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/obsidian-daily-notes-interface"
     },
     {
       "name": "obsidian-daily-notes-interface",
@@ -31,10 +61,16 @@
       "version": "2.1.0",
       "licence": "0BSD",
       "url": "https://www.npmjs.com/package/tslib"
+    },
+    {
+      "name": "yaml",
+      "version": "2.0.0-4",
+      "licence": "ISC",
+      "url": "https://www.npmjs.com/package/yaml"
     }
   ],
   "source": null,
   "redistributable": true,
   "measured": "2026-11-27",
-  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+  "method": "LICENSE at the tag's commit (SPDX read from its text); bundled is the production closure of yarn.lock at the commit, plus each package.json devDependency whose name occurs in main.js, less obsidian and any @codemirror/* or electron pinned to a GitHub ref under obsidianmd/ or lishid/, each licence read from registry.npmjs.org at its version; main.js scanned for a copyleft licence banner, none found; the assets are the GitHub release artifacts at the tag"
 }

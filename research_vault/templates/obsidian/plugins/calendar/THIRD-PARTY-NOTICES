@@ -1,6 +1,26 @@
+@types/codemirror 0.0.108
+Licence: MIT
+https://www.npmjs.com/package/@types/codemirror
+
+@types/estree 0.0.47
+Licence: MIT
+https://www.npmjs.com/package/@types/estree
+
+@types/tern 0.23.3
+Licence: MIT
+https://www.npmjs.com/package/@types/tern
+
+moment 2.29.1
+Licence: MIT
+https://www.npmjs.com/package/moment
+
 obsidian-calendar-ui 0.3.12
 Licence: MIT
 https://www.npmjs.com/package/obsidian-calendar-ui
+
+obsidian-daily-notes-interface 0.8.4
+Licence: MIT
+https://www.npmjs.com/package/obsidian-daily-notes-interface
 
 obsidian-daily-notes-interface 0.9.0
 Licence: MIT
@@ -13,3 +33,7 @@ https://www.npmjs.com/package/svelte
 tslib 2.1.0
 Licence: 0BSD
 https://www.npmjs.com/package/tslib
+
+yaml 2.0.0-4
+Licence: ISC
+https://www.npmjs.com/package/yaml

@@ -1,3 +1,47 @@
+@codemirror/state 6.5.0
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/state
+
+@codemirror/view 6.38.6
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/view
+
+@marijn/find-cluster-break 1.0.2
+Licence: MIT
+https://www.npmjs.com/package/@marijn/find-cluster-break
+
+@types/codemirror 5.60.8
+Licence: MIT
+https://www.npmjs.com/package/@types/codemirror
+
+@types/estree 1.0.8
+Licence: MIT
+https://www.npmjs.com/package/@types/estree
+
+@types/tern 0.23.9
+Licence: MIT
+https://www.npmjs.com/package/@types/tern
+
+crelt 1.0.6
+Licence: MIT
+https://www.npmjs.com/package/crelt
+
+moment 2.29.4
+Licence: MIT
+https://www.npmjs.com/package/moment
+
 obsidian-extra 0.1.5
 Licence: MIT
 https://www.npmjs.com/package/obsidian-extra
+
+obsidian-undocumented 0.1.3
+Licence: MIT
+https://www.npmjs.com/package/obsidian-undocumented
+
+style-mod 4.1.3
+Licence: MIT
+https://www.npmjs.com/package/style-mod
+
+w3c-keyname 2.2.8
+Licence: MIT
+https://www.npmjs.com/package/w3c-keyname

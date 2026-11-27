@@ -1,6 +1,26 @@
+@codemirror/state 6.1.2
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/state
+
+@codemirror/view 6.4.0
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/view
+
+@kurkle/color 0.3.0
+Licence: MIT
+https://www.npmjs.com/package/@kurkle/color
+
+@rollup/plugin-commonjs 15.1.0
+Licence: MIT
+https://www.npmjs.com/package/@rollup/plugin-commonjs
+
 chart.js 4.3.0
 Licence: MIT
 https://www.npmjs.com/package/chart.js
+
+rollup 2.32.1
+Licence: MIT
+https://www.npmjs.com/package/rollup
 
 svelte 3.38.3
 Licence: MIT

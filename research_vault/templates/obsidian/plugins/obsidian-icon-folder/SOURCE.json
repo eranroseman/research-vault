@@ -10,14 +10,110 @@
   "licence": "MIT",
   "bundled": [
     {
+      "name": "@codemirror/state",
+      "version": "6.4.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@codemirror/state"
+    },
+    {
+      "name": "@codemirror/view",
+      "version": "6.26.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@codemirror/view"
+    },
+    {
+      "name": "@rollup/plugin-commonjs",
+      "version": "28.0.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/@rollup/plugin-commonjs"
+    },
+    {
+      "name": "core-util-is",
+      "version": "1.0.3",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/core-util-is"
+    },
+    {
+      "name": "immediate",
+      "version": "3.0.6",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/immediate"
+    },
+    {
+      "name": "inherits",
+      "version": "2.0.4",
+      "licence": "ISC",
+      "url": "https://www.npmjs.com/package/inherits"
+    },
+    {
+      "name": "isarray",
+      "version": "1.0.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/isarray"
+    },
+    {
       "name": "jszip",
       "version": "3.10.1",
       "licence": "(MIT OR GPL-3.0-or-later)",
       "url": "https://www.npmjs.com/package/jszip"
+    },
+    {
+      "name": "lie",
+      "version": "3.3.0",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/lie"
+    },
+    {
+      "name": "pako",
+      "version": "1.0.11",
+      "licence": "(MIT AND Zlib)",
+      "url": "https://www.npmjs.com/package/pako"
+    },
+    {
+      "name": "process-nextick-args",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/process-nextick-args"
+    },
+    {
+      "name": "readable-stream",
+      "version": "2.3.8",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/readable-stream"
+    },
+    {
+      "name": "rollup",
+      "version": "4.27.4",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/rollup"
+    },
+    {
+      "name": "safe-buffer",
+      "version": "5.1.2",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/safe-buffer"
+    },
+    {
+      "name": "setimmediate",
+      "version": "1.0.5",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/setimmediate"
+    },
+    {
+      "name": "string_decoder",
+      "version": "1.1.1",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/string_decoder"
+    },
+    {
+      "name": "util-deprecate",
+      "version": "1.0.2",
+      "licence": "MIT",
+      "url": "https://www.npmjs.com/package/util-deprecate"
     }
   ],
   "source": null,
   "redistributable": true,
   "measured": "2026-11-27",
-  "method": "LICENSE at the tag's commit (SPDX read from its text); package.json dependencies at the commit, at package-lock.json's version or the range's floor, resolved against registry.npmjs.org; the assets are the GitHub release artifacts at the tag"
+  "method": "LICENSE at the tag's commit (SPDX read from its text); bundled is the production closure of pnpm-lock.yaml at the commit, plus each package.json devDependency whose name occurs in main.js, less obsidian and any @codemirror/* or electron pinned to a GitHub ref under obsidianmd/ or lishid/, each licence read from registry.npmjs.org at its version; main.js scanned for a copyleft licence banner, none found; the assets are the GitHub release artifacts at the tag"
 }

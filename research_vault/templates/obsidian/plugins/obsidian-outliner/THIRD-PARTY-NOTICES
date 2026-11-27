@@ -1,1 +1,19 @@
-No bundled third-party dependencies declared at the pin.
+@codemirror/language 6.12.1
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/language
+
+@codemirror/state 6.5.0
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/state
+
+@codemirror/view 6.38.6
+Licence: MIT
+https://www.npmjs.com/package/@codemirror/view
+
+debug 4.4.3
+Licence: MIT
+https://www.npmjs.com/package/debug
+
+typescript-eslint 8.56.1
+Licence: MIT
+https://www.npmjs.com/package/typescript-eslint
