@@ -7412,6 +7412,8 @@ def test_a_non_unmatched_component_row_is_not_replayed_or_twinned(net_vault):
     )
     assert not [o for o in effective if o.check == "plugins"]
     assert len([f for f in inbox.load(net_vault) if f.check == "plugins"]) == 1
+
+
 def test_compiled_layer_closes_commit_and_publish_and_the_seal_verb_runs(
     net_vault, capsys
 ):

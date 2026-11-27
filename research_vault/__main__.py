@@ -153,6 +153,8 @@ def _standing_component(vault, outcome) -> bool:
         # refuses it on the same queue with the one "review record refused"
         # warning, as before.
         return False
+
+
 def cmd_seal(args):
     """Seal compiled pages (spec §5.4): journal → record, links normalised.
 

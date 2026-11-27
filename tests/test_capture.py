@@ -2439,6 +2439,8 @@ def test_capture_files_the_real_cold_rows_once(tmp_vault, tmp_path, monkeypatch)
         == 0
     )
     assert len([f for f in inbox.load(vault) if f.check in inbox.COMPONENT_CHECKS]) == 1
+
+
 def test_capture_seals_once_per_run(tmp_vault, monkeypatch):
     """Spec §5.4: capture, after compile, is a seal caller."""
     fake = _canned_run(canned_item(FakeZotero()))
