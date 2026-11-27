@@ -271,13 +271,12 @@ def propagated_by(
     for path in sorted(folder.glob("*.json")):
         if structure.is_excluded(path, vault):
             continue
-        relative = path.relative_to(vault).as_posix()
-        if not base.vouches(relative, source, recorded):
-            continue
         try:
             record = propagate.read_plan(path)
         except (OSError, ValueError, KeyError, TypeError):
             continue  # lint_propagation reports the unreadable record
+        if not base.vouches(record.operation_id, source, recorded):
+            continue
         text = old
         for before, after in propagate.rewrites(record):
             text = propagate.rewrite_text(text, before, after, source=source)
@@ -348,26 +347,27 @@ class Base:
 
     def __init__(self, repository: Path) -> None:
         self._repository = repository
-        self._holds: dict[str, bool] = {}
 
     def sealed(self, relative: str, sha: str) -> bytes | None:
         raise NotImplementedError
 
-    def _holds_uncached(self, relative: str) -> bool:
+    def vouches(self, operation: str, page: str, recorded: str) -> bool:
+        """Whether the propagation record of ``operation`` was applied after
+        ``page``'s sealed entry ``recorded`` (C8b): here, the change adds it.
+        A record is known by its operation id, not its path (M2), so an old
+        record moved by `git mv` is still old: no file under
+        `system/propagations/` in the base names that id. The replay's rule,
+        which reads only the record."""
+        del page, recorded
+        return not self._names_operation(operation)
+
+    def _names_operation(self, operation: str) -> bool:
         raise NotImplementedError
 
-    def holds(self, relative: str) -> bool:
-        """Whether the base revision has ``relative`` at all."""
-        if relative not in self._holds:
-            self._holds[relative] = self._holds_uncached(relative)
-        return self._holds[relative]
 
-    def vouches(self, record: str, page: str, recorded: str) -> bool:
-        """Whether the propagation record at ``record`` was applied after
-        ``page``'s sealed entry ``recorded`` (C8b): here, the change adds it
-        (the base lacks it). The replay's rule, which reads only the record."""
-        del page, recorded
-        return not self.holds(record)
+def _operation_needle(operation: str) -> bytes:
+    """How `propagate._canonical` spells a record's operation id."""
+    return b'"operation_id": ' + json.dumps(operation).encode("utf-8")
 
 
 class _Local(Base):
@@ -388,31 +388,21 @@ class _Local(Base):
                 return head
         return _history_blob(self._repository, relative, sha)
 
-    def _holds_uncached(self, relative: str) -> bool:
-        if not (self._repository / ".git").exists():
-            return False
-        result = gitstate._git(
-            self._repository,
-            "cat-file",
-            "-e",
-            b"HEAD:" + os.fsencode(relative),
-            check=False,
-        )
-        return result.returncode == 0
-
-    def vouches(self, record: str, page: str, recorded: str) -> bool:
-        """R41: a record HEAD lacks is applied after any committed seal; one
-        HEAD holds vouches only when the commit that added it is not an
-        ancestor of the commit that introduced the page's sealed entry, so
-        `seal <path>` still accepts a key rewrite committed with its record
-        by hand. A record from before the seal (a key a later item took
-        included) never vouches, and neither does any record when the entry
-        is not committed: the seal is then newer than HEAD."""
-        if not self.holds(record):
+    def vouches(self, operation: str, page: str, recorded: str) -> bool:
+        """R41: a record vouches only when the commit that introduced its
+        operation id is not an ancestor of the commit that introduced the
+        page's sealed entry, so `seal <path>` still accepts a key rewrite
+        committed with its record by hand. A record no commit holds is newer
+        than any committed seal. A record from before the seal (a key a later
+        item took included) never vouches, and neither does a committed one
+        when the entry is not committed: the seal is then newer than HEAD.
+        The record is known by its operation id (M2): a `git mv` of an old
+        record keeps the commit that first introduced it."""
+        added = self._introducing_commit(operation)
+        if added is None:
             return True
         sealing = self._sealing_commit(page, recorded)
-        added = self._adding_commit(record)
-        if sealing is None or added is None:
+        if sealing is None:
             return False
         ancestor = gitstate._git(
             self._repository,
@@ -426,7 +416,9 @@ class _Local(Base):
 
     def _sealing_commit(self, page: str, recorded: str) -> str | None:
         """The newest commit whose record introduced ``page``'s entry
-        ``recorded``, when HEAD's record holds it; None otherwise."""
+        ``recorded``, when HEAD's record holds it; None otherwise. `-m`
+        diffs a merge against each parent, so an entry a merge resolution
+        reintroduced names the merge (M1); the blob check confirms it."""
         needle = (
             json.dumps(page, ensure_ascii=False) + ": " + json.dumps(recorded)
         ).encode("utf-8", errors="surrogateescape")
@@ -436,6 +428,7 @@ class _Local(Base):
         log = gitstate._git(
             self._repository,
             "log",
+            "-m",
             b"-S" + needle,
             "--format=%H",
             "HEAD",
@@ -449,20 +442,29 @@ class _Local(Base):
                 return commit
         return None
 
-    def _adding_commit(self, record: str) -> str | None:
+    def _introducing_commit(self, operation: str) -> str | None:
+        """The oldest commit HEAD reaches that introduced a record naming
+        ``operation`` anywhere under `system/propagations/`; None when no
+        commit does."""
+        if not (self._repository / ".git").exists():
+            return None
+        # Imported here: propagate imports capture, which imports this module.
+        from . import propagate
+
         log = gitstate._git(
             self._repository,
             "log",
-            "--diff-filter=A",
-            "-n1",
+            "-m",
+            "--reverse",
+            b"-S" + _operation_needle(operation),
             "--format=%H",
             "HEAD",
             "--",
-            os.fsencode(record),
+            propagate.RECORD_DIR,
             check=False,
         )
-        commit = log.stdout.decode("ascii", errors="replace").strip()
-        return commit or None
+        commits = log.stdout.decode("ascii", errors="replace").split()
+        return commits[0] if commits else None
 
 
 class _Snapshot(Base):
@@ -479,8 +481,14 @@ class _Snapshot(Base):
             return image.data
         return _history_blob(self._repository, relative, sha)
 
-    def _holds_uncached(self, relative: str) -> bool:
-        return self._snapshot.image(os.fsencode(relative)) is not None
+    def _names_operation(self, operation: str) -> bool:
+        needle = _operation_needle(operation)
+        return any(
+            raw.startswith(b"system/propagations/")
+            and image.kind == "file"
+            and needle in (image.data or b"")
+            for raw, image in self._snapshot.images.items()
+        )
 
 
 def snapshot_base(snapshot, repository) -> Base:
@@ -522,6 +530,8 @@ DIFFERS_REMEDY = (
 )
 ABSENT_REMEDY = "restore it, or acknowledge"
 NOT_A_FILE_REMEDY = "replace it with the file itself, or acknowledge"
+# A name that is not UTF-8 text can never be sealed: the record is UTF-8 JSON.
+NOT_UTF8_REMEDY = "rename it to UTF-8 text, remove it, or acknowledge"
 
 
 def _differs(relative: str) -> Outcome:
@@ -542,10 +552,17 @@ def _absent(relative: str) -> Outcome:
 
 
 def _unsealed(relative: str) -> Outcome:
+    if not structure._is_plain_text(relative):
+        return _row(
+            Result.UNMATCHED,
+            relative,
+            f"drift — this file's name is not UTF-8 text, so it cannot be "
+            f"sealed; {NOT_UTF8_REMEDY}",
+        )
     return _row(
         Result.UNMATCHED,
         relative,
-        f"drift — {_shown(relative)} is not sealed: no complete compile wrote "
+        f"drift — {relative} is not sealed: no complete compile wrote "
         f"these bytes; {UNSEALED_REMEDY}",
     )
 

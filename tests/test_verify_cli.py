@@ -7491,8 +7491,8 @@ def test_a_non_utf8_name_under_wiki_is_a_row_not_a_crash(net_vault):
         o.reason for o in effective if o.check == "compiled-layer" and o.target == token
     ] == [
         (
-            "drift — this file is not sealed: no complete compile wrote these bytes"
-            "; write it through the compile tool and seal, remove it, or acknowledge"
+            "drift — this file's name is not UTF-8 text, so it cannot be sealed; "
+            "rename it to UTF-8 text, remove it, or acknowledge"
         )
     ]
     assert verify.surface_decision("commit", effective, warning)[0] == 1
@@ -7790,3 +7790,32 @@ def test_a_hand_committed_key_rewrite_names_seal_and_seal_clears_it(net_vault, c
             if o.check == "compiled-layer"
             and o.target == "path-bytes:wiki/concepts/citing.md"
         ]
+
+
+def test_the_recheck_knows_a_moved_record_by_its_operation_id(net_vault):
+    """M2 in the replay: the commit moves an old record (`git mv`) and
+    rewrites the key by hand. The base holds no file at the new path, but it
+    holds a record of that operation id, so the rewrite is not vouched for."""
+    base, _rewritten = _propagated_page(net_vault, record_in_base=True)
+    subprocess.run(["git", "reset", "-q", "--hard", base], cwd=net_vault, check=True)
+    page = net_vault / "wiki" / "concepts" / "citing.md"
+    subprocess.run(
+        [
+            "git",
+            "mv",
+            "system/propagations/20261127T000000Z.json",
+            "system/propagations/moved.json",
+        ],
+        cwd=net_vault,
+        check=True,
+    )
+    page.write_text('---\ntype: "concept"\n---\nAs [@smith2020a] shows.\n')
+    moved = _commit_all(net_vault, "record moved, key rewritten by hand")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    assert ("path-bytes:wiki/concepts/citing.md", moved) in [
+        (o.target, o.extra.get("commit"))
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ]

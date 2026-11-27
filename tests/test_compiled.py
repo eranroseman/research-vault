@@ -428,12 +428,22 @@ def test_a_name_that_is_not_utf8_is_a_row_and_never_sealed(wiki_vault):
         (wiki_vault / "wiki" / os.fsdecode(b"caf\xe9.md")).write_bytes(b"x\n")
     except OSError:
         pytest.skip("the filesystem refuses a name that is not UTF-8")
+    reason = (
+        "drift — this file's name is not UTF-8 text, so it cannot be sealed; "
+        "rename it to UTF-8 text, remove it, or acknowledge"
+    )
     (row,) = compiled.lint_compiled_layer(wiki_vault)
-    assert (row.result, row.target) == (Result.UNMATCHED, "path-bytes:wiki/caf%E9.md")
-    row.reason.encode("utf-8")
+    assert (row.result, row.target, row.reason) == (
+        Result.UNMATCHED,
+        "path-bytes:wiki/caf%E9.md",
+        reason,
+    )
     (row,) = compiled.seal(wiki_vault)
-    assert (row.result, row.target) == (Result.UNMATCHED, "path-bytes:wiki/caf%E9.md")
-    row.reason.encode("utf-8")
+    assert (row.result, row.target, row.reason) == (
+        Result.UNMATCHED,
+        "path-bytes:wiki/caf%E9.md",
+        reason,
+    )
     assert compiled.load_record(wiki_vault) == {}
 
 
@@ -660,3 +670,71 @@ def test_a_record_committed_after_the_seal_vouches_at_head(wiki_vault):
     )
     (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
     assert (row.result, row.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def _git(vault, *args):
+    return subprocess.run(
+        ["git", *args], cwd=vault, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def test_a_merge_that_reintroduces_a_seal_is_the_sealing_commit(wiki_vault):
+    """M1: S0 seals H; a side branch adds a propagation record; main reseals
+    H2; the merge resolution reseals H. The entry's sealing commit is the
+    merge, which the side's record is an ancestor of, so a hand rewrite of
+    H is not vouched for."""
+    page = _sealed_citing_page(wiki_vault)  # S0: H sealed
+    sealed_h = page.read_bytes()
+    main = _git(wiki_vault, "rev-parse", "--abbrev-ref", "HEAD")
+    _git(wiki_vault, "switch", "-qc", "side")
+    _propagation_record(wiki_vault, "20261127T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "side: a record")
+    _git(wiki_vault, "switch", "-q", main)
+    page.write_text("---\ntype: source\n---\nAs [@old2020, p. 4] shows.\n")
+    _journal(
+        wiki_vault,
+        "op2",
+        {"wiki/sources/A.md": _sha(page.read_bytes())},
+        epoch=time.time() + 1,
+    )
+    compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    _commit(wiki_vault, "main: H2 sealed")
+    subprocess.run(
+        ["git", "merge", "-q", "--no-ff", "--no-commit", "side"],
+        cwd=wiki_vault,
+        check=False,
+    )
+    page.write_bytes(sealed_h)
+    record = compiled.load_record(wiki_vault)
+    record["wiki/sources/A.md"] = _sha(sealed_h)
+    compiled.write_record(wiki_vault, record)
+    _git(wiki_vault, "add", "-A")
+    _git(wiki_vault, "commit", "-qm", "merge: H resealed", "--no-verify")
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    (row,) = compiled.lint_compiled_layer(wiki_vault, journal=False)
+    assert row.result is Result.UNMATCHED
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+def test_a_moved_old_record_is_still_old(wiki_vault):
+    """M2: a record is known by its operation id. `git mv` of a record that
+    predates the seal does not make it look applied after it."""
+    _propagation_record(wiki_vault, "20260101T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "an old propagation")
+    page = _sealed_citing_page(wiki_vault)
+    folder = wiki_vault / "system" / "propagations"
+    _git(
+        wiki_vault,
+        "mv",
+        "system/propagations/20260101T000000Z.json",
+        "system/propagations/moved.json",
+    )
+    assert (folder / "moved.json").is_file()
+    _commit(wiki_vault, "the record moved")
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    _commit(wiki_vault, "the old rewrite replayed by hand")
+    (row,) = compiled.lint_compiled_layer(wiki_vault)
+    assert row.result is Result.UNMATCHED
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
