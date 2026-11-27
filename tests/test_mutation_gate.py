@@ -1620,37 +1620,97 @@ def test_out_dir_writes_no_baseline_when_a_module_still_fails(tmp_path, monkeypa
     )
 
 
-def test_only_narrows_the_run_and_refuses_to_write_until_every_module_has_a_record(
+def test_only_measures_the_named_modules_and_keeps_every_other_line_as_committed(
     tmp_path, monkeypatch, capsys
 ):
-    """--only runs the named module(s) and records them; the baseline is
-    written only once EVERY module has a usable record, so a narrowed run can
-    never produce a baseline with a module silently missing from it."""
+    """--only re-measures the named module(s) and keeps every line of any other
+    module exactly as the committed baseline carries it, reasons included: the
+    file is the union of the plans' measurements, each plan re-measuring its own
+    modules (R59). The named module's old lines are replaced, never merged."""
+    root = _fake_root(tmp_path)
+    a, b = "research_vault/a.py", "research_vault/b.py"
+    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    _fake_module(root, b, {ADD_1: 0, ADD_2: 0, ADD_3: 0, SIZE_1: 0})
+    calls: list[str] = []
+    _fake_measurement(root, monkeypatch, calls)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a, b])
+    baseline_path = _argv_baseline(monkeypatch, root, only=[a])
+    stale_a = KEY_ADD_2.replace(MODULE, a)
+    kept_b = KEY_SIZE_1.replace(MODULE, b)
+    reasoned_b = KEY_ADD_3.replace(MODULE, b)
+    gone = "research_vault/gone.py::func/f::-    return 0\\n+    return 1"
+    baseline_path.write_text(
+        "# old header\n"
+        f"{stale_a}\n"
+        "# reason: accepted when b's plan closed\n"
+        f"{reasoned_b}\n"
+        f"{kept_b}\n"
+        f"{gone}\n",
+        encoding="utf-8",
+    )
+
+    assert mutation_gate.main() == 0
+
+    assert calls == [a]
+    assert baseline_keys(baseline_path) == {
+        KEY_ADD_1.replace(MODULE, a),
+        reasoned_b,
+        kept_b,
+    }
+    lines = baseline_path.read_text(encoding="utf-8").splitlines()
+    assert (
+        lines[lines.index(reasoned_b) - 1] == "# reason: accepted when b's plan closed"
+    )
+    out = capsys.readouterr()
+    assert f"[baseline] {b}: kept 2 committed line(s), not measured" in out.out
+    assert "reason not re-attached" not in out.err
+
+
+def test_only_keeps_a_module_the_committed_baseline_has_no_line_for(
+    tmp_path, monkeypatch, capsys
+):
+    """A module outside --only with no committed line keeps none: zero
+    survivors at its last measurement is a line count of zero, and the report
+    says so rather than reading as measured."""
+    root = _fake_root(tmp_path)
+    a, b = "research_vault/a.py", "research_vault/b.py"
+    _fake_module(root, a, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    _fake_measurement(root, monkeypatch)
+    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a, b])
+    baseline_path = _argv_baseline(monkeypatch, root, only=[a])
+
+    assert mutation_gate.main() == 0
+
+    assert baseline_keys(baseline_path) == set()
+    assert f"[baseline] {b}: kept 0 committed line(s), not measured" in (
+        capsys.readouterr().out
+    )
+
+
+def test_only_with_out_dir_still_prefers_a_recorded_ok_over_the_committed_lines(
+    tmp_path, monkeypatch
+):
+    """A usable record outside --only is a measurement, and it wins over the
+    committed lines, as it wins over --only itself."""
     root = _fake_root(tmp_path)
     out_dir = root / "records"
     out_dir.mkdir()
     a, b = "research_vault/a.py", "research_vault/b.py"
-    _fake_module(root, a, {ADD_1: 0, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
-    _fake_module(root, b, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 0})
+    _fake_module(root, a, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
+    recorded = ModuleResult(
+        survivors={KEY_SIZE_1.replace(MODULE, b)}, counts={"survived": 1}
+    )
+    mutation_gate._write_record(out_dir, b, "recorded", 0, "ok", recorded)
     calls: list[str] = []
     _fake_measurement(root, monkeypatch, calls)
     monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a, b])
-
     baseline_path = _argv_baseline(monkeypatch, root, out_dir, only=[a])
-    assert mutation_gate.main() == 1
-    assert calls == [a]
-    assert not baseline_path.exists()
-    assert (out_dir / "research_vault__a.py.exit").read_text(encoding="utf-8") == "0 ok"
-    out = capsys.readouterr().out
-    assert "[baseline]   not measured (1): research_vault/b.py" in out
+    baseline_path.write_text(f"{KEY_ADD_1.replace(MODULE, b)}\n", encoding="utf-8")
 
-    _argv_baseline(monkeypatch, root, out_dir, only=[b])
     assert mutation_gate.main() == 0
-    assert calls == [a, b]
-    assert baseline_keys(baseline_path) == {
-        KEY_ADD_1.replace(MODULE, a),
-        KEY_SIZE_1.replace(MODULE, b),
-    }
+
+    assert calls == [a]
+    assert baseline_keys(baseline_path) == {KEY_SIZE_1.replace(MODULE, b)}
 
 
 def test_only_requires_update_baseline(tmp_path, monkeypatch, capsys):
@@ -1663,25 +1723,6 @@ def test_only_requires_update_baseline(tmp_path, monkeypatch, capsys):
         mutation_gate.main()
     assert exit_info.value.code == 2
     assert "--only requires --update-baseline" in capsys.readouterr().err
-
-
-def test_only_requires_out_dir(tmp_path, monkeypatch, capsys):
-    """--only without --out-dir would refuse the write every time (the other
-    modules have no record to be read from): argparse says so up front, and
-    nothing is measured."""
-    root = _fake_root(tmp_path)
-    a = "research_vault/a.py"
-    _fake_module(root, a, {ADD_1: 1, ADD_2: 1, ADD_3: 1, SIZE_1: 1})
-    calls: list[str] = []
-    _fake_measurement(root, monkeypatch, calls)
-    monkeypatch.setattr(mutation_gate, "_all_modules", lambda: [a])
-    baseline_path = _argv_baseline(monkeypatch, root, only=[a])
-    with pytest.raises(SystemExit) as exit_info:
-        mutation_gate.main()
-    assert exit_info.value.code == 2
-    assert "--only requires --out-dir" in capsys.readouterr().err
-    assert calls == []
-    assert not baseline_path.exists()
 
 
 def test_only_rejects_a_path_that_is_no_module(tmp_path, monkeypatch, capsys):

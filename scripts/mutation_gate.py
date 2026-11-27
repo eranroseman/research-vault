@@ -23,12 +23,15 @@ unparseable exit file, a recorded failure, or a record whose own body lists
 mutants without a verdict -- re-runs and overwrites. The
 baseline is assembled from the RECORDS, not from mutants/: mutmut's mutant ids
 renumber on any edit and mutants/ regenerates, so only the derived keys are
-durable. --only RELPATH (repeatable, update-baseline only, and only with
---out-dir -- without records the other modules have nowhere to be read from,
-so argparse refuses the pair up front) narrows which modules this invocation
-runs; the write still requires every module to hold a usable record, and
-names the ones that do not. A recorded ok still wins over --only: to redo
-such a module, delete its .exit record first. Gate mode ignores --out-dir.
+durable. --only RELPATH (repeatable, update-baseline only) narrows which
+modules this invocation measures; every other module contributes its usable
+record from --out-dir if it has one, and otherwise keeps its lines exactly as
+the committed baseline carries them, reasons included, reported per module as
+"kept N committed line(s), not measured". The file is the union of the plans'
+measurements: a plan's close re-measures the modules it touched and leaves the
+rest as the plans that measured them landed them (R59). A recorded ok still
+wins over --only: to redo such a module, delete its .exit record first. Gate
+mode ignores --out-dir.
 
 Every module gets a class: "ok" (mutmut exited 0 and every selected mutant has
 a verdict) or "error" (a non-zero exit, no mutants/<relpath>.meta afterwards, or
@@ -888,12 +891,12 @@ def _update_baseline(
 ) -> int:
     _refuse_dirty_tree(ROOT)
     reasons = baseline_reasons(baseline_path)
+    committed = baseline_keys(baseline_path)
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
     keys: set[str] = set()
     generated: set[str] = set()
     failed: list[str] = []
-    unmeasured: list[str] = []
     no_tests: dict[str, int] = {}
     for module in _all_modules():
         cached = _cached_result(out_dir, module) if out_dir is not None else None
@@ -901,7 +904,16 @@ def _update_baseline(
             _report("[baseline]", module, "ok (cached)", 0, cached)
             result = cached
         elif only and module not in only:
-            unmeasured.append(module)
+            # R59: a module outside --only keeps its committed lines (reasons
+            # ride along through `reasons`); the file is the union of the
+            # plans' measurements, each plan re-measuring its own modules.
+            kept = {key for key in committed if key.startswith(f"{module}::")}
+            print(
+                f"[baseline] {module}: kept {len(kept)} committed line(s), "
+                "not measured",
+                flush=True,
+            )
+            keys |= kept
             continue
         else:
             print(f"[baseline] {module}", flush=True)
@@ -920,17 +932,12 @@ def _update_baseline(
         generated |= result.generated
         if result.counts.get("no tests"):
             no_tests[module] = result.counts["no tests"]
-    if failed or unmeasured:
+    if failed:
         print(
             f"[baseline] refusing to write {baseline_path}: "
-            f"{len(failed)} module(s) failed, {len(unmeasured)} not measured"
+            f"{len(failed)} module(s) failed"
         )
-        if failed:
-            print(f"[baseline]   error ({len(failed)}): {', '.join(failed)}")
-        if unmeasured:
-            print(
-                f"[baseline]   not measured ({len(unmeasured)}): {', '.join(unmeasured)}"
-            )
+        print(f"[baseline]   error ({len(failed)}): {', '.join(failed)}")
         # The gap is reported on every run that measured anything, refused or
         # not -- the same block gate mode prints unconditionally.
         _summarise_no_tests("[baseline]", no_tests)
@@ -1138,21 +1145,14 @@ def main() -> int:
         action="append",
         default=[],
         metavar="RELPATH",
-        help="--update-baseline only: run just this module (repeatable); the "
-        "baseline is still written only once every module holds a record, and "
-        "a recorded ok is reused -- delete its .exit record to redo it",
+        help="--update-baseline only: measure just this module (repeatable); "
+        "every other module keeps its --out-dir record, or else its committed "
+        "baseline lines, and a recorded ok is reused -- delete its .exit record "
+        "to redo it",
     )
     args = parser.parse_args()
     if args.only and not args.update_baseline:
         parser.error("--only requires --update-baseline")
-    if args.only and not args.out_dir:
-        # Without records the other modules have nowhere to be read from, so
-        # the write would refuse every time: say so before a run that cannot
-        # succeed.
-        parser.error(
-            "--only requires --out-dir: the baseline is written only once every "
-            "module holds a record, and only the records carry the others"
-        )
     if args.max_mutants is not None and args.update_baseline:
         parser.error("--max-mutants is a gate-mode budget; not with --update-baseline")
     if args.time_budget is not None and args.update_baseline:
