@@ -94,8 +94,10 @@ jobs:
       # lane again on any new breach.
       - name: CRAP ceiling (crap4py)
         run: crap4py research_vault --lcov lcov.info --max-crap 30
+      # The vendored Obsidian plugins are upstream's release bytes, byte for
+      # byte (SOURCE.json hashes them); their duplication is not ours to fix.
       - name: Duplicate gate (drywall)
-        run: drywall research_vault
+        run: drywall research_vault --exclude 'research_vault/templates/obsidian/plugins/**'
   mutation-gate:
     # Not a required check: a landing does not wait for it. It runs after
     # `quality` on every push and on workflow_dispatch, diffs origin/main...HEAD
