@@ -10,7 +10,8 @@ from pathlib import Path
 
 MACHINE_SURFACE_DIR_NAMES = frozenset({"literature", "log", "wiki", "fulltext"})
 # Nested machine directories, matched as a path prefix: `system/` itself holds
-# hand-edited templates, so only its propagation records are guarded.
+# hand-edited templates, so only its propagation records (here) and its two
+# CLI-written files (below) are guarded.
 MACHINE_SURFACE_PREFIXES = (Path("system/propagations"),)
 # Root-only exact match: a deeper `log.md` (e.g. inside a project) or
 # `search-log.md` (searchlog.py writes `projects/<name>/search-log.md`) is
@@ -20,6 +21,9 @@ MACHINE_SURFACE_FILES = frozenset(
         Path("log.md"),
         Path("inbox/review-queue.md"),
         Path("system/bibliography.json"),
+        # The compiled-page record: only `seal` and the verbs that seal write it
+        # (R44).
+        Path("system/compiled-pages.json"),
     }
 )
 TOOL_PATH_KEYS = ("file_path", "notebook_path")

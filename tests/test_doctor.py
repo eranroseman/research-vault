@@ -1802,7 +1802,7 @@ def test_deny_rules_row_compares_the_vault_settings_with_the_roster(tmp_vault):
     )
     probe = doctor._deny_rules_probe(tmp_vault)
     assert probe.result is Result.MATCHED
-    assert probe.reason == "8 Edit deny rules equal the guard's roster"
+    assert probe.reason == "9 Edit deny rules equal the guard's roster"
     rules = [*doctor.expected_deny_rules()[:-1], "Edit(/daily/**)"]
     settings.write_text(json.dumps({"permissions": {"deny": rules}}))
     probe = doctor._deny_rules_probe(tmp_vault)

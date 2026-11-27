@@ -113,9 +113,9 @@ def test_markdown_templates_match_canonical_content():
     # Constraint on the opening paragraph (the preamble, first two sentences
     # below): it names machine surfaces but must assert no enforcement
     # mechanism — no claim of a session warning, a commit-time gate, or a
-    # guaranteed trace. None holds uniformly across the seven it names —
+    # guaranteed trace. None holds uniformly across the eight it names —
     # literature/, log/, log.md, inbox/review-queue.md, system/bibliography.json,
-    # fulltext/ and system/propagations/: an in-format append to log/ or
+    # fulltext/, system/propagations/ and system/compiled-pages.json: an in-format append to log/ or
     # inbox/review-queue.md keeps the prior bytes as a prefix, so
     # lint_append_only's startswith check never fires and
     # `verify --surface commit` exits 0 with zero findings. Any future
@@ -127,8 +127,8 @@ def test_markdown_templates_match_canonical_content():
         '---\ntype: "guide"\n---\n\n'
         "# Vault agents guide\n\n"
         "This is a research-vault vault. `literature/`, `log/`, `log.md`, "
-        "`inbox/review-queue.md`, `system/bibliography.json`, `fulltext/`, and "
-        "`system/propagations/` are machine-written — the CLI writes them; don't edit them by hand.\n\n"
+        "`inbox/review-queue.md`, `system/bibliography.json`, `fulltext/`, "
+        "`system/propagations/`, and `system/compiled-pages.json` are machine-written — the CLI writes them; don't edit them by hand.\n\n"
         "Evidence is added to Zotero and projected into `literature/` — "
         "evidence notes exist only by projection, never by hand. Read "
         "`wiki/index.md` and recent `log/` entries before editing; review "
@@ -163,8 +163,10 @@ def test_markdown_templates_match_canonical_content():
         "an interpreter one-liner, a script or a git restore is caught by "
         "detection, not refused. What detection does not reach: an in-format "
         "append to `log/` committed together with a regenerated `log.md`, an "
-        "append to the review queue, and the non-capture keys a literature "
-        "note carries forward.\n\n"
+        "append to the review queue, the non-capture keys a literature "
+        "note carries forward, and a page and its record entry co-edited "
+        "through an interpreter and committed with --no-verify, which CI and "
+        "the replay cannot tell from a legitimate seal.\n\n"
         "`wiki/` is written only by the adopted compile tool's transaction "
         "engine; never `Write` or `Edit` under it. A hand edit under `wiki/` "
         "is reported against the compiled-page record, "
@@ -616,7 +618,7 @@ def _roster_rules(dir_names, prefixes, files):
 
 
 def test_seeded_deny_rules_equal_the_guards_roster():
-    """§5.7: the eight Edit(...) deny rules are the roster, spelled the way
+    """§5.7: the nine Edit(...) deny rules are the roster, spelled the way
     Claude Code resolves a /-led project path. One source: the guard."""
     import json
 
@@ -626,7 +628,7 @@ def test_seeded_deny_rules_equal_the_guards_roster():
         [prefix.as_posix() for prefix in guard.MACHINE_SURFACE_PREFIXES],
         [path.as_posix() for path in guard.MACHINE_SURFACE_FILES],
     )
-    assert len(expected) == 8
+    assert len(expected) == 9
     settings = json.loads(asset("vault/claude/settings.json").read_text())
     assert settings == {"permissions": {"deny": expected}}
     assert asset("vault/claude/settings.json").read_text() == (

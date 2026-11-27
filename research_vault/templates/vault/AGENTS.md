@@ -4,7 +4,7 @@ type: "guide"
 
 # Vault agents guide
 
-This is a research-vault vault. `literature/`, `log/`, `log.md`, `inbox/review-queue.md`, `system/bibliography.json`, `fulltext/`, and `system/propagations/` are machine-written — the CLI writes them; don't edit them by hand.
+This is a research-vault vault. `literature/`, `log/`, `log.md`, `inbox/review-queue.md`, `system/bibliography.json`, `fulltext/`, `system/propagations/`, and `system/compiled-pages.json` are machine-written — the CLI writes them; don't edit them by hand.
 
 Evidence is added to Zotero and projected into `literature/` — evidence notes exist only by projection, never by hand. Read `wiki/index.md` and recent `log/` entries before editing; review findings live in `inbox/review-queue.md`.
 
@@ -25,7 +25,7 @@ These eight are the user-invoked entry points — type the name to run one; an a
 
 Literature notes are wholly machine-written: `capture` regenerates the whole note from Zotero on every run, so per-source prose belongs in a Zotero child note, which capture renders.
 
-Machine surfaces are owner-written, and changes to them are detected: a hand or shell edit to `literature/`, `wiki/`, root `log.md`, `inbox/review-queue.md`, `system/bibliography.json` or `system/propagations/` raises a finding at commit, and an edit to `fulltext/` at publish. The seeded `.claude/settings.json` refuses the common shell forms of such a write (redirects, `tee`, `sed -i`, `cp`, `mv`, `touch`, `rm`) in a session started at the vault root; an interpreter one-liner, a script or a git restore is caught by detection, not refused. What detection does not reach: an in-format append to `log/` committed together with a regenerated `log.md`, an append to the review queue, and the non-capture keys a literature note carries forward.
+Machine surfaces are owner-written, and changes to them are detected: a hand or shell edit to `literature/`, `wiki/`, root `log.md`, `inbox/review-queue.md`, `system/bibliography.json` or `system/propagations/` raises a finding at commit, and an edit to `fulltext/` at publish. The seeded `.claude/settings.json` refuses the common shell forms of such a write (redirects, `tee`, `sed -i`, `cp`, `mv`, `touch`, `rm`) in a session started at the vault root; an interpreter one-liner, a script or a git restore is caught by detection, not refused. What detection does not reach: an in-format append to `log/` committed together with a regenerated `log.md`, an append to the review queue, the non-capture keys a literature note carries forward, and a page and its record entry co-edited through an interpreter and committed with --no-verify, which CI and the replay cannot tell from a legitimate seal.
 
 `wiki/` is written only by the adopted compile tool's transaction engine; never `Write` or `Edit` under it. A hand edit under `wiki/` is reported against the compiled-page record, `system/compiled-pages.json`, and holds the commit.
 

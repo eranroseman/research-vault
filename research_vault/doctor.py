@@ -742,7 +742,12 @@ def _pyyaml_probe() -> Probe:
 # guard's constants so the two cannot drift.
 _ROSTER_DIR_NAMES = ("literature", "log", "wiki", "fulltext")
 _ROSTER_PREFIXES = ("system/propagations",)
-_ROSTER_FILES = ("log.md", "inbox/review-queue.md", "system/bibliography.json")
+_ROSTER_FILES = (
+    "log.md",
+    "inbox/review-queue.md",
+    "system/bibliography.json",
+    "system/compiled-pages.json",
+)
 
 
 def expected_deny_rules() -> list[str]:
