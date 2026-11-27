@@ -404,6 +404,7 @@ _NOT_NOTE_WALKS = {
     "scaffold.py::_template_files": "the package's own template tree, not a vault",
     "scaffold.py::_add_empty_root_sentinels": "asks only whether a root is empty, to seed .gitkeep",
     "scaffold.py::_preflight_conflicts": "the same emptiness question, asked before any write",
+    "compiled.py::journal_hashes": "the compile tool's own journals under .vault-meta/transactions/, a dot-directory by design",
 }
 _WALK_CALLS = frozenset({"glob", "rglob", "iterdir", "walk"})
 _SCOPES = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp, ast.stmt)

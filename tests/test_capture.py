@@ -2439,3 +2439,49 @@ def test_capture_files_the_real_cold_rows_once(tmp_vault, tmp_path, monkeypatch)
         == 0
     )
     assert len([f for f in inbox.load(vault) if f.check in inbox.COMPONENT_CHECKS]) == 1
+def test_capture_seals_once_per_run(tmp_vault, monkeypatch):
+    """Spec §5.4: capture, after compile, is a seal caller."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    calls = []
+    monkeypatch.setattr(
+        capture.compiled, "seal", lambda vault, *a, **k: calls.append(vault) or []
+    )
+    outcomes = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert calls == [tmp_vault]
+    assert [o.target for o in outcomes] == [
+        "jakesch.etal2023a",
+        "system/bibliography.json",
+    ]
+
+
+def test_capture_reports_what_its_seal_did(tmp_vault, monkeypatch):
+    from research_vault import compiled
+    from research_vault.outcome import Outcome
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    refusals = [
+        Outcome(compiled.CHECK, "wiki/a.md", Result.UNMATCHED, "drift — a"),
+        Outcome(compiled.CHECK, "wiki/b.md", Result.UNMATCHED, "drift — b"),
+    ]
+    monkeypatch.setattr(capture.compiled, "seal", lambda vault, *a, **k: refusals)
+    outcomes = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert [(o.check, o.target, o.result, o.reason) for o in outcomes][1] == (
+        "compiled-layer",
+        "system/compiled-pages.json",
+        Result.UNMATCHED,
+        "drift — a; b",
+    )
+
+
+def test_capture_with_seal_off_does_not_seal(tmp_vault, monkeypatch):
+    """propagate.apply's recapture: propagate reseals after its record is written."""
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    calls = []
+    monkeypatch.setattr(
+        capture.compiled, "seal", lambda vault, *a, **k: calls.append(vault) or []
+    )
+    capture.capture(tmp_vault, client, ["jakesch.etal2023a"], seal=False)
+    assert calls == []

@@ -13,6 +13,7 @@ from . import (
     capture,
     captured,
     clock,
+    compiled,
     events,
     factcheck,
     fixer,
@@ -152,6 +153,17 @@ def _standing_component(vault, outcome) -> bool:
         # refuses it on the same queue with the one "review record refused"
         # warning, as before.
         return False
+def cmd_seal(args):
+    """Seal compiled pages (spec §5.4): journal → record, links normalised.
+
+    Exit 0 when everything named is sealed, 1 when seal refused something
+    (each refusal held under `compiled-layer`), 2 when it could not run."""
+    try:
+        outcomes = compiled.seal(args.vault, args.paths or None)
+    except _NAMED_FAILURES as error:
+        print(f"seal unavailable: {error}", file=sys.stderr)
+        return 2
+    return _print_and_hold(args.vault, outcomes, compiled.CHECK)
 
 
 def cmd_capture(args):
@@ -981,6 +993,9 @@ def main(argv=None):
     compile_cmd.add_argument("--all", action="store_true")
     compile_cmd.add_argument("--bundle")
     compile_cmd.add_argument("--approved-plan-sha256")
+    seal_cmd = sub.add_parser("seal", parents=[common])
+    seal_cmd.add_argument("paths", nargs="*")
+    seal_cmd.add_argument("--vault", required=True)
     trust_tier_cmd = sub.add_parser("trust-tier", parents=[common])
     trust_tier_cmd.add_argument("citation_key", metavar="CITATION_KEY")
     trust_tier_cmd.add_argument("--vault", required=True)
@@ -1087,6 +1102,7 @@ def main(argv=None):
         "verify": cmd_verify,
         "factcheck": cmd_factcheck,
         "compile": cmd_compile,
+        "seal": cmd_seal,
         "trust-tier": cmd_trust_tier,
         "arm-publish": cmd_arm_publish,
         "disarm-publish": cmd_disarm_publish,

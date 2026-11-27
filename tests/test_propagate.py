@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from research_vault import Result, capture, gitstate, lints, propagate, zotero
+from research_vault import Result, capture, compiled, gitstate, lints, propagate, zotero
 from research_vault.outcome import Outcome
 from tests.conftest import must_replace
 from tests.fakes import ITEM, FakeZotero, canned_item
@@ -1848,6 +1848,15 @@ def test_a_merge_runs_end_to_end_through_the_residue_and_evidence_checks(
         _survivor_note(tmp_vault)
         entries.append({"id": "new2020", "title": "T"})
     bibliography.write(tmp_vault, entries)
+    # The seed's wiki/ pages are compiled pages, sealed as they stand, so
+    # apply's reseal through its own record is part of the run (R35).
+    compiled.write_record(
+        tmp_vault,
+        {
+            relative: hashlib.sha256(data).hexdigest()
+            for relative, data in compiled.wiki_files(tmp_vault).items()
+        },
+    )
     _committed(tmp_vault)
     client = _merge_fake(monkeypatch, survivor_has_note=survivor_has_note)
     _plan, path, sha = _planned(tmp_vault, client, mapping=None)
@@ -2314,3 +2323,70 @@ def test_a_refused_entry_does_not_end_the_plans_walk(
     assert outcomes[1].reason.startswith(
         "mismatch — item E352DFS8 carries citation key 'new2020', not 'zzz2020'"
     )
+
+
+def _sealed_seed(vault):
+    """`_seed`, with wiki/sources/A.md sealed by a complete compile journal and
+    committed: the record's bytes are read back from HEAD."""
+    from tests.test_compiled import _journal
+
+    _seed(vault)
+    page = vault / "wiki" / "sources" / "A.md"
+    _journal(
+        vault,
+        "op1",
+        {"wiki/sources/A.md": hashlib.sha256(page.read_bytes()).hexdigest()},
+    )
+    (sealed,) = compiled.seal(vault, ["wiki/sources/A.md"])
+    assert sealed.reason == "matched — sealed 1"
+    subprocess.run(["git", "add", "-A"], cwd=vault, check=True)
+    subprocess.run(["git", "commit", "-qm", "sealed"], cwd=vault, check=True)
+    return page
+
+
+def test_apply_reseals_the_compiled_pages_it_rewrote(tmp_vault, monkeypatch):
+    """R35: the applied propagation record names the key rewrite, so seal
+    accepts the rewritten page with no journal entry for it."""
+    page = _sealed_seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    _, path, digest = _planned(tmp_vault, client)
+    monkeypatch.setattr(
+        propagate.capture, "capture", lambda vault, client, keys, **kw: []
+    )
+    outcomes = propagate.apply(tmp_vault, client, path, digest)
+    assert [o.result for o in outcomes] == [Result.MATCHED]
+    assert "new2020" in page.read_text()
+    assert (
+        compiled.load_record(tmp_vault)["wiki/sources/A.md"]
+        == hashlib.sha256(page.read_bytes()).hexdigest()
+    )
+    assert [
+        o.result
+        for o in compiled.lint_compiled_layer(tmp_vault)
+        if o.target == "path-bytes:wiki/sources/A.md"
+    ] == []
+
+
+def test_apply_still_refuses_a_page_hand_edited_before_it(tmp_vault, monkeypatch):
+    page = _sealed_seed(tmp_vault)
+    sealed = compiled.load_record(tmp_vault)["wiki/sources/A.md"]
+    page.write_text(page.read_text() + "A hand-written line.\n")
+    client = _zotero(monkeypatch)
+    _, path, digest = _planned(tmp_vault, client)
+    monkeypatch.setattr(
+        propagate.capture, "capture", lambda vault, client, keys, **kw: []
+    )
+    outcomes = propagate.apply(tmp_vault, client, path, digest)
+    assert [(o.check, o.result, o.target, o.reason) for o in outcomes[1:]] == [
+        (
+            "compiled-layer",
+            Result.UNMATCHED,
+            "path-bytes:wiki/sources/A.md",
+            (
+                "drift — wiki/sources/A.md is not sealed: no complete compile "
+                "wrote these bytes"
+            ),
+        )
+    ]
+    assert outcomes[0].result is Result.MATCHED
+    assert compiled.load_record(tmp_vault)["wiki/sources/A.md"] == sealed

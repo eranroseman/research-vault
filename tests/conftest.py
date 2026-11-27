@@ -1,5 +1,6 @@
 import ast
 import builtins
+import hashlib
 import json as _json
 import os
 import re
@@ -12,7 +13,7 @@ from typing import AnyStr
 
 import pytest
 
-from research_vault import frontmatter, okf, scaffold, zotero
+from research_vault import compiled, frontmatter, okf, scaffold, zotero
 
 
 def must_replace(text: AnyStr, old: AnyStr, new: AnyStr, count: int = 1) -> AnyStr:
@@ -329,6 +330,15 @@ generated: {by: "research_vault/0.1.0", at: "2026-08-16T09:00:00Z"}
     okf.regenerate_log(tmp_vault)
     (tmp_vault / "inbox" / "review-queue.md").write_text(
         '---\ntype: "review-queue"\n---\n'
+    )
+    # The compiled layer is sealed as it stands (spec §5.4): a test that edits
+    # the page by hand meets the `compiled-layer` row, as a vault would.
+    compiled.write_record(
+        tmp_vault,
+        {
+            relative: hashlib.sha256(data).hexdigest()
+            for relative, data in compiled.wiki_files(tmp_vault).items()
+        },
     )
     subprocess.run(["git", "add", "-A"], cwd=tmp_vault, check=True, env=env)
     subprocess.run(

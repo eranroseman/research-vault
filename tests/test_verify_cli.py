@@ -2401,6 +2401,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "captured-set",
                 "dead-link",
                 "capture-monitor",
+                "compiled-layer",
             }
         ),
         "publish": frozenset(
@@ -2420,6 +2421,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "plugins",
                 "bbt-git",
                 "compile-tool",
+                "compiled-layer",
             }
         ),
     }
@@ -5791,6 +5793,19 @@ def _list_rows_open(vault):
     ]
 
 
+def _seal_as_it_stands(vault):
+    """The compiled-page record holding every wiki/ file's current bytes."""
+    from research_vault import compiled
+
+    compiled.write_record(
+        vault,
+        {
+            relative: hashlib.sha256(data).hexdigest()
+            for relative, data in compiled.wiki_files(vault).items()
+        },
+    )
+
+
 def _commit_all(vault, message):
     """Commit everything; the fixture vault has no hook, so this is the
     `--no-verify` commit a person can always make. Returns the commit id."""
@@ -6094,14 +6109,15 @@ def test_a_leg_row_that_is_not_unmatched_survives_a_covering_replay(net_vault, c
         if finding.result == "UNMATCHED":
             inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran")
     base = _commit_all(net_vault, "acks")
-    (net_vault / "wiki" / "concepts" / "extra.md").write_text(
-        '---\ntitle: "x"\ntype: "concept"\nstatus: "draft"\n---\nx\n'
-    )
-    _commit_all(net_vault, "unrelated")
-    (net_vault / "wiki" / "concepts" / "extra.md").write_text(
-        '---\ntitle: "y"\ntype: "concept"\nstatus: "draft"\n---\ny\n'
-    )
-    _commit_all(net_vault, "unrelated again")
+    extra = net_vault / "wiki" / "concepts" / "extra.md"
+    for title, message in (("x", "unrelated"), ("y", "unrelated again")):
+        extra.write_text(
+            f'---\ntitle: "{title}"\ntype: "concept"\nstatus: "draft"\n---\n{title}\n'
+        )
+        # Sealed with the page, as a compile would leave it: unrelated to
+        # the outage, so the exit below stays the outage's alone.
+        _seal_as_it_stands(net_vault)
+        _commit_all(net_vault, message)
     capsys.readouterr()
     ci = [*args, "--git-base", base, "--git-candidate", "HEAD"]
     assert main([*ci, "--recheck-commits", base]) == 3
@@ -7396,3 +7412,124 @@ def test_a_non_unmatched_component_row_is_not_replayed_or_twinned(net_vault):
     )
     assert not [o for o in effective if o.check == "plugins"]
     assert len([f for f in inbox.load(net_vault) if f.check == "plugins"]) == 1
+def test_compiled_layer_closes_commit_and_publish_and_the_seal_verb_runs(
+    net_vault, capsys
+):
+    import research_vault.__main__ as cli
+    from research_vault import compiled, inbox, verify
+
+    assert "compiled-layer" in inbox.CHECK_IDS
+    assert "compiled-layer" in verify.CLOSING_BY_SURFACE["commit"]
+    assert "compiled-layer" in verify.CLOSING_BY_SURFACE["publish"]
+    assert "compiled-layer" in verify.HISTORY_CHECKS
+    assert compiled.CHECK == "compiled-layer"
+    page = net_vault / "wiki" / "concepts" / "mortality-trends.md"
+    page.write_text(page.read_text() + "\nA hand-written line.\n")
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+    assert cli.main(["seal", "--vault", str(net_vault)]) == 1
+    assert "not sealed" in capsys.readouterr().out
+
+
+def test_the_fixture_vault_s_compiled_layer_is_sealed(net_vault):
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False
+    )
+    assert not [
+        o
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ]
+
+
+def test_a_non_utf8_name_under_wiki_is_a_row_not_a_crash(net_vault):
+    """Its reason carries no raw name: the queue's strict UTF-8 write would
+    refuse the lone surrogate a non-UTF-8 name decodes to."""
+    raw = b"wiki/concepts/bad-\xff.md"
+    try:
+        with open(os.path.join(os.fsencode(net_vault), raw), "wb") as stream:
+            stream.write(b"---\ntype: concept\n---\n")
+    except OSError:
+        pytest.skip("the filesystem refuses a name that is not UTF-8")
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    token = encode_repo_path(raw)
+    assert [
+        o.reason for o in effective if o.check == "compiled-layer" and o.target == token
+    ] == ["drift — this file is not sealed: no complete compile wrote these bytes"]
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+    assert "\udcff" not in (net_vault / inbox.INBOX_PATH).read_text()
+
+
+def test_the_recheck_finds_a_bypassed_hand_edit_under_wiki(net_vault):
+    """C2: the per-commit re-check runs compiled-layer on each commit's tree
+    with no journal: a hand edit committed with `--no-verify` is found at its
+    commit."""
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=net_vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    page = net_vault / "wiki" / "concepts" / "mortality-trends.md"
+    page.write_text(page.read_text() + "\nA hand-written line.\n")
+    bypassed = _commit_all(net_vault, "hand edit, bypassed")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    rows = [
+        o
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ]
+    assert [(o.target, o.reason, o.extra.get("commit")) for o in rows] == [
+        (
+            "path-bytes:wiki/concepts/mortality-trends.md",
+            (
+                "drift — wiki/concepts/mortality-trends.md differs from the "
+                "compiled-page record; seal or acknowledge"
+            ),
+            bypassed,
+        )
+    ]
+
+
+def test_the_recheck_judges_a_rename_reseal_against_its_own_base(net_vault):
+    """C2: the recorded bytes are read from the pair's base, not HEAD. Here
+    HEAD holds a later seal of the page, so a HEAD read would find no
+    recorded text at the rename commit and call it drift."""
+    from research_vault import compiled
+
+    wiki = net_vault / "wiki" / "concepts"
+    page = wiki / "linker.md"
+    page.write_text('---\ntype: "concept"\n---\nSee [B](/wiki/concepts/B.md).\n')
+    (wiki / "B.md").write_text('---\ntype: "concept"\n---\n')
+    record = compiled.load_record(net_vault)
+    for path in (page, wiki / "B.md"):
+        record[path.relative_to(net_vault).as_posix()] = hashlib.sha256(
+            path.read_bytes()
+        ).hexdigest()
+    compiled.write_record(net_vault, record)
+    base = _commit_all(net_vault, "sealed")
+    (wiki / "B.md").rename(wiki / "C.md")
+    page.write_text('---\ntype: "concept"\n---\nSee [B](/wiki/concepts/C.md).\n')
+    renamed = _commit_all(net_vault, "rename, bypassed")
+    record = compiled.load_record(net_vault)
+    del record["wiki/concepts/B.md"]
+    record["wiki/concepts/C.md"] = hashlib.sha256(
+        (wiki / "C.md").read_bytes()
+    ).hexdigest()
+    page.write_text('---\ntype: "concept"\n---\nSee [B](/wiki/concepts/C.md). Later.\n')
+    record["wiki/concepts/linker.md"] = hashlib.sha256(page.read_bytes()).hexdigest()
+    compiled.write_record(net_vault, record)
+    _commit_all(net_vault, "a later seal")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    rows = {
+        (o.target, o.extra.get("commit"))
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    }
+    assert ("path-bytes:wiki/concepts/linker.md", renamed) not in rows
+    assert ("path-bytes:wiki/concepts/B.md", renamed) in rows

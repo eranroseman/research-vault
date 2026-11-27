@@ -99,6 +99,8 @@ CHECK_IDS = frozenset(
         "bbt-git",
         "advisory",
         "compile-tool",
+        # The compiled-page record (spec §5.4, #212).
+        "compiled-layer",
     }
 )
 # The cold-row probe ids capture files as component findings (spec §6.4). All

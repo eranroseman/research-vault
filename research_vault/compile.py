@@ -14,7 +14,7 @@ import sys
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
-from . import captured, clock, frontmatter, literature_notes, paths, structure
+from . import captured, clock, compiled, frontmatter, literature_notes, paths, structure
 from .outcome import Outcome, Result
 
 LEDGER_PATH = literature_notes.LEDGER_PATH
@@ -343,6 +343,20 @@ def plan(vault_root, keys, *, today=None) -> tuple[Path, dict]:
     return bundle_path, inspected
 
 
+def _sealed(vault: Path, changed) -> str:
+    """Seal the reported `wiki/` paths (spec §5.4): `; sealed N` when it
+    sealed some, `; seal refused: …` when it refused some, else nothing."""
+    wiki = [p for p in changed if isinstance(p, str) and p.startswith("wiki/")]
+    if not wiki:
+        return ""
+    rows = compiled.seal(vault, wiki)
+    refused = [row.reason for row in rows if row.result is not Result.MATCHED]
+    if refused:
+        return "; seal refused: " + "; ".join(refused)
+    sealed = rows[0].reason.rsplit(" ", 1)[-1] if rows else "0"
+    return "" if sealed == "0" else f"; sealed {sealed}"
+
+
 def apply(vault_root, bundle_path, approved_sha256) -> Outcome:
     vault = Path(vault_root)
     operation = Path(bundle_path).stem
@@ -368,7 +382,9 @@ def apply(vault_root, bundle_path, approved_sha256) -> Outcome:
             CHECK,
             operation,
             Result.MATCHED,
-            "matched — " + (", ".join(changed) or "no paths reported"),
+            "matched — "
+            + (", ".join(changed) or "no paths reported")
+            + _sealed(vault, changed),
         )
     detail = (completed.stderr or completed.stdout).strip().splitlines()[-1:] or [
         f"exit {completed.returncode}"

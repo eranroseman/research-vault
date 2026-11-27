@@ -27,7 +27,7 @@ Literature notes are wholly machine-written: `capture` regenerates the whole not
 
 Machine surfaces are owner-written: hand or tool edits are regenerated away or raise a finding.
 
-`wiki/` is written only by the adopted compile tool's transaction engine; never `Write` or `Edit` under it.
+`wiki/` is written only by the adopted compile tool's transaction engine; never `Write` or `Edit` under it. A hand edit under `wiki/` is reported against the compiled-page record, `system/compiled-pages.json`, and holds the commit.
 
 `capture` is the sole writer of the CSL file `system/bibliography.json`, rendered from Better BibTeX; users and other tools must not write it.
 

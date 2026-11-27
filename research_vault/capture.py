@@ -18,6 +18,7 @@ from typing import NamedTuple
 from . import (
     bibliography,
     captured,
+    compiled,
     doctor,
     frontmatter,
     fulltext,
@@ -512,6 +513,7 @@ def capture(
     now: datetime.datetime | None = None,
     refresh_all: bool = False,
     key_wait_seconds: float = KEY_WAIT_SECONDS,
+    seal: bool = True,
 ) -> list[Outcome]:
     """The capture verb (spec §3.3): the linter first, then one read, one CSL
     export and one render per requested item, then the rendered entries into
@@ -652,6 +654,8 @@ def capture(
                 )
             )
     outcomes.extend(_tags_summary(outcomes, now))
+    if seal:
+        outcomes.extend(_sealed(vault))
     if aborted is not None:
         # An entry moves only with its note (§5.3.7, both ways): the notes
         # written before the move carry their entries' hashes, so those entries
@@ -708,6 +712,32 @@ def _component_findings(vault: Path) -> list[Outcome]:
                 )
             )
     return rows
+
+
+def _sealed(vault: Path) -> list[Outcome]:
+    """Spec §5.4: capture runs after compile, so it seals what the compile
+    tool wrote. A row only when the seal did something: `matched — sealed N`,
+    or one row folding every refusal. ``seal=False`` is propagate's recapture,
+    which seals once its record names the rewrite."""
+    rows = compiled.seal(vault)
+    refused = [row for row in rows if row.result is not Result.MATCHED]
+    if refused:
+        return [
+            Outcome(
+                compiled.CHECK,
+                compiled.RECORD_PATH,
+                Result.UNMATCHED,
+                "drift — "
+                + "; ".join(row.reason.split(" — ", 1)[-1] for row in refused),
+            )
+        ]
+    if rows and rows[0].reason != "matched — sealed 0":
+        return [
+            Outcome(
+                compiled.CHECK, compiled.RECORD_PATH, Result.MATCHED, rows[0].reason
+            )
+        ]
+    return []
 
 
 _ITEM_FIELDS = (frozenset(literature_notes.SNAPSHOT_FIELDS) - {"zotero-tags"}) | {

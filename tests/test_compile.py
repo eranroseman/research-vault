@@ -1455,3 +1455,53 @@ def test_cli_compile_exits_2_naming_an_undecodable_machine_config(tmp_vault, cap
     config.write_bytes(b"\xff\xfe")
     assert main(["compile", "--all", "--vault", str(tmp_vault)]) == 2
     assert "machine.json" in capsys.readouterr().err
+
+
+def test_apply_seals_the_reported_wiki_paths_a_complete_journal_names(
+    tmp_vault, tmp_path, monkeypatch
+):
+    from research_vault import compiled
+    from tests.test_compiled import _journal
+
+    _note(tmp_vault)
+    _fake_tool(
+        tmp_path,
+        monkeypatch,
+        apply_changed_paths=("wiki/meta/ledgers/source-ledger.json",),
+    )
+    bundle_path, _inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text('{"sources": {}}\n')
+    digest = hashlib.sha256(ledger.read_bytes()).hexdigest()
+    _journal(tmp_vault, "op", {"wiki/meta/ledgers/source-ledger.json": digest})
+    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert outcome.reason == (
+        "matched — wiki/meta/ledgers/source-ledger.json; sealed 1"
+    )
+    assert compiled.load_record(tmp_vault) == {
+        "wiki/meta/ledgers/source-ledger.json": digest
+    }
+
+
+def test_apply_names_a_seal_refusal_in_its_reason(tmp_vault, tmp_path, monkeypatch):
+    from research_vault import compiled
+
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    bundle_path, _inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text("{}\n")
+    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert outcome.result is Result.MATCHED
+    assert outcome.reason == (
+        "matched — wiki/meta/ledgers/source-ledger.json; seal refused: "
+        "drift — wiki/meta/ledgers/source-ledger.json is not sealed: no complete "
+        "compile wrote these bytes"
+    )
+    assert compiled.load_record(tmp_vault) == {}

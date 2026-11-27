@@ -9,7 +9,7 @@ The compiled layer lives under `wiki/` — per-source pages under `wiki/sources/
 
 ## Never write the layer by hand
 
-`wiki/` is a machine surface: pages are created and replaced only through the tool's wiki-ingest skill and its `transaction inspect` / `transaction apply` gate. Never `Write` or `Edit` under `wiki/`; the pre-tool-use guard refuses it. Register sources first with `python3 -m research_vault compile KEY --vault PATH` (see `capture-source`).
+`wiki/` is a machine surface: pages are created and replaced only through the tool's wiki-ingest skill and its `transaction inspect` / `transaction apply` gate. Never `Write` or `Edit` under `wiki/`; the pre-tool-use guard refuses it. Register sources first with `python3 -m research_vault compile KEY --vault PATH` (see `capture-source`). Every file under `wiki/` is hashed in `system/compiled-pages.json`; a hand edit holds the commit until `seal` (which accepts only bytes the tool wrote) or an acknowledgement.
 
 ## Orientation first
 

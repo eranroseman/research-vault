@@ -9,6 +9,7 @@ trust, and one does not exist to be misused.
 """
 
 import datetime as datetime_lib
+import hashlib
 import importlib.util
 import io
 import json
@@ -20,7 +21,16 @@ from pathlib import Path
 
 import pytest
 
-from research_vault import Result, events, frontmatter, inbox, lints, okf, publish
+from research_vault import (
+    Result,
+    compiled,
+    events,
+    frontmatter,
+    inbox,
+    lints,
+    okf,
+    publish,
+)
 from research_vault.__main__ import main
 from research_vault.outcome import Outcome
 from research_vault.verify import WHOLE_HISTORY, _projection_identity
@@ -110,6 +120,11 @@ def _build_vault(
     (root / "index.md").write_text('---\nokf_version: "0.2"\n---\n# Knowledge bundle\n')
     okf.regenerate_log(root)
     (root / "wiki" / "index.md").write_text("# Wiki index\n")
+    # Sealed as it stands, so `green_vault` stays green (spec §5.4).
+    compiled.write_record(
+        root,
+        {"wiki/index.md": hashlib.sha256(b"# Wiki index\n").hexdigest()},
+    )
     (root / "inbox" / "review-queue.md").write_text('---\ntype: "review-queue"\n---\n')
     if bibliography is not None:
         (root / "system" / "bibliography.json").write_text(json.dumps(bibliography))

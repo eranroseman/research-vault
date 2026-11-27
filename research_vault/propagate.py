@@ -20,7 +20,15 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import NamedTuple
 
-from . import bibliography, capture, lifecycle, links, literature_notes, structure
+from . import (
+    bibliography,
+    capture,
+    compiled,
+    lifecycle,
+    links,
+    literature_notes,
+    structure,
+)
 from .outcome import Outcome, Result
 from .pathcodec import RepoPath
 from .zotero import ZoteroError
@@ -492,6 +500,24 @@ def read_plan(path) -> Plan:
     return plan_from_document(json.loads(Path(path).read_text(encoding="utf-8")), path)
 
 
+def rewrite_text(text: str, old: str, new: str, *, source: str) -> str:
+    """``text``, the surface ``source``, with every citation of ``old`` and
+    every link naming its note renamed to ``new``: the one rewrite apply makes,
+    which `compiled.seal` replays to tell a propagated page from a hand edit."""
+    pattern, template = _cite_pattern(old)
+    rewritten = pattern.sub(template.format(new=new), text)
+    return links.rewrite_key(rewritten, old, new, source=source)
+
+
+def rewrites(record: Plan) -> list[tuple[str, str]]:
+    """The ``(old, new)`` rewrites applying ``record`` made, in apply's order."""
+    return [
+        (old, new)
+        for old, new in _order(_targets(record.mapping, record.merges), record.merges)
+        if old != new
+    ]
+
+
 def rewrite_surfaces(vault_root, old: str, new: str) -> list[str]:
     vault = Path(vault_root)
     changed = []
@@ -503,9 +529,7 @@ def rewrite_surfaces(vault_root, old: str, new: str) -> list[str]:
             "r", encoding="utf-8", errors="surrogateescape", newline=""
         ) as handle:
             text = handle.read()
-        pattern, template = _cite_pattern(old)
-        rewritten = pattern.sub(template.format(new=new), text)
-        rewritten = links.rewrite_key(rewritten, old, new, source=relative)
+        rewritten = rewrite_text(text, old, new, source=relative)
         if rewritten != text:
             with path.open(
                 "w", encoding="utf-8", errors="surrogateescape", newline=""
@@ -523,6 +547,7 @@ def _apply_entry(
     new: str,
     source: Path,
     document: dict,
+    rewritten: list[str] | None = None,
 ) -> list[Outcome]:
     """One entry of an approved plan; what it did joins the record ``document``.
 
@@ -556,7 +581,11 @@ def _apply_entry(
         if old in approved.merges:
             document["moved"][f"literature/{source.name}"] = f"literature/{target.name}"
     changed = rewrite_surfaces(vault, old, new) if old != new else []
-    recapture = capture.capture(vault, client, [approved.item_keys[old]])
+    if rewritten is not None:
+        rewritten.extend(changed)
+    # No seal inside the recapture: the pages just rewritten are sealed by
+    # apply once the record that names the rewrite exists (R35).
+    recapture = capture.capture(vault, client, [approved.item_keys[old]], seal=False)
     outcomes = [
         Outcome(
             CHECK,
@@ -662,15 +691,40 @@ def apply(
     document["removed"] = []
     document["moved"] = {}
     outcomes = []
+    rewritten: list[str] = []
     for old, new in _order(targets, approved.merges):
         outcomes.extend(
-            _apply_entry(vault, client, approved, old, new, sources[old][0], document)
+            _apply_entry(
+                vault,
+                client,
+                approved,
+                old,
+                new,
+                sources[old][0],
+                document,
+                rewritten,
+            )
         )
     document["removed"].sort()
     record = vault / RECORD_DIR / f"{approved.operation_id}.json"
     record.parent.mkdir(parents=True, exist_ok=True)
     record.write_text(_canonical(document), encoding="utf-8")
-    return outcomes
+    return outcomes + _reseal(vault, rewritten)
+
+
+def _reseal(vault: Path, rewritten: list[str]) -> list[Outcome]:
+    """Spec §5.4: reseal the sealed `wiki/` pages apply rewrote. The record
+    just written names the rewrite, which is seal's evidence (R35); a page the
+    record never held was not sealed before and is the lint's to report, and
+    a refusal (a page hand-edited before apply) is a row."""
+    try:
+        sealed = compiled.load_record(vault)
+    except compiled.RecordError:
+        sealed = {}  # the lint reports the unreadable record
+    pages = sorted({p for p in rewritten if p.startswith("wiki/") and p in sealed})
+    if not pages:
+        return []
+    return [o for o in compiled.seal(vault, pages) if o.result is not Result.MATCHED]
 
 
 def read_records(vault_root) -> list[Plan]:

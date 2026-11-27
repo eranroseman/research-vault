@@ -19,6 +19,7 @@ from . import (
     captured,
     checks,
     clock,
+    compiled,
     events,
     frontmatter,
     gitstate,
@@ -63,6 +64,7 @@ CLOSING_BY_SURFACE = {
             "captured-set",
             "dead-link",
             "capture-monitor",
+            "compiled-layer",
         }
     ),
     "publish": frozenset(
@@ -79,6 +81,7 @@ CLOSING_BY_SURFACE = {
             "captured-set",
             "dead-link",
             "capture-monitor",
+            "compiled-layer",
             # Open component findings capture filed (spec §6.4); `advisory`
             # is warn-only and closes nothing (R40).
             "plugins",
@@ -820,12 +823,35 @@ def _claim_immutability(repository, base_snapshot, candidate_snapshot):
     return lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)
 
 
+def _compiled_layer(_repository, base_snapshot, candidate_snapshot):
+    """`compiled-layer` over one commit's tree (ruling C2): the lint reads
+    files, so the candidate is materialised; no journal is read, as in CI;
+    and the sealed bytes a rename's or a propagation's reseal is judged
+    against are the pair's base's, not HEAD's. A tree with nothing under
+    `wiki/` has no compiled layer and is not materialised."""
+    if not any(path.startswith(b"wiki/") for path in candidate_snapshot.images):
+        return []
+
+    def recorded(relative):
+        image = base_snapshot.image(os.fsencode(relative))
+        return image.data if image is not None and image.kind == "file" else None
+
+    with tempfile.TemporaryDirectory(prefix="research-vault-compiled-") as temporary:
+        gitstate.materialize_snapshot(candidate_snapshot, Path(temporary))
+        return compiled.lint_compiled_layer(Path(temporary), base=recorded)
+
+
 _HISTORY_LINTS = {
     "evidence-layer": _evidence_layer,
     "append-only": _append_only,
     "claim-immutability": _claim_immutability,
+    "compiled-layer": _compiled_layer,
 }
 HISTORY_CHECKS = tuple(_HISTORY_LINTS)
+# Run by the per-commit re-check only. The worktree leg's `compiled-layer`
+# rows are `_plan_state`'s, which also read the local journal, so a fresh
+# compile before seal files no row there.
+_REPLAY_ONLY = frozenset({"compiled-layer"})
 
 # Ruling R18: the verifier-list rows hash on the base's tree, so they are
 # per-commit rows, computed only where the base is the candidate's parent. A
@@ -839,11 +865,13 @@ LIST_ROWS_NOTICE = (
 )
 
 
-def _history_lints(repository, base_snapshot, candidate_snapshot):
-    """The `HISTORY_CHECKS` lints over one base and candidate."""
+def _history_lints(repository, base_snapshot, candidate_snapshot, *, replay=False):
+    """The `HISTORY_CHECKS` lints over one base and candidate; the re-check's
+    own (`_REPLAY_ONLY`) only when ``replay``."""
     return [
         outcome
         for check in HISTORY_CHECKS
+        if replay or check not in _REPLAY_ONLY
         for outcome in _HISTORY_LINTS[check](
             repository, base_snapshot, candidate_snapshot
         )
@@ -881,11 +909,13 @@ def _row_path(outcome):
     return None
 
 
-def _unmatched(repository, base_snapshot, candidate_snapshot):
+def _unmatched(repository, base_snapshot, candidate_snapshot, *, replay=False):
     """The two-version lints' UNMATCHED rows, keyed by check, target, reason."""
     return {
         (outcome.check, outcome.target, outcome.reason): outcome
-        for outcome in _history_lints(repository, base_snapshot, candidate_snapshot)
+        for outcome in _history_lints(
+            repository, base_snapshot, candidate_snapshot, replay=replay
+        )
         if outcome.result is Result.UNMATCHED
     }
 
@@ -925,7 +955,7 @@ def _commit_rows(repository, commit, bases, candidate, *, hasher, own_rows):
     kept finding is one row, not one per parent. ``hasher(outcome, base,
     candidate)`` is the row's acknowledgment hash; ``own_rows(snapshot)`` is
     that tree's own rows (`_unmatched` against itself) with their hashes."""
-    raised = [_unmatched(repository, base, candidate) for base in bases]
+    raised = [_unmatched(repository, base, candidate, replay=True) for base in bases]
 
     def inherited(key, outcome, base):
         digest = hasher(outcome, base, candidate)
@@ -976,7 +1006,7 @@ def _history_outcomes(repository, base_ref, hasher):
             own[tree_snapshot.tree] = {
                 key: hasher(outcome, None, tree_snapshot)
                 for key, outcome in _unmatched(
-                    repository, tree_snapshot, tree_snapshot
+                    repository, tree_snapshot, tree_snapshot, replay=True
                 ).items()
             }
         return own[tree_snapshot.tree]
@@ -1173,6 +1203,7 @@ def _plan_state(
     raw.extend(leg)
     raw.extend(lints.lint_published_drift(repository, snapshots.candidate))
     raw.extend(propagate.lint_propagation(vault))
+    raw.extend(compiled.lint_compiled_layer(vault, repository_root=repository))
     raw.extend(
         captured.lint_captured_set(
             vault, as_of=detection_date, bibliography_universe=bibliography_universe
