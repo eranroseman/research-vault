@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import subprocess
+import time
 
 import pytest
 
@@ -2429,3 +2430,44 @@ def test_apply_still_refuses_a_page_hand_edited_before_it(tmp_vault, monkeypatch
     ]
     assert outcomes[0].result is Result.MATCHED
     assert compiled.load_record(tmp_vault)["wiki/sources/A.md"] == sealed
+
+
+@pytest.mark.parametrize("recorded", [True, False], ids=["recorded", "never-sealed"])
+def test_apply_seals_a_compiled_page_before_it_rewrites_it(
+    tmp_vault, monkeypatch, recorded
+):
+    """W5: a page the compile tool wrote and nobody sealed yet is sealed
+    from its journal before the rewrite, so apply's reseal accepts the
+    rewrite instead of leaving drift that cannot be sealed."""
+    from tests.test_compiled import _journal
+
+    if recorded:
+        page = _sealed_seed(tmp_vault, commit=True)
+    else:
+        _seed(tmp_vault)
+        page = tmp_vault / "wiki" / "sources" / "A.md"
+    page.write_text(page.read_text() + "Compiled again.\n")
+    _journal(
+        tmp_vault,
+        "op2",
+        {"wiki/sources/A.md": hashlib.sha256(page.read_bytes()).hexdigest()},
+        epoch=time.time() + 10,
+    )
+    client = _zotero(monkeypatch)
+    _, path, digest = _planned(tmp_vault, client)
+    monkeypatch.setattr(
+        propagate.capture, "capture", lambda vault, client, keys, **kw: []
+    )
+    outcomes = propagate.apply(tmp_vault, client, path, digest)
+    assert [o.result for o in outcomes] == [Result.MATCHED], outcomes
+    assert "new2020" in page.read_text()
+    assert "Compiled again." in page.read_text()
+    assert (
+        compiled.load_record(tmp_vault)["wiki/sources/A.md"]
+        == hashlib.sha256(page.read_bytes()).hexdigest()
+    )
+    assert [
+        o.result
+        for o in compiled.lint_compiled_layer(tmp_vault)
+        if o.target == "path-bytes:wiki/sources/A.md"
+    ] == []

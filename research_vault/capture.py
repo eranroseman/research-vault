@@ -528,18 +528,25 @@ def capture(
     """
     vault = Path(vault_root)
     now = now or datetime.datetime.now(datetime.UTC).replace(microsecond=0)
+
+    def tail() -> list[Outcome]:
+        # Plan deviation 2: every run seals, one a Zotero outage or a
+        # vault-level refusal ends early too (W10); the seal reads only the
+        # local journal, so nothing it needs is behind the refusal.
+        return _sealed(vault) if seal else []
+
     try:
         info = client.server_info()
     except ZoteroError as error:
         # A client that still carries an earlier run's server id is refused with
         # 412 before any read; ``blocked`` names that as database-changed.
-        return [lifecycle.blocked(CHECK, "vault", error)]
+        return [lifecycle.blocked(CHECK, "vault", error), *tail()]
     try:
         base_fields = literature_notes.base_field_map(client.schema())
     except ZoteroError as error:
         # #188: without the fold the snapshot would carry unfolded names, which
         # the monitor reads as a removed venue on the next run; refuse instead.
-        return [lifecycle.blocked(CHECK, "vault", error)]
+        return [lifecycle.blocked(CHECK, "vault", error), *tail()]
     existing = lifecycle._provenances(vault)
     client.server_id = existing[0][1].server_id if existing else info["server_id"]
     all_keys, unrequestable = _every_note(vault) if refresh_all else ([], [])
@@ -556,7 +563,7 @@ def capture(
         # here, before `outcomes` even exists; a vault-level lint refusal
         # must not silently drop it either (ADR 0002, same shape as the
         # resolve_keys failure below).
-        return [*unrequestable, *blocking]
+        return [*unrequestable, *blocking, *tail()]
     # The linter targets citation keys; capture resolves item keys. Join the two
     # through the provenance tuples.
     item_key_of = {p.citation_key: p.item_key for _, p in existing}
@@ -573,7 +580,7 @@ def capture(
         # `outcomes` may already hold `_every_note`'s unrequestable rows
         # (--all); a vault-level failure here must not silently drop them
         # (ADR 0002).
-        return [*outcomes, lifecycle.blocked(CHECK, "vault", error)]
+        return [*outcomes, lifecycle.blocked(CHECK, "vault", error), *tail()]
     for requested_key, item_key in resolved.items():
         if item_key is None:
             outcomes.append(
@@ -654,8 +661,7 @@ def capture(
                 )
             )
     outcomes.extend(_tags_summary(outcomes, now))
-    if seal:
-        outcomes.extend(_sealed(vault))
+    outcomes.extend(tail())
     if aborted is not None:
         # An entry moves only with its note (§5.3.7, both ways): the notes
         # written before the move carry their entries' hashes, so those entries

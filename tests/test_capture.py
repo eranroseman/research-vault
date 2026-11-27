@@ -2641,3 +2641,40 @@ def test_a_standing_schema_violation_files_once_and_refiles_when_it_changes(
     write("---\ntitle: A: B: C\n---\n")
     assert run() == 1
     assert len({f.target_hash for f in filed()}) == 2
+
+
+@pytest.mark.parametrize("stop", ["server_info", "schema", "lint", "resolve_keys"])
+def test_capture_seals_on_every_early_return(tmp_vault, monkeypatch, stop):
+    """W10 (plan deviation 2): capture seals at the end of every run, the
+    runs a Zotero outage or a vault-level refusal ends early included: the
+    seal reads only the local journal."""
+    from research_vault.outcome import Outcome
+    from research_vault.zotero import ZoteroError
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+
+    def refused(*_args, **_kwargs):
+        raise ZoteroError("closed")
+
+    if stop == "lint":
+        monkeypatch.setattr(
+            capture.lifecycle,
+            "lint_lifecycle",
+            lambda *a, **k: [
+                Outcome("lifecycle", "vault", Result.UNMATCHED, "database-changed — x")
+            ],
+        )
+    elif stop == "resolve_keys":
+        monkeypatch.setattr(capture, "resolve_keys", refused)
+    else:
+        monkeypatch.setattr(client, stop, refused)
+    calls = []
+    monkeypatch.setattr(
+        capture.compiled, "seal", lambda vault, *a, **k: calls.append(vault) or []
+    )
+    capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert calls == [tmp_vault]
+    calls.clear()
+    capture.capture(tmp_vault, client, ["jakesch.etal2023a"], seal=False)
+    assert calls == []

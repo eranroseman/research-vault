@@ -681,6 +681,7 @@ def apply(
     sources, refused = _sources(vault, targets)
     if refused:
         return refused
+    presealed = _preseal(vault)
     # The approved plan verbatim, then what applying it did, which the
     # evidence-layer lint reads: `removed`, the removals that happened (a
     # planned one whose recapture failed is in `removes` only), and `moved`,
@@ -709,7 +710,33 @@ def apply(
     record = vault / RECORD_DIR / f"{approved.operation_id}.json"
     record.parent.mkdir(parents=True, exist_ok=True)
     record.write_text(_canonical(document), encoding="utf-8")
-    return outcomes + _reseal(vault, rewritten)
+    resealed = _reseal(vault, rewritten)
+    held = {(o.target, o.reason) for o in resealed}
+    return (
+        outcomes + [o for o in presealed if (o.target, o.reason) not in held] + resealed
+    )
+
+
+def _preseal(vault: Path) -> list[Outcome]:
+    """Seal every `wiki/` page whose bytes are its latest complete compile
+    write and not yet its entry (W5), before the rewrite: the reseal then
+    replays this record over the bytes the compile wrote, not over an older
+    seal, and a page the record never held is held from now on. Returns
+    seal's refusals (a page whose frontmatter is not YAML)."""
+    journal = compiled.journal_hashes(vault)
+    try:
+        record = compiled.load_record(vault)
+    except compiled.RecordError:
+        return []  # the lint reports the unreadable record
+    pages = [
+        relative
+        for relative, data in compiled.wiki_files(vault).items()
+        if journal.get(relative) == (digest := hashlib.sha256(data).hexdigest())
+        and record.get(relative) != digest
+    ]
+    if not pages:
+        return []
+    return [o for o in compiled.seal(vault, pages) if o.result is not Result.MATCHED]
 
 
 def _reseal(vault: Path, rewritten: list[str]) -> list[Outcome]:
