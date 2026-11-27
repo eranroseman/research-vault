@@ -18,8 +18,10 @@ from typing import NamedTuple
 from . import (
     bibliography,
     captured,
+    doctor,
     frontmatter,
     fulltext,
+    inbox,
     keystore,
     lifecycle,
     lints,
@@ -659,7 +661,35 @@ def capture(
         return [*outcomes, aborted]
     if rendered_entries or existing:
         outcomes.append(_update_csl(vault, rendered_entries))
+    outcomes.extend(_component_findings(vault))
     return outcomes
+
+
+def _component_findings(vault: Path) -> list[Outcome]:
+    """Doctor's cold rows after a run that reached its end (spec §6.4, Q13):
+    one UNMATCHED row per failing component under the probe's id, hashed on
+    the failing facts alone. A failing probe with no facts (a malformed
+    `extensions.json` or declaration, a profile hold) is one row whose target
+    is the probe id and whose fact is its reason (DP34)."""
+    rows = []
+    for probe in doctor.cold_rows(vault):
+        if (
+            probe.result is not Result.UNMATCHED
+            or probe.check not in inbox.COMPONENT_CHECKS
+        ):
+            continue
+        for component, facts in probe.facts or ((probe.check, (probe.reason,)),):
+            digest = hashlib.sha256("\n".join(facts).encode("utf-8")).hexdigest()[:16]
+            rows.append(
+                Outcome(
+                    probe.check,
+                    component,
+                    Result.UNMATCHED,
+                    f"mismatch — {component}: {'; '.join(facts)}",
+                    extra={"component": True, "target_hash": digest},
+                )
+            )
+    return rows
 
 
 _ITEM_FIELDS = (frozenset(literature_notes.SNAPSHOT_FIELDS) - {"zotero-tags"}) | {

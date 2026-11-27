@@ -670,24 +670,30 @@ def _translator_formats_probe(client, skip: str | None) -> Probe:
     )
 
 
-def _compile_tool_probe() -> Probe:
+def _compile_tool_probe(_vault: Path | None = None) -> Probe:
+    """The compile tool at its pin. The vault is unread until Plan E reads the
+    mode from it. An UNMATCHED row's one fact names the pin, never the
+    installed sha (DP34): a move between two wrong shas re-fires nothing."""
     records = _installed_plugins().get(_COMPILE_PLUGIN)
     record = records[0] if isinstance(records, list) and records else None
     if not isinstance(record, dict):
         return Probe("compile-tool", Result.SKIPPED, f"{_COMPILE_PLUGIN} not installed")
     sha = str(record.get("gitCommitSha") or "")
+    if sha.startswith(_COMPILE_PIN):
+        return Probe("compile-tool", Result.MATCHED, f"{_COMPILE_PLUGIN} at {sha[:7]}")
+    facts = ((_COMPILE_PLUGIN, (f"off pin {_COMPILE_PIN}",)),)
     if not sha:
         return Probe(
             "compile-tool",
             Result.UNMATCHED,
             f"{_COMPILE_PLUGIN} record has no gitCommitSha, pin is {_COMPILE_PIN}",
+            facts=facts,
         )
-    if sha.startswith(_COMPILE_PIN):
-        return Probe("compile-tool", Result.MATCHED, f"{_COMPILE_PLUGIN} at {sha[:7]}")
     return Probe(
         "compile-tool",
         Result.UNMATCHED,
         f"{_COMPILE_PLUGIN} at {sha[:7]}, pin is {_COMPILE_PIN}",
+        facts=facts,
     )
 
 
@@ -725,6 +731,28 @@ def _pyyaml_probe() -> Probe:
     return Probe(
         "pyyaml", Result.MATCHED, f"PyYAML {yaml.__version__} ({loader} loader)"
     )
+
+
+# The network-free, repair-free probes capture runs after every successful run
+# (spec §6.4, Q13): the component rows. `tree` repairs, the Zotero rows need
+# the app; `pyyaml`, `deny-rules`, `machine-config`, `remote` and `backup`
+# are setup facts, not components (DP40).
+COMPONENT_PROBES = ("fulltext-sync", "bbt-git", "plugins", "advisory", "compile-tool")
+
+
+def cold_rows(vault_root) -> list[Probe]:
+    """The component probes alone: no network client, no repair; reads
+    ``machine.json`` and the profile cold."""
+    vault = Path(vault_root)
+    config, _machine = _machine_config(vault)
+    profile = _profile_facts(config)
+    return [
+        _fulltext_sync_probe(profile),
+        _bbt_git_probe(profile, vault),
+        _plugins_probe(profile, vault),
+        _advisory_probe(profile),
+        _compile_tool_probe(vault),
+    ]
 
 
 def doctor(vault_root, client=None) -> list[Probe]:

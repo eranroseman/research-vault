@@ -107,7 +107,11 @@ def _print_and_hold(vault, outcomes, check: str) -> int:
 
     The verb's check, not each row's: ``capture()`` returns the lifecycle
     linter's vault-level refusal rows as they are (check ``lifecycle``), and
-    the queue attributes them to the run that met them. Only ``UNMATCHED``
+    the queue attributes them to the run that met them. The one exception is
+    a component finding (``inbox.COMPONENT_CHECKS``, spec §6.4): it is held
+    under its own check with its facts' hash, and one that already stands —
+    open or acknowledged, on any day — files nothing and sets no exit
+    (``_standing_component``, R39). Only ``UNMATCHED``
     and ``UNREACHABLE`` outcomes are held — ``SKIPPED`` is automatic-only and
     never a finding (an item with no attachment to read is a class this
     iteration does not handle, not a capture failure), and ``record_finding``
@@ -117,13 +121,29 @@ def _print_and_hold(vault, outcomes, check: str) -> int:
     worst = 0
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+        if _standing_component(vault, outcome):
+            continue
         if outcome.result in (Result.UNMATCHED, Result.UNREACHABLE):
-            _hold_outcome(vault, check, outcome)
+            component = outcome.check in inbox.COMPONENT_CHECKS
+            _hold_outcome(vault, outcome.check if component else check, outcome)
         if outcome.result is Result.UNMATCHED:
             worst = 1
         elif outcome.result is Result.UNREACHABLE and worst == 0:
             worst = 3
     return worst
+
+
+def _standing_component(vault, outcome) -> bool:
+    """Whether ``outcome`` is a component finding the queue already holds in
+    scope (``inbox.component_standing``, spec §6.4): re-filed on a later day
+    it would be a second open row for one standing fault."""
+    target_hash = outcome.extra.get("target_hash")
+    return outcome.check in inbox.COMPONENT_CHECKS and inbox.component_standing(
+        vault,
+        outcome.check,
+        outcome.target,
+        target_hash if isinstance(target_hash, str) else None,
+    )
 
 
 def cmd_capture(args):
@@ -278,6 +298,8 @@ def cmd_propagate(args):
     worst = 0
     for outcome in outcomes:
         print(f"{outcome.result.value} {outcome.target} — {outcome.reason}")
+        if _standing_component(args.vault, outcome):
+            continue
         if outcome.result is Result.UNMATCHED:
             # Capture's tags summary rides the recapture (ruling P41).
             _hold_outcome(args.vault, outcome.check, outcome)

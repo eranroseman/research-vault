@@ -2116,3 +2116,213 @@ def test_a_run_that_retags_two_notes_names_both_in_its_one_row(tmp_vault, monkey
     assert [o.reason for o in outcomes if o.target == "tags"] == [
         "drift — tags changed on: jakesch.etal2023a, second2023"
     ]
+
+
+def _component_probes():
+    from research_vault import doctor
+
+    return [
+        doctor.Probe(
+            "plugins",
+            Result.UNMATCHED,
+            "PMCID fetcher extensions.zotero.pmcid.auto=true (accepted false)",
+            facts=(
+                (
+                    "zotero-pmcid-fetcher@iris-advies.com",
+                    ("extensions.zotero.pmcid.auto=true (accepted false)",),
+                ),
+            ),
+        ),
+        doctor.Probe(
+            "advisory",
+            Result.UNMATCHED,
+            "Zoplicate active (excluded on harm grounds)",
+            facts=(
+                ("zoplicate@chenglongma.com", ("active (excluded on harm grounds)",)),
+            ),
+        ),
+        doctor.Probe("bbt-git", Result.MATCHED, "git=off"),
+    ]
+
+
+def _component_rows(vault):
+    from research_vault import inbox
+
+    return sorted(
+        (f.check, f.target, f.reason, f.target_hash)
+        for f in inbox.open_entries(vault)
+        if f.check in inbox.COMPONENT_CHECKS
+    )
+
+
+def test_capture_files_each_failing_component_hashed_on_its_facts(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """§6.4: one finding per failing component under the probe's id; the hash
+    covers only the failing facts, so an auto-update re-fires nothing."""
+    import hashlib
+
+    import research_vault.__main__ as cli
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    probes = _component_probes()
+    monkeypatch.setattr(capture.doctor, "cold_rows", lambda vault: probes)
+    # Filing is the CLI's (DP27); a newly filed component row is exit 1 like
+    # any record (R39).
+    assert (
+        cli._print_and_hold(
+            tmp_vault, capture.capture(tmp_vault, client, ["E352DFS8"]), capture.CHECK
+        )
+        == 1
+    )
+    assert _component_rows(tmp_vault) == [
+        (
+            "advisory",
+            "zoplicate@chenglongma.com",
+            "mismatch — zoplicate@chenglongma.com: active (excluded on harm grounds)",
+            hashlib.sha256(b"active (excluded on harm grounds)").hexdigest()[:16],
+        ),
+        (
+            "plugins",
+            "zotero-pmcid-fetcher@iris-advies.com",
+            (
+                "mismatch — zotero-pmcid-fetcher@iris-advies.com: "
+                "extensions.zotero.pmcid.auto=true (accepted false)"
+            ),
+            hashlib.sha256(
+                b"extensions.zotero.pmcid.auto=true (accepted false)"
+            ).hexdigest()[:16],
+        ),
+    ]
+    # The same facts again: the standing rows file nothing and set nothing (R39).
+    assert (
+        cli._print_and_hold(
+            tmp_vault, capture.capture(tmp_vault, client, ["E352DFS8"]), capture.CHECK
+        )
+        == 0
+    )
+    assert len(_component_rows(tmp_vault)) == 2  # no duplicate rows
+
+
+def test_a_standing_component_row_is_not_refiled_on_a_later_day(tmp_vault, monkeypatch):
+    """DP33, spec §6.4: one inbox predicate serves capture's skip. An open
+    row with the same check, target and hash is not filed again on a later
+    day, and an acknowledged one is not reopened."""
+    import research_vault.__main__ as cli
+    from research_vault import clock, inbox
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    monkeypatch.setattr(capture.doctor, "cold_rows", lambda vault: _component_probes())
+    monkeypatch.setattr(clock, "today", lambda as_of=None: as_of or "2026-11-27")
+    cli._print_and_hold(
+        tmp_vault, capture.capture(tmp_vault, client, ["E352DFS8"]), capture.CHECK
+    )
+    advisory = next(f for f in inbox.open_entries(tmp_vault) if f.check == "advisory")
+    inbox.append_ack(
+        tmp_vault, advisory.id, "manual — kept while it is reviewed", "human:eran"
+    )
+    monkeypatch.setattr(clock, "today", lambda as_of=None: as_of or "2026-11-29")
+    assert (
+        cli._print_and_hold(
+            tmp_vault, capture.capture(tmp_vault, client, ["E352DFS8"]), capture.CHECK
+        )
+        == 0
+    )
+    assert [
+        f.check
+        for f in inbox.open_entries(tmp_vault)
+        if f.check in inbox.COMPONENT_CHECKS
+    ] == ["plugins"]
+    assert (
+        len(
+            [
+                f
+                for f in inbox.load(tmp_vault)
+                if f.check in inbox.COMPONENT_CHECKS and f.ack_of is None
+            ]
+        )
+        == 2
+    )
+    assert inbox.component_standing(
+        tmp_vault, "advisory", "zoplicate@chenglongma.com", advisory.target_hash
+    )
+    assert not inbox.component_standing(
+        tmp_vault, "advisory", "zoplicate@chenglongma.com", "0123456789abcdef"
+    )
+
+
+def test_a_factless_failing_component_files_one_row_on_its_reason(
+    tmp_vault, monkeypatch
+):
+    """DP34: a malformed extensions.json, a malformed declaration or a profile
+    hold fails a component probe with no facts; it still files, one row whose
+    target is the probe id and whose fact is the probe's reason."""
+    import hashlib
+
+    import research_vault.__main__ as cli
+    from research_vault import doctor
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    reason = "extensions.json malformed: Expecting value: line 1 column 1 (char 0)"
+    monkeypatch.setattr(
+        capture.doctor,
+        "cold_rows",
+        lambda vault: [
+            doctor.Probe("plugins", Result.UNMATCHED, reason),
+            doctor.Probe("fulltext-sync", Result.UNMATCHED, "not a component check"),
+        ],
+    )
+    outcomes = capture.capture(tmp_vault, client, ["E352DFS8"])
+    (row,) = [o for o in outcomes if o.extra.get("component") is True]
+    assert (row.check, row.target, row.result) == (
+        "plugins",
+        "plugins",
+        Result.UNMATCHED,
+    )
+    cli._print_and_hold(tmp_vault, outcomes, capture.CHECK)
+    assert _component_rows(tmp_vault) == [
+        (
+            "plugins",
+            "plugins",
+            f"mismatch — plugins: {reason}",
+            hashlib.sha256(reason.encode()).hexdigest()[:16],
+        )
+    ]
+
+
+def test_cli_propagate_files_a_recaptured_component_row_once(
+    tmp_vault, monkeypatch, capsys
+):
+    """Propagate's own print-and-hold loop applies the same skip (DP33, R39):
+    the recapture's component row files once under its check and is exit 1
+    then; standing, it files nothing and the exit is 0."""
+    import research_vault.__main__ as cli
+    from research_vault import propagate
+    from research_vault.outcome import Outcome
+
+    row = Outcome(
+        "plugins",
+        "zoplicate@chenglongma.com",
+        Result.UNMATCHED,
+        "mismatch — zoplicate@chenglongma.com: active (excluded on harm grounds)",
+        extra={"component": True, "target_hash": "abcdef0123456789"},
+    )
+    monkeypatch.setattr(propagate, "apply", lambda *a, **k: [row])
+    argv = [
+        "propagate",
+        "--vault",
+        str(tmp_vault),
+        "--plan",
+        "p.json",
+        "--approved-plan-sha256",
+        "0" * 64,
+    ]
+    assert cli.main(argv) == 1
+    assert cli.main(argv) == 0
+    assert _component_rows(tmp_vault) == [
+        ("plugins", "zoplicate@chenglongma.com", row.reason, "abcdef0123456789")
+    ]
+    assert "UNMATCHED zoplicate@chenglongma.com" in capsys.readouterr().out

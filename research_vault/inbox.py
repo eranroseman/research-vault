@@ -94,8 +94,16 @@ CHECK_IDS = frozenset(
         "dead-link",
         # Every attested change to a literature note's snapshot (spec §5.3.1).
         "capture-monitor",
+        # Component findings capture files from doctor's cold rows (spec §6.4).
+        "plugins",
+        "bbt-git",
+        "advisory",
+        "compile-tool",
     }
 )
+# The cold-row probe ids capture files as component findings (spec §6.4). All
+# four are filed; `advisory` is warn-only and closes no surface (R40).
+COMPONENT_CHECKS = frozenset({"plugins", "bbt-git", "advisory", "compile-tool"})
 _REASON = re.compile(
     rf"(?:{'|'.join(re.escape(code) for code in sorted(REASON_CODES, key=len, reverse=True))})(?:$|\s+\S.*)"
 )
@@ -766,6 +774,31 @@ def open_entries(vault) -> list[Finding]:
         for entry in entries
         if entry.ack_of is None and not _scope_acknowledged(entries, entry)
     ]
+
+
+def component_standing(vault, check, target, target_hash) -> bool:
+    """Whether a component finding with this check, target and hash already
+    stands — open, or closed by an in-scope acknowledgment (spec §6.4: the
+    one predicate capture's skip and verify's replay share). The scope is
+    `scope_id`'s, so a row from any earlier day counts and a changed hash
+    does not."""
+    wanted = scope_id(check, target, target_hash)
+    return any(
+        entry.ack_of is None
+        and entry.target_kind == "identifier"
+        and scope_id(entry.check, entry.target, entry.target_hash) == wanted
+        for entry in load(vault)
+    )
+
+
+def component_rows(vault) -> list[Finding]:
+    """The open component findings verify replays, one per standing scope
+    (the newest), by the same scope as `component_standing`."""
+    rows: dict[str, Finding] = {}
+    for entry in open_entries(vault):
+        if entry.check in COMPONENT_CHECKS and entry.target_kind == "identifier":
+            rows[scope_id(entry.check, entry.target, entry.target_hash)] = entry
+    return list(rows.values())
 
 
 def summary(vault, as_of: str | None = None) -> dict:

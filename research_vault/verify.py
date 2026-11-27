@@ -79,6 +79,11 @@ CLOSING_BY_SURFACE = {
             "captured-set",
             "dead-link",
             "capture-monitor",
+            # Open component findings capture filed (spec §6.4); `advisory`
+            # is warn-only and closes nothing (R40).
+            "plugins",
+            "bbt-git",
+            "compile-tool",
         }
     ),
 }
@@ -1173,6 +1178,18 @@ def _plan_state(
             vault, as_of=detection_date, bibliography_universe=bibliography_universe
         )
     )
+    # The open component findings capture filed (spec §6.4), replayed with
+    # their stored hash (`_hashed`) from the candidate's own queue (DP35).
+    raw.extend(
+        checks.Outcome(
+            entry.check,
+            entry.target,
+            Result.UNMATCHED,
+            entry.reason,
+            {"component": True, "target_hash": entry.target_hash},
+        )
+        for entry in inbox.component_rows(vault)
+    )
     raw.extend(outcome for outcome, _base, _candidate in history)
     raw, authoritative, hashes = _hashed(
         vault, raw, history, bibliography_universe, snapshots
@@ -1194,13 +1211,18 @@ def _hashed(vault, raw, history, bibliography_universe, snapshots):
 
     A re-check row hashes on its own commit's snapshots, so an ack filed when
     that commit was verified (the hook's index against HEAD) is the same ack;
-    every other row on the run's base and candidate."""
+    every other row on the run's base and candidate. A replayed component
+    finding carries the hash capture filed it under (DP30): its target is an
+    add-on id, which no snapshot hashes."""
     planes = {id(outcome): (base, candidate) for outcome, base, candidate in history}
     authoritative = [
         outcome for outcome in raw if outcome.extra.get("synthetic_offline") is not True
     ]
     hashes = {}
     for outcome in authoritative:
+        if outcome.extra.get("component") is True:
+            hashes[id(outcome)] = outcome.extra.get("target_hash")
+            continue
         base_snapshot, candidate_snapshot = planes.get(
             id(outcome), (snapshots.base, snapshots.candidate)
         )

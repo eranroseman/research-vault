@@ -2417,6 +2417,9 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "captured-set",
                 "dead-link",
                 "capture-monitor",
+                "plugins",
+                "bbt-git",
+                "compile-tool",
             }
         ),
     }
@@ -7298,3 +7301,79 @@ def test_a_non_utf8_name_under_fulltext_does_not_crash_verify(net_vault):
             "schema-violation — fulltext/ holds only <attachment key>.md",
         )
     ]
+
+
+def test_open_component_rows_close_publish_until_acknowledged(net_vault):
+    """§6.4: verify replays the open component rows with their stored hash;
+    `plugins`, `bbt-git` and `compile-tool` close publish, never commit, and
+    `advisory` closes nothing (R40). An ack closes the row and the replay
+    never re-files it."""
+    _ack_standing_citation_key(net_vault)
+    assert inbox.COMPONENT_CHECKS <= inbox.CHECK_IDS
+    closing = {"plugins", "bbt-git", "compile-tool"}
+    assert closing <= verify.CLOSING_BY_SURFACE["publish"]
+    assert not (inbox.COMPONENT_CHECKS & verify.CLOSING_BY_SURFACE["commit"])
+    assert "advisory" in inbox.COMPONENT_CHECKS
+    assert "advisory" not in verify.CLOSING_CHECKS
+    inbox.append_entry(
+        net_vault,
+        "advisory",
+        "zoplicate@chenglongma.com",
+        Result.UNMATCHED,
+        "mismatch — zoplicate@chenglongma.com: active (excluded on harm grounds)",
+        target_hash="0123456789abcdef",
+    )
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    (row,) = [o for o in effective if o.check == "advisory"]
+    assert row.extra.get("component") is True
+    assert verify.surface_decision("publish", effective, warning)[0] == 0
+    inbox.append_entry(
+        net_vault,
+        "plugins",
+        "zoplicate@chenglongma.com",
+        Result.UNMATCHED,
+        "mismatch — zoplicate@chenglongma.com: active (excluded on harm grounds)",
+        target_hash="abcdef0123456789",
+    )
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    (row,) = [o for o in effective if o.check == "plugins"]
+    assert row.extra.get("component") is True
+    assert verify.surface_decision("publish", effective, warning)[0] == 1
+    assert verify.surface_decision("commit", effective, warning)[0] == 0
+    finding = next(f for f in inbox.open_entries(net_vault) if f.check == "plugins")
+    inbox.append_ack(
+        net_vault,
+        finding.id,
+        "manual — accepted until the fetcher is reconfigured",
+        "human:eran",
+    )
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    assert verify.surface_decision("publish", effective, warning)[0] == 0
+    for check in ("plugins", "advisory"):  # replay never re-files
+        assert (
+            len(
+                [
+                    f
+                    for f in inbox.load(net_vault)
+                    if f.check == check and f.ack_of is None
+                ]
+            )
+            == 1
+        )
+
+
+def test_a_hashless_component_row_replays_without_crashing_verify(net_vault):
+    """DP31: a component row filed with no hash (the `finding` verb allows it)
+    replays with its hash unchanged, None, so it matches its own open key and
+    verify files nothing new."""
+    _ack_standing_citation_key(net_vault)
+    inbox.append_entry(
+        net_vault,
+        "compile-tool",
+        "compile-tool",
+        Result.UNMATCHED,
+        "mismatch — compile-tool: off pin",
+    )
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    assert verify.surface_decision("publish", effective, warning)[0] == 1
+    assert len([f for f in inbox.load(net_vault) if f.check == "compile-tool"]) == 1

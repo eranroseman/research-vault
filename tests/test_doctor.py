@@ -1714,3 +1714,43 @@ def test_a_wrong_shaped_path_map_makes_an_auto_export_unresolvable(
     )
     assert probe.result is Result.UNREACHABLE
     assert "Better BibTeX auto-export path unresolvable: " in probe.reason
+
+
+def test_cold_rows_run_no_network_and_no_repair(tmp_vault, tmp_path, monkeypatch):
+    """§6.4: the subset capture runs. No ZoteroClient is built, scaffold never runs."""
+    profile = _profile(tmp_path)
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    # doctor binds scaffold_vault by name at import (DP36): patch that binding.
+    monkeypatch.setattr(
+        doctor, "scaffold_vault", lambda *a, **k: pytest.fail("repair ran")
+    )
+    monkeypatch.setattr(
+        doctor, "ZoteroClient", lambda *a, **k: pytest.fail("network client built")
+    )
+    rows = doctor.cold_rows(vault)
+    assert [p.check for p in rows] == list(doctor.COMPONENT_PROBES)
+    assert all(
+        p.result is not Result.UNREACHABLE or "zotero" not in p.reason for p in rows
+    )
+
+
+def test_compile_tool_off_pin_carries_a_fact_without_the_installed_sha(monkeypatch):
+    """DP34: every UNMATCHED component probe files, so compile-tool's two
+    UNMATCHED rows carry one fact; the fact names the pin, never the
+    installed sha, so a move between two wrong shas re-fires nothing."""
+    expected = ((COMPILE_PLUGIN, ("off pin 32ac5a0",)),)
+    for record in ({"gitCommitSha": "deadbeef1234"}, {"gitCommitSha": "0badc0de"}, {}):
+        monkeypatch.setattr(
+            doctor,
+            "_installed_plugins",
+            lambda record=record: {COMPILE_PLUGIN: [record]},
+        )
+        probe = doctor._compile_tool_probe()
+        assert probe.result is Result.UNMATCHED
+        assert probe.facts == expected
+    monkeypatch.setattr(
+        doctor,
+        "_installed_plugins",
+        lambda: {COMPILE_PLUGIN: [{"gitCommitSha": "32ac5a02c4e0"}]},
+    )
+    assert doctor._compile_tool_probe(None).facts == ()  # the optional vault (Plan E)
