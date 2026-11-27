@@ -578,7 +578,7 @@ def test_doctor_bbt_git_config_fails_when_the_vault_opts_in(
         "bbt-git",
         Result.UNMATCHED,
         "git=config — Better BibTeX may run git inside an export target",
-        facts=((BBT, ('git="config"',)),),
+        facts=((BBT, ("git not accepted",)),),
     )
 
 
@@ -588,7 +588,7 @@ def test_doctor_bbt_git_always_fails(tmp_vault, tmp_path, monkeypatch):
         "bbt-git",
         Result.UNMATCHED,
         "git=always — Better BibTeX may run git inside an export target",
-        facts=((BBT, ('git="always"',)),),
+        facts=((BBT, ("git not accepted",)),),
     )
 
 
@@ -639,7 +639,7 @@ def test_doctor_plugins_fails_when_an_active_addons_value_is_not_accepted(
         facts=(
             (
                 "zoteroshortdoi@wiernik.org",
-                ('extensions.shortdoi.autoretrieve="long" (accepted "none")',),
+                ('extensions.shortdoi.autoretrieve not accepted ("none")',),
             ),
         ),
     )
@@ -1534,3 +1534,154 @@ def test_an_unreadable_bbt_auto_export_is_an_outage(tmp_vault, tmp_path, monkeyp
     by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
     assert by["plugins"].result is Result.UNREACHABLE
     assert "autoExport.bad" in by["plugins"].reason
+
+
+def test_a_broken_bbt_xpi_does_not_mask_a_known_wrong_prefs_js_value(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """Fix round 1, item 4: the xpi is read only when prefs.js lacks `git`."""
+    profile = _profile_with(
+        tmp_path / "p", [_addon(BBT, "9.0.68")], [(BBT_GIT, '"always"')]
+    )
+    (profile / "extensions").mkdir()
+    (profile / "extensions" / f"{BBT}.xpi").write_bytes(b"not a zip")
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["bbt-git"].result is Result.UNMATCHED
+
+
+def _exports_probe(tmp_vault, tmp_path, monkeypatch, *paths_out):
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68")],
+        [
+            (
+                BBT_GIT.replace("git", f"autoExport.e{i}"),
+                json.dumps(json.dumps({"type": "library", "path": path})),
+            )
+            for i, path in enumerate(paths_out)
+        ],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    return by["plugins"]
+
+
+def test_an_unresolvable_auto_export_path_is_an_outage_not_a_pass(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """DP47: an unmapped drive with wslpath failing is UNREACHABLE."""
+
+    real_run = subprocess.run
+
+    def no_wslpath(argv, *args, **kwargs):
+        if argv[0] == "wslpath":
+            raise FileNotFoundError("wslpath")
+        return real_run(argv, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", no_wslpath)
+    probe = _exports_probe(tmp_vault, tmp_path, monkeypatch, "Q:\\elsewhere\\a.bib")
+    assert probe.result is Result.UNREACHABLE
+    assert "Better BibTeX auto-export path unresolvable: " in probe.reason
+
+
+def test_a_malformed_machine_json_makes_an_auto_export_unresolvable(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """DP47: the machine-config failure is not "outside the vault"."""
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68")],
+        [
+            (
+                BBT_GIT.replace("git", "autoExport.e"),
+                json.dumps(json.dumps({"path": "D:\\Zotero\\exports\\a.json"})),
+            )
+        ],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    probe = doctor._plugins_probe(
+        doctor._profile_facts({"zotero_profile": str(profile)}), vault
+    )
+    assert probe.result is Result.MATCHED  # mapped: exports/a.json is no machine file
+    (vault / ".research-vault" / "machine.json").write_text("{not json")
+    probe = doctor._plugins_probe(
+        doctor._profile_facts({"zotero_profile": str(profile)}), vault
+    )
+    assert probe.result is Result.UNREACHABLE
+    assert "Better BibTeX auto-export path unresolvable: " in probe.reason
+
+
+def test_a_machine_file_entry_matches_exactly_and_a_folder_by_prefix(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """DP48a: `log.mdx`, `log.md.bak`, `system/bibliography.json.bak` are no hit."""
+    near = [
+        "D:\\Zotero\\log.mdx",
+        "D:\\Zotero\\log.md.bak",
+        "D:\\Zotero\\system\\bibliography.json.bak",
+        "D:\\Zotero\\wikis\\a.bib",
+    ]
+    assert (
+        _exports_probe(tmp_vault, tmp_path, monkeypatch, *near).result is Result.MATCHED
+    )
+
+
+def test_a_machine_folder_matches_by_prefix(tmp_vault, tmp_path, monkeypatch):
+    probe = _exports_probe(
+        tmp_vault,
+        tmp_path,
+        monkeypatch,
+        "D:\\Zotero\\log.md",
+        "D:\\Zotero\\wiki\\x\\a.json",
+    )
+    assert probe.facts == (
+        (BBT, ("auto-export targets log.md", "auto-export targets wiki/x/a.json")),
+    )
+
+
+def test_a_forward_slash_windows_path_maps_and_a_relative_posix_path_is_no_hit(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """DP48b: `D:/…` is a Windows path; `wiki/a.json` is never resolved
+    against the cwd."""
+    monkeypatch.chdir(tmp_vault)
+    probe = _exports_probe(tmp_vault, tmp_path, monkeypatch, "D:/Zotero/wiki/a.json")
+    assert probe.facts == ((BBT, ("auto-export targets wiki/a.json",)),)
+
+
+def test_a_relative_posix_export_path_is_no_hit(tmp_vault, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_vault)
+    probe = _exports_probe(tmp_vault, tmp_path, monkeypatch, "wiki/a.json")
+    assert probe.result is Result.MATCHED
+
+
+def test_an_absolute_posix_export_into_the_vault_is_a_hit(
+    tmp_vault, tmp_path, monkeypatch
+):
+    probe = _exports_probe(
+        tmp_vault,
+        tmp_path,
+        monkeypatch,
+        str(tmp_vault / "system" / "bibliography.json"),
+    )
+    assert probe.facts == ((BBT, ("auto-export targets system/bibliography.json",)),)
+
+
+def test_a_non_string_version_against_a_floor_is_unreadable_not_a_crash(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """DP48c."""
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68"), _addon("zoteroshortdoi@wiernik.org", 2.2)],
+        [
+            ("extensions.shortdoi.autoretrieve", '"none"'),
+            ("extensions.shortdoi.monthly_verify", "false"),
+        ],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["plugins"].facts == (
+        ("zoteroshortdoi@wiernik.org", ("version unreadable against floor 2.2.0",)),
+    )

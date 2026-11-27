@@ -3,6 +3,7 @@
 import json
 import re
 import zipfile
+import zlib
 from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
@@ -171,8 +172,10 @@ def observe(profile_dir: Path) -> dict[str, dict]:
     for addon in data.get("addons", []):
         if addon.get("type") != "extension" or addon.get("location") != "app-profile":
             continue
+        version = addon.get("version")
         observed[addon["id"]] = {
-            "version": addon.get("version"),
+            # a non-string version is unreadable, never a crash (DP48c)
+            "version": version if isinstance(version, str) else None,
             "active": bool(addon.get("active")),
             "appDisabled": bool(addon.get("appDisabled")),
         }
@@ -298,7 +301,19 @@ def xpi_defaults(
                         match.group("name"),
                         _literal_token(match.group("value").strip()),
                     )
-    except (OSError, zipfile.BadZipFile) as error:
+    except DefaultsUnreadableError:
+        raise
+    # zipfile surfaces a damaged or unsupported archive as any of these: a
+    # corrupt deflate stream is zlib.error, an encrypted entry RuntimeError,
+    # an unknown method NotImplementedError, a truncated stream EOFError.
+    except (
+        OSError,
+        zipfile.BadZipFile,
+        zlib.error,
+        RuntimeError,
+        NotImplementedError,
+        EOFError,
+    ) as error:
         raise DefaultsUnreadableError(f"{xpi.name}: {error}") from error
     return defaults
 

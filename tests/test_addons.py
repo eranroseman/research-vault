@@ -460,3 +460,59 @@ def test_bbt_auto_exports_decode_the_json_under_the_branch():
         addons.bbt_auto_exports(
             {"extensions.zotero.translators.better-bibtex.autoExport.bad": "{not json"}
         )
+
+
+def test_xpi_defaults_name_a_corrupt_deflate_stream(tmp_path):
+    """Fix round 1, item 3: zlib.error and friends become DefaultsUnreadableError."""
+    folder = tmp_path / "extensions"
+    folder.mkdir()
+    xpi = folder / "deflated@x.xpi"
+    body = "".join(f'pref("extensions.d.k{i}", {i});\n' for i in range(200))
+    with zipfile.ZipFile(xpi, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("prefs.js", body)
+    with zipfile.ZipFile(xpi) as archive:
+        info = archive.getinfo("prefs.js")
+    data = bytearray(xpi.read_bytes())
+    start = info.header_offset + 30 + len(info.filename.encode()) + len(info.extra)
+    for offset in range(start + 2, start + 12):
+        data[offset] ^= 0xFF
+    xpi.write_bytes(bytes(data))
+    with pytest.raises(
+        addons.DefaultsUnreadableError, match=re.escape("deflated@x.xpi")
+    ):
+        addons.xpi_defaults(tmp_path, "deflated@x")
+
+
+@pytest.mark.parametrize(
+    "error",
+    [RuntimeError("encrypted"), NotImplementedError("method"), EOFError("short")],
+)
+def test_xpi_defaults_name_any_archive_read_failure(tmp_path, monkeypatch, error):
+    _xpi(tmp_path, "odd@x", {"prefs.js": 'pref("extensions.odd.a", true);\n'})
+
+    def refuse(self, name, pwd=None):
+        raise error
+
+    monkeypatch.setattr(zipfile.ZipFile, "read", refuse)
+    with pytest.raises(addons.DefaultsUnreadableError, match=re.escape("odd@x.xpi")):
+        addons.xpi_defaults(tmp_path, "odd@x")
+
+
+def test_observe_keeps_only_a_string_version(tmp_path):
+    """DP48c: a non-string version reads as None."""
+    (tmp_path / "extensions.json").write_text(
+        json.dumps(
+            {
+                "addons": [
+                    {
+                        "id": "a@x",
+                        "type": "extension",
+                        "location": "app-profile",
+                        "version": 2.2,
+                        "active": True,
+                    }
+                ]
+            }
+        )
+    )
+    assert addons.observe(tmp_path)["a@x"]["version"] is None

@@ -252,7 +252,7 @@ _MACHINE_FOLDERS = (
     "inbox/review-queue.md",
     "system/bibliography.json",
 )
-_WINDOWS_PATH = re.compile(r"^[A-Za-z]:\\|^\\\\")
+_WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]|^\\\\")
 
 
 def _shown(value: str) -> str:
@@ -282,14 +282,21 @@ def _bbt_git_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
         return Probe(
             "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"
         )
-    try:
-        defaults = addons.xpi_defaults(
-            profile.path, addons.BBT_ID, keys=(_BBT_GIT,), key_prefix=addons.BBT_PREFIX
-        )
-    except addons.DefaultsUnreadableError as error:
-        return Probe(
-            "bbt-git", Result.UNREACHABLE, f"Better BibTeX defaults unreadable: {error}"
-        )
+    defaults: dict[str, str] = {}
+    if _BBT_GIT not in profile.prefs:  # a known prefs.js value needs no default
+        try:
+            defaults = addons.xpi_defaults(
+                profile.path,
+                addons.BBT_ID,
+                keys=(_BBT_GIT,),
+                key_prefix=addons.BBT_PREFIX,
+            )
+        except addons.DefaultsUnreadableError as error:
+            return Probe(
+                "bbt-git",
+                Result.UNREACHABLE,
+                f"Better BibTeX defaults unreadable: {error}",
+            )
     value = addons.effective_value(profile.prefs, defaults, _BBT_GIT, addons.BBT_PREFIX)
     if value == "unset":
         return Probe("bbt-git", Result.MATCHED, "git unset")
@@ -316,23 +323,39 @@ def _bbt_git_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
         "bbt-git",
         Result.UNMATCHED,
         f"git={_shown(value)} — {_GIT_RISK}",
-        facts=((addons.BBT_ID, (f"git={value}",)),),
+        facts=((addons.BBT_ID, ("git not accepted",)),),
     )
 
 
 def _export_targets_vault(export: dict, vault: Path) -> str | None:
     """The vault-relative machine path a Better BibTeX auto-export writes, if any
-    (spec §6.2; Windows paths through `paths.to_local`)."""
+    (spec §6.2; Windows paths through `paths.to_local`).
+
+    Only a path outside the vault, or a relative POSIX path (never resolved
+    against the cwd), is no hit. A path that cannot be resolved raises
+    `paths.PathError`: an outage, never a pass (DP47).
+    """
     raw = export.get("path")
     if not isinstance(raw, str) or not raw:
         return None
     try:
-        local = paths.to_local(raw, vault) if _WINDOWS_PATH.match(raw) else Path(raw)
-        relative = local.resolve().relative_to(vault.resolve()).as_posix()
-    except (paths.PathError, OSError, ValueError, AttributeError, TypeError):
+        if _WINDOWS_PATH.match(raw):
+            # Windows reads `/` as a separator too; path_map keys use `\\`.
+            local = paths.to_local(raw.replace("/", "\\"), vault)
+        else:
+            local = Path(raw)
+            if not local.is_absolute():
+                return None
+        target, root = local.resolve(), vault.resolve()
+    except (paths.PathError, OSError, ValueError) as error:
+        raise paths.PathError(f"{raw!r}: {error}") from error
+    try:
+        relative = target.relative_to(root).as_posix()
+    except ValueError:
         return None
-    if any(relative == f or relative.startswith(f) for f in _MACHINE_FOLDERS):
-        return relative
+    for entry in _MACHINE_FOLDERS:
+        if relative == entry or (entry.endswith("/") and relative.startswith(entry)):
+            return relative
     return None
 
 
@@ -348,7 +371,7 @@ def _addon_state(seen: dict | None) -> str:
 
 def _setting_findings(profile: _ProfileFacts, addon, settings):
     """(facts, unreachable) for one active add-on's declared settings."""
-    facts: list[str] = []
+    facts: list[tuple[str, str]] = []  # (hashable fact, shown)
     unreachable: list[str] = []
     keys = tuple(setting.pref for setting in settings)
     defaults: dict[str, str] | None
@@ -376,8 +399,13 @@ def _setting_findings(profile: _ProfileFacts, addon, settings):
             profile.prefs, defaults or {}, setting.pref, addon.key_prefix
         )
         if value not in setting.accepted:
+            accepted = ", ".join(setting.accepted)
+            # the hashed fact keys off the setting, never its value (DP46)
             facts.append(
-                f"{setting.pref}={value} (accepted {', '.join(setting.accepted)})"
+                (
+                    f"{setting.pref} not accepted ({accepted})",
+                    f"{setting.pref}={value} (accepted {accepted})",
+                )
             )
     return facts, unreachable
 
@@ -444,7 +472,7 @@ def _plugins_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
         settings = declaration.settings_for(addon.addon_id)
         if settings:
             facts, lost = _setting_findings(profile, addon, settings)
-            found.extend((addon.addon_id, fact, fact) for fact in facts)
+            found.extend((addon.addon_id, fact, shown) for fact, shown in facts)
             unreachable.extend(lost)
     notes_out.extend(
         f"{addon_id} undeclared"
@@ -456,7 +484,11 @@ def _plugins_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
         exports = []
         unreachable.append(f"Better BibTeX auto-export unreadable: {error}")
     for export in exports:
-        hit = _export_targets_vault(export, vault)
+        try:
+            hit = _export_targets_vault(export, vault)
+        except paths.PathError as error:
+            unreachable.append(f"Better BibTeX auto-export path unresolvable: {error}")
+            continue
         if hit is not None:
             fact = f"auto-export targets {hit}"
             found.append((addons.BBT_ID, fact, fact))
