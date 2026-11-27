@@ -850,7 +850,11 @@ REMOVED_ENTRY_REMEDY = "restore the entry, or acknowledge"
 
 
 def lint_record_custody(
-    vault_root, head_record: bytes | None, *, repository_root=None
+    vault_root,
+    head_record: bytes | None,
+    *,
+    repository_root=None,
+    carried: Iterable[bytes | None] = (),
 ) -> list[Outcome]:
     """The hook's custody of the record itself (R44): on the index candidate,
     every entry that changed against HEAD's record has a writer behind it.
@@ -859,8 +863,8 @@ def lint_record_custody(
     that hash for that path, by the seal store's hash-verified copy, or by
     the page's bytes hashing to it with a rename's link change or a named key
     rewrite from HEAD's entry (`_Witness.reseal_note`, judged as the index
-    leg judges, without the store). A removed entry is justified only by the
-    journal's delete of that path, as `seal` drops one: removing the entry
+    leg judges, without the store). A removed entry is justified by the journal's
+    delete of that path, as `seal` drops one, or by a carried record (below): removing the entry
     of a page deleted by hand would launder the deletion. Any other change
     is a row. CI and the replay cannot run this: there a co-edited page and
     entry look like a seal.
@@ -871,7 +875,12 @@ def lint_record_custody(
     a propagation's reseal) starts from bytes only the store holds. Like the
     journal, it is local evidence an interpreter can plant; the vault guide
     names that gap. An unreadable record files its row in
-    `lint_compiled_layer`; an unreadable HEAD record counts as empty."""
+    `lint_compiled_layer`; an unreadable HEAD record counts as empty.
+
+    ``carried`` holds the records of the commits an in-progress merge,
+    cherry-pick or revert brings in (C14): an entry equal to that path's
+    entry there, or an entry removed where that record also lacks it, was
+    judged at the commit that made it."""
     vault = Path(vault_root)
     try:
         record = load_record(vault)
@@ -881,6 +890,14 @@ def lint_record_custody(
         head = parse_record(head_record) if head_record is not None else {}
     except RecordError:
         head = {}
+    others: list[dict[str, str]] = []
+    for data in carried:
+        if data is None:
+            continue
+        try:
+            others.append(parse_record(data))
+        except RecordError:
+            continue  # an unreadable record carries nothing
     repository = Path(repository_root) if repository_root is not None else vault
     journal = journal_hashes(repository)
     files = wiki_files(vault)
@@ -889,6 +906,8 @@ def lint_record_custody(
     for relative, sha in sorted(record.items()):
         recorded = head.get(relative)
         if recorded == sha or journal.get(relative) == sha:
+            continue
+        if any(other.get(relative) == sha for other in others):
             continue
         if stored_bytes(repository, sha) is not None:
             continue
@@ -911,6 +930,8 @@ def lint_record_custody(
         )
     for relative in sorted(set(head) - set(record)):
         if journal.get(relative, "") is None:
+            continue
+        if any(relative not in other for other in others):
             continue
         rows.append(
             _row(

@@ -1252,3 +1252,91 @@ def test_a_reseal_chain_between_commits_passes_the_hook(wiki_vault):
     assert _hook(wiki_vault) == 0
     shutil.rmtree(wiki_vault / compiled.SEALED_STORE)
     assert _hook(wiki_vault) == 1
+
+
+# C14: a merge, cherry-pick or revert carries entries judged where they were made.
+
+
+def _branch(vault):
+    return subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _sealed_on(vault, relative, body, message):
+    page = _page(vault, relative, _CONCEPT.format(relative, body))
+    _journal(vault, message, {relative: _sha(page.read_bytes())})
+    (row,) = compiled.seal(vault, [relative])
+    assert row.result is Result.MATCHED
+    _commit(vault, message)
+    return page
+
+
+def _diverged(vault):
+    """Clone A sealed a.md on branch `other`; this clone sealed b.md. Each
+    clone's local evidence is its own, so this one keeps none of A's."""
+    compiled.write_record(vault, {})
+    _commit(vault, "empty record")
+    main = _branch(vault)
+    subprocess.run(["git", "checkout", "-qb", "other"], cwd=vault, check=True)
+    _sealed_on(vault, "wiki/concepts/a.md", "A", "seal a")
+    subprocess.run(["git", "checkout", "-q", main], cwd=vault, check=True)
+    _sealed_on(vault, "wiki/concepts/b.md", "B", "seal b")
+    shutil.rmtree(vault / ".vault-meta")
+
+
+def _resolve_union(vault):
+    """The person's resolution of the conflicted record: both entries."""
+    pages = {}
+    for relative in ("wiki/concepts/a.md", "wiki/concepts/b.md"):
+        pages[relative] = _sha((vault / relative).read_bytes())
+    compiled.write_record(vault, pages)
+
+
+def _conflicts(vault, *args):
+    result = subprocess.run(
+        ["git", *args], cwd=vault, capture_output=True, text=True, check=False
+    )
+    assert result.returncode != 0, result.stdout
+    assert "compiled-pages.json" in result.stdout + result.stderr
+
+
+def test_a_resolved_merge_taking_the_other_side_s_entry_passes_the_hook(wiki_vault):
+    _diverged(wiki_vault)
+    _conflicts(wiki_vault, "merge", "-q", "--no-edit", "other")
+    _resolve_union(wiki_vault)
+    assert _hook(wiki_vault) == 0
+
+
+def test_a_resolved_cherry_pick_passes_the_hook(wiki_vault):
+    _diverged(wiki_vault)
+    _conflicts(wiki_vault, "cherry-pick", "other")
+    _resolve_union(wiki_vault)
+    assert _hook(wiki_vault) == 0
+
+
+def test_a_hand_co_edit_during_a_merge_still_holds_the_hook(wiki_vault):
+    _diverged(wiki_vault)
+    _conflicts(wiki_vault, "merge", "-q", "--no-edit", "other")
+    page = wiki_vault / "wiki" / "concepts" / "a.md"
+    page.write_text(page.read_text() + "by hand\n")
+    _resolve_union(wiki_vault)
+    assert _hook(wiki_vault) == 1
+
+
+def test_an_entry_checked_out_from_another_branch_is_a_hold(wiki_vault):
+    """C14: with no merge, cherry-pick or revert in progress, an entry taken
+    from another branch has nothing behind it: the commit waits for an
+    acknowledgement."""
+    _diverged(wiki_vault)
+    subprocess.run(
+        ["git", "checkout", "other", "--", "wiki/concepts/a.md"],
+        cwd=wiki_vault,
+        check=True,
+    )
+    _resolve_union(wiki_vault)
+    assert _hook(wiki_vault) == 1

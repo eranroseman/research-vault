@@ -1094,6 +1094,26 @@ def _once_each(outcomes, hashes, history_ids):
     return [o for o in outcomes if first.get(key(o), id(o)) == id(o)]
 
 
+# The refs an in-progress merge, cherry-pick or revert names (C14).
+_CARRYING_REFS = ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD")
+
+
+def _carried_records(repository) -> list[bytes | None]:
+    """The compiled-page record of each commit an in-progress merge,
+    cherry-pick or revert brings in: its entries were judged where they were
+    made (C14). A ref that does not resolve brings nothing."""
+    records: list[bytes | None] = []
+    for ref in _CARRYING_REFS:
+        resolved = gitstate._git(
+            repository, "rev-parse", "-q", "--verify", f"{ref}^{{commit}}", check=False
+        )
+        if resolved.returncode:
+            continue
+        commit = resolved.stdout.decode("ascii", errors="replace").strip()
+        records.append(gitstate.blob_bytes(repository, commit, compiled.RECORD_PATH))
+    return records
+
+
 def _tracked_texts(repository, snapshots) -> set[bytes]:
     """The paths under `fulltext/` HEAD or the index tracks, for the worktree
     candidate (W1): publish verifies the worktree, where the ignored layer
@@ -1252,6 +1272,7 @@ def _plan_state(
                 if head_record is not None and head_record.kind == "file"
                 else None,
                 repository_root=repository,
+                carried=_carried_records(repository),
             )
         )
     raw.extend(
