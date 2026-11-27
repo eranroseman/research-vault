@@ -151,7 +151,8 @@ def _not_a_file(relative: str, kind: str) -> Outcome:
     return _row(
         Result.UNMATCHED,
         relative,
-        f"drift — {_shown(relative)} is {what}; a compiled page is a file",
+        f"drift — {_shown(relative)} is {what}; a compiled page is a file: "
+        f"{NOT_A_FILE_REMEDY}",
     )
 
 
@@ -250,14 +251,15 @@ def only_link_targets_changed(
 
 
 def propagated_by(
-    old: str, new: str, vault: Path, source: str, base: Base
+    old: str, new: str, vault: Path, source: str, base: Base, recorded: str
 ) -> str | None:
     """R35's definite test: the operation id of an applied propagation record
     whose rewrites, replayed over `old` exactly as `propagate.apply` made
-    them, give `new`; None when no record does. Only a record this change
-    adds counts (C8b): one ``base`` does not hold, so an old record (a key a
-    later item took) or one committed long ago never vouches for a hand edit.
-    One record at a time: `propagate.apply` reseals after each."""
+    them, give `new`; None when no record does. Only a record applied after
+    the page's sealed entry counts (C8b, widened by R41; `Base.vouches`), so
+    an old record (a key a later item took) or one that predates the seal
+    never vouches for a hand edit. One record at a time: `propagate.apply`
+    reseals after each."""
     # Imported here: propagate imports capture, which imports this module.
     from . import propagate
 
@@ -270,7 +272,7 @@ def propagated_by(
         if structure.is_excluded(path, vault):
             continue
         relative = path.relative_to(vault).as_posix()
-        if base.holds(relative):
+        if not base.vouches(relative, source, recorded):
             continue
         try:
             record = propagate.read_plan(path)
@@ -360,6 +362,13 @@ class Base:
             self._holds[relative] = self._holds_uncached(relative)
         return self._holds[relative]
 
+    def vouches(self, record: str, page: str, recorded: str) -> bool:
+        """Whether the propagation record at ``record`` was applied after
+        ``page``'s sealed entry ``recorded`` (C8b): here, the change adds it
+        (the base lacks it). The replay's rule, which reads only the record."""
+        del page, recorded
+        return not self.holds(record)
+
 
 class _Local(Base):
     """The local judge: the seal store, then HEAD, then the path's history;
@@ -390,6 +399,70 @@ class _Local(Base):
             check=False,
         )
         return result.returncode == 0
+
+    def vouches(self, record: str, page: str, recorded: str) -> bool:
+        """R41: a record HEAD lacks is applied after any committed seal; one
+        HEAD holds vouches only when the commit that added it is not an
+        ancestor of the commit that introduced the page's sealed entry, so
+        `seal <path>` still accepts a key rewrite committed with its record
+        by hand. A record from before the seal (a key a later item took
+        included) never vouches, and neither does any record when the entry
+        is not committed: the seal is then newer than HEAD."""
+        if not self.holds(record):
+            return True
+        sealing = self._sealing_commit(page, recorded)
+        added = self._adding_commit(record)
+        if sealing is None or added is None:
+            return False
+        ancestor = gitstate._git(
+            self._repository,
+            "merge-base",
+            "--is-ancestor",
+            added,
+            sealing,
+            check=False,
+        )
+        return ancestor.returncode == 1
+
+    def _sealing_commit(self, page: str, recorded: str) -> str | None:
+        """The newest commit whose record introduced ``page``'s entry
+        ``recorded``, when HEAD's record holds it; None otherwise."""
+        needle = (
+            json.dumps(page, ensure_ascii=False) + ": " + json.dumps(recorded)
+        ).encode("utf-8", errors="surrogateescape")
+        head = gitstate.blob_bytes(self._repository, "HEAD", RECORD_PATH)
+        if head is None or needle not in head:
+            return None
+        log = gitstate._git(
+            self._repository,
+            "log",
+            b"-S" + needle,
+            "--format=%H",
+            "HEAD",
+            "--",
+            RECORD_PATH,
+            check=False,
+        )
+        for commit in log.stdout.decode("ascii", errors="replace").split():
+            at = gitstate.blob_bytes(self._repository, commit, RECORD_PATH)
+            if at is not None and needle in at:
+                return commit
+        return None
+
+    def _adding_commit(self, record: str) -> str | None:
+        log = gitstate._git(
+            self._repository,
+            "log",
+            "--diff-filter=A",
+            "-n1",
+            "--format=%H",
+            "HEAD",
+            "--",
+            os.fsencode(record),
+            check=False,
+        )
+        commit = log.stdout.decode("ascii", errors="replace").strip()
+        return commit or None
 
 
 class _Snapshot(Base):
@@ -438,12 +511,42 @@ def _row(result: Result, relative: str, reason: str) -> Outcome:
     return Outcome(CHECK, RepoPath(os.fsencode(relative)), result, reason)
 
 
+# Every drift reason names its remedy (R41): the acts that clear the row
+# without an acknowledgement, then the acknowledgement.
+UNSEALED_REMEDY = (
+    "write it through the compile tool and seal, remove it, or acknowledge"
+)
+DIFFERS_REMEDY = (
+    "revert it to the sealed bytes, rewrite it through the compile tool and "
+    "seal, or acknowledge"
+)
+ABSENT_REMEDY = "restore it, or acknowledge"
+NOT_A_FILE_REMEDY = "replace it with the file itself, or acknowledge"
+
+
+def _differs(relative: str) -> Outcome:
+    return _row(
+        Result.UNMATCHED,
+        relative,
+        f"drift — {_shown(relative)} differs from the compiled-page record; "
+        f"{DIFFERS_REMEDY}",
+    )
+
+
+def _absent(relative: str) -> Outcome:
+    return _row(
+        Result.UNMATCHED,
+        relative,
+        f"drift — {_shown(relative)} is recorded but absent; {ABSENT_REMEDY}",
+    )
+
+
 def _unsealed(relative: str) -> Outcome:
     return _row(
         Result.UNMATCHED,
         relative,
         f"drift — {_shown(relative)} is not sealed: no complete compile wrote "
-        "these bytes",
+        f"these bytes; {UNSEALED_REMEDY}",
     )
 
 
@@ -469,11 +572,15 @@ class _Witness:
         if sealed is None:
             return None
         old, new = _text(sealed), _text(data)
+        shown = _shown(relative)
         if only_link_targets_changed(old, new, self.index(), relative):
-            return "matched — link targets follow a rename; reseal"
-        operation = propagated_by(old, new, self._vault, relative, self._base)
+            return f"matched — link targets follow a rename; run seal {shown}"
+        operation = propagated_by(old, new, self._vault, relative, self._base, recorded)
         if operation is not None:
-            return f"matched — citation keys follow propagation {operation}; reseal"
+            return (
+                f"matched — citation keys follow propagation {operation}; "
+                f"run seal {shown}"
+            )
         return None
 
 
@@ -525,24 +632,13 @@ def lint_compiled_layer(
         if note is not None:
             rows.append(_row(Result.MATCHED, relative, note))
             continue
-        rows.append(
-            _row(
-                Result.UNMATCHED,
-                relative,
-                f"drift — {relative} differs from the compiled-page record; "
-                "seal or acknowledge",
-            )
-        )
+        rows.append(_differs(relative))
     for relative in sorted(set(record) - set(files) - set(others)):
         if _behind(relative, others) is not None:
             continue  # the symlink's own row stands for it
         if journal_writes.get(relative, "") is None:
             continue  # the tool deleted it; seal drops the entry
-        rows.append(
-            _row(
-                Result.UNMATCHED, relative, f"drift — {relative} is recorded but absent"
-            )
-        )
+        rows.append(_absent(relative))
     return rows or [Outcome(CHECK, RECORD_PATH, Result.MATCHED, "matched")]
 
 
@@ -584,13 +680,7 @@ def seal(
                 del record[relative]
                 sealed += 1
             elif relative in record:
-                refusals.append(
-                    _row(
-                        Result.UNMATCHED,
-                        relative,
-                        f"drift — {relative} is recorded but absent",
-                    )
-                )
+                refusals.append(_absent(relative))
             continue
         if not structure._is_plain_text(relative):
             # The record is UTF-8 JSON: a name that is not UTF-8 text has no
@@ -608,7 +698,9 @@ def seal(
             is not None
         )
         if not accepted:
-            refusals.append(_unsealed(relative))
+            refusals.append(
+                _differs(relative) if relative in record else _unsealed(relative)
+            )
             continue
         if relative.endswith(".md"):
             text = _text(files[relative])

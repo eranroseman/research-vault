@@ -7462,7 +7462,7 @@ def test_compiled_layer_closes_commit_and_publish_and_the_seal_verb_runs(
     _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
     assert verify.surface_decision("commit", effective, warning)[0] == 1
     assert cli.main(["seal", "--vault", str(net_vault)]) == 1
-    assert "not sealed" in capsys.readouterr().out
+    assert "differs from the compiled-page record" in capsys.readouterr().out
 
 
 def test_the_fixture_vault_s_compiled_layer_is_sealed(net_vault):
@@ -7489,7 +7489,12 @@ def test_a_non_utf8_name_under_wiki_is_a_row_not_a_crash(net_vault):
     token = encode_repo_path(raw)
     assert [
         o.reason for o in effective if o.check == "compiled-layer" and o.target == token
-    ] == ["drift — this file is not sealed: no complete compile wrote these bytes"]
+    ] == [
+        (
+            "drift — this file is not sealed: no complete compile wrote these bytes"
+            "; write it through the compile tool and seal, remove it, or acknowledge"
+        )
+    ]
     assert verify.surface_decision("commit", effective, warning)[0] == 1
     assert "\udcff" not in (net_vault / inbox.INBOX_PATH).read_text()
 
@@ -7521,7 +7526,7 @@ def test_the_recheck_finds_a_bypassed_hand_edit_under_wiki(net_vault):
             "path-bytes:wiki/concepts/mortality-trends.md",
             (
                 "drift — wiki/concepts/mortality-trends.md differs from the "
-                "compiled-page record; seal or acknowledge"
+                "compiled-page record; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge"
             ),
             bypassed,
         )
@@ -7592,7 +7597,10 @@ def test_an_unsealed_page_the_journal_names_holds_the_index_candidate(net_vault)
         for o in effective
         if o.check == "compiled-layer" and o.result is Result.UNMATCHED
     ] == [
-        "drift — wiki/concepts/fresh.md is not sealed: no complete compile wrote these bytes"
+        (
+            "drift — wiki/concepts/fresh.md is not sealed: no complete compile wrote these bytes"
+            "; write it through the compile tool and seal, remove it, or acknowledge"
+        )
     ]
     assert verify.surface_decision("commit", effective, warning)[0] == 1
     _report, effective, _hashes, _warning = verify.verify_state(
@@ -7619,7 +7627,10 @@ def test_a_symlink_under_wiki_is_a_verify_row(net_vault, tmp_path_factory):
     ] == [
         (
             "path-bytes:wiki/concepts/linked.md",
-            "drift — wiki/concepts/linked.md is a symlink; a compiled page is a file",
+            (
+                "drift — wiki/concepts/linked.md is a symlink; a compiled page is a file"
+                ": replace it with the file itself, or acknowledge"
+            ),
         )
     ]
     assert verify.surface_decision("commit", effective, warning)[0] == 1
@@ -7696,7 +7707,10 @@ def _symlink_the_wiki(vault):
 
 _WIKI_SYMLINK_ROW = (
     "path-bytes:wiki",
-    "drift — wiki is a symlink; a compiled page is a file",
+    (
+        "drift — wiki is a symlink; a compiled page is a file"
+        ": replace it with the file itself, or acknowledge"
+    ),
 )
 
 
@@ -7739,3 +7753,40 @@ def test_the_recheck_finds_a_symlinked_wiki_at_its_commit(net_vault):
         for o in effective
         if o.check == "compiled-layer" and o.result is Result.UNMATCHED
     ]
+
+
+def test_a_hand_committed_key_rewrite_names_seal_and_seal_clears_it(net_vault, capsys):
+    """R41 end to end: a key rewrite committed by hand with its propagation
+    record. On CI's HEAD leg (base == candidate) and locally the row names
+    its remedy, `seal <path>`; seal accepts the rewrite on the record's
+    evidence, and the next run, local and on HEAD, files nothing for it."""
+    _propagated_page(net_vault, record_in_base=False)
+    note = (
+        "matched — citation keys follow propagation 20261127T000000Z; "
+        "run seal wiki/concepts/citing.md"
+    )
+    for candidate in ("HEAD", "worktree"):
+        _report, effective, _hashes, _warning = verify.verify_state(
+            net_vault, network=False, git_candidate=candidate
+        )
+        assert [
+            (o.result, o.reason)
+            for o in effective
+            if o.check == "compiled-layer"
+            and o.target == "path-bytes:wiki/concepts/citing.md"
+        ] == [(Result.MATCHED, note)]
+        assert not _compiled_rows(effective)
+    capsys.readouterr()
+    assert main(["seal", "--vault", str(net_vault), "wiki/concepts/citing.md"]) == 0
+    assert "matched — sealed 1" in capsys.readouterr().out
+    _commit_all(net_vault, "resealed")
+    for candidate in ("HEAD", "worktree"):
+        _report, effective, _hashes, _warning = verify.verify_state(
+            net_vault, network=False, git_candidate=candidate
+        )
+        assert not [
+            o
+            for o in effective
+            if o.check == "compiled-layer"
+            and o.target == "path-bytes:wiki/concepts/citing.md"
+        ]

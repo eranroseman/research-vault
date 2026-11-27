@@ -116,7 +116,10 @@ def test_seal_refuses_bytes_no_complete_compile_wrote(wiki_vault):
         (
             Result.UNMATCHED,
             "path-bytes:wiki/sources/A.md",
-            "drift — wiki/sources/A.md is not sealed: no complete compile wrote these bytes",
+            (
+                "drift — wiki/sources/A.md is not sealed: no complete compile wrote these bytes"
+                "; write it through the compile tool and seal, remove it, or acknowledge"
+            ),
         )
     ]
     assert compiled.load_record(wiki_vault) == {}
@@ -177,7 +180,10 @@ def test_lint_reports_drift_against_the_record_and_accepts_the_local_journal(
         "compiled-layer",
         Result.UNMATCHED,
         "path-bytes:wiki/sources/A.md",
-        "drift — wiki/sources/A.md differs from the compiled-page record; seal or acknowledge",
+        (
+            "drift — wiki/sources/A.md differs from the compiled-page record"
+            "; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge"
+        ),
     )
     page.write_text("---\ntype: source\n---\nv2\n")
     _journal(
@@ -235,11 +241,14 @@ def test_lint_reports_a_recorded_page_that_vanished_and_an_unsealed_newcomer(
     assert rows == [
         (
             "path-bytes:wiki/sources/A.md",
-            "drift — wiki/sources/A.md is recorded but absent",
+            "drift — wiki/sources/A.md is recorded but absent; restore it, or acknowledge",
         ),
         (
             "path-bytes:wiki/sources/New.md",
-            "drift — wiki/sources/New.md is not sealed: no complete compile wrote these bytes",
+            (
+                "drift — wiki/sources/New.md is not sealed: no complete compile wrote these bytes"
+                "; write it through the compile tool and seal, remove it, or acknowledge"
+            ),
         ),
     ]
 
@@ -275,7 +284,7 @@ def test_a_link_only_change_from_a_rename_reseals_itself(wiki_vault):
         (
             Result.MATCHED,
             "path-bytes:wiki/sources/A.md",
-            "matched — link targets follow a rename; reseal",
+            "matched — link targets follow a rename; run seal wiki/sources/A.md",
         )
     ]
     # the renamed-away path is recorded but absent
@@ -350,7 +359,10 @@ def test_a_key_rewrite_a_propagation_record_names_reseals_itself(wiki_vault):
     assert [(o.result, o.reason) for o in rows] == [
         (
             Result.MATCHED,
-            "matched — citation keys follow propagation 20261127T000000Z; reseal",
+            (
+                "matched — citation keys follow propagation 20261127T000000Z; "
+                "run seal wiki/sources/A.md"
+            ),
         )
     ]
     (sealed,) = compiled.seal(wiki_vault)
@@ -367,7 +379,8 @@ def test_a_key_rewrite_no_propagation_record_names_is_refused(wiki_vault):
     (row,) = compiled.seal(wiki_vault)
     assert row.result is Result.UNMATCHED
     assert row.reason == (
-        "drift — wiki/sources/A.md is not sealed: no complete compile wrote these bytes"
+        "drift — wiki/sources/A.md differs from the compiled-page record"
+        "; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge"
     )
     (row,) = compiled.lint_compiled_layer(wiki_vault)
     assert row.result is Result.UNMATCHED
@@ -506,7 +519,7 @@ def test_a_rename_committed_before_reseal_is_found_in_the_path_s_history(wiki_va
     shutil.rmtree(wiki_vault / compiled.SEALED_STORE)
     rows = [o for o in compiled.lint_compiled_layer(wiki_vault) if "A.md" in o.target]
     assert [o.reason for o in rows] == [
-        "matched — link targets follow a rename; reseal"
+        "matched — link targets follow a rename; run seal wiki/sources/A.md"
     ]
     (sealed,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
     assert (sealed.result, sealed.reason) == (Result.MATCHED, "matched — sealed 1")
@@ -535,12 +548,18 @@ def test_a_symlink_under_wiki_is_a_row_and_never_sealed(wiki_vault, tmp_path_fac
         (
             Result.UNMATCHED,
             "path-bytes:wiki/folder",
-            "drift — wiki/folder is a symlink; a compiled page is a file",
+            (
+                "drift — wiki/folder is a symlink; a compiled page is a file"
+                ": replace it with the file itself, or acknowledge"
+            ),
         ),
         (
             Result.UNMATCHED,
             "path-bytes:wiki/linked.md",
-            "drift — wiki/linked.md is a symlink; a compiled page is a file",
+            (
+                "drift — wiki/linked.md is a symlink; a compiled page is a file"
+                ": replace it with the file itself, or acknowledge"
+            ),
         ),
     ]
     assert sorted(o.target for o in compiled.seal(wiki_vault)) == [
@@ -565,7 +584,10 @@ def test_a_symlinked_wiki_is_one_row_and_nothing_behind_it_is_read(wiki_vault):
         (
             Result.UNMATCHED,
             "path-bytes:wiki",
-            "drift — wiki is a symlink; a compiled page is a file",
+            (
+                "drift — wiki is a symlink; a compiled page is a file"
+                ": replace it with the file itself, or acknowledge"
+            ),
         )
     ]
     assert [
@@ -595,6 +617,46 @@ def test_a_recorded_page_behind_a_symlinked_folder_is_the_symlink_s_row(
     assert [(o.target, o.reason) for o in compiled.lint_compiled_layer(wiki_vault)] == [
         (
             "path-bytes:wiki/sources",
-            "drift — wiki/sources is a symlink; a compiled page is a file",
+            (
+                "drift — wiki/sources is a symlink; a compiled page is a file"
+                ": replace it with the file itself, or acknowledge"
+            ),
         )
     ]
+
+
+def test_a_record_applied_before_the_seal_never_vouches(wiki_vault):
+    """R41 keeps F2's protection: the record's commit is an ancestor of the
+    commit that sealed the page's entry, so it predates the seal. This is
+    the later holder of a key: `old2020` was mapped away, and a new item took
+    the name before the page citing it was sealed; replaying the old record
+    over that page is a hand edit."""
+    _propagation_record(wiki_vault, "20260101T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "an old propagation")
+    page = _sealed_citing_page(wiki_vault)  # sealed in a later commit
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    _commit(wiki_vault, "the old rewrite replayed by hand")
+    (row,) = compiled.lint_compiled_layer(wiki_vault)
+    assert row.result is Result.UNMATCHED
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+def test_a_record_committed_after_the_seal_vouches_at_head(wiki_vault):
+    """R41: the record and the rewrite were committed by hand together; the
+    record is at HEAD, but its commit is not an ancestor of the sealing
+    commit, so `seal <path>` accepts the rewrite."""
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    _propagation_record(wiki_vault, "20261127T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "the rewrite and its record, by hand")
+    (row,) = compiled.lint_compiled_layer(wiki_vault)
+    assert (row.result, row.reason) == (
+        Result.MATCHED,
+        (
+            "matched — citation keys follow propagation 20261127T000000Z; "
+            "run seal wiki/sources/A.md"
+        ),
+    )
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (row.result, row.reason) == (Result.MATCHED, "matched — sealed 1")
