@@ -153,7 +153,7 @@ def test_markdown_templates_match_canonical_content():
         "Literature notes are wholly machine-written: `capture` regenerates "
         "the whole note from Zotero on every run, so per-source prose belongs "
         "in a Zotero child note, which capture renders.\n\n"
-        "Machine surfaces are owner-written, and every change to them is "
+        "Machine surfaces are owner-written, and changes to them are "
         "detected: a hand or shell edit to `literature/`, `wiki/`, root "
         "`log.md`, `inbox/review-queue.md`, `system/bibliography.json` or "
         "`system/propagations/` raises a finding at commit, and an edit to "

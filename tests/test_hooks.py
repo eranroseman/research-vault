@@ -896,9 +896,9 @@ def test_what_detection_covers_and_what_still_passes_is_pinned(fixture_vault):
     regenerated `log.md`) and to the review queue still pass; closing one of
     those gaps flips this test on purpose. The fixture vault carries standing
     findings of its own, so the pin compares the unmatched set with the
-    baseline's rather than a commit decision of 0. The hand-edit cases
-    (literature body, compiled page, text file) belong to the layers that
-    catch them."""
+    baseline's rather than a commit decision of 0. A shell edit to a compiled
+    page is caught (compiled-layer's delta); the other hand-edit cases
+    (literature body, text file) belong to the layers that catch them."""
     from research_vault import okf, verify
 
     def unmatched():
@@ -917,7 +917,8 @@ def test_what_detection_covers_and_what_still_passes_is_pinned(fixture_vault):
         day.read_text()
         + "- 10:00 research_vault/0.1.0 — a shell append in the writer's format\n"
     )
-    assert unmatched() != baseline  # #210: root log.md no longer equals its render
+    # #210: root log.md no longer equals its render
+    assert set(unmatched()) - set(baseline) == {("okf-structure", "path-bytes:log.md")}
     okf.regenerate_log(fixture_vault)
     assert unmatched() == baseline  # the append rides through once log.md carries it
     inbox.append_entry(
@@ -926,6 +927,11 @@ def test_what_detection_covers_and_what_still_passes_is_pinned(fixture_vault):
     assert (
         unmatched() == baseline
     )  # the gaps that remain: a log/ append, a queue append
+    page = fixture_vault / "wiki" / "concepts" / "mortality-trends.md"
+    page.write_text(page.read_text() + "shell edit\n")
+    assert set(unmatched()) - set(baseline) == {
+        ("compiled-layer", "path-bytes:wiki/concepts/mortality-trends.md")
+    }  # compiled-layer (Plan C Task 2)
 
 
 def test_stop_hooks_manifest_registers_posttooluse_and_stop_commands():
