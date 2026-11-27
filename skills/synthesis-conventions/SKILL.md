@@ -9,7 +9,7 @@ The compiled layer lives under `wiki/` — per-source pages under `wiki/sources/
 
 ## Never write the layer by hand
 
-`wiki/` is a machine surface: pages are created and replaced only through the tool's wiki-ingest skill and its `transaction inspect` / `transaction apply` gate. Never `Write` or `Edit` under `wiki/`: the pre-tool-use guard refuses the tools, the seeded deny rules refuse the common shell forms, and `compiled-layer` holds the commit on any byte that reaches a page another way. Register sources first with `python3 -m research_vault compile KEY --vault PATH` (see `capture-source`). Every file under `wiki/` is hashed in `system/compiled-pages.json`; a hand edit holds the commit until `seal` (which accepts only bytes the tool wrote) or an acknowledgement.
+`wiki/` is a machine surface: pages are created and replaced only through the tool's wiki-ingest skill and its `transaction inspect` / `transaction apply` gate. Never `Write` or `Edit` under `wiki/`: the pre-tool-use guard refuses the tools, the seeded deny rules refuse the common shell forms, and `compiled-layer` holds the commit on any byte that reaches a page another way. Register sources first with `python3 -m research_vault compile KEY --vault PATH` (see `capture-source`). Every file under `wiki/` is hashed in `system/compiled-pages.json`. `seal` accepts bytes a complete compile wrote, a change only of link targets that follow a rename, or a citation-key rewrite named by a propagation record applied after the seal; it refuses any other change. A hand edit holds the commit until it is reverted, rewritten through the tool and sealed, or acknowledged.
 
 ## Orientation first
 

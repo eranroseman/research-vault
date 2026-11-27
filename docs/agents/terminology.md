@@ -117,7 +117,7 @@ A new CLI command takes the first matching branch:
 | Ledger append                  | Record noun, or ledger name when no record noun exists | `finding`, `ack`, `search-log`                                                                                          |
 | Persistent switch              | `arm-<gate>` / `disarm-<gate>`                         | `arm-publish`, `disarm-publish`                                                                                         |
 | Lifecycle transition           | `mark-<status>`                                        | `mark-published`, `mark-corrected`, `mark-withdrawn`, `mark-parked`                                                     |
-| Mechanical ingest step         | Bare imperative verb                                   | `capture`, `add`, `propagate`, `seal`; `compile` is Part B's fourth                                                     |
+| Mechanical ingest step         | Bare imperative verb                                   | `capture`, `add`, `propagate`, `seal`; `compile` is Part B's                                                            |
 | Other projection or derivation | Imperative verb-noun kebab                             | `stamp-type`; `scaffold` is the established single-verb exception                                                       |
 
 Use kebab-case and exact [CONTEXT.md](../../CONTEXT.md) nouns. Do not invent
