@@ -118,7 +118,7 @@ def test_seal_refuses_bytes_no_complete_compile_wrote(wiki_vault):
             "path-bytes:wiki/sources/A.md",
             (
                 "drift — wiki/sources/A.md is not sealed: no complete compile wrote these bytes"
-                "; write it through the compile tool and seal, remove it, or acknowledge"
+                "; write it through the compile tool and seal, remove it, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
             ),
         )
     ]
@@ -182,7 +182,7 @@ def test_lint_reports_drift_against_the_record_and_accepts_the_local_journal(
         "path-bytes:wiki/sources/A.md",
         (
             "drift — wiki/sources/A.md differs from the compiled-page record"
-            "; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge"
+            "; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
         ),
     )
     page.write_text("---\ntype: source\n---\nv2\n")
@@ -241,13 +241,13 @@ def test_lint_reports_a_recorded_page_that_vanished_and_an_unsealed_newcomer(
     assert rows == [
         (
             "path-bytes:wiki/sources/A.md",
-            "drift — wiki/sources/A.md is recorded but absent; restore it, or acknowledge",
+            "drift — wiki/sources/A.md is recorded but absent; restore it, or acknowledge (a row stamped with a commit clears only by acknowledgement)",
         ),
         (
             "path-bytes:wiki/sources/New.md",
             (
                 "drift — wiki/sources/New.md is not sealed: no complete compile wrote these bytes"
-                "; write it through the compile tool and seal, remove it, or acknowledge"
+                "; write it through the compile tool and seal, remove it, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
             ),
         ),
     ]
@@ -380,7 +380,7 @@ def test_a_key_rewrite_no_propagation_record_names_is_refused(wiki_vault):
     assert row.result is Result.UNMATCHED
     assert row.reason == (
         "drift — wiki/sources/A.md differs from the compiled-page record"
-        "; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge"
+        "; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
     )
     (row,) = compiled.lint_compiled_layer(wiki_vault)
     assert row.result is Result.UNMATCHED
@@ -430,7 +430,7 @@ def test_a_name_that_is_not_utf8_is_a_row_and_never_sealed(wiki_vault):
         pytest.skip("the filesystem refuses a name that is not UTF-8")
     reason = (
         "drift — this file's name is not UTF-8 text, so it cannot be sealed; "
-        "rename it to UTF-8 text, remove it, or acknowledge"
+        "rename it to UTF-8 text, remove it, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
     )
     (row,) = compiled.lint_compiled_layer(wiki_vault)
     assert (row.result, row.target, row.reason) == (
@@ -560,7 +560,7 @@ def test_a_symlink_under_wiki_is_a_row_and_never_sealed(wiki_vault, tmp_path_fac
             "path-bytes:wiki/folder",
             (
                 "drift — wiki/folder is a symlink; a compiled page is a file"
-                ": replace it with the file itself, or acknowledge"
+                ": replace it with the file itself, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
             ),
         ),
         (
@@ -568,7 +568,7 @@ def test_a_symlink_under_wiki_is_a_row_and_never_sealed(wiki_vault, tmp_path_fac
             "path-bytes:wiki/linked.md",
             (
                 "drift — wiki/linked.md is a symlink; a compiled page is a file"
-                ": replace it with the file itself, or acknowledge"
+                ": replace it with the file itself, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
             ),
         ),
     ]
@@ -596,7 +596,7 @@ def test_a_symlinked_wiki_is_one_row_and_nothing_behind_it_is_read(wiki_vault):
             "path-bytes:wiki",
             (
                 "drift — wiki is a symlink; a compiled page is a file"
-                ": replace it with the file itself, or acknowledge"
+                ": replace it with the file itself, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
             ),
         )
     ]
@@ -629,7 +629,7 @@ def test_a_recorded_page_behind_a_symlinked_folder_is_the_symlink_s_row(
             "path-bytes:wiki/sources",
             (
                 "drift — wiki/sources is a symlink; a compiled page is a file"
-                ": replace it with the file itself, or acknowledge"
+                ": replace it with the file itself, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
             ),
         )
     ]
@@ -876,7 +876,7 @@ def test_a_deleted_wiki_lists_every_recorded_page_absent(wiki_vault):
         (
             Result.UNMATCHED,
             "path-bytes:wiki/sources/A.md",
-            "drift — wiki/sources/A.md is recorded but absent; restore it, or acknowledge",
+            "drift — wiki/sources/A.md is recorded but absent; restore it, or acknowledge (a row stamped with a commit clears only by acknowledgement)",
         )
     ]
 
@@ -886,7 +886,7 @@ _WIKI_NOT_A_FILE = (
     "path-bytes:wiki",
     (
         "drift — wiki is not a regular file; a compiled page is a file"
-        ": replace it with the file itself, or acknowledge"
+        ": replace it with the file itself, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
     ),
 )
 
@@ -1193,3 +1193,62 @@ def test_an_uncommitted_seal_then_a_rename_holds_the_hook_until_seal(wiki_vault)
             for o in effective
             if o.check == compiled.CHECK and o.result is Result.UNMATCHED
         ], candidate
+
+
+def test_a_plain_file_named_wiki_is_not_a_directory(wiki_vault):
+    page = _page(wiki_vault, "wiki/sources/A.md", "---\ntype: source\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)
+    shutil.rmtree(wiki_vault / "wiki")
+    (wiki_vault / "wiki").write_text("not a folder\n")
+    assert [
+        (o.result, o.target, o.reason) for o in compiled.lint_compiled_layer(wiki_vault)
+    ] == [
+        (
+            Result.UNMATCHED,
+            "path-bytes:wiki",
+            (
+                "drift — wiki is not a directory; the compiled layer is a folder: "
+                "replace it with the folder, or acknowledge (a row stamped with a "
+                "commit clears only by acknowledgement)"
+            ),
+        )
+    ]
+
+
+def test_a_normalised_seal_is_vouched_for_only_by_the_store(wiki_vault):
+    """R45's question (a): seal records the hash of the normalised bytes,
+    which no journal names and which HEAD never held, so on the index only
+    the seal store vouches for the entry; without it the hook holds."""
+    (wiki_vault / "inbox" / "B.md").write_text("B\n")
+    _commit(wiki_vault, "B")
+    page = _page(wiki_vault, "wiki/concepts/A.md", _CONCEPT.format("A", "See [[B]]."))
+    _journal(wiki_vault, "op1", {"wiki/concepts/A.md": _sha(page.read_bytes())})
+    (row,) = compiled.seal(wiki_vault)
+    assert row.result is Result.MATCHED
+    assert "[[B]]" not in page.read_text()  # normalised
+    assert _hook(wiki_vault) == 0
+    shutil.rmtree(wiki_vault / compiled.SEALED_STORE)
+    assert _hook(wiki_vault) == 1
+
+
+def test_a_reseal_chain_between_commits_passes_the_hook(wiki_vault):
+    """R45's question (b): compile and seal, then a rename and its reseal,
+    with no commit between; only the store holds the intermediate seal."""
+    (wiki_vault / "inbox" / "B.md").write_text("B\n")
+    page = _committed_page(wiki_vault, "See [B](/inbox/B.md). v1")
+    page.write_text(_CONCEPT.format("A", "See [B](/inbox/B.md). v2"))
+    _journal(
+        wiki_vault,
+        "op2",
+        {"wiki/concepts/A.md": _sha(page.read_bytes())},
+        epoch=time.time() + 10,
+    )
+    compiled.seal(wiki_vault)
+    (wiki_vault / "inbox" / "B.md").rename(wiki_vault / "inbox" / "C.md")
+    page.write_text(_CONCEPT.format("A", "See [B](/inbox/C.md). v2"))
+    (row,) = compiled.seal(wiki_vault, ["wiki/concepts/A.md"])
+    assert row.result is Result.MATCHED
+    assert _hook(wiki_vault) == 0
+    shutil.rmtree(wiki_vault / compiled.SEALED_STORE)
+    assert _hook(wiki_vault) == 1

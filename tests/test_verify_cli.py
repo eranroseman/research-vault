@@ -7492,7 +7492,7 @@ def test_a_non_utf8_name_under_wiki_is_a_row_not_a_crash(net_vault):
     ] == [
         (
             "drift — this file's name is not UTF-8 text, so it cannot be sealed; "
-            "rename it to UTF-8 text, remove it, or acknowledge"
+            "rename it to UTF-8 text, remove it, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
         )
     ]
     assert verify.surface_decision("commit", effective, warning)[0] == 1
@@ -7521,26 +7521,20 @@ def test_the_recheck_finds_a_bypassed_hand_edit_under_wiki(net_vault):
         for o in effective
         if o.check == "compiled-layer" and o.result is Result.UNMATCHED
     ]
-    # The worktree still holds the edit, so its own row stands beside the
-    # replay's, whose remedy is the acknowledgement alone (W4).
+    # One reason on every leg (C13): the worktree's row and the replay's are
+    # one row, the replay's copy naming the commit.
     assert [(o.target, o.reason, o.extra.get("commit")) for o in rows] == [
         (
             "path-bytes:wiki/concepts/mortality-trends.md",
             (
                 "drift — wiki/concepts/mortality-trends.md differs from the "
-                "compiled-page record; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge"
-            ),
-            None,
-        ),
-        (
-            "path-bytes:wiki/concepts/mortality-trends.md",
-            (
-                "drift — wiki/concepts/mortality-trends.md differs from the "
-                "compiled-page record; acknowledge (the change is in history)"
+                "compiled-page record; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
             ),
             bypassed,
         ),
     ]
+    # ... and the edit files one record (Plan B §5.3.1 (f), (k)).
+    assert len([f for f in inbox.load(net_vault) if f.check == "compiled-layer"]) == 1
 
 
 def test_the_recheck_judges_a_rename_reseal_against_its_own_base(net_vault):
@@ -7609,7 +7603,7 @@ def test_an_unsealed_page_the_journal_names_holds_the_index_candidate(net_vault)
     ] == [
         (
             "drift — wiki/concepts/fresh.md is not sealed: no complete compile wrote these bytes"
-            "; write it through the compile tool and seal, remove it, or acknowledge"
+            "; write it through the compile tool and seal, remove it, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
         )
     ]
     assert verify.surface_decision("commit", effective, warning)[0] == 1
@@ -7639,7 +7633,7 @@ def test_a_symlink_under_wiki_is_a_verify_row(net_vault, tmp_path_factory):
             "path-bytes:wiki/concepts/linked.md",
             (
                 "drift — wiki/concepts/linked.md is a symlink; a compiled page is a file"
-                ": replace it with the file itself, or acknowledge"
+                ": replace it with the file itself, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
             ),
         )
     ]
@@ -7719,7 +7713,7 @@ _WIKI_SYMLINK_ROW = (
     "path-bytes:wiki",
     (
         "drift — wiki is a symlink; a compiled page is a file"
-        ": replace it with the file itself, or acknowledge"
+        ": replace it with the file itself, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
     ),
 )
 
@@ -7762,7 +7756,8 @@ def test_the_recheck_finds_a_symlinked_wiki_at_its_commit(net_vault):
         _WIKI_SYMLINK_ROW[0],
         (
             "drift — wiki is a symlink; a compiled page is a file"
-            ": acknowledge (the change is in history)"
+            ": replace it with the file itself, or acknowledge (a row stamped "
+            "with a commit clears only by acknowledgement)"
         ),
     )
     assert (*replayed, bypassed) in [
@@ -7898,9 +7893,9 @@ def _head(vault):
     ).stdout.strip()
 
 
-def test_a_replayed_compiled_row_names_only_the_acknowledgement(net_vault):
-    """W4: a row stamped to a past commit cannot be cleared by a revert or a
-    reseal; its remedy says so."""
+def test_a_replayed_compiled_row_names_the_acknowledgement(net_vault):
+    """W4, C13: a row stamped to a past commit cannot be cleared by a revert
+    or a reseal; its reason, the same on every leg, says so."""
     base = _head(net_vault)
     page = net_vault / "wiki" / "concepts" / "mortality-trends.md"
     sealed = page.read_text()
@@ -7920,7 +7915,9 @@ def test_a_replayed_compiled_row_names_only_the_acknowledgement(net_vault):
             "path-bytes:wiki/concepts/mortality-trends.md",
             (
                 "drift — wiki/concepts/mortality-trends.md differs from the "
-                "compiled-page record; acknowledge (the change is in history)"
+                "compiled-page record; revert it to the sealed bytes, rewrite it "
+                "through the compile tool and seal, or acknowledge (a row stamped "
+                "with a commit clears only by acknowledgement)"
             ),
             bypassed,
         )

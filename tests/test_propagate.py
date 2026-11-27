@@ -2424,7 +2424,7 @@ def test_apply_still_refuses_a_page_hand_edited_before_it(tmp_vault, monkeypatch
             "path-bytes:wiki/sources/A.md",
             (
                 "drift — wiki/sources/A.md differs from the compiled-page record"
-                "; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge"
+                "; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
             ),
         )
     ]

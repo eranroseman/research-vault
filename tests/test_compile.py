@@ -1502,6 +1502,6 @@ def test_apply_names_a_seal_refusal_in_its_reason(tmp_vault, tmp_path, monkeypat
     assert outcome.reason == (
         "matched — wiki/meta/ledgers/source-ledger.json; seal refused: "
         "drift — wiki/meta/ledgers/source-ledger.json is not sealed: no complete "
-        "compile wrote these bytes; write it through the compile tool and seal, remove it, or acknowledge"
+        "compile wrote these bytes; write it through the compile tool and seal, remove it, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
     )
     assert compiled.load_record(tmp_vault) == {}

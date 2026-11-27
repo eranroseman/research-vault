@@ -27,8 +27,8 @@ recorded entry with no file (a deleted `wiki/` included, W2), and makes
 every symlink or special node at or under `wiki` one row standing for the
 entries behind it. On the worktree it also accepts the latest complete
 journal write, so a fresh compile files no row before seal; the hook's
-index, CI and the re-check read only the record (C6). A re-check row names
-only the acknowledgement, since its change is in history (W4). On the
+index, CI and the re-check read only the record (C6). Every drift reason
+says a re-check row clears only by acknowledgement (W4, C13). On the
 hook's index alone, `lint_record_custody` also judges each record entry
 that changed against HEAD (R44).
 """
@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING
 
 from . import captured, frontmatter, gitstate, links, structure
 from .outcome import Outcome, Result
-from .pathcodec import RepoPath, decode_repo_path
+from .pathcodec import RepoPath
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -151,6 +151,8 @@ def _walk(vault: Path) -> tuple[dict[str, bytes], dict[str, str]]:
         return files, {"wiki": "symlink"}
     if not wiki.is_dir():
         # A FIFO, a socket or a plain file named `wiki` is one node (W2).
+        if wiki.is_file():
+            return files, {"wiki": "file"}
         return files, ({"wiki": "special"} if os.path.lexists(wiki) else others)
     for root, dirnames, filenames in os.walk(wiki, followlinks=False):
         here = Path(root)
@@ -183,6 +185,15 @@ def wiki_files(vault_root) -> dict[str, bytes]:
 
 
 def _not_a_file(relative: str, kind: str) -> Outcome:
+    if kind == "file":
+        # Only `wiki` itself is a "file" node: a plain file where the folder
+        # belongs.
+        return _row(
+            Result.UNMATCHED,
+            relative,
+            f"drift — {_shown(relative)} is not a directory; the compiled layer "
+            f"is a folder: {NOT_A_FOLDER_REMEDY}",
+        )
     what = "a symlink" if kind == "symlink" else "not a regular file"
     return _row(
         Result.UNMATCHED,
@@ -679,45 +690,24 @@ def _row(result: Result, relative: str, reason: str) -> Outcome:
 
 
 # Every drift reason names its remedy (R41): the acts that clear the row
-# without an acknowledgement, then the acknowledgement.
+# without an acknowledgement, then the acknowledgement. One reason serves the
+# worktree, the hook and the per-commit re-check alike, so one edit files one
+# record (Plan B §5.3.1 (f), (k); C13); its tail says that a row the re-check
+# stamped with a past commit, where no act now reaches, clears only by
+# acknowledgement (W4).
+_STAMPED = " (a row stamped with a commit clears only by acknowledgement)"
 UNSEALED_REMEDY = (
-    "write it through the compile tool and seal, remove it, or acknowledge"
+    "write it through the compile tool and seal, remove it, or acknowledge" + _STAMPED
 )
 DIFFERS_REMEDY = (
     "revert it to the sealed bytes, rewrite it through the compile tool and "
-    "seal, or acknowledge"
+    "seal, or acknowledge" + _STAMPED
 )
-ABSENT_REMEDY = "restore it, or acknowledge"
-NOT_A_FILE_REMEDY = "replace it with the file itself, or acknowledge"
+ABSENT_REMEDY = "restore it, or acknowledge" + _STAMPED
+NOT_A_FILE_REMEDY = "replace it with the file itself, or acknowledge" + _STAMPED
+NOT_A_FOLDER_REMEDY = "replace it with the folder, or acknowledge" + _STAMPED
 # A name that is not UTF-8 text can never be sealed: the record is UTF-8 JSON.
-NOT_UTF8_REMEDY = "rename it to UTF-8 text, remove it, or acknowledge"
-# The per-commit re-check stamps its rows with a past commit, where no revert,
-# reseal or restore now reaches: only an acknowledgement clears them (W4).
-HISTORY_REMEDY = "acknowledge (the change is in history)"
-_REMEDIES = (
-    UNSEALED_REMEDY,
-    DIFFERS_REMEDY,
-    ABSENT_REMEDY,
-    NOT_A_FILE_REMEDY,
-    NOT_UTF8_REMEDY,
-)
-
-
-def _in_history(outcome: Outcome) -> Outcome:
-    """``outcome`` with its remedy tail the re-check's (`HISTORY_REMEDY`)."""
-    for remedy in _REMEDIES:
-        if outcome.reason.endswith(remedy):
-            target = outcome.target
-            if outcome.target_kind == "repo-path":
-                target = RepoPath(decode_repo_path(str(target)))
-            return Outcome(
-                outcome.check,
-                target,
-                outcome.result,
-                outcome.reason[: -len(remedy)] + HISTORY_REMEDY,
-                outcome.extra,
-            )
-    return outcome
+NOT_UTF8_REMEDY = "rename it to UTF-8 text, remove it, or acknowledge" + _STAMPED
 
 
 def _differs(relative: str) -> Outcome:
@@ -849,8 +839,6 @@ def lint_compiled_layer(
         if journal_writes.get(relative, "") is None:
             continue  # the tool deleted it; seal drops the entry
         rows.append(_absent(relative))
-    if base is not None:
-        rows = [_in_history(row) for row in rows]
     return rows or [Outcome(CHECK, RECORD_PATH, Result.MATCHED, "matched")]
 
 
@@ -875,7 +863,14 @@ def lint_record_custody(
     journal's delete of that path, as `seal` drops one: removing the entry
     of a page deleted by hand would launder the deletion. Any other change
     is a row. CI and the replay cannot run this: there a co-edited page and
-    entry look like a seal. An unreadable record files its row in
+    entry look like a seal.
+
+    The store counts here because some seals have no other evidence (R45):
+    seal records the hash of the normalised bytes, which no journal names,
+    and a reseal chain before a commit (compile and seal, then a rename's or
+    a propagation's reseal) starts from bytes only the store holds. Like the
+    journal, it is local evidence an interpreter can plant; the vault guide
+    names that gap. An unreadable record files its row in
     `lint_compiled_layer`; an unreadable HEAD record counts as empty."""
     vault = Path(vault_root)
     try:
