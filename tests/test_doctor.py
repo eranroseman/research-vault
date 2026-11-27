@@ -1944,6 +1944,39 @@ def test_obsidian_probe_is_unreachable_on_a_truncated_config_file(tmp_path):
     assert "community-plugins.json" in probe.reason
 
 
+def test_obsidian_probe_fails_a_config_file_of_the_wrong_json_type(tmp_path):
+    """A file that parses but is not the type Obsidian writes is never cleared
+    by a re-read: a finding, not an outage; the hashed fact names the file."""
+    vault = _seeded_vault(tmp_path)
+    enabled = vault / ".obsidian" / "community-plugins.json"
+    seeded = enabled.read_text()
+    enabled.write_text("{}")
+    probe = doctor._obsidian_probe(vault, {})
+    fact = "community-plugins.json malformed (expected a JSON list)"
+    assert probe == doctor.Probe(
+        "obsidian", Result.UNMATCHED, f"Core {fact}", facts=(("core", (fact,)),)
+    )
+    config = {}
+    assert doctor._excluded_obsidian_plugins(vault, config) == []
+    enabled.write_text(seeded)
+    (vault / ".obsidian" / "plugins" / "dataview" / "manifest.json").write_text("[]")
+    probe = doctor._obsidian_probe(vault, {})
+    fact = "plugins/dataview/manifest.json malformed (expected a JSON dict)"
+    assert probe == doctor.Probe(
+        "obsidian", Result.UNMATCHED, f"Dataview {fact}", facts=(("dataview", (fact,)),)
+    )
+
+
+def test_obsidian_probe_reads_a_recommended_manifest_for_presence_only(tmp_path):
+    vault = _seeded_vault(tmp_path)
+    manifest = vault / ".obsidian" / "plugins" / "omnisearch" / "manifest.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text('{"id": "omni')
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.MATCHED
+    assert "recommended plugin omnisearch installed" in probe.reason
+
+
 def test_obsidian_probe_reads_the_configured_folder_and_skips_an_absent_one(tmp_path):
     vault = _seeded_vault(tmp_path)
     (vault / ".obsidian").rename(vault / "obsidian-work")
@@ -1994,8 +2027,11 @@ def test_advisory_warns_on_an_enabled_excluded_obsidian_plugin(tmp_path):
     enabled.write_text(
         json.dumps([p for p in json.loads(enabled.read_text()) if p != "obsidian-git"])
     )
-    probe = doctor._advisory_probe(doctor._profile_facts(config), vault, config)
-    assert probe.result is not Result.UNMATCHED
+    profile = doctor._profile_facts(config)
+    # no Obsidian fact left: the Zotero half's row comes back unchanged
+    assert doctor._advisory_probe(profile, vault, config) == doctor._advisory_addons(
+        profile
+    )
 
 
 def test_compile_tool_probe_reads_the_vaults_mode(tmp_vault, monkeypatch):
@@ -2011,6 +2047,11 @@ def test_compile_tool_probe_reads_the_vaults_mode(tmp_vault, monkeypatch):
     meta = tmp_vault / ".vault-meta"
     meta.mkdir()
     (meta / "mode.json").write_text(json.dumps({"mode": "generic"}))
+    assert doctor._compile_tool_probe(tmp_vault) == doctor.Probe(
+        "compile-tool", Result.MATCHED, f"{COMPILE_PLUGIN} at 32ac5a0; mode generic"
+    )
+    # wiki-mode.py:156,160 reads a missing key as generic
+    (meta / "mode.json").write_text("{}")
     assert doctor._compile_tool_probe(tmp_vault) == doctor.Probe(
         "compile-tool", Result.MATCHED, f"{COMPILE_PLUGIN} at 32ac5a0; mode generic"
     )

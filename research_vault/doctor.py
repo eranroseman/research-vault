@@ -516,7 +516,7 @@ def _excluded_obsidian_plugins(vault: Path, config: dict) -> list[tuple[str, str
     try:
         enabled = _enabled_obsidian_plugins(folder)
         declaration = obsidian_plugins.declared()
-    except (OSError, ValueError):
+    except (OSError, ValueError, _ConfigMisshapenError):
         return []
     fact = "enabled (excluded Obsidian plugin)"
     return [
@@ -717,11 +717,12 @@ def _translator_formats_probe(client, skip: str | None) -> Probe:
 
 def _compile_mode(vault: Path) -> tuple[str, str | None]:
     """The compile tool's mode as (shown, fact): absent `.vault-meta/mode.json`
-    is generic (`wiki-mode.py:12` @32ac5a0); fact is None when generic, and
-    never names the mode found (DP34)."""
+    is generic (`wiki-mode.py:12` @32ac5a0), and so is a file without a `mode`
+    key (`loaded.get("mode", "generic")`, `wiki-mode.py:156,160`); fact is None
+    when generic, and never names the mode found (DP34)."""
     path = vault / ".vault-meta" / "mode.json"
     try:
-        mode = json.loads(path.read_text(encoding="utf-8")).get("mode")
+        mode = json.loads(path.read_text(encoding="utf-8")).get("mode", "generic")
     except FileNotFoundError:
         return "mode generic (no .vault-meta/mode.json)", None
     except (OSError, UnicodeError, ValueError, AttributeError):
@@ -776,9 +777,20 @@ def _obsidian_folder(vault: Path, config: dict) -> tuple[str, Path]:
     return name, vault / name
 
 
+class _ConfigMisshapenError(Exception):
+    """A config file that parses but is not the JSON type Obsidian writes: no
+    re-read clears it, so it is a finding, not an outage."""
+
+    def __init__(self, relative: str, shape: type):
+        super().__init__(f"{relative} malformed (expected a JSON {shape.__name__})")
+        parts = relative.split("/")
+        self.component = parts[1] if parts[0] == "plugins" else "core"
+
+
 def _config_json(folder: Path, relative: str, shape: type):
-    """A config file's JSON, or None when absent; an unparseable or misshapen
-    file raises `ConfigUnreadableError` naming the file."""
+    """A config file's JSON, or None when absent; an unparseable file raises
+    `ConfigUnreadableError` and a misshapen one `_ConfigMisshapenError`, each
+    naming the file."""
     try:
         document = json.loads((folder / relative).read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -786,9 +798,7 @@ def _config_json(folder: Path, relative: str, shape: type):
     except (OSError, UnicodeError, ValueError) as error:
         raise obsidian_plugins.ConfigUnreadableError(f"{relative}: {error}") from error
     if not isinstance(document, shape):
-        raise obsidian_plugins.ConfigUnreadableError(
-            f"{relative}: expected a JSON {shape.__name__}"
-        )
+        raise _ConfigMisshapenError(relative, shape)
     return document
 
 
@@ -801,7 +811,8 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
     """Spec §6.3: cold reads of the configured Obsidian folder against the
     packaged declaration. UNMATCHED only for a declared key off its values on
     an enabled plugin (or Core); an unparseable file is UNREACHABLE (Obsidian
-    rewrites them non-atomically); drift from the seed is a note; an absent
+    rewrites them non-atomically), one of the wrong JSON type UNMATCHED (no
+    re-read clears it); drift from the seed is a note; an absent
     folder is SKIPPED. An enabled excluded plugin is a note here and an
     `advisory` fact (Plan E deviation 5)."""
     name, folder = _obsidian_folder(vault, config)
@@ -831,12 +842,15 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
                 if plugin.plugin_id in enabled:
                     notes_out.append(f"excluded plugin {plugin.plugin_id} enabled")
                 continue
+            if plugin.need == "recommended":
+                # presence only: no declared key reads a recommended manifest
+                if (folder / manifest).is_file():
+                    notes_out.append(f"recommended plugin {plugin.plugin_id} installed")
+                continue
             installed = _config_json(folder, manifest, dict)
             if installed is None:
                 continue
-            if plugin.need == "recommended":
-                notes_out.append(f"recommended plugin {plugin.plugin_id} installed")
-            elif installed.get("version") != plugin.pin:
+            if installed.get("version") != plugin.pin:
                 notes_out.append(
                     f"{plugin.plugin_id} pinned {plugin.pin}, "
                     f"installed {installed.get('version')}"
@@ -872,9 +886,11 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
             Result.UNREACHABLE,
             f"{name}: config unreadable, read again: {error}",
         )
+    except _ConfigMisshapenError as error:
+        found = [(error.component, str(error), str(error))]
+    names = {"core": obsidian_plugins.CORE}
+    names.update((p.plugin_id, p.name) for p in declaration.plugins)
     if found:
-        names = {"core": obsidian_plugins.CORE}
-        names.update((p.plugin_id, p.name) for p in declaration.plugins)
         shown = "; ".join(f"{names[c]} {text}" for c, _fact, text in found)
         return Probe("obsidian", Result.UNMATCHED, shown, facts=_grouped(found))
     detail = (
