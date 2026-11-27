@@ -829,9 +829,12 @@ def _compiled_layer(repository, base_snapshot, candidate_snapshot):
     and a rename's or a propagation's reseal is judged against the pair's
     base (`compiled.snapshot_base`), the sealed bytes looked up by hash. The
     materialised tree holds no symlink, so the lint is handed the snapshot
-    for those rows. A tree with nothing at or under `wiki` has no
-    compiled layer and is not materialised."""
-    if not any(compiled.in_compiled_layer(path) for path in candidate_snapshot.images):
+    for those rows. A tree with nothing at or under `wiki` and no record
+    has no compiled layer and is not materialised; one whose record lists
+    entries is linted, so a deleted `wiki/` is every entry absent (W2)."""
+    if candidate_snapshot.image(os.fsencode(compiled.RECORD_PATH)) is None and not any(
+        compiled.in_compiled_layer(path) for path in candidate_snapshot.images
+    ):
         return []
     with tempfile.TemporaryDirectory(prefix="research-vault-compiled-") as temporary:
         gitstate.materialize_snapshot(candidate_snapshot, Path(temporary))
@@ -1218,6 +1221,19 @@ def _plan_state(
             snapshot=snapshots.candidate,
         )
     )
+    # The record's own custody, on the hook's index only (R44): CI and the
+    # replay cannot tell a page co-edited with its entry from a seal.
+    if snapshots.candidate_name == "index":
+        head_record = snapshots.head.image(os.fsencode(compiled.RECORD_PATH))
+        raw.extend(
+            compiled.lint_record_custody(
+                vault,
+                head_record.data
+                if head_record is not None and head_record.kind == "file"
+                else None,
+                repository_root=repository,
+            )
+        )
     raw.extend(
         captured.lint_captured_set(
             vault, as_of=detection_date, bibliography_universe=bibliography_universe

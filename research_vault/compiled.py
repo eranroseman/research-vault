@@ -3,20 +3,34 @@
 `system/compiled-pages.json` holds the sha256 of every file under `wiki/`.
 The custody rule: an entry may change only when the file's current bytes
 equal the entry, or equal the *latest* complete compile-journal write for
-that exact path — so a File-recovery restore of an older compile is never
+that exact path, so a File-recovery restore of an older compile is never
 re-sealed. Two changes no journal wrote are accepted too, each a definite
-test against the sealed bytes: a change only of link destinations that
-follow a rename (decision 13: the old target no longer resolves, the new
-one resolves to one file), and a change only of the citation-key rewrites
-an applied propagation record this change adds names (R35, C8b). The sealed
-bytes are looked up by hash: seal keeps a copy under `.vault-meta/`, and
-otherwise the base revision and the path's recent history hold them (C7).
-Seal normalises a page's links (spec §5.2) and records the hash of the
-normalised bytes. The `compiled-layer` check compares every file with its
-entry and reports every symlink under `wiki/`; on the worktree it also
-accepts the latest complete journal write, so a fresh compile files no row
-before seal; the commit hook's index, CI, and the per-commit re-check read
-only the record (C6).
+test against the sealed bytes:
+
+- a change only of link destinations that follow a rename (decision 13,
+  C8a): the old target no longer resolves, the new one resolves to one file;
+- a change only of the citation-key rewrites an applied propagation record
+  names (R35), when that record was applied after the page's sealed entry:
+  locally, no commit introducing its operation id is an ancestor of the
+  commit that introduced the entry (R41); in the per-commit re-check, the
+  change adds it (C8b).
+
+The sealed bytes are looked up by hash (C7): seal and the worktree read the
+copy seal keeps under `.vault-meta/` first; the hook's index and CI's HEAD
+read only what git reaches, HEAD and the path's recent history (W3); the
+re-check reads the pair's base and the path's history. Seal normalises a
+page's links (spec §5.2), records the hash of the normalised bytes, and
+writes the record, atomically, before the pages it rewrote (W8).
+
+The `compiled-layer` check compares every file with its entry, reports each
+recorded entry with no file (a deleted `wiki/` included, W2), and makes
+every symlink or special node at or under `wiki` one row standing for the
+entries behind it. On the worktree it also accepts the latest complete
+journal write, so a fresh compile files no row before seal; the hook's
+index, CI and the re-check read only the record (C6). A re-check row names
+only the acknowledgement, since its change is in history (W4). On the
+hook's index alone, `lint_record_custody` also judges each record entry
+that changed against HEAD (R44).
 """
 
 from __future__ import annotations
@@ -29,7 +43,7 @@ from typing import TYPE_CHECKING
 
 from . import captured, frontmatter, gitstate, links, structure
 from .outcome import Outcome, Result
-from .pathcodec import RepoPath
+from .pathcodec import RepoPath, decode_repo_path
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -51,10 +65,13 @@ __all__ = [
     "in_compiled_layer",
     "journal_hashes",
     "lint_compiled_layer",
+    "lint_record_custody",
     "load_record",
     "only_link_targets_changed",
+    "parse_record",
     "seal",
     "snapshot_base",
+    "stored_bytes",
     "wiki_files",
     "write_record",
 ]
@@ -77,8 +94,17 @@ def load_record(vault_root) -> dict[str, str]:
     if not path.is_file():
         return {}
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, ValueError) as error:
+        data = path.read_bytes()
+    except OSError as error:
+        raise RecordError(f"compiled-page record unreadable: {error}") from error
+    return parse_record(data)
+
+
+def parse_record(data: bytes) -> dict[str, str]:
+    """The record's pages from its bytes; `RecordError` when it is not ours."""
+    try:
+        document = json.loads(data.decode("utf-8"))
+    except (UnicodeError, ValueError) as error:
         raise RecordError(f"compiled-page record unreadable: {error}") from error
     pages = document.get("pages") if isinstance(document, dict) else None
     if (
@@ -95,12 +121,21 @@ def load_record(vault_root) -> dict[str, str]:
 
 
 def write_record(vault_root, pages: Mapping[str, str]) -> Path:
+    """Write the record atomically, as `_store` writes a sealed copy: a temp
+    file beside it, then `os.replace`, so an interrupted write leaves the old
+    record whole (W8)."""
     path = Path(vault_root) / RECORD_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     document = {"schema": SCHEMA, "pages": dict(sorted(pages.items()))}
-    path.write_text(
-        json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    temporary = path.parent / f".{path.name}.{os.getpid()}"
+    temporary.write_bytes(
+        (json.dumps(document, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
     )
+    try:
+        temporary.replace(path)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        raise
     return path
 
 
@@ -115,7 +150,8 @@ def _walk(vault: Path) -> tuple[dict[str, bytes], dict[str, str]]:
     if wiki.is_symlink():
         return files, {"wiki": "symlink"}
     if not wiki.is_dir():
-        return files, others
+        # A FIFO, a socket or a plain file named `wiki` is one node (W2).
+        return files, ({"wiki": "special"} if os.path.lexists(wiki) else others)
     for root, dirnames, filenames in os.walk(wiki, followlinks=False):
         here = Path(root)
         kept = []
@@ -400,21 +436,22 @@ def is_record_file(raw_path: bytes) -> bool:
 class _Local(Base):
     """The local judge: the seal store, then HEAD, then the path's history;
     the change's base is HEAD. With no `.git` at all every record vouches:
-    there is no history for a record to predate."""
+    there is no history for a record to predate.
 
-    def __init__(self, repository: Path) -> None:
+    ``store`` False reads only bytes git reaches (W3): the store is local and
+    untracked, so the hook's index and CI's HEAD candidates, which CI and the
+    replay must agree with, never consult it. `seal` and the worktree do."""
+
+    def __init__(self, repository: Path, *, store: bool = True) -> None:
         super().__init__(repository)
+        self._use_store = store
         # operation id -> the commits that introduced a record of it, built
         # once per judge (P1); an _UndecidedError when that read failed.
         self._introductions: dict[str, list[str]] | _UndecidedError | None = None
 
     def sealed(self, relative: str, sha: str) -> bytes | None:
-        stored = self._repository / SEALED_STORE / sha
-        try:
-            data = stored.read_bytes()
-        except OSError:
-            data = None
-        if data is not None and _sha(data) == sha:
+        data = stored_bytes(self._repository, sha) if self._use_store else None
+        if data is not None:
             return data
         if (self._repository / ".git").exists():
             head = gitstate.blob_bytes(self._repository, "HEAD", os.fsencode(relative))
@@ -609,6 +646,15 @@ def snapshot_base(snapshot, repository) -> Base:
     return _Snapshot(snapshot, Path(repository))
 
 
+def stored_bytes(repository: Path, sha: str) -> bytes | None:
+    """The seal store's copy hashing to ``sha``; None when it holds none."""
+    try:
+        data = (Path(repository) / SEALED_STORE / sha).read_bytes()
+    except OSError:
+        return None
+    return data if _sha(data) == sha else None
+
+
 def _store(repository: Path, data: bytes) -> None:
     """Keep the sealed bytes by hash (C7), so a rename or a propagation before
     the next commit is still judged against them."""
@@ -645,6 +691,33 @@ ABSENT_REMEDY = "restore it, or acknowledge"
 NOT_A_FILE_REMEDY = "replace it with the file itself, or acknowledge"
 # A name that is not UTF-8 text can never be sealed: the record is UTF-8 JSON.
 NOT_UTF8_REMEDY = "rename it to UTF-8 text, remove it, or acknowledge"
+# The per-commit re-check stamps its rows with a past commit, where no revert,
+# reseal or restore now reaches: only an acknowledgement clears them (W4).
+HISTORY_REMEDY = "acknowledge (the change is in history)"
+_REMEDIES = (
+    UNSEALED_REMEDY,
+    DIFFERS_REMEDY,
+    ABSENT_REMEDY,
+    NOT_A_FILE_REMEDY,
+    NOT_UTF8_REMEDY,
+)
+
+
+def _in_history(outcome: Outcome) -> Outcome:
+    """``outcome`` with its remedy tail the re-check's (`HISTORY_REMEDY`)."""
+    for remedy in _REMEDIES:
+        if outcome.reason.endswith(remedy):
+            target = outcome.target
+            if outcome.target_kind == "repo-path":
+                target = RepoPath(decode_repo_path(str(target)))
+            return Outcome(
+                outcome.check,
+                target,
+                outcome.result,
+                outcome.reason[: -len(remedy)] + HISTORY_REMEDY,
+                outcome.extra,
+            )
+    return outcome
 
 
 def _differs(relative: str) -> Outcome:
@@ -707,10 +780,13 @@ class _Witness:
             return f"matched — link targets follow a rename; run seal {shown}"
         operation = propagated_by(old, new, self._vault, relative, self._base, recorded)
         if operation is not None:
-            return (
-                f"matched — citation keys follow propagation {operation}; "
-                f"run seal {shown}"
+            # W6: an id that is not plain text would crash the strict write.
+            named = (
+                f"propagation {operation}"
+                if structure._is_plain_text(operation)
+                else "a propagation record"
             )
+            return f"matched — citation keys follow {named}; run seal {shown}"
         return None
 
 
@@ -738,17 +814,21 @@ def lint_compiled_layer(
     files, others = _walk(vault)
     if snapshot is not None:
         others = {**others, **_snapshot_nodes(snapshot)}
-    if not (vault / "wiki").is_dir() and not others:
-        return [
-            Outcome(CHECK, "wiki", Result.SKIPPED, "no-identifier — no compiled layer")
-        ]
+    # The record first (W2): with entries recorded, a missing `wiki/` is
+    # every entry absent, not a vault with no compiled layer.
     try:
         record = load_record(vault)
     except RecordError as error:
         return [_row(Result.UNMATCHED, RECORD_PATH, f"schema-violation — {error}")]
+    if not record and not (vault / "wiki").is_dir() and not others:
+        return [
+            Outcome(CHECK, "wiki", Result.SKIPPED, "no-identifier — no compiled layer")
+        ]
     repository = Path(repository_root) if repository_root is not None else vault
     journal_writes = journal_hashes(repository) if base is None and journal else {}
-    witness = _Witness(vault, base if base is not None else _Local(repository))
+    witness = _Witness(
+        vault, base if base is not None else _Local(repository, store=journal)
+    )
     rows: list[Outcome] = [_not_a_file(path, kind) for path, kind in others.items()]
     for relative, data in files.items():
         current = _sha(data)
@@ -769,7 +849,83 @@ def lint_compiled_layer(
         if journal_writes.get(relative, "") is None:
             continue  # the tool deleted it; seal drops the entry
         rows.append(_absent(relative))
+    if base is not None:
+        rows = [_in_history(row) for row in rows]
     return rows or [Outcome(CHECK, RECORD_PATH, Result.MATCHED, "matched")]
+
+
+ENTRY_REMEDY = (
+    "restore the entry, rewrite the page through the compile tool and seal, "
+    "or acknowledge"
+)
+REMOVED_ENTRY_REMEDY = "restore the entry, or acknowledge"
+
+
+def lint_record_custody(
+    vault_root, head_record: bytes | None, *, repository_root=None
+) -> list[Outcome]:
+    """The hook's custody of the record itself (R44): on the index candidate,
+    every entry that changed against HEAD's record has a writer behind it.
+
+    A changed or added entry is justified by a complete journal write of
+    that hash for that path, by the seal store's hash-verified copy, or by
+    the page's bytes hashing to it with a rename's link change or a named key
+    rewrite from HEAD's entry (`_Witness.reseal_note`, judged as the index
+    leg judges, without the store). A removed entry is justified only by the
+    journal's delete of that path, as `seal` drops one: removing the entry
+    of a page deleted by hand would launder the deletion. Any other change
+    is a row. CI and the replay cannot run this: there a co-edited page and
+    entry look like a seal. An unreadable record files its row in
+    `lint_compiled_layer`; an unreadable HEAD record counts as empty."""
+    vault = Path(vault_root)
+    try:
+        record = load_record(vault)
+    except RecordError:
+        return []
+    try:
+        head = parse_record(head_record) if head_record is not None else {}
+    except RecordError:
+        head = {}
+    repository = Path(repository_root) if repository_root is not None else vault
+    journal = journal_hashes(repository)
+    files = wiki_files(vault)
+    witness = _Witness(vault, _Local(repository, store=False))
+    rows: list[Outcome] = []
+    for relative, sha in sorted(record.items()):
+        recorded = head.get(relative)
+        if recorded == sha or journal.get(relative) == sha:
+            continue
+        if stored_bytes(repository, sha) is not None:
+            continue
+        data = files.get(relative)
+        if (
+            recorded is not None
+            and data is not None
+            and _sha(data) == sha
+            and witness.reseal_note(relative, recorded, data) is not None
+        ):
+            continue
+        what = "changed" if recorded is not None else "was added"
+        rows.append(
+            _row(
+                Result.UNMATCHED,
+                relative,
+                f"drift — {_shown(relative)}'s record entry {what} with no "
+                f"compile, rename or seal behind it; {ENTRY_REMEDY}",
+            )
+        )
+    for relative in sorted(set(head) - set(record)):
+        if journal.get(relative, "") is None:
+            continue
+        rows.append(
+            _row(
+                Result.UNMATCHED,
+                relative,
+                f"drift — {_shown(relative)}'s record entry was removed with no "
+                f"compile delete behind it; {REMOVED_ENTRY_REMEDY}",
+            )
+        )
+    return rows
 
 
 def seal(
@@ -794,6 +950,7 @@ def seal(
     )
     witness = _Witness(vault, _Local(repository))
     refusals: list[Outcome] = []
+    rewrites: dict[str, str] = {}
     sealed = 0
     refused_nodes: set[str] = set()
     for relative in sorted(wanted):
@@ -853,17 +1010,21 @@ def seal(
                 text, witness.index(), source=relative
             )
             if normalised != text:
-                (vault / relative).write_text(
-                    normalised, encoding="utf-8", errors="surrogateescape", newline=""
-                )
+                rewrites[relative] = normalised
                 files[relative] = normalised.encode("utf-8", errors="surrogateescape")
                 current = _sha(files[relative])
         if relative.endswith(".md"):
             _store(repository, files[relative])
         record[relative] = current
         sealed += 1
+    # The record before the pages (W8): a run interrupted between the two
+    # leaves pages whose bytes the journal still names, so a rerun seals them.
     if sealed:
         write_record(vault, record)
+    for relative, normalised in rewrites.items():
+        (vault / relative).write_text(
+            normalised, encoding="utf-8", errors="surrogateescape", newline=""
+        )
     return refusals or [
         Outcome(CHECK, RECORD_PATH, Result.MATCHED, f"matched — sealed {sealed}")
     ]

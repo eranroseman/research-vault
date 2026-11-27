@@ -858,3 +858,338 @@ def test_the_record_lookup_costs_a_bounded_number_of_git_calls(wiki_vault, monke
     (row,) = compiled.lint_compiled_layer(wiki_vault)
     assert row.result is Result.MATCHED
     assert len(calls) <= 12, calls
+
+
+# Final-review fix wave (W2, W3, W6, W8).
+
+
+def test_a_deleted_wiki_lists_every_recorded_page_absent(wiki_vault):
+    """W2: with the record still listing pages, a vault with no `wiki/` has
+    a compiled layer: each recorded entry is `recorded but absent`."""
+    page = _page(wiki_vault, "wiki/sources/A.md", "---\ntype: source\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)
+    shutil.rmtree(wiki_vault / "wiki")
+    assert [
+        (o.result, o.target, o.reason) for o in compiled.lint_compiled_layer(wiki_vault)
+    ] == [
+        (
+            Result.UNMATCHED,
+            "path-bytes:wiki/sources/A.md",
+            "drift — wiki/sources/A.md is recorded but absent; restore it, or acknowledge",
+        )
+    ]
+
+
+_WIKI_NOT_A_FILE = (
+    Result.UNMATCHED,
+    "path-bytes:wiki",
+    (
+        "drift — wiki is not a regular file; a compiled page is a file"
+        ": replace it with the file itself, or acknowledge"
+    ),
+)
+
+
+def test_a_fifo_wiki_is_one_row_and_seal_refuses_the_node(wiki_vault):
+    """W2: a non-directory `wiki` is a not-a-file row, in the lint and at
+    seal, whose refusal names the node rather than each entry behind it."""
+    page = _page(wiki_vault, "wiki/sources/A.md", "---\ntype: source\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)
+    shutil.rmtree(wiki_vault / "wiki")
+    os.mkfifo(wiki_vault / "wiki")
+    assert [
+        (o.result, o.target, o.reason) for o in compiled.lint_compiled_layer(wiki_vault)
+    ] == [_WIKI_NOT_A_FILE]
+    assert [(o.result, o.target, o.reason) for o in compiled.seal(wiki_vault)] == [
+        _WIKI_NOT_A_FILE
+    ]
+    assert list(compiled.load_record(wiki_vault)) == ["wiki/sources/A.md"]
+
+
+def test_no_wiki_and_an_empty_record_is_skipped(wiki_vault):
+    shutil.rmtree(wiki_vault / "wiki")
+    compiled.write_record(wiki_vault, {})
+    assert [o.result for o in compiled.lint_compiled_layer(wiki_vault)] == [
+        Result.SKIPPED
+    ]
+
+
+def test_the_index_and_head_judges_never_read_the_seal_store(wiki_vault):
+    """W3: the store is local and untracked, so CI and the replay cannot see
+    it; with journal=False (the hook's index, CI's HEAD) the judge reads
+    only bytes git reaches, so the hook holds what CI would hold."""
+    page = _page(
+        wiki_vault,
+        "wiki/sources/A.md",
+        "---\ntype: source\n---\nSee [B](/wiki/concepts/B.md).\n",
+    )
+    target = _page(wiki_vault, "wiki/concepts/B.md", "---\ntype: concept\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault, ["wiki/sources/A.md"])  # uncommitted
+    target.rename(wiki_vault / "wiki" / "concepts" / "C.md")
+    page.write_text("---\ntype: source\n---\nSee [B](/wiki/concepts/C.md).\n")
+
+    def a_rows(**kwargs):
+        return [
+            o.result
+            for o in compiled.lint_compiled_layer(wiki_vault, **kwargs)
+            if o.target == "path-bytes:wiki/sources/A.md"
+        ]
+
+    assert a_rows() == [Result.MATCHED]
+    assert a_rows(journal=False) == [Result.UNMATCHED]
+    (sealed,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert sealed.result is Result.MATCHED
+    assert a_rows() == a_rows(journal=False) == []
+
+
+def test_an_operation_id_that_is_not_text_never_reaches_the_reason(wiki_vault):
+    """W6: a lone surrogate in a record's id would crash the strict write."""
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    folder = wiki_vault / propagate.RECORD_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "20261127T000000Z.json").write_text(
+        json.dumps(
+            {
+                "schema": propagate.SCHEMA,
+                "operation_id": "\udcff",
+                "date": "2026-11-27",
+                "mapping": {"old2020": "new2020"},
+                "item_keys": {"old2020": "E352DFS8"},
+                "merges": {},
+                "removes": {},
+                "surfaces": [],
+            }
+        )
+    )
+    rows = [o for o in compiled.lint_compiled_layer(wiki_vault) if "A.md" in o.target]
+    assert [(o.result, o.reason) for o in rows] == [
+        (
+            Result.MATCHED,
+            (
+                "matched — citation keys follow a propagation record; "
+                "run seal wiki/sources/A.md"
+            ),
+        )
+    ]
+    rows[0].reason.encode("utf-8")
+
+
+def test_the_record_write_is_atomic(wiki_vault, monkeypatch):
+    """W8: a write interrupted before its rename leaves the old record."""
+    compiled.write_record(wiki_vault, {"wiki/a.md": "1" * 64})
+    before = (wiki_vault / compiled.RECORD_PATH).read_bytes()
+
+    def interrupted(*_args, **_kwargs):
+        raise OSError("interrupted")
+
+    monkeypatch.setattr(compiled.os, "replace", interrupted)
+    with pytest.raises(OSError, match="interrupted"):
+        compiled.write_record(wiki_vault, {"wiki/b.md": "2" * 64})
+    assert (wiki_vault / compiled.RECORD_PATH).read_bytes() == before
+    assert sorted(p.name for p in (wiki_vault / "system").iterdir()) == sorted(
+        p.name for p in (wiki_vault / "system").iterdir() if not p.name.startswith(".")
+    )
+
+
+def test_seal_writes_the_record_before_the_pages_and_a_rerun_accepts_them(
+    wiki_vault, monkeypatch
+):
+    """W8: seal computes every normalised page first and writes the record
+    before any page; an interruption between the two leaves pages the
+    journal still vouches for, so a rerun seals them."""
+    page = _page(
+        wiki_vault, "wiki/sources/A.md", "---\ntype: source\n---\nSee [[B]].\n"
+    )
+    target = _page(wiki_vault, "wiki/concepts/B.md", "---\ntype: concept\n---\n")
+    _journal(
+        wiki_vault,
+        "op1",
+        {
+            "wiki/sources/A.md": _sha(page.read_bytes()),
+            "wiki/concepts/B.md": _sha(target.read_bytes()),
+        },
+    )
+    written = page.read_bytes()
+    real = compiled.write_record
+
+    def interrupted(*_args, **_kwargs):
+        raise OSError("interrupted")
+
+    monkeypatch.setattr(compiled, "write_record", interrupted)
+    with pytest.raises(OSError, match="interrupted"):
+        compiled.seal(wiki_vault)
+    assert page.read_bytes() == written  # no page rewritten before the record
+    monkeypatch.setattr(compiled, "write_record", real)
+
+    def interrupted_page(self, *_args, **_kwargs):
+        raise OSError("interrupted")
+
+    monkeypatch.setattr(compiled.Path, "write_text", interrupted_page)
+    with pytest.raises(OSError, match="interrupted"):
+        compiled.seal(wiki_vault)
+    monkeypatch.undo()
+    assert page.read_bytes() == written
+    assert [
+        o.result
+        for o in compiled.lint_compiled_layer(wiki_vault)
+        if o.target.endswith("A.md")
+    ] == []
+    (row,) = compiled.seal(wiki_vault)
+    assert row.result is Result.MATCHED
+    assert page.read_text() == "---\ntype: source\n---\nSee [B](/wiki/concepts/B.md).\n"
+    assert compiled.load_record(wiki_vault)["wiki/sources/A.md"] == _sha(
+        page.read_bytes()
+    )
+
+
+# R44 (W17): the hook's custody of the record itself, on the index.
+
+_CONCEPT = '---\ntitle: "{0}"\ntype: "concept"\nstatus: "draft"\n---\n{1}\n'
+
+
+def _hook(vault):
+    """The pre-commit hook's verify over the staged index: its exit code."""
+    import research_vault.__main__ as cli
+
+    subprocess.run(["git", "add", "-A"], cwd=vault, check=True)
+    return cli.main(
+        [
+            "verify",
+            "--vault",
+            str(vault),
+            "--offline",
+            "--surface",
+            "commit",
+            "--git-candidate",
+            "index",
+        ]
+    )
+
+
+def _committed_page(vault, body="body"):
+    page = _page(vault, "wiki/concepts/A.md", _CONCEPT.format("A", body))
+    _journal(vault, "op1", {"wiki/concepts/A.md": _sha(page.read_bytes())})
+    compiled.seal(vault)
+    _commit(vault)
+    return page
+
+
+def test_a_page_co_edited_with_its_entry_holds_the_hook(wiki_vault, capsys):
+    page = _committed_page(wiki_vault)
+    page.write_text(_CONCEPT.format("A", "edited by an interpreter"))
+    record = compiled.load_record(wiki_vault)
+    record["wiki/concepts/A.md"] = _sha(page.read_bytes())
+    compiled.write_record(wiki_vault, record)
+    assert _hook(wiki_vault) == 1
+    assert (
+        "drift — wiki/concepts/A.md's record entry changed with no compile, "
+        "rename or seal behind it; restore the entry, rewrite the page through "
+        "the compile tool and seal, or acknowledge"
+    ) in capsys.readouterr().out
+
+
+def test_an_entry_added_or_removed_by_hand_holds_the_hook(wiki_vault):
+    page = _committed_page(wiki_vault)
+    _page(wiki_vault, "wiki/concepts/B.md", _CONCEPT.format("B", "by hand"))
+    record = compiled.load_record(wiki_vault)
+    record["wiki/concepts/B.md"] = _sha(
+        (wiki_vault / "wiki/concepts/B.md").read_bytes()
+    )
+    compiled.write_record(wiki_vault, record)
+    subprocess.run(["git", "add", "-A"], cwd=wiki_vault, check=True)
+    rows = compiled.lint_record_custody(
+        wiki_vault,
+        subprocess.run(
+            ["git", "show", f"HEAD:{compiled.RECORD_PATH}"],
+            cwd=wiki_vault,
+            check=True,
+            capture_output=True,
+        ).stdout,
+    )
+    assert [(o.target, o.reason.split(";")[0]) for o in rows] == [
+        (
+            "path-bytes:wiki/concepts/B.md",
+            (
+                "drift — wiki/concepts/B.md's record entry was added with no "
+                "compile, rename or seal behind it"
+            ),
+        )
+    ]
+    page.unlink()
+    del record["wiki/concepts/A.md"]
+    compiled.write_record(wiki_vault, record)
+    head = subprocess.run(
+        ["git", "show", f"HEAD:{compiled.RECORD_PATH}"],
+        cwd=wiki_vault,
+        check=True,
+        capture_output=True,
+    ).stdout
+    assert [
+        (o.target, o.reason) for o in compiled.lint_record_custody(wiki_vault, head)
+    ][-1] == (
+        "path-bytes:wiki/concepts/A.md",
+        (
+            "drift — wiki/concepts/A.md's record entry was removed with no "
+            "compile delete behind it; restore the entry, or acknowledge"
+        ),
+    )
+    _journal(wiki_vault, "op2", {"wiki/concepts/A.md": None})
+    assert [o.target for o in compiled.lint_record_custody(wiki_vault, head)] == [
+        "path-bytes:wiki/concepts/B.md"
+    ]
+
+
+def test_a_compile_then_seal_passes_the_hook(wiki_vault):
+    page = _committed_page(wiki_vault)
+    page.write_text(_CONCEPT.format("A", "recompiled"))
+    _journal(wiki_vault, "op2", {"wiki/concepts/A.md": _sha(page.read_bytes())})
+    (row,) = compiled.seal(wiki_vault)
+    assert row.result is Result.MATCHED
+    assert _hook(wiki_vault) == 0
+
+
+def test_a_rename_reseal_passes_the_hook_without_the_store(wiki_vault):
+    """The entry's change is a rename's link change from HEAD's entry, so
+    the witness justifies it even when the local store is gone."""
+    (wiki_vault / "inbox" / "B.md").write_text("B\n")
+    page = _committed_page(wiki_vault, "See [B](/inbox/B.md).")
+    (wiki_vault / "inbox" / "B.md").rename(wiki_vault / "inbox" / "C.md")
+    page.write_text(_CONCEPT.format("A", "See [B](/inbox/C.md)."))
+    (row,) = compiled.seal(wiki_vault, ["wiki/concepts/A.md"])
+    assert row.result is Result.MATCHED
+    shutil.rmtree(wiki_vault / compiled.SEALED_STORE)
+    assert _hook(wiki_vault) == 0
+
+
+def test_an_uncommitted_seal_then_a_rename_holds_the_hook_until_seal(wiki_vault):
+    """W3 on the index: the hook reads no store, so it holds the page CI
+    would hold; after `seal` both legs are clean."""
+    (wiki_vault / "inbox" / "B.md").write_text("B\n")
+    _commit(wiki_vault, "B")
+    page = _page(
+        wiki_vault, "wiki/concepts/A.md", _CONCEPT.format("A", "See [B](/inbox/B.md).")
+    )
+    _journal(wiki_vault, "op1", {"wiki/concepts/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)  # not committed
+    (wiki_vault / "inbox" / "B.md").rename(wiki_vault / "inbox" / "C.md")
+    page.write_text(_CONCEPT.format("A", "See [B](/inbox/C.md)."))
+    assert _hook(wiki_vault) == 1
+    (row,) = compiled.seal(wiki_vault, ["wiki/concepts/A.md"])
+    assert row.result is Result.MATCHED
+    assert _hook(wiki_vault) == 0
+    _commit(wiki_vault, "renamed and resealed")
+    from research_vault import verify
+
+    for candidate in ("worktree", "HEAD"):
+        _report, effective, _hashes, _warning = verify.verify_state(
+            wiki_vault, network=False, git_candidate=candidate
+        )
+        assert not [
+            o
+            for o in effective
+            if o.check == compiled.CHECK and o.result is Result.UNMATCHED
+        ], candidate

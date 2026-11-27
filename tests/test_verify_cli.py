@@ -7521,6 +7521,8 @@ def test_the_recheck_finds_a_bypassed_hand_edit_under_wiki(net_vault):
         for o in effective
         if o.check == "compiled-layer" and o.result is Result.UNMATCHED
     ]
+    # The worktree still holds the edit, so its own row stands beside the
+    # replay's, whose remedy is the acknowledgement alone (W4).
     assert [(o.target, o.reason, o.extra.get("commit")) for o in rows] == [
         (
             "path-bytes:wiki/concepts/mortality-trends.md",
@@ -7528,8 +7530,16 @@ def test_the_recheck_finds_a_bypassed_hand_edit_under_wiki(net_vault):
                 "drift — wiki/concepts/mortality-trends.md differs from the "
                 "compiled-page record; revert it to the sealed bytes, rewrite it through the compile tool and seal, or acknowledge"
             ),
+            None,
+        ),
+        (
+            "path-bytes:wiki/concepts/mortality-trends.md",
+            (
+                "drift — wiki/concepts/mortality-trends.md differs from the "
+                "compiled-page record; acknowledge (the change is in history)"
+            ),
             bypassed,
-        )
+        ),
     ]
 
 
@@ -7748,7 +7758,14 @@ def test_the_recheck_finds_a_symlinked_wiki_at_its_commit(net_vault):
     _report, effective, _hashes, _warning = verify.verify_state(
         net_vault, network=False, recheck_commits=base
     )
-    assert (*_WIKI_SYMLINK_ROW, bypassed) in [
+    replayed = (
+        _WIKI_SYMLINK_ROW[0],
+        (
+            "drift — wiki is a symlink; a compiled page is a file"
+            ": acknowledge (the change is in history)"
+        ),
+    )
+    assert (*replayed, bypassed) in [
         (o.target, o.reason, o.extra.get("commit"))
         for o in effective
         if o.check == "compiled-layer" and o.result is Result.UNMATCHED
@@ -7866,3 +7883,88 @@ def test_the_recheck_knows_an_old_record_in_any_spelling(
         for o in effective
         if o.check == "compiled-layer" and o.result is Result.UNMATCHED
     ]
+
+
+# Plan C final-review fix wave.
+
+
+def _head(vault):
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=vault,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def test_a_replayed_compiled_row_names_only_the_acknowledgement(net_vault):
+    """W4: a row stamped to a past commit cannot be cleared by a revert or a
+    reseal; its remedy says so."""
+    base = _head(net_vault)
+    page = net_vault / "wiki" / "concepts" / "mortality-trends.md"
+    sealed = page.read_text()
+    page.write_text(sealed + "\nA hand-written line.\n")
+    bypassed = _commit_all(net_vault, "hand edit, bypassed")
+    page.write_text(sealed)
+    _commit_all(net_vault, "reverted")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    assert [
+        (o.target, o.reason, o.extra.get("commit"))
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ] == [
+        (
+            "path-bytes:wiki/concepts/mortality-trends.md",
+            (
+                "drift — wiki/concepts/mortality-trends.md differs from the "
+                "compiled-page record; acknowledge (the change is in history)"
+            ),
+            bypassed,
+        )
+    ]
+
+
+def test_deleting_all_of_wiki_holds_every_candidate(net_vault):
+    """W2: `git rm -r wiki` leaves no wiki/ in git, but the record still
+    lists its pages: the index, HEAD and the replay each report every
+    recorded page absent."""
+    from research_vault import compiled
+
+    recorded = sorted(compiled.load_record(net_vault))
+    assert recorded
+    base = _head(net_vault)
+    subprocess.run(["git", "rm", "-rq", "wiki"], cwd=net_vault, check=True)
+    expected = {f"path-bytes:{relative}" for relative in recorded}
+
+    def absent(effective):
+        return {
+            o.target
+            for o in effective
+            if o.check == "compiled-layer"
+            and o.result is Result.UNMATCHED
+            and "is recorded but absent" in o.reason
+        }
+
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, git_candidate="index"
+    )
+    assert absent(effective) == expected
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+    removed = _commit_all(net_vault, "wiki removed, bypassed")
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, git_candidate="HEAD"
+    )
+    assert absent(effective) == expected
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    assert {
+        o.target
+        for o in effective
+        if o.check == "compiled-layer"
+        and o.result is Result.UNMATCHED
+        and o.extra.get("commit") == removed
+    } == expected
