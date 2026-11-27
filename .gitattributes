@@ -1,0 +1,3 @@
+# The vendored Obsidian plugin files are upstream bytes, hashed in each SOURCE.json;
+# no checkout may convert their line endings.
+research_vault/templates/obsidian/plugins/** -text
