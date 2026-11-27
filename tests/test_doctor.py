@@ -1685,3 +1685,32 @@ def test_a_non_string_version_against_a_floor_is_unreadable_not_a_crash(
     assert by["plugins"].facts == (
         ("zoteroshortdoi@wiernik.org", ("version unreadable against floor 2.2.0",)),
     )
+
+
+@pytest.mark.parametrize(
+    "path_map", [[], ["x"], "x"], ids=["empty-list", "list", "str"]
+)
+def test_a_wrong_shaped_path_map_makes_an_auto_export_unresolvable(
+    path_map, tmp_vault, tmp_path, monkeypatch
+):
+    """Fix round 2 (DP47): machine.json that parses but has the wrong shape is
+    an outage, never a crash."""
+    profile = _profile_with(
+        tmp_path,
+        [_addon(BBT, "9.0.68")],
+        [
+            (
+                BBT_GIT.replace("git", "autoExport.e"),
+                json.dumps(json.dumps({"path": "D:\\Zotero\\a.bib"})),
+            )
+        ],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    (vault / ".research-vault" / "machine.json").write_text(
+        json.dumps({"path_map": path_map})
+    )
+    probe = doctor._plugins_probe(
+        doctor._profile_facts({"zotero_profile": str(profile)}), vault
+    )
+    assert probe.result is Result.UNREACHABLE
+    assert "Better BibTeX auto-export path unresolvable: " in probe.reason

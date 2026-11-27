@@ -347,7 +347,9 @@ def _export_targets_vault(export: dict, vault: Path) -> str | None:
             if not local.is_absolute():
                 return None
         target, root = local.resolve(), vault.resolve()
-    except (paths.PathError, OSError, ValueError) as error:
+    # AttributeError/TypeError: machine.json parses but path_map has the wrong
+    # shape, as the path-shim probe reads it.
+    except (paths.PathError, OSError, ValueError, AttributeError, TypeError) as error:
         raise paths.PathError(f"{raw!r}: {error}") from error
     try:
         relative = target.relative_to(root).as_posix()
