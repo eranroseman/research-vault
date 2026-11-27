@@ -1128,6 +1128,53 @@ def _tracked_texts(repository, snapshots) -> set[bytes]:
     return tracked
 
 
+def _tree_and_text_rows(vault, repository, snapshots) -> list:
+    """`tree` (a committed `fulltext/` path among its rows, W1) and, on the
+    worktree, `text-layer`."""
+    rows = structure.check_tree(
+        vault,
+        candidate_name=snapshots.candidate_name,
+        tracked=_tracked_texts(repository, snapshots),
+    )
+    # `fulltext/` is ignored: the index and HEAD candidates cannot show it, so
+    # its absence there is no observation and the check files no row (R34).
+    if snapshots.candidate_name == "worktree":
+        rows.extend(structure.check_text_layer(vault))
+    return rows
+
+
+def _compiled_layer_rows(vault, repository, snapshots) -> list:
+    """The worktree, hook and CI legs' `compiled-layer` rows: the lint, and on
+    the hook's index the record's own custody."""
+    rows = []
+    # The local journal vouches for a fresh compile only on the worktree
+    # candidate (C6): what the hook commits, and what CI reads, must be
+    # sealed, or every later replay holds it.
+    rows.extend(
+        compiled.lint_compiled_layer(
+            vault,
+            repository_root=repository,
+            journal=snapshots.candidate_name == "worktree",
+            snapshot=snapshots.candidate,
+        )
+    )
+    # The record's own custody, on the hook's index only (R44): CI and the
+    # replay cannot tell a page co-edited with its entry from a seal.
+    if snapshots.candidate_name == "index":
+        head_record = snapshots.head.image(os.fsencode(compiled.RECORD_PATH))
+        rows.extend(
+            compiled.lint_record_custody(
+                vault,
+                head_record.data
+                if head_record is not None and head_record.kind == "file"
+                else None,
+                repository_root=repository,
+                carried=_carried_records(repository),
+            )
+        )
+    return rows
+
+
 def _plan_state(
     vault_root,
     network=True,
@@ -1190,17 +1237,7 @@ def _plan_state(
         raw.extend(structure.check_note_frontmatter(vault, path))
     raw.extend(structure.check_reserved(vault))
     raw.extend(structure.check_log_dir(vault))
-    raw.extend(
-        structure.check_tree(
-            vault,
-            candidate_name=snapshots.candidate_name,
-            tracked=_tracked_texts(repository, snapshots),
-        )
-    )
-    # `fulltext/` is ignored: the index and HEAD candidates cannot show it, so
-    # its absence there is no observation and the check files no row (R34).
-    if snapshots.candidate_name == "worktree":
-        raw.extend(structure.check_text_layer(vault))
+    raw.extend(_tree_and_text_rows(vault, repository, snapshots))
     if network:
         raw.extend(lifecycle.lint_lifecycle(vault, ZoteroClient(base=base)))
     else:
@@ -1250,31 +1287,7 @@ def _plan_state(
     raw.extend(leg)
     raw.extend(lints.lint_published_drift(repository, snapshots.candidate))
     raw.extend(propagate.lint_propagation(vault))
-    # The local journal vouches for a fresh compile only on the worktree
-    # candidate (C6): what the hook commits, and what CI reads, must be
-    # sealed, or every later replay holds it.
-    raw.extend(
-        compiled.lint_compiled_layer(
-            vault,
-            repository_root=repository,
-            journal=snapshots.candidate_name == "worktree",
-            snapshot=snapshots.candidate,
-        )
-    )
-    # The record's own custody, on the hook's index only (R44): CI and the
-    # replay cannot tell a page co-edited with its entry from a seal.
-    if snapshots.candidate_name == "index":
-        head_record = snapshots.head.image(os.fsencode(compiled.RECORD_PATH))
-        raw.extend(
-            compiled.lint_record_custody(
-                vault,
-                head_record.data
-                if head_record is not None and head_record.kind == "file"
-                else None,
-                repository_root=repository,
-                carried=_carried_records(repository),
-            )
-        )
+    raw.extend(_compiled_layer_rows(vault, repository, snapshots))
     raw.extend(
         captured.lint_captured_set(
             vault, as_of=detection_date, bibliography_universe=bibliography_universe
