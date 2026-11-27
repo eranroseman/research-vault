@@ -688,8 +688,7 @@ def test_scaffold_seeds_obsidian_only_when_asked_and_as_one_unit(tmp_path):
     assert git(vault, "show", "--format=", "--name-only", "HEAD").splitlines() == (
         sorted(TRACKABLE_CREATED + git(vault, "ls-files", ".obsidian").splitlines())
     )
-    # ignored by the seeded gitignore
-    assert git(vault, "ls-files", ".obsidian/workspace.json") == ""
+    assert sorted(p.name for p in vault.glob(".obsidian.research-vault-seed-*")) == []
     plain = tmp_path / "plain"
     assert ".obsidian/" not in scaffold.scaffold_vault(plain)
     assert not (plain / ".obsidian").exists()
@@ -708,6 +707,70 @@ def test_scaffold_leaves_an_existing_obsidian_alone_and_says_so(tmp_path, capsys
         "skipped .obsidian/: already present — to seed it, close Obsidian, move "
         ".obsidian/ aside and run scaffold again" in capsys.readouterr().out
     )
+
+
+def _seed_copy(tmp_path):
+    seed = tmp_path / "seed"
+    with resources.as_file(scaffold._seed_root()) as source:
+        shutil.copytree(source, seed)
+    return seed
+
+
+def test_the_seeded_gitignore_keeps_a_seeded_workspace_untracked(tmp_path, monkeypatch):
+    seed = _seed_copy(tmp_path)
+    (seed / "workspace.json").write_text("{}\n")
+    (seed / "app.json").write_text("{}\n")
+    monkeypatch.setattr(scaffold, "_seed_root", lambda: seed)
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault, with_obsidian=True)
+    assert (vault / ".obsidian" / "workspace.json").is_file()
+    assert git(vault, "ls-files", ".obsidian/workspace.json") == ""
+    assert git(vault, "ls-files", ".obsidian/app.json") == ".obsidian/app.json\n"
+
+
+def test_a_symlinked_obsidian_is_skipped_not_refused(tmp_path, capsys):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (tmp_path / "cfg").mkdir()
+    (vault / ".obsidian").symlink_to("../cfg")
+    created = scaffold.scaffold_vault(vault, with_obsidian=True)
+    assert ".obsidian/" not in created
+    assert (vault / ".obsidian").is_symlink()
+    assert list((tmp_path / "cfg").iterdir()) == []
+    assert "skipped .obsidian/" in capsys.readouterr().out
+
+
+def test_a_failed_seed_rename_leaves_no_staging_and_no_seed(tmp_path, monkeypatch):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+
+    def refuse(self, target):
+        raise OSError("refused")
+
+    monkeypatch.setattr(scaffold.Path, "rename", refuse)
+    with pytest.raises(OSError, match="refused"):
+        scaffold._copy_obsidian_seed(vault, [])
+    assert list(vault.glob(".obsidian.research-vault-seed-*")) == []
+    assert list((vault / ".obsidian").iterdir()) == []
+
+
+def test_a_concurrent_obsidian_wins_over_the_seed(tmp_path, monkeypatch):
+    """A `.obsidian/` written between the claim and the rename makes the rename
+    fail; its content survives and the staging directory is removed."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    real_mkdir = scaffold.Path.mkdir
+
+    def mkdir_then_write(self, *args, **kwargs):
+        real_mkdir(self, *args, **kwargs)
+        if self.name == ".obsidian":
+            (self / "app.json").write_text("{}")
+
+    monkeypatch.setattr(scaffold.Path, "mkdir", mkdir_then_write)
+    with pytest.raises(OSError, match="not empty"):
+        scaffold._copy_obsidian_seed(vault, [])
+    assert sorted(p.name for p in (vault / ".obsidian").iterdir()) == ["app.json"]
+    assert list(vault.glob(".obsidian.research-vault-seed-*")) == []
 
 
 def test_scaffold_git_cost_does_not_grow_with_the_plugin_count(tmp_path, monkeypatch):

@@ -1,9 +1,9 @@
 """Create a new research-vault vault from packaged templates."""
 
-import os
 import shutil
 import stat
 import subprocess
+import tempfile
 from importlib import resources
 from pathlib import Path
 
@@ -104,18 +104,26 @@ def _seed_root():
 
 
 def _copy_obsidian_seed(vault: Path, created: list[str]) -> None:
-    """Copy the seed as one unit (spec §4.6): into a sibling temporary directory,
-    then one rename into place, so a concurrently created `.obsidian/` makes the
-    rename fail instead of leaving half a seed. An existing folder is left
-    alone and named on stdout; setup-vault relays the line."""
+    """Copy the seed as one unit (spec §4.6): into a unique sibling temporary
+    directory, then claim `.obsidian/` with an exclusive mkdir and rename onto
+    that empty claim. A `.obsidian/` created concurrently makes the mkdir fail,
+    and anything written into the claim since makes the rename fail, so half a
+    seed is never left behind; on failure the staging directory is removed. An
+    existing folder, a symlink included, is left alone and named on stdout;
+    setup-vault relays the line."""
     target = vault / OBSIDIAN_DIR
     if target.exists() or target.is_symlink():
         print(_SKIPPED_OBSIDIAN)  # noqa: T201 -- the skip line setup-vault relays
         return
-    staging = vault / f"{OBSIDIAN_DIR}.research-vault-seed-{os.getpid()}"
-    with resources.as_file(_seed_root()) as source:
-        shutil.copytree(source, staging)
+    # rename(2) onto an empty directory replaces it (measured 2026-11-27, Linux
+    # 6.18), so the empty target is ours before the rename.
+    staging = Path(
+        tempfile.mkdtemp(dir=vault, prefix=f"{OBSIDIAN_DIR}.research-vault-seed-")
+    )
     try:
+        with resources.as_file(_seed_root()) as source:
+            shutil.copytree(source, staging, dirs_exist_ok=True)
+        target.mkdir()
         staging.rename(target)
     except OSError:
         shutil.rmtree(staging, ignore_errors=True)
@@ -133,9 +141,7 @@ def _add_empty_root_sentinels(vault: Path, created: list[str]) -> None:
             created.append(sentinel.relative_to(vault).as_posix())
 
 
-def _owned_paths(
-    templates, with_ci: bool, with_rw_ci: bool, with_obsidian: bool
-) -> list[str]:
+def _owned_paths(templates, with_ci: bool, with_rw_ci: bool) -> list[str]:
     owned = [*VAULT_DIRS]
     owned.extend(relative for relative, _source in _vault_template_paths(templates))
     owned.append(GLOSSARY_PATH)
@@ -145,8 +151,8 @@ def _owned_paths(
         owned.append(".github/workflows/verify.yml")
     if with_rw_ci:
         owned.append(".github/workflows/rw-batch.yml")
-    if with_obsidian:
-        owned.append(OBSIDIAN_DIR)
+    # `.obsidian/` is not owned: an existing one, a symlink included, is skipped
+    # unread and unwritten, so a symlink there is no conflict.
     return owned
 
 
@@ -277,7 +283,7 @@ def scaffold_vault(
     calls this with the default, so a removed plugin is never reinstalled."""
     vault = Path(dest).absolute()
     templates = resources.files("research_vault").joinpath("templates")
-    owned_paths = _owned_paths(templates, with_ci, with_rw_ci, with_obsidian)
+    owned_paths = _owned_paths(templates, with_ci, with_rw_ci)
     _reject_owned_symlinks(vault, owned_paths)
     _prepare_repository(vault)
     _preflight_conflicts(vault, templates, with_ci, with_rw_ci, with_obsidian)
