@@ -48,6 +48,16 @@ PERMISSIVE = re.compile(
 # running app supplies it (`require("obsidian")` in main.js), so none of it is
 # in the asset. Often pinned to a git ref the npm registry cannot answer.
 HOST_PROVIDED = {"obsidian"}
+COPYLEFT_BANNER = re.compile(
+    r"GNU (?:Lesser |Library |Affero )?General Public License"
+    r"|Mozilla Public License|European Union Public Licen[cs]e"
+    r"|SPDX-License-Identifier:\s*(?:L?GPL|AGPL|MPL|EUPL|CPAL)"
+    r"|@license\s+(?:L?GPL|AGPL|MPL|EUPL|CPAL)",
+    re.IGNORECASE,
+)
+# Licences whose text carries the grantor's copyright line; Apache-2.0 names
+# its Licensor elsewhere (NOTICE, headers), so a holder is read only for these.
+HOLDER_IN_TEXT = re.compile(r"^(MIT|ISC|0BSD|BSD-[123]-Clause)$")
 PLACEHOLDER_HOLDERS = {
     "",
     "local",
@@ -60,32 +70,98 @@ PLACEHOLDER_HOLDERS = {
 
 def has_source_obligation(licence: object) -> bool | None:
     """True for a copyleft family, False for a permissive licence, None when the
-    licence is not established (unknown expression, empty, UNLICENSED)."""
+    licence is not established (unknown expression, empty, UNLICENSED). An SPDX
+    expression is parsed with AND binding tighter than OR: an OR is free when
+    any side is, an AND carries every side's obligation."""
     if not isinstance(licence, str) or not licence.strip():
         return None
-    text = licence.strip()
-    if " OR " in text or " AND " in text or "(" in text:
-        parts = re.split(r"\s+(?:OR|AND)\s+", text.strip("()"))
-        verdicts = [has_source_obligation(part) for part in parts]
-        if " OR " in text and False in verdicts:
-            return False
-        return None if None in verdicts else any(verdicts)
-    if COPYLEFT.match(text):
-        return True
-    if PERMISSIVE.match(text):
-        return False
-    return None
+    tokens = re.findall(r"\(|\)|[^\s()]+", licence)
+    try:
+        result, rest = _or(tokens)
+    except IndexError:
+        return None
+    return None if rest else result
+
+
+def _or(tokens: list[str]) -> tuple[bool | None, list[str]]:
+    verdicts = []
+    while True:
+        verdict_, tokens = _and(tokens)
+        verdicts.append(verdict_)
+        if not tokens or tokens[0].upper() != "OR":
+            break
+        tokens = tokens[1:]
+    if False in verdicts:
+        return False, tokens
+    return (None if None in verdicts else True), tokens
+
+
+def _and(tokens: list[str]) -> tuple[bool | None, list[str]]:
+    verdicts = []
+    while True:
+        verdict_, tokens = _term(tokens)
+        verdicts.append(verdict_)
+        if not tokens or tokens[0].upper() != "AND":
+            break
+        tokens = tokens[1:]
+    if True in verdicts:
+        return True, tokens
+    return (None if None in verdicts else False), tokens
+
+
+def _term(tokens: list[str]) -> tuple[bool | None, list[str]]:
+    head, tokens = tokens[0], tokens[1:]
+    if head == "(":
+        result, tokens = _or(tokens)
+        if not tokens or tokens[0] != ")":
+            raise IndexError("unbalanced")
+        return result, tokens[1:]
+    if head == ")" or head.upper() in ("AND", "OR", "WITH"):
+        raise IndexError(head)
+    if tokens and tokens[0].upper() == "WITH":  # an exception never adds an obligation
+        tokens = tokens[2:]
+    if COPYLEFT.match(head):
+        return True, tokens
+    if PERMISSIVE.match(head):
+        return False, tokens
+    return None, tokens
+
+
+def copyleft_banner(main_js: bytes) -> str | None:
+    """The first copyleft licence banner bundled code left in main.js, or None.
+    package.json's dependencies are not all that a bundler inlines
+    (devDependencies and transitive packages are too), so the asset itself is
+    read as well."""
+    match = COPYLEFT_BANNER.search(main_js.decode("utf-8", errors="replace"))
+    return match.group(0) if match else None
 
 
 def verdict(licence: str | None, bundled: list[dict], *, holder: str) -> str:
     if has_source_obligation(licence) is not False:
         return "recommended"
-    if holder.strip().lower() in PLACEHOLDER_HOLDERS:
+    if HOLDER_IN_TEXT.match(licence or "") and is_placeholder(holder):
         return "recommended"
     for dependency in bundled:
         if has_source_obligation(dependency.get("licence")) is not False:
             return "recommended"
     return "seeded"
+
+
+def is_placeholder(holder: str) -> bool:
+    """A template's unfilled holder: bracketed fields like `[year] [fullname]`
+    and bare years removed, nothing or a stock name is left."""
+    rest = re.sub(r"\[[^\]]*\]|<[^>]*>|\{[^}]*\}|\b\d{4}\b|[-\u2013,]", " ", holder)
+    return " ".join(rest.split()).lower() in PLACEHOLDER_HOLDERS
+
+
+def holder_of(text: str) -> str:
+    """The holder on the first line that opens with `Copyright`, years dropped."""
+    match = re.search(
+        r"^[ \t]*Copyright\b[ \t]*(?:\(c\)|©)?[ \t]*(?:\d{4}[-\u2013,\s\d]*)?(.*)$",
+        text,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    return match.group(1).strip() if match else ""
 
 
 def _get(url: str) -> bytes:
@@ -133,11 +209,7 @@ def licence_at(repo: str, commit: str) -> tuple[str | None, bytes, str]:
         return None, b"", ""
     data = _get(f"https://raw.githubusercontent.com/{repo}/{commit}/{names[0]}")
     text = data.decode("utf-8", errors="replace")
-    holder_match = re.search(
-        r"Copyright\s+(?:\(c\)\s*|©\s*)?(?:\d{4}[-\u2013,\s\d]*)?\s*(.+)", text
-    )
-    holder = holder_match.group(1).strip() if holder_match else ""
-    return _spdx_from_text(text), data, holder
+    return _spdx_from_text(text), data, holder_of(text)
 
 
 def _spdx_from_text(text: str) -> str | None:
@@ -228,6 +300,7 @@ def write_plugin(
     bundled = bundled_dependencies(repo, commit)
     decision = verdict(spdx, bundled, holder=holder)
     downloaded: dict[str, bytes] = {}
+    banner = None
     if decision == "seeded":
         urls = {
             a["name"]: a["browser_download_url"] for a in release(repo, tag)["assets"]
@@ -243,6 +316,9 @@ def write_plugin(
                 f"{plugin_id}: manifest version {manifest.get('version')!r} "
                 f"(id {manifest.get('id')!r}) is not the tag {tag!r}"
             )
+        banner = copyleft_banner(downloaded["main.js"])
+        if banner:
+            decision, downloaded = "recommended", {}
     source = {
         "repo": repo,
         "tag": tag,
@@ -264,12 +340,15 @@ def write_plugin(
             "release artifacts at the tag"
             if decision == "seeded"
             else f"demoted to recommended: licence {spdx!r}, holder {holder!r}, "
-            f"bundled {[(d['name'], d['licence']) for d in bundled]}"
+            f"bundled {[(d['name'], d['licence']) for d in bundled]}, "
+            f"main.js banner {banner!r}"
         ),
     }
     folder = PLUGINS / plugin_id
     folder.mkdir(parents=True, exist_ok=True)
-    for name in (*ASSETS, "LICENSE", "THIRD-PARTY-NOTICES"):
+    # SOURCE.json goes first and is written last: a run that fails between
+    # leaves no record vouching for a half-written folder.
+    for name in ("SOURCE.json", *ASSETS, "LICENSE", "THIRD-PARTY-NOTICES"):
         (folder / name).unlink(missing_ok=True)
     if decision == "seeded":
         for name, data in downloaded.items():

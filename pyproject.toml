@@ -10,8 +10,10 @@ name = "research-vault-core"
 description = "Deterministic core for the research-vault plugin"
 # The package's own MIT, and every licence the vendored Obsidian plugins and
 # their bundled dependencies carry (their SOURCE.json records; an `A OR MIT`
-# dependency is covered by MIT).
-license = "MIT AND 0BSD AND Apache-2.0 AND BSD-3-Clause AND ISC"
+# dependency is covered by MIT). Zlib is no record's: obsidian-icon-folder's
+# main.js inlines pako (MIT AND Zlib), a dependency of jszip, and SOURCE.json
+# reads only package.json's direct dependencies.
+license = "MIT AND 0BSD AND Apache-2.0 AND BSD-3-Clause AND ISC AND Zlib"
 license-files = [
   "LICENSE",
   "research_vault/templates/obsidian/plugins/*/LICENSE",

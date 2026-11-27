@@ -43,8 +43,16 @@ def test_each_seeded_plugin_carries_its_assets_record_and_licence(plugin):
     assert (
         manifest["version"] == plugin.pin
     )  # the tag is the version; SOURCE.json has no version field
+    assert {"main.js", "manifest.json"} <= set(source["assets"])
+    assert {p.name for p in folder.iterdir() if p.name in vendor.ASSETS} == set(
+        source["assets"]
+    )
     for name, digest in source["assets"].items():
         assert hashlib.sha256((folder / name).read_bytes()).hexdigest() == digest, name
+    assert vendor.copyleft_banner((folder / "main.js").read_bytes()) is None
+    if vendor.HOLDER_IN_TEXT.match(source["licence"]):
+        holder = vendor.holder_of((folder / "LICENSE").read_text(errors="replace"))
+        assert not vendor.is_placeholder(holder), holder
     assert (folder / "LICENSE").is_file()
     assert (folder / "THIRD-PARTY-NOTICES").is_file()
     assert vendor.has_source_obligation(source["licence"]) is False
@@ -86,6 +94,17 @@ def test_a_recommended_plugin_ships_no_asset(plugin):
         ("", None),
         (None, None),
         ("SEE LICENSE IN x", None),
+        ("(MIT OR GPL-3.0-or-later)", False),
+        ("MIT AND Zlib", False),
+        ("(MIT OR GPL-3.0) AND MPL-2.0", True),
+        ("MPL-2.0 AND (MIT OR Apache-2.0)", True),
+        ("(MIT OR Apache-2.0) AND (ISC OR BSD-3-Clause)", False),
+        ("MIT AND Apache-2.0 OR GPL-3.0", False),
+        ("GPL-2.0 OR LGPL-2.1", True),
+        ("MIT AND Unknown-1.0", None),
+        ("GPL-2.0-or-later WITH Classpath-exception-2.0", True),
+        ("(MIT OR", None),
+        ("MIT)", None),
     ],
 )
 def test_has_source_obligation_reads_spdx_and_refuses_the_unknown(licence, obligation):
@@ -106,6 +125,42 @@ def test_verdict_demotes_copyleft_placeholder_and_unestablished(tmp_path):
         vendor.verdict("MIT", [], holder="Local") == "recommended"
     )  # a placeholder holder does not establish the grant
     assert vendor.verdict(None, [], holder="X") == "recommended"
+
+
+@pytest.mark.parametrize(
+    ("text", "holder", "placeholder"),
+    [
+        ("MIT License\n\nCopyright (c) 2021 Jane Doe\n", "Jane Doe", False),
+        ("Copyright (c) [year] [fullname]\n", "[year] [fullname]", True),
+        ("Copyright (c) 2024 <copyright holders>\n", "<copyright holders>", True),
+        ("Copyright 2020 Local\n", "Local", True),
+        (
+            "2. Grant of Copyright License. Subject to the terms\n",
+            "",
+            True,
+        ),
+    ],
+)
+def test_holder_is_read_from_a_copyright_line_and_templates_are_refused(
+    text, holder, placeholder
+):
+    assert vendor.holder_of(text) == holder
+    assert vendor.is_placeholder(vendor.holder_of(text)) is placeholder
+
+
+def test_verdict_reads_a_holder_only_where_the_licence_text_names_one():
+    assert vendor.verdict("MIT", [], holder="[year] [fullname]") == "recommended"
+    # Apache-2.0 names its Licensor outside LICENSE; the appendix template is
+    # not a holder.
+    assert vendor.verdict("Apache-2.0", [], holder="") == "seeded"
+
+
+def test_copyleft_banner_finds_bundled_copyleft_code():
+    assert vendor.copyleft_banner(b"/*! @license MPL-2.0 */ x()") is not None
+    assert (
+        vendor.copyleft_banner(b"// GNU Lesser General Public License v2.1") is not None
+    )
+    assert vendor.copyleft_banner(b"/* Licensed under the MIT license. */") is None
 
 
 def test_attribution_names_every_seeded_plugin_id():
@@ -277,6 +332,38 @@ def test_write_plugin_demotes_a_copyleft_licence_and_removes_stale_assets(fake):
     assert source["redistributable"] is False
     assert source["licence"] == "GPL-3.0"
     assert source["assets"] == {}
+
+
+def test_write_plugin_demotes_a_main_js_that_bundles_copyleft_code(fake):
+    pages, _ = _web()
+    pages["https://dl/main.js"] = b"/*! @license GPL-3.0 */\nconsole.log('x')\n"
+    folder = fake(pages)
+    assert (
+        vendor.write_plugin("sample-plugin", "1.2.0", registry="registry")
+        == "recommended"
+    )
+    assert sorted(p.name for p in folder.iterdir()) == ["SOURCE.json"]
+    source = json.loads((folder / "SOURCE.json").read_text())
+    assert source["redistributable"] is False
+    assert "@license GPL" in source["method"]
+
+
+def test_write_plugin_leaves_no_record_when_a_write_fails(fake, monkeypatch):
+    pages, _ = _web()
+    folder = fake(pages)
+    folder.mkdir()
+    (folder / "SOURCE.json").write_text('{"redistributable": true}\n')
+    original = Path.write_bytes
+
+    def failing(self, data):
+        if self.name == "LICENSE":
+            raise OSError("disk full")
+        return original(self, data)
+
+    monkeypatch.setattr(Path, "write_bytes", failing)
+    with pytest.raises(OSError, match="disk full"):
+        vendor.write_plugin("sample-plugin", "1.2.0", registry="registry")
+    assert not (folder / "SOURCE.json").exists()
 
 
 def test_write_plugin_demotes_a_dependency_the_registry_cannot_answer(fake):
