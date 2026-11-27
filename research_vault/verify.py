@@ -823,22 +823,23 @@ def _claim_immutability(repository, base_snapshot, candidate_snapshot):
     return lints.lint_claim_immutability(repository, base_snapshot, candidate_snapshot)
 
 
-def _compiled_layer(_repository, base_snapshot, candidate_snapshot):
+def _compiled_layer(repository, base_snapshot, candidate_snapshot):
     """`compiled-layer` over one commit's tree (ruling C2): the lint reads
     files, so the candidate is materialised; no journal is read, as in CI;
-    and the sealed bytes a rename's or a propagation's reseal is judged
-    against are the pair's base's, not HEAD's. A tree with nothing under
-    `wiki/` has no compiled layer and is not materialised."""
+    and a rename's or a propagation's reseal is judged against the pair's
+    base (`compiled.snapshot_base`), the sealed bytes looked up by hash. The
+    materialised tree holds no symlink, so those rows come from the snapshot
+    (`compiled.snapshot_rows`). A tree with nothing under `wiki/` has no
+    compiled layer and is not materialised."""
     if not any(path.startswith(b"wiki/") for path in candidate_snapshot.images):
         return []
-
-    def recorded(relative):
-        image = base_snapshot.image(os.fsencode(relative))
-        return image.data if image is not None and image.kind == "file" else None
-
     with tempfile.TemporaryDirectory(prefix="research-vault-compiled-") as temporary:
         gitstate.materialize_snapshot(candidate_snapshot, Path(temporary))
-        return compiled.lint_compiled_layer(Path(temporary), base=recorded)
+        rows = compiled.lint_compiled_layer(
+            Path(temporary),
+            base=compiled.snapshot_base(base_snapshot, repository),
+        )
+    return rows + compiled.snapshot_rows(candidate_snapshot)
 
 
 _HISTORY_LINTS = {
@@ -1203,7 +1204,17 @@ def _plan_state(
     raw.extend(leg)
     raw.extend(lints.lint_published_drift(repository, snapshots.candidate))
     raw.extend(propagate.lint_propagation(vault))
-    raw.extend(compiled.lint_compiled_layer(vault, repository_root=repository))
+    # The local journal vouches for a fresh compile only on the worktree
+    # candidate (C6): what the hook commits, and what CI reads, must be
+    # sealed, or every later replay holds it.
+    raw.extend(
+        compiled.lint_compiled_layer(
+            vault,
+            repository_root=repository,
+            journal=snapshots.candidate_name == "worktree",
+        )
+    )
+    raw.extend(compiled.snapshot_rows(snapshots.candidate))
     raw.extend(
         captured.lint_captured_set(
             vault, as_of=detection_date, bibliography_universe=bibliography_universe

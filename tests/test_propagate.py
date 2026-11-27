@@ -2325,9 +2325,9 @@ def test_a_refused_entry_does_not_end_the_plans_walk(
     )
 
 
-def _sealed_seed(vault):
-    """`_seed`, with wiki/sources/A.md sealed by a complete compile journal and
-    committed: the record's bytes are read back from HEAD."""
+def _sealed_seed(vault, *, commit=False):
+    """`_seed`, with wiki/sources/A.md sealed from a complete compile journal,
+    committed or not (C7: seal keeps the sealed bytes by hash)."""
     from tests.test_compiled import _journal
 
     _seed(vault)
@@ -2339,15 +2339,18 @@ def _sealed_seed(vault):
     )
     (sealed,) = compiled.seal(vault, ["wiki/sources/A.md"])
     assert sealed.reason == "matched — sealed 1"
-    subprocess.run(["git", "add", "-A"], cwd=vault, check=True)
-    subprocess.run(["git", "commit", "-qm", "sealed"], cwd=vault, check=True)
+    if commit:
+        subprocess.run(["git", "add", "-A"], cwd=vault, check=True)
+        subprocess.run(["git", "commit", "-qm", "sealed"], cwd=vault, check=True)
     return page
 
 
-def test_apply_reseals_the_compiled_pages_it_rewrote(tmp_vault, monkeypatch):
+@pytest.mark.parametrize("commit", [False, True], ids=["uncommitted", "committed"])
+def test_apply_reseals_the_compiled_pages_it_rewrote(tmp_vault, monkeypatch, commit):
     """R35: the applied propagation record names the key rewrite, so seal
-    accepts the rewritten page with no journal entry for it."""
-    page = _sealed_seed(tmp_vault)
+    accepts the rewritten page with no journal entry for it. The brief's form
+    seeds the record and journal with no commit (C7)."""
+    page = _sealed_seed(tmp_vault, commit=commit)
     client = _zotero(monkeypatch)
     _, path, digest = _planned(tmp_vault, client)
     monkeypatch.setattr(
@@ -2367,8 +2370,44 @@ def test_apply_reseals_the_compiled_pages_it_rewrote(tmp_vault, monkeypatch):
     ] == []
 
 
-def test_apply_still_refuses_a_page_hand_edited_before_it(tmp_vault, monkeypatch):
+def test_two_applies_without_a_commit_between_reseal_both_times(tmp_vault, monkeypatch):
+    """C7: the second apply's sealed bytes are the first apply's reseal, kept
+    by hash, though neither is committed."""
     page = _sealed_seed(tmp_vault)
+    client = _zotero(monkeypatch)
+    _, path, digest = _planned(tmp_vault, client)
+    monkeypatch.setattr(
+        propagate.capture, "capture", lambda vault, client, keys, **kw: []
+    )
+    assert [o.result for o in propagate.apply(tmp_vault, client, path, digest)] == [
+        Result.MATCHED
+    ]
+    # The recapture the fake skipped: the note now records its new key.
+    note = tmp_vault / "literature" / "new2020.md"
+    note.write_text(
+        must_replace(
+            note.read_text(), 'citationKey: "old2020"', 'citationKey: "new2020"'
+        )
+    )
+    client = _zotero(monkeypatch, citation_key="newer2020")
+    _, path, digest = _planned(
+        tmp_vault,
+        client,
+        mapping=(("new2020", "newer2020"),),
+        now=datetime.datetime(2026, 11, 27, 12, 0, tzinfo=datetime.UTC),
+    )
+    assert [o.result for o in propagate.apply(tmp_vault, client, path, digest)] == [
+        Result.MATCHED
+    ]
+    assert "newer2020" in page.read_text()
+    assert (
+        compiled.load_record(tmp_vault)["wiki/sources/A.md"]
+        == hashlib.sha256(page.read_bytes()).hexdigest()
+    )
+
+
+def test_apply_still_refuses_a_page_hand_edited_before_it(tmp_vault, monkeypatch):
+    page = _sealed_seed(tmp_vault, commit=True)
     sealed = compiled.load_record(tmp_vault)["wiki/sources/A.md"]
     page.write_text(page.read_text() + "A hand-written line.\n")
     client = _zotero(monkeypatch)

@@ -433,3 +433,118 @@ def test_no_wiki_is_skipped(tmp_vault):
             compiled.CHECK, "wiki", Result.SKIPPED, "no-identifier — no compiled layer"
         )
     ]
+
+
+def test_a_retarget_between_two_pages_that_both_exist_is_drift(wiki_vault):
+    """C8a: no rename happened; Supports.md and Refutes.md both stand."""
+    page = _page(
+        wiki_vault,
+        "wiki/sources/A.md",
+        "---\ntype: source\n---\nSee [S](/wiki/concepts/Supports.md).\n",
+    )
+    _page(wiki_vault, "wiki/concepts/Supports.md", "---\ntype: concept\n---\n")
+    _page(wiki_vault, "wiki/concepts/Refutes.md", "---\ntype: concept\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    _commit(wiki_vault)
+    page.write_text("---\ntype: source\n---\nSee [S](/wiki/concepts/Refutes.md).\n")
+    rows = [o for o in compiled.lint_compiled_layer(wiki_vault) if "A.md" in o.target]
+    assert [o.result for o in rows] == [Result.UNMATCHED]
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+def test_an_old_propagation_record_vouches_for_no_rewrite(wiki_vault):
+    """C8b: a record HEAD already holds was applied long ago; a hand edit that
+    happens to replay it is still drift."""
+    _propagation_record(wiki_vault, "20260101T000000Z", {"old2020": "new2020"})
+    page = _sealed_citing_page(wiki_vault)  # commits the record with the page
+    page.write_text("---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n")
+    (row,) = compiled.lint_compiled_layer(wiki_vault)
+    assert row.result is Result.UNMATCHED
+    (row,) = compiled.seal(wiki_vault)
+    assert row.result is Result.UNMATCHED
+
+
+def test_an_uncommitted_seal_still_judges_a_rename(wiki_vault):
+    """C7: seal keeps the sealed bytes by hash, so a rename before the next
+    commit is judged against them."""
+    page = _page(
+        wiki_vault,
+        "wiki/sources/A.md",
+        "---\ntype: source\n---\nSee [B](/wiki/concepts/B.md).\n",
+    )
+    target = _page(wiki_vault, "wiki/concepts/B.md", "---\ntype: concept\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (
+        wiki_vault
+        / compiled.SEALED_STORE
+        / compiled.load_record(wiki_vault)["wiki/sources/A.md"]
+    ).read_bytes() == page.read_bytes()
+    target.rename(wiki_vault / "wiki" / "concepts" / "C.md")
+    page.write_text("---\ntype: source\n---\nSee [B](/wiki/concepts/C.md).\n")
+    (sealed,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (sealed.result, sealed.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def test_a_rename_committed_before_reseal_is_found_in_the_path_s_history(wiki_vault):
+    """C7: HEAD holds the renamed bytes and the store is gone (a fresh
+    clone); the history search finds the sealed blob by its hash."""
+    page = _page(
+        wiki_vault,
+        "wiki/sources/A.md",
+        "---\ntype: source\n---\nSee [B](/wiki/concepts/B.md).\n",
+    )
+    target = _page(wiki_vault, "wiki/concepts/B.md", "---\ntype: concept\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    _commit(wiki_vault)
+    target.rename(wiki_vault / "wiki" / "concepts" / "C.md")
+    page.write_text("---\ntype: source\n---\nSee [B](/wiki/concepts/C.md).\n")
+    _commit(wiki_vault, "rename, not resealed")
+    shutil.rmtree(wiki_vault / compiled.SEALED_STORE)
+    rows = [o for o in compiled.lint_compiled_layer(wiki_vault) if "A.md" in o.target]
+    assert [o.reason for o in rows] == [
+        "matched — link targets follow a rename; reseal"
+    ]
+    (sealed,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (sealed.result, sealed.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def test_the_journal_vouches_only_when_asked(wiki_vault):
+    """C6: verify passes journal=False on the index and HEAD candidates."""
+    page = _page(wiki_vault, "wiki/sources/A.md", "---\ntype: source\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    assert [o.result for o in compiled.lint_compiled_layer(wiki_vault)] == [
+        Result.MATCHED
+    ]
+    (row,) = compiled.lint_compiled_layer(wiki_vault, journal=False)
+    assert row.result is Result.UNMATCHED
+
+
+def test_a_symlink_under_wiki_is_a_row_and_never_sealed(wiki_vault, tmp_path_factory):
+    outside = tmp_path_factory.mktemp("outside")
+    (outside / "x.md").write_text("x\n")
+    (wiki_vault / "wiki" / "linked.md").symlink_to(outside / "x.md")
+    (wiki_vault / "wiki" / "folder").symlink_to(outside, target_is_directory=True)
+    rows = sorted(
+        (o.result, o.target, o.reason) for o in compiled.lint_compiled_layer(wiki_vault)
+    )
+    assert rows == [
+        (
+            Result.UNMATCHED,
+            "path-bytes:wiki/folder",
+            "drift — wiki/folder is a symlink; a compiled page is a file",
+        ),
+        (
+            Result.UNMATCHED,
+            "path-bytes:wiki/linked.md",
+            "drift — wiki/linked.md is a symlink; a compiled page is a file",
+        ),
+    ]
+    assert sorted(o.target for o in compiled.seal(wiki_vault)) == [
+        "path-bytes:wiki/folder",
+        "path-bytes:wiki/linked.md",
+    ]
+    assert compiled.load_record(wiki_vault) == {}

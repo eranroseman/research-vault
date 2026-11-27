@@ -7533,3 +7533,117 @@ def test_the_recheck_judges_a_rename_reseal_against_its_own_base(net_vault):
     }
     assert ("path-bytes:wiki/concepts/linker.md", renamed) not in rows
     assert ("path-bytes:wiki/concepts/B.md", renamed) in rows
+
+
+def test_an_unsealed_page_the_journal_names_holds_the_index_candidate(net_vault):
+    """C6: the journal vouches only on the worktree; what the hook commits
+    (the index) must be sealed, or every later replay would hold it."""
+    from tests.test_compiled import _journal
+
+    page = net_vault / "wiki" / "concepts" / "fresh.md"
+    page.write_text('---\ntitle: "f"\ntype: "concept"\nstatus: "draft"\n---\nf\n')
+    _journal(
+        net_vault,
+        "op1",
+        {"wiki/concepts/fresh.md": hashlib.sha256(page.read_bytes()).hexdigest()},
+    )
+    subprocess.run(
+        ["git", "add", "--", "wiki/concepts/fresh.md"], cwd=net_vault, check=True
+    )
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, git_candidate="index"
+    )
+    assert [
+        o.reason
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ] == [
+        "drift — wiki/concepts/fresh.md is not sealed: no complete compile wrote these bytes"
+    ]
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False
+    )
+    assert not [
+        o
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ]
+
+
+def test_a_symlink_under_wiki_is_a_verify_row(net_vault, tmp_path_factory):
+    """The materialised tree verify lints holds no symlink, so the row comes
+    from the candidate snapshot."""
+    outside = tmp_path_factory.mktemp("outside")
+    (outside / "x.md").write_text("x\n")
+    (net_vault / "wiki" / "concepts" / "linked.md").symlink_to(outside / "x.md")
+    _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
+    assert [
+        (o.target, o.reason)
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ] == [
+        (
+            "path-bytes:wiki/concepts/linked.md",
+            "drift — wiki/concepts/linked.md is a symlink; a compiled page is a file",
+        )
+    ]
+    assert verify.surface_decision("commit", effective, warning)[0] == 1
+
+
+def _propagated_page(net_vault, *, record_in_base):
+    """A sealed page citing smith2020, then a commit rewriting the key as an
+    applied propagation record names, without a reseal. Returns the commits."""
+    from research_vault import propagate
+
+    wiki = net_vault / "wiki" / "concepts"
+    page = wiki / "citing.md"
+    page.write_text('---\ntype: "concept"\n---\nAs [@smith2020] shows.\n')
+    record_dir = net_vault / propagate.RECORD_DIR
+    record = record_dir / "20261127T000000Z.json"
+
+    def write_record():
+        record_dir.mkdir(parents=True, exist_ok=True)
+        record.write_text(
+            json.dumps(
+                {
+                    "schema": propagate.SCHEMA,
+                    "operation_id": "20261127T000000Z",
+                    "date": "2026-11-27",
+                    "mapping": {"smith2020": "smith2020a"},
+                    "item_keys": {"smith2020": "SMITH020"},
+                    "merges": {},
+                    "removes": {},
+                    "surfaces": [],
+                }
+            )
+        )
+
+    if record_in_base:
+        write_record()
+    _seal_as_it_stands(net_vault)
+    base = _commit_all(net_vault, "sealed")
+    page.write_text('---\ntype: "concept"\n---\nAs [@smith2020a] shows.\n')
+    if not record_in_base:
+        write_record()
+    rewritten = _commit_all(net_vault, "rewritten, not resealed")
+    return base, rewritten
+
+
+@pytest.mark.parametrize("record_in_base", [False, True], ids=["added", "old"])
+def test_the_recheck_accepts_only_a_propagation_record_the_commit_adds(
+    net_vault, record_in_base
+):
+    """C8b in the replay: a record absent from the base vouches for the key
+    rewrite; one the base already holds does not."""
+    base, rewritten = _propagated_page(net_vault, record_in_base=record_in_base)
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    rows = [
+        (o.target, o.extra.get("commit"))
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ]
+    held = ("path-bytes:wiki/concepts/citing.md", rewritten) in rows
+    assert held is record_in_base
