@@ -1,0 +1,5 @@
+{
+  "enableDataviewJs": false,
+  "enableInlineDataviewJs": false,
+  "taskCompletionTracking": false
+}

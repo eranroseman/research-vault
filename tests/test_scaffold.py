@@ -34,11 +34,12 @@ EXPECTED_CREATED = [
     "log.md",
     "log/.gitkeep",
     "projects/.gitkeep",
-    "system/bases/open-questions.base",
     "system/bases/trust-tier.base",
     "system/glossary.md",
     "system/templates/daily.md",
+    "system/templates/monthly.md",
     "system/templates/project.md",
+    "system/templates/weekly.md",
 ]
 TRACKABLE_CREATED = [
     path
@@ -108,8 +109,8 @@ def test_scaffold_creates_the_complete_okf_vault_and_returns_paths(tmp_path):
         "the applied propagation plans\n\n"
         "Literature notes, for trust-tier review:\n\n"
         "![](/system/bases/trust-tier.base)\n\n"
-        "Concept pages, flagged where they contain an open-question:\n\n"
-        "![](/system/bases/open-questions.base)\n"
+        "Open questions, wherever a claim line carries one:\n\n"
+        '```query\npath:projects/ "(open-question)"\n```\n'
     )
     assert (vault / "log.md").read_text() == ('---\ntype: "log"\n---\n# Log\n')
     assert (vault / ".gitignore").read_text() == (

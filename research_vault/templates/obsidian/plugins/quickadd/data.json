@@ -1,0 +1,8 @@
+{
+  "choices": [],
+  "disableOnlineFeatures": true,
+  "enableUriCallbacks": false,
+  "templateFolderPaths": [
+    "system/templates"
+  ]
+}

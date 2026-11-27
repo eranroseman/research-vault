@@ -232,6 +232,110 @@ Installing a Zotero add-on is a human step in the setup wizard. Doctor reads the
 | zotero-docling                | `extensions.zoteroDocling.autoConvert`                                         | `false`, `unset`  |
 | MinerU for Zotero             | `extensions.zotero.mineruForZotero.apiEnabled`                                 | `false`, `unset`  |
 
+## Obsidian plugins
+
+A new vault's `.obsidian/` is seeded by `scaffold --with-obsidian` from this declaration (packaged as `research_vault/templates/obsidian-plugins.md`): seeded plugins are vendored at their pin (their licence permits redistribution with no source obligation), recommended ones ship only their settings and are installed by the person from Obsidian's community list, excluded ones are not declared further. Doctor's `obsidian` row compares the configured folder with it.
+
+### Plugins
+
+| Plugin                       | Id                                  | Need        | Pin    | Licence                          | Workflows                                           |
+| ---------------------------- | ----------------------------------- | ----------- | ------ | -------------------------------- | --------------------------------------------------- |
+| Dataview                     | `dataview`                          | seeded      | 0.5.68 | MIT                              | personal knowledge management, analysis and reports |
+| Calendar                     | `calendar`                          | seeded      | 1.5.10 | MIT                              | daily logs                                          |
+| Periodic Notes               | `periodic-notes`                    | seeded      | 0.0.17 | MIT                              | daily logs                                          |
+| Homepage                     | `homepage`                          | seeded      | 4.5.0  | MIT                              | personal knowledge management                       |
+| Outliner                     | `obsidian-outliner`                 | seeded      | 4.10.2 | MIT                              | long-form writing                                   |
+| Callout Manager              | `callout-manager`                   | seeded      | 1.1.2  | MIT                              | long-form writing                                   |
+| Iconize                      | `obsidian-icon-folder`              | seeded      | 2.14.7 | MIT                              | personal knowledge management                       |
+| Footnote Shortcut            | `obsidian-footnotes`                | seeded      | 0.2.0  | MIT                              | long-form writing                                   |
+| Better Word Count            | `better-word-count`                 | seeded      | 0.10.1 | MIT                              | long-form writing                                   |
+| Novel word count             | `novel-word-count`                  | seeded      | 5.0.0  | MIT                              | long-form writing                                   |
+| Hider                        | `obsidian-hider`                    | seeded      | 1.7.1  | MIT                              | personal knowledge management                       |
+| Auto Note Mover              | `auto-note-mover`                   | seeded      | 1.2.0  | MIT                              | personal knowledge management                       |
+| Tasks                        | `obsidian-tasks-plugin`             | seeded      | 8.4.0  | MIT                              | personal knowledge management, daily logs           |
+| Citations                    | `obsidian-citation-plugin`          | seeded      | 0.4.5  | MIT                              | long-form writing, research                         |
+| Zotero Cite Links            | `zotero-cite-links`                 | seeded      | 0.2.0  | MIT                              | research, long-form writing                         |
+| Zotero Annotation Citations  | `zotero-annotation-to-pandoc`       | seeded      | 1.0.3  | MIT                              | research, long-form writing                         |
+| Omnisearch                   | `omnisearch`                        | recommended | 1.31.0 | GPL-3.0                          | personal knowledge management                       |
+| Advanced Tables              | `table-editor-obsidian`             | recommended | 0.23.2 | GPL-3.0                          | long-form writing                                   |
+| Editing Toolbar              | `editing-toolbar`                   | recommended | 4.1.5  | MPL-2.0                          | long-form writing                                   |
+| Focus Mode                   | `obsidian-focus-mode`               | recommended | 1.12.0 | MPL-2.0                          | long-form writing                                   |
+| Kanban                       | `obsidian-kanban`                   | recommended | 2.0.51 | GPL-3.0                          | personal knowledge management                       |
+| TaskNotes                    | `tasknotes`                         | recommended | 4.13.8 | MIT (bundles MPL-2.0 ical.js)    | personal knowledge management, daily logs           |
+| Templater                    | `templater-obsidian`                | recommended | 2.25.1 | AGPL-3.0                         | long-form writing                                   |
+| QuickAdd                     | `quickadd`                          | recommended | 2.30.0 | MIT                              | personal knowledge management                       |
+| Pandoc Plugin                | `obsidian-pandoc`                   | recommended | 0.4.1  | MIT (embeds Obsidian CSS)        | analysis and reports, long-form writing             |
+| Typewriter Scroll            | `cm-typewriter-scroll-obsidian`     | recommended | 0.2.2  | none at the pin                  | long-form writing                                   |
+| Citation Suite               | `citation-suite`                    | recommended | 2.2.0  | AGPL-3.0                         | long-form writing, research                         |
+| Better Pandoc Reference List | `better-pandoc-reference-list`      | recommended | 3.1.0  | GPL-3.0                          | long-form writing, research                         |
+| Reference Map                | `reference-map`                     | recommended | 1.8.1  | GPL-3.0                          | research, personal knowledge management             |
+| Simple Citations             | `simple-citations`                  | recommended | 1.10.0 | MIT                              | long-form writing, analysis and reports, research   |
+| Zotero Lib View              | `zotero-lib-view`                   | recommended | 1.2.14 | MIT (grant in package.json only) | research, personal knowledge management             |
+| Zotero Deep Linker           | `zotero-deep-linker`                | recommended | 0.2.0  | MIT (placeholder holder)         | research, personal knowledge management             |
+| Git                          | `obsidian-git`                      | excluded    | —      | —                                | —                                                   |
+| Longform                     | `longform`                          | excluded    | —      | —                                | —                                                   |
+| Advanced URI                 | `obsidian-advanced-uri`             | excluded    | —      | —                                | —                                                   |
+| Tag Wrangler                 | `tag-wrangler`                      | excluded    | —      | —                                | —                                                   |
+| Note Refactor                | `note-refactor-obsidian`            | excluded    | —      | —                                | —                                                   |
+| Excalidraw                   | `obsidian-excalidraw-plugin`        | excluded    | —      | —                                | —                                                   |
+| Quadro                       | `quadro`                            | excluded    | —      | —                                | —                                                   |
+| Local REST API               | `obsidian-local-rest-api`           | excluded    | —      | —                                | —                                                   |
+| Claudian                     | `realclaudian`                      | excluded    | —      | —                                | —                                                   |
+| Copilot                      | `copilot`                           | excluded    | —      | —                                | —                                                   |
+| Agent Client                 | `agent-client`                      | excluded    | —      | —                                | —                                                   |
+| Remotely Save                | `remotely-save`                     | excluded    | —      | —                                | —                                                   |
+| Importer                     | `obsidian-importer`                 | excluded    | —      | —                                | —                                                   |
+| Enhancing Export             | `obsidian-enhancing-export`         | excluded    | —      | —                                | —                                                   |
+| ZotLit                       | `zotlit`                            | excluded    | —      | —                                | —                                                   |
+| Zotero Integration           | `obsidian-zotero-desktop-connector` | excluded    | —      | —                                | —                                                   |
+| Citation Extended            | `citation-extended`                 | excluded    | —      | —                                | —                                                   |
+| Citation Links               | `citation-links`                    | excluded    | —      | —                                | —                                                   |
+| Deep Sit                     | `deep-sit`                          | excluded    | —      | —                                | —                                                   |
+
+### Declared plugin settings
+
+| Plugin                      | File                | Key                                      | Accepted                     |
+| --------------------------- | ------------------- | ---------------------------------------- | ---------------------------- |
+| Core                        | `core-plugins.json` | `sync`                                   | `false`                      |
+| Core                        | `core-plugins.json` | `publish`                                | `false`                      |
+| Core                        | `core-plugins.json` | `canvas`                                 | `false`                      |
+| Core                        | `core-plugins.json` | `properties`                             | `false`                      |
+| Core                        | `core-plugins.json` | `markdown-importer`                      | `false`                      |
+| Core                        | `app.json`          | `useMarkdownLinks`                       | `true`                       |
+| Core                        | `app.json`          | `newLinkFormat`                          | `"absolute"`                 |
+| Core                        | `app.json`          | `newFileLocation`                        | `"folder"`                   |
+| Core                        | `app.json`          | `newFileFolderPath`                      | `"inbox"`                    |
+| Core                        | `app.json`          | `attachmentFolderPath`                   | `"inbox"`                    |
+| Core                        | `daily-notes.json`  | `folder`                                 | `"daily"`                    |
+| Core                        | `zk-prefixer.json`  | `folder`                                 | `"inbox"`                    |
+| Dataview                    | `data.json`         | `enableDataviewJs`                       | `false`, `unset`             |
+| Dataview                    | `data.json`         | `enableInlineDataviewJs`                 | `false`, `unset`             |
+| Iconize                     | `data.json`         | `iconPacksPath`                          | `".obsidian/icons"`          |
+| Footnote Shortcut           | `data.json`         | `lintOnSave`                             | `false`                      |
+| Novel word count            | `data.json`         | `writeCountsToFile`                      | `false`, `unset`             |
+| Better Word Count           | `data.json`         | `collectStats`                           | `false`, `unset`             |
+| Auto Note Mover             | `data.json`         | `use_regex_to_check_for_excluded_folder` | `true`                       |
+| Homepage                    | `data.json`         | `homepages.Main Homepage.autoCreate`     | `false`                      |
+| Citations                   | `data.json`         | `citationExportPath`                     | `"system/bibliography.json"` |
+| Citations                   | `data.json`         | `literatureNoteFolder`                   | `"Reading notes"`            |
+| Zotero Annotation Citations | `data.json`         | `source`                                 | `"betterbibtex"`, `unset`    |
+| Omnisearch                  | `data.json`         | `httpApiEnabled`                         | `false`, `unset`             |
+| Editing Toolbar             | `data.json`         | `ai.enabled`                             | `false`                      |
+| Kanban                      | `data.json`         | `new-note-folder`                        | `"inbox"`                    |
+| TaskNotes                   | `data.json`         | `enableAPI`                              | `false`                      |
+| TaskNotes                   | `data.json`         | `enableMCP`                              | `false`                      |
+| TaskNotes                   | `data.json`         | `tasksFolder`                            | `"TaskNotes/Tasks"`          |
+| Templater                   | `data.json`         | `templates_folder`                       | `"system/templates"`         |
+| Templater                   | `data.json`         | `startup_templates`                      | `[]`                         |
+| QuickAdd                    | `data.json`         | `disableOnlineFeatures`                  | `true`                       |
+| QuickAdd                    | `data.json`         | `enableUriCallbacks`                     | `false`                      |
+| Reference Map               | `data.json`         | `pullFromZotero`                         | `false`                      |
+| Reference Map               | `data.json`         | `searchCiteKeyPath`                      | `"system/bibliography.json"` |
+| Simple Citations            | `data.json`         | `autoAddCitations`                       | `false`, `unset`             |
+| Simple Citations            | `data.json`         | `autoSyncCitations`                      | `false`, `unset`             |
+| Zotero Lib View             | `data.json`         | `autoImportOnBibChange`                  | `false`, `unset`             |
+| Zotero Lib View             | `data.json`         | `exportPath`                             | `"zotero-lib-view"`          |
+
 ## Development
 
 One command runs every form and lint owner, locally and in CI:

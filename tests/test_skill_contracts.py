@@ -64,11 +64,12 @@ def _shipped_template_files() -> list[Path]:
     # and identifiers (`zotero-item-key`, `managed-sha256`, `compile-input-sha256`,
     # ...) that take the same bare-kebab shape a cited skill name would, without
     # being one. AGENTS.md's routing table is the surface this scan actually
-    # guards, and it is unaffected by the exclusion.
+    # guards, and it is unaffected by the exclusion. obsidian-plugins.md is
+    # the Obsidian plugin declaration: its backticked ids and settings keys
+    # (`periodic-notes`, `new-note-folder`) are Obsidian's, never skill names.
+    not_routing = {TEMPLATES_DIR / "context.md", TEMPLATES_DIR / "obsidian-plugins.md"}
     return sorted(
-        p
-        for p in TEMPLATES_DIR.rglob("*")
-        if p.is_file() and p != TEMPLATES_DIR / "context.md"
+        p for p in TEMPLATES_DIR.rglob("*") if p.is_file() and p not in not_routing
     )
 
 

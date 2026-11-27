@@ -9,7 +9,8 @@ cannot parse. Two shapes are stamped:
 - No frontmatter delimiter at all (a bare capture): folder derivation
   (`structure.expected_type`), falling back to the recorded `inbox/`
   fleeting exemption (`structure.is_fleeting`) since that exemption is
-  deliberately excluded from `expected_type` itself — prepend a fresh block.
+  deliberately excluded from `expected_type` itself, and to `fleeting` for a
+  file at the vault root (designs cluster 6(e)) — prepend a fresh block.
 - A parseable block whose `type` is missing as the structure check reads it
   (`frontmatter.okf_type` over `frontmatter.read_okf`: absent, or a value
   OKF rule 2's `not value` test reads as missing — a blank `type:`, `null`,
@@ -35,7 +36,8 @@ frontmatter could be parsed from it), `"unwritable"` (the stamp could not
 be written back, #174),
 `"outside"` (the path resolves outside the vault: a symlinked ancestor, an
 absolute path elsewhere, a `..` that lexically passes), or `"no-type"` (no
-derivation at all — `system/`, root files, non-canonical `projects/` files).
+derivation at all — `system/`, root files with a block, non-canonical
+`projects/` files).
 """
 
 from pathlib import Path
@@ -108,7 +110,10 @@ def stamp_text(relative: str, text: str) -> tuple[str | None, str | None]:
         derived = structure.expected_type(relative)
     else:
         derived = structure.expected_type(relative)
-        if derived is None and structure.is_fleeting(relative):
+        if derived is None and (structure.is_fleeting(relative) or "/" not in relative):
+            # Designs cluster 6(e): a bare file at the vault root (Tasks'
+            # status report, Web viewer's extract) is stamped fleeting; a
+            # root file carrying frontmatter without a type stays reported.
             derived = "fleeting"
 
     if derived is None:

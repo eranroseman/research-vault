@@ -1,0 +1,8 @@
+{
+  "citationExportFormat": "csl-json",
+  "citationExportPath": "system/bibliography.json",
+  "literatureNoteContentTemplate": "---\ntype: \"reading-note\"\n---\n\n",
+  "literatureNoteFolder": "Reading notes",
+  "literatureNoteTitleTemplate": "@{{citekey}}",
+  "markdownCitationTemplate": "[@{{citekey}}]"
+}

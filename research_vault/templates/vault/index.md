@@ -15,6 +15,8 @@ Literature notes, for trust-tier review:
 
 ![](/system/bases/trust-tier.base)
 
-Concept pages, flagged where they contain an open-question:
+Open questions, wherever a claim line carries one:
 
-![](/system/bases/open-questions.base)
+```query
+path:projects/ "(open-question)"
+```

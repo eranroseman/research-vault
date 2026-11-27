@@ -1,0 +1,26 @@
+{
+  "daily": {
+    "enabled": true,
+    "folder": "daily",
+    "format": "",
+    "template": "system/templates/daily"
+  },
+  "monthly": {
+    "enabled": true,
+    "folder": "daily/monthly",
+    "format": "",
+    "template": "system/templates/monthly"
+  },
+  "quarterly": {
+    "enabled": false
+  },
+  "weekly": {
+    "enabled": true,
+    "folder": "daily/weekly",
+    "format": "",
+    "template": "system/templates/weekly"
+  },
+  "yearly": {
+    "enabled": false
+  }
+}

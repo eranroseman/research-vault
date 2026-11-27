@@ -1,0 +1,22 @@
+{
+  "calendarViewSettings": {
+    "enableTimeblocking": false
+  },
+  "enableAPI": false,
+  "enableGoogleCalendar": false,
+  "enableMCP": false,
+  "enableMicrosoftCalendar": false,
+  "excludedFolders": "literature,fulltext,wiki,log,system/propagations,log.md,inbox/review-queue.md,system/bibliography.json",
+  "icsIntegration": {
+    "defaultNoteFolder": "inbox",
+    "enableAutoExport": false
+  },
+  "inlineTaskConvertFolder": "",
+  "pomodoroStorageLocation": "plugin",
+  "starterNoteCreated": true,
+  "taskIdentificationMethod": "property",
+  "taskPropertyName": "type",
+  "taskPropertyValue": "task",
+  "tasksFolder": "TaskNotes/Tasks",
+  "webhooks": []
+}

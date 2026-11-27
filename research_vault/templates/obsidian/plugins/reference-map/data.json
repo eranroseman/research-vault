@@ -1,0 +1,9 @@
+{
+  "autoUpdateCitekeyFile": true,
+  "folder": "",
+  "modalCreateTemplate": "---\ntype: reference\n---\n",
+  "pullFromZotero": false,
+  "searchCiteKey": true,
+  "searchCiteKeyPath": "system/bibliography.json",
+  "zoteroGroups": []
+}

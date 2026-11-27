@@ -1,0 +1,12 @@
+{
+  "excluded_folder": [
+    {
+      "folder": "^(inbox|literature|fulltext|wiki|log|system|projects|daily)(/|$)"
+    },
+    {
+      "folder": "^/$"
+    }
+  ],
+  "folder_tag_pattern": [],
+  "use_regex_to_check_for_excluded_folder": true
+}

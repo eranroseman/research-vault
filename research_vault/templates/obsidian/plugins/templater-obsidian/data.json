@@ -1,0 +1,25 @@
+{
+  "data_version": 2,
+  "ignore_folders_on_creation": [
+    {
+      "folder": "literature"
+    },
+    {
+      "folder": "fulltext"
+    },
+    {
+      "folder": "wiki"
+    },
+    {
+      "folder": "log"
+    },
+    {
+      "folder": "system/propagations"
+    },
+    {
+      "folder": "inbox/review-queue.md"
+    }
+  ],
+  "startup_templates": [],
+  "templates_folder": "system/templates"
+}

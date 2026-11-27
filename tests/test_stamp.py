@@ -357,3 +357,14 @@ def test_stamp_lets_a_missing_pyyaml_propagate(tmp_path, pyyaml_missing):
     (tmp_path / "literature" / "x.md").write_text("---\ntitle: x\n---\nbody\n")
     with pytest.raises(frontmatter.DependencyMissingError, match="PyYAML"):
         stamp.stamp_types(tmp_path)
+
+
+def test_a_bare_root_note_is_stamped_fleeting(tmp_path):
+    """Designs cluster 6(e): Tasks' status report and Web viewer's extract land at
+    the root with no frontmatter; the type mapping stamps them fleeting."""
+    (tmp_path / "Tasks Status Report 2026-10-24.md").write_text("report\n")
+    (tmp_path / "typed.md").write_text('---\ntitle: "x"\n---\n')
+    stamped, reported = stamp.stamp_types(tmp_path)
+    assert stamped == ["Tasks Status Report 2026-10-24.md"]
+    # frontmatter without type: still a person's call
+    assert ("typed.md", "no-type") in reported

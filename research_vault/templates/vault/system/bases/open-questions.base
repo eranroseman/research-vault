@@ -1,8 +1,0 @@
-views:
-  - type: table
-    name: Open questions
-filters:
-  and:
-    - 'type == "concept"'
-formulas:
-  open_q: 'file.content.contains("(open-question)")'

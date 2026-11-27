@@ -5,6 +5,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from research_vault import frontmatter, structure
 
 REPO = Path(__file__).resolve().parents[1]
@@ -19,7 +21,8 @@ EXPECTED_PATHS = {
     "context.md",
     "vault/system/templates/project.md",
     "vault/system/templates/daily.md",
-    "vault/system/bases/open-questions.base",
+    "vault/system/templates/weekly.md",
+    "vault/system/templates/monthly.md",
     "vault/system/bases/trust-tier.base",
     "vault/gitignore",
     "vault/prettierignore",
@@ -28,6 +31,7 @@ EXPECTED_PATHS = {
     "vault/claude/settings.json",
     "research-vault/machine.json.example",
     "zotero-addons.md",
+    "obsidian-plugins.md",
     "git/pre-commit",
     "ci/verify.yml",
     "ci/rw-batch.yml",
@@ -102,8 +106,8 @@ def test_markdown_templates_match_canonical_content():
         "the applied propagation plans\n\n"
         "Literature notes, for trust-tier review:\n\n"
         "![](/system/bases/trust-tier.base)\n\n"
-        "Concept pages, flagged where they contain an open-question:\n\n"
-        "![](/system/bases/open-questions.base)\n"
+        "Open questions, wherever a claim line carries one:\n\n"
+        '```query\npath:projects/ "(open-question)"\n```\n'
     )
     assert asset("vault/log.md").read_text() == "# Log\n"
     # The machine-surface rule says "raise a finding", never "fail the gate":
@@ -202,17 +206,7 @@ def test_markdown_templates_match_canonical_content():
 
 
 def test_bases_and_machine_example_match_canonical_shapes():
-    open_questions = asset("vault/system/bases/open-questions.base").read_text()
     trust_tier = asset("vault/system/bases/trust-tier.base").read_text()
-    assert re.search(
-        r"name: Open questions\nfilters:\n  and:\n    - 'type == \"concept\"'",
-        open_questions,
-    )
-    assert (
-        "formulas:\n  open_q: 'file.content.contains(\"(open-question)\")'\n"
-        in open_questions
-    )
-    assert open_questions.count("type ==") == 1
     assert re.search(
         r"name: Trust tier\nfilters:\n  and:\n    - 'type == \"literature\"'",
         trust_tier,
@@ -582,6 +576,11 @@ def test_readme_embeds_the_addon_declaration_verbatim():
     assert table.strip() in (REPO / "README.md").read_text()
 
 
+def test_readme_embeds_the_obsidian_plugin_declaration_verbatim():
+    table = asset("obsidian-plugins.md").read_text()
+    assert table.strip() in (REPO / "README.md").read_text()
+
+
 def _guard_constants():
     """`hooks/pretooluse_guard.py`'s three deny surfaces, imported from the file
     (the hooks directory is no package)."""
@@ -700,3 +699,231 @@ def test_no_markdown_under_the_obsidian_seed():
     seed = TEMPLATES / "obsidian"
     assert seed.is_dir()
     assert list(seed.rglob("*.md")) == []
+
+
+SEED = TEMPLATES / "obsidian"
+CORE_IDS = {
+    "file-explorer",
+    "global-search",
+    "switcher",
+    "graph",
+    "backlink",
+    "canvas",
+    "outgoing-link",
+    "tag-pane",
+    "properties",
+    "page-preview",
+    "daily-notes",
+    "templates",
+    "note-composer",
+    "command-palette",
+    "slash-command",
+    "editor-status",
+    "bookmarks",
+    "markdown-importer",
+    "zk-prefixer",
+    "random-note",
+    "outline",
+    "word-count",
+    "slides",
+    "audio-recorder",
+    "workspaces",
+    "file-recovery",
+    "publish",
+    "sync",
+    "bases",
+    "footnotes",
+    "webviewer",
+}
+CORE_OFF = {"properties", "canvas", "sync", "publish", "markdown-importer"}
+
+
+def test_core_plugins_json_names_every_registered_id_in_object_form():
+    """Screen B §7.4: a missing id makes Obsidian rewrite the file on first open."""
+    core = json.loads((SEED / "core-plugins.json").read_text())
+    assert set(core) == CORE_IDS
+    assert {k for k, v in core.items() if v is False} == CORE_OFF
+    assert all(isinstance(v, bool) for v in core.values())
+
+
+def test_app_json_keeps_new_notes_links_and_attachments_where_detection_reaches():
+    app = json.loads((SEED / "app.json").read_text())
+    assert app == {
+        "alwaysUpdateLinks": True,
+        "attachmentFolderPath": "inbox",
+        "newFileFolderPath": "inbox",
+        "newFileLocation": "folder",
+        "newLinkFormat": "absolute",
+        "useMarkdownLinks": True,
+    }
+    assert "userIgnoreFilters" not in app  # literature/ stays visible (§4.5)
+
+
+def test_core_settings_files_route_new_notes_off_the_machine_folders():
+    assert json.loads((SEED / "daily-notes.json").read_text()) == {
+        "folder": "daily",
+        "format": "YYYY-MM-DD",
+        "template": "system/templates/daily",
+    }
+    assert json.loads((SEED / "templates.json").read_text()) == {
+        "folder": "system/templates"
+    }
+    assert json.loads((SEED / "zk-prefixer.json").read_text()) == {
+        "folder": "inbox",
+        "format": "YYYYMMDDHHmm",
+        "template": "",
+    }
+    assert json.loads((SEED / "webviewer.json").read_text()) == {
+        "markdownPath": "inbox"
+    }
+
+
+@pytest.mark.xfail(strict=True, reason="Task 3 vendors the assets")
+def test_community_plugins_json_lists_exactly_the_vendored_ids():
+    from research_vault import obsidian_plugins
+
+    declaration = obsidian_plugins.declared()
+    seeded = sorted(p.plugin_id for p in declaration.plugins if p.need == "seeded")
+    assert json.loads((SEED / "community-plugins.json").read_text()) == seeded
+    for plugin in declaration.plugins:
+        folder = SEED / "plugins" / plugin.plugin_id
+        if plugin.need == "seeded":
+            # Task 3 vendors them
+            assert (folder / "manifest.json").is_file(), plugin.plugin_id
+        elif plugin.need == "recommended":
+            # data.json only loads nothing (Q10)
+            assert not (folder / "manifest.json").exists(), plugin.plugin_id
+        else:
+            assert not folder.exists(), plugin.plugin_id
+
+
+def test_seeded_settings_satisfy_the_declaration():
+    """Designs cluster 5(d): a repo test asserts the seed's own files meet the
+    declared keys, so doctor's drift notes on a fresh vault are empty."""
+    from research_vault import obsidian_plugins
+
+    declaration = obsidian_plugins.declared()
+    for setting in declaration.settings:
+        if setting.file == "data.json":
+            plugin = declaration.by_name[setting.plugin]
+            path = SEED / "plugins" / plugin.plugin_id / "data.json"
+        else:
+            path = SEED / setting.file
+        value = obsidian_plugins.read_key(path, setting.key)
+        assert value in setting.accepted, (setting, value)
+
+
+def test_every_seeded_base_parses_and_reads_no_note_body():
+    import yaml
+
+    for base in (TEMPLATES / "vault" / "system" / "bases").glob("*.base"):
+        document = yaml.safe_load(base.read_text())
+        assert "views" in document, base
+        # #202: Bases cannot read bodies
+        assert "file.content" not in base.read_text(), base
+    assert not (
+        TEMPLATES / "vault" / "system" / "bases" / "open-questions.base"
+    ).exists()
+
+
+def test_index_uses_a_core_search_block_for_open_questions():
+    text = asset("vault/index.md").read_text()
+    assert '```query\npath:projects/ "(open-question)"\n```' in text
+    assert "open-questions.base" not in text
+
+
+def _declaration_text(plugin_rows, setting_rows=()):
+    return (
+        "### Plugins\n\n| Plugin | Id | Need | Pin | Licence | Workflows |\n| - | - | - | - | - | - |\n"
+        + "".join(f"{row}\n" for row in plugin_rows)
+        + "\n### Declared plugin settings\n\n| Plugin | File | Key | Accepted |\n| - | - | - | - |\n"
+        + "".join(f"{row}\n" for row in setting_rows)
+    )
+
+
+@pytest.mark.parametrize(
+    ("plugin_rows", "setting_rows", "fault"),
+    [
+        (["| A | `a` | vendored | 1.0 | MIT | x |"], [], "need"),
+        (["| A | `a` | seeded | — | MIT | x |"], [], "no pin"),
+        (["| A | a | seeded | 1.0 | MIT | x |"], [], "cell"),
+        (
+            ["| A | `a` | seeded | 1.0 | MIT | x |"],
+            ["| B | `data.json` | `k` | `true` |"],
+            "no declared plugin",
+        ),
+        (
+            ["| A | `a` | seeded | 1.0 | MIT | x |"],
+            ["| Core | `data.json` | `k` | `true` |"],
+            "cannot declare",
+        ),
+        (
+            ["| A | `a` | seeded | 1.0 | MIT | x |"],
+            ["| A | `app.json` | `k` | `true` |"],
+            "cannot declare",
+        ),
+        (
+            ["| A | `a` | seeded | 1.0 | MIT | x |"],
+            ["| A | `data.json` | `k` | `yes` |"],
+            "accepted literal",
+        ),
+        (
+            [
+                "| A | `a` | seeded | 1.0 | MIT | x |",
+                "| B | `a` | seeded | 1.0 | MIT | x |",
+            ],
+            [],
+            "twice",
+        ),
+    ],
+)
+def test_the_plugin_declaration_reader_refuses_a_row_it_cannot_read(
+    plugin_rows, setting_rows, fault
+):
+    from research_vault import obsidian_plugins
+
+    with pytest.raises(ValueError, match=fault):
+        obsidian_plugins.parse(_declaration_text(plugin_rows, setting_rows))
+
+
+def test_the_plugin_declaration_reader_normalises_literals_and_excluded_rows():
+    from research_vault import obsidian_plugins
+
+    declaration = obsidian_plugins.parse(
+        _declaration_text(
+            [
+                "| A | `a` | seeded | 1.0 | MIT | x |",
+                "| X | `x` | excluded | — | — | — |",
+            ],
+            [
+                "| A | `data.json` | `k` | `[ ]`, `unset` |",
+                '| Core | `app.json` | `j` | `"v"` |',
+            ],
+        )
+    )
+    assert declaration.by_id["x"].pin is None
+    assert declaration.by_id["x"].licence is None
+    assert declaration.settings_for("a") == [
+        obsidian_plugins.Setting("A", "data.json", "k", ("[]", "unset"))
+    ]
+    assert declaration.settings[1].accepted == ('"v"',)
+
+
+def test_read_key_follows_a_dotted_path_and_says_unset_or_unreadable(tmp_path):
+    from research_vault import obsidian_plugins
+
+    path = tmp_path / "data.json"
+    assert obsidian_plugins.read_key(path, "a") == "unset"
+    path.write_text(
+        '{"homepages": {"Main Homepage": {"autoCreate": false}}, "l": [1, 2], "s": "é"}'
+    )
+    assert (
+        obsidian_plugins.read_key(path, "homepages.Main Homepage.autoCreate") == "false"
+    )
+    assert obsidian_plugins.read_key(path, "l") == "[1,2]"
+    assert obsidian_plugins.read_key(path, "s") == '"é"'
+    assert obsidian_plugins.read_key(path, "l.0") == "unset"
+    assert obsidian_plugins.read_key(path, "homepages.Other") == "unset"
+    path.write_text("{")
+    with pytest.raises(obsidian_plugins.ConfigUnreadableError, match=r"data\.json"):
+        obsidian_plugins.read_key(path, "a")

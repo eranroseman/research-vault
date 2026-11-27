@@ -1,0 +1,15 @@
+{
+  "homepages": {
+    "Main Homepage": {
+      "alwaysApply": false,
+      "autoCreate": false,
+      "commands": [],
+      "kind": "File",
+      "openOnStartup": true,
+      "openWhenEmpty": false,
+      "value": "index.md"
+    }
+  },
+  "separateMobile": false,
+  "version": 4
+}

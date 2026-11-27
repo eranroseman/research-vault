@@ -1,0 +1,9 @@
+{
+  "autoImportOnBibChange": false,
+  "exportPath": "zotero-lib-view",
+  "exportTitle": "{{citeKey}}",
+  "highlightCitationsFormat": "Pandoc",
+  "imagesCopy": false,
+  "templateContent": "---\ntype: zotero-lib-view\n---\n",
+  "templateType": "Custom"
+}
