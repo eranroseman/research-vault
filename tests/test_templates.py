@@ -868,6 +868,11 @@ def _declaration_text(plugin_rows, setting_rows=()):
             "accepted literal",
         ),
         (
+            ["| A | `a` | seeded | 1.0 | MIT | x |"],
+            ["| A | `data.json` | `k` | `true` or `false` |"],
+            "accepted literals",
+        ),
+        (
             [
                 "| A | `a` | seeded | 1.0 | MIT | x |",
                 "| B | `a` | seeded | 1.0 | MIT | x |",
@@ -907,6 +912,23 @@ def test_the_plugin_declaration_reader_normalises_literals_and_excluded_rows():
         obsidian_plugins.Setting("A", "data.json", "k", ("[]", "unset"))
     ]
     assert declaration.settings[1].accepted == ('"v"',)
+
+
+def test_the_plugin_declaration_reader_keeps_a_data_row_named_like_the_header():
+    """Only the whole header row is skipped; a plugin called `Plugin` is data,
+    and a literal holding `, ` is one literal."""
+    from research_vault import obsidian_plugins
+
+    declaration = obsidian_plugins.parse(
+        _declaration_text(
+            ["| Plugin | `p` | seeded | 1.0 | MIT | x |"],
+            ['| Plugin | `data.json` | `k` | `["a", "b"]`, `unset` |'],
+        )
+    )
+    assert declaration.by_id["p"].name == "Plugin"
+    assert declaration.settings_for("p") == [
+        obsidian_plugins.Setting("Plugin", "data.json", "k", ('["a","b"]', "unset"))
+    ]
 
 
 def test_read_key_follows_a_dotted_path_and_says_unset_or_unreadable(tmp_path):

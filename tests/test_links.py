@@ -456,7 +456,6 @@ def test_normalize_leaves_the_seed_index_folder_links_alone_and_unreported(tmp_p
         "log.md",
         "log/2026-10-24.md",
         "system/bases/trust-tier.base",
-        "system/bases/open-questions.base",
     ):
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)

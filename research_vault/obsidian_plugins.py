@@ -27,6 +27,11 @@ _SETTING_ROW = re.compile(
     + "".join(_CELL.format(name=name) for name in ("plugin", "file", "key", "accepted"))
     + r"\|$"
 )
+# A header is recognised by the whole row, so a data row is never dropped
+# for sharing a first cell with it.
+_PLUGIN_HEADER = ("Plugin", "Id", "Need", "Pin", "Licence", "Workflows")
+_SETTING_HEADER = ("Plugin", "File", "Key", "Accepted")
+_ACCEPTED_LITERAL = re.compile(r"`([^`]+)`")
 _NONE = "—"
 _DATA_JSON = "data.json"
 
@@ -90,7 +95,7 @@ def _plugin_row(line: str) -> Plugin | None:
     match = _PLUGIN_ROW.match(line)
     if match is None:
         raise _fault(line)
-    if match.group("name") == "Plugin":
+    if tuple(match.groups()) == _PLUGIN_HEADER:
         return None
     need = match.group("need")
     if need not in NEEDS:
@@ -126,7 +131,7 @@ def _setting_row(line: str) -> Setting | None:
     match = _SETTING_ROW.match(line)
     if match is None:
         raise _fault(line)
-    if match.group("plugin") == "Plugin":
+    if tuple(match.groups()) == _SETTING_HEADER:
         return None
     file = _code(match.group("file"), line)
     key = _code(match.group("key"), line)
@@ -136,12 +141,12 @@ def _setting_row(line: str) -> Setting | None:
     # A plugin's settings live in its data.json; Core's in the config root.
     if (plugin == CORE) == (file == _DATA_JSON):
         raise _fault(line, f"{plugin} cannot declare {file}")
-    accepted = []
-    for part in match.group("accepted").split(", "):
-        literal = _code(part.strip(), line)
-        if literal is None:
-            raise _fault(line, "accepted literals")
-        accepted.append(_literal(literal, line))
+    # Split on the backticks, not on ", ": a literal may itself hold ", ".
+    cell = match.group("accepted")
+    literals = _ACCEPTED_LITERAL.findall(cell)
+    if not literals or _ACCEPTED_LITERAL.sub("", cell).replace(",", "").strip():
+        raise _fault(line, "accepted literals")
+    accepted = [_literal(literal, line) for literal in literals]
     return Setting(plugin, file, key, tuple(accepted))
 
 

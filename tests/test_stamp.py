@@ -368,3 +368,11 @@ def test_a_bare_root_note_is_stamped_fleeting(tmp_path):
     assert stamped == ["Tasks Status Report 2026-10-24.md"]
     # frontmatter without type: still a person's call
     assert ("typed.md", "no-type") in reported
+
+
+@pytest.mark.parametrize(
+    "text", ["\ufeff---\ntitle: x\n---\nbody\n", "\n---\ntitle: x\n---\nbody\n"]
+)
+def test_a_root_note_whose_block_hides_behind_a_bom_or_blank_line_is_reported(text):
+    """The root fallback never stacks a second block on a person's own."""
+    assert stamp.stamp_text("a.md", text) == (None, "no-type")

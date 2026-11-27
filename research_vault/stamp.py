@@ -51,6 +51,12 @@ def _has_delimiter(text: str) -> bool:
     return text.startswith(("---\n", "---\r\n"))
 
 
+def _near_block(text: str) -> bool:
+    """A `---` line after only a BOM or blank lines: a block the strict
+    `_has_delimiter` misses, which the root fallback must not stamp over."""
+    return text.lstrip("\ufeff \t\r\n").startswith(("---\n", "---\r\n"))
+
+
 def _candidate_paths(vault: Path, paths):
     if paths is not None:
         for raw in paths:
@@ -110,10 +116,16 @@ def stamp_text(relative: str, text: str) -> tuple[str | None, str | None]:
         derived = structure.expected_type(relative)
     else:
         derived = structure.expected_type(relative)
-        if derived is None and (structure.is_fleeting(relative) or "/" not in relative):
+        if derived is None and (
+            structure.is_fleeting(relative)
+            or ("/" not in relative and not _near_block(text))
+        ):
             # Designs cluster 6(e): a bare file at the vault root (Tasks'
             # status report, Web viewer's extract) is stamped fleeting; a
-            # root file carrying frontmatter without a type stays reported.
+            # root file carrying frontmatter without a type stays reported,
+            # and so does one whose block a BOM or a leading blank line
+            # hides from `_has_delimiter`: a second block would be stacked
+            # on the person's own.
             derived = "fleeting"
 
     if derived is None:
