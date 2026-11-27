@@ -1108,15 +1108,15 @@ def test_text_layer_reports_strays_under_fulltext(tmp_path):
     assert rows == [
         (
             "path-bytes:fulltext/notes.md",
-            "schema-violation — fulltext/ holds only <attachment key>.md: fulltext/notes.md",
+            "schema-violation — fulltext/ holds only <attachment key>.md",
         ),
         (
             "fulltext/sub/",
-            "schema-violation — fulltext/ holds only <attachment key>.md: fulltext/sub/",
+            "schema-violation — fulltext/ holds only <attachment key>.md",
         ),
         (
             "path-bytes:fulltext/x.pdf",
-            "schema-violation — fulltext/ holds only <attachment key>.md: fulltext/x.pdf",
+            "schema-violation — fulltext/ holds only <attachment key>.md",
         ),
     ]
 
@@ -1141,6 +1141,43 @@ def test_a_text_file_in_a_committed_candidate_is_a_tree_row(tmp_path):
     assert rows == [
         (
             "path-bytes:fulltext/D7EJ9FTG.md",
-            "schema-violation — fulltext/ is never committed: fulltext/D7EJ9FTG.md",
+            "schema-violation — fulltext/ is never committed",
         )
+    ]
+
+
+def test_a_non_utf8_name_under_fulltext_is_a_row_not_a_crash(tmp_path):
+    """Reasons carry no path: a raw name may not be UTF-8, and the encoded
+    target names it (as `check_tree` does under literature/)."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    _text(tmp_path)
+    folder = tmp_path / "fulltext"
+    (folder / os.fsdecode(b"bad-\xff.pdf")).write_bytes(b"%PDF")
+    (folder / os.fsdecode(b"dir-\xfe")).mkdir()
+    rows = [
+        (o.target, o.reason)
+        for o in structure.check_text_layer(tmp_path)
+        if o.result is Result.UNMATCHED
+    ]
+    reason = "schema-violation — fulltext/ holds only <attachment key>.md"
+    assert rows == [
+        ("path-bytes:fulltext/bad-%FF.pdf", reason),
+        ("path-bytes:fulltext/dir-%FE", reason),
+    ]
+    tree = [
+        (o.target, o.reason)
+        for o in structure.check_tree(tmp_path, candidate_name="index")
+        if "fulltext" in str(o.target)
+    ]
+    assert tree == [
+        (
+            "path-bytes:fulltext/D7EJ9FTG.md",
+            "schema-violation — fulltext/ is never committed",
+        ),
+        (
+            "path-bytes:fulltext/bad-%FF.pdf",
+            "schema-violation — fulltext/ is never committed",
+        ),
     ]

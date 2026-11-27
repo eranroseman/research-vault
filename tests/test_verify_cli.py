@@ -7263,3 +7263,38 @@ def test_a_force_added_text_file_is_refused_at_commit(net_vault):
     assert any(
         b.startswith("UNMATCHED tree") and "fulltext/ATT00001.md" in b for b in blockers
     )
+
+
+def test_a_non_utf8_name_under_fulltext_does_not_crash_verify(net_vault):
+    """A raw file name that is not UTF-8 reaches verify as a path-bytes target,
+    on a force-added index candidate and on the worktree."""
+    from research_vault import verify
+
+    name = os.fsdecode(b"bad-\xff.pdf")
+    (net_vault / "fulltext").mkdir(exist_ok=True)
+    (net_vault / "fulltext" / name).write_bytes(b"%PDF")
+    subprocess.run(
+        ["git", "add", "-f", "--", f"fulltext/{name}"], cwd=net_vault, check=True
+    )
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, git_candidate="index"
+    )
+    decision, blockers = verify.surface_decision("commit", effective, warning)
+    assert decision == 1
+    assert any(
+        b.startswith("UNMATCHED tree") and "fulltext/bad-%FF.pdf" in b for b in blockers
+    )
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False
+    )
+    assert [
+        (o.check, o.target, o.reason)
+        for o in effective
+        if o.check == "text-layer" and o.result is Result.UNMATCHED
+    ] == [
+        (
+            "text-layer",
+            "path-bytes:fulltext/bad-%FF.pdf",
+            "schema-violation — fulltext/ holds only <attachment key>.md",
+        )
+    ]

@@ -124,6 +124,15 @@ def expected_type(relative: str) -> str | None:
     return None
 
 
+def _is_plain_text(name: str) -> bool:
+    """A name that can ride as a single-line `str` target: UTF-8 encodable, no newline."""
+    try:
+        name.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return not any(character in name for character in "\r\n\0")
+
+
 def _repo_path(relative: str) -> RepoPath:
     return RepoPath(os.fsencode(relative))
 
@@ -469,7 +478,7 @@ def check_tree(vault_root, candidate_name: str = "worktree") -> list[Outcome]:
                         "tree",
                         _repo_path(relative),
                         Result.UNMATCHED,
-                        f"schema-violation — fulltext/ is never committed: {relative}",
+                        "schema-violation — fulltext/ is never committed",
                     )
                 )
     return rows
@@ -515,15 +524,20 @@ def check_text_layer(vault_root) -> list[Outcome]:
             or child.suffix != ".md"
             or not fulltext.ITEM_KEY.match(child.stem)
         ):
-            shown = f"{relative}/" if child.is_dir() else relative
-            # A directory is an identifier ending in `/`, as `check_tree` names
-            # one under `literature/`: a trailing slash is no RepoPath.
+            # Reasons carry no path: a raw name may not be UTF-8, and the
+            # target names it. A directory is an identifier ending in `/`, as
+            # `check_tree` names one under `literature/` (a trailing slash is
+            # no RepoPath); a name that is not plain UTF-8 text falls back to
+            # the encoded path.
+            target: str | RepoPath = _repo_path(relative)
+            if child.is_dir() and _is_plain_text(relative):
+                target = f"{relative}/"
             rows.append(
                 Outcome(
                     "text-layer",
-                    shown if child.is_dir() else _repo_path(relative),
+                    target,
                     Result.UNMATCHED,
-                    f"schema-violation — fulltext/ holds only <attachment key>.md: {shown}",
+                    "schema-violation — fulltext/ holds only <attachment key>.md",
                 )
             )
             continue
