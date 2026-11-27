@@ -399,7 +399,7 @@ def check_reserved(vault_root) -> list[Outcome]:
     return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]
 
 
-def check_tree(vault_root) -> list[Outcome]:
+def check_tree(vault_root, candidate_name: str = "worktree") -> list[Outcome]:
     """Vault-wide directory scaffolding attestation (verify-side; see doctor.doctor).
 
     Doctor keeps a separate `tree` probe for repair-at-setup; this is a
@@ -457,6 +457,21 @@ def check_tree(vault_root) -> list[Outcome]:
                         "<citation key>.md and .gitkeep",
                     )
                 )
+    text_layer = vault / "fulltext"
+    if candidate_name != "worktree" and text_layer.is_dir():
+        # #211: the layer is gitignored; a path under it on a committed candidate
+        # is a force-added text, licensed material with no finding otherwise.
+        for path in sorted(text_layer.rglob("*")):
+            if path.is_file() and not is_excluded(path, vault):
+                relative = path.relative_to(vault).as_posix()
+                rows.append(
+                    Outcome(
+                        "tree",
+                        _repo_path(relative),
+                        Result.UNMATCHED,
+                        f"schema-violation — fulltext/ is never committed: {relative}",
+                    )
+                )
     return rows
 
 
@@ -469,3 +484,72 @@ def _is_citation_key_note(vault: Path, path: Path) -> bool:
     except literature_notes.InvalidCitationKeyError:
         return False
     return True
+
+
+def check_text_layer(vault_root) -> list[Outcome]:
+    """#207 and #211: every file under fulltext/ is `<attachment key>.md` carrying a
+    valid self-witness. Rows carry no note path, claim id or line number, so verify
+    never writes a marker into a text file. A missing text is no row: a fresh clone
+    has none."""
+    from . import fulltext
+
+    vault = Path(vault_root)
+    folder = vault / fulltext.FULLTEXT_DIR
+    if not folder.is_dir():
+        return [
+            Outcome(
+                "text-layer",
+                "fulltext",
+                Result.SKIPPED,
+                "no-identifier — no text layer",
+            )
+        ]
+    rows: list[Outcome] = []
+    seen = False
+    for child in sorted(folder.iterdir()):
+        if is_excluded(child, vault):
+            continue
+        relative = f"{fulltext.FULLTEXT_DIR}/{child.name}"
+        if (
+            child.is_dir()
+            or child.suffix != ".md"
+            or not fulltext.ITEM_KEY.match(child.stem)
+        ):
+            shown = f"{relative}/" if child.is_dir() else relative
+            # A directory is an identifier ending in `/`, as `check_tree` names
+            # one under `literature/`: a trailing slash is no RepoPath.
+            rows.append(
+                Outcome(
+                    "text-layer",
+                    shown if child.is_dir() else _repo_path(relative),
+                    Result.UNMATCHED,
+                    f"schema-violation — fulltext/ holds only <attachment key>.md: {shown}",
+                )
+            )
+            continue
+        seen = True
+        try:
+            raw = child.read_bytes()
+        except OSError as error:
+            rows.append(
+                Outcome(
+                    "text-layer",
+                    _repo_path(relative),
+                    Result.UNREACHABLE,
+                    f"outage — {error}",
+                )
+            )
+            continue
+        result, reason = fulltext.validate_text(raw, child.stem)
+        if result is not Result.MATCHED:
+            rows.append(Outcome("text-layer", _repo_path(relative), result, reason))
+    if not rows and not seen:
+        return [
+            Outcome(
+                "text-layer",
+                "fulltext",
+                Result.SKIPPED,
+                "no-identifier — no text file to check",
+            )
+        ]
+    return rows or [Outcome("text-layer", "fulltext", Result.MATCHED, "matched")]

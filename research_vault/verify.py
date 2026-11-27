@@ -74,6 +74,7 @@ CLOSING_BY_SURFACE = {
             "okf-frontmatter",
             "okf-structure",
             "tree",
+            "text-layer",
             "propagation",
             "captured-set",
             "dead-link",
@@ -1116,7 +1117,8 @@ def _plan_state(
         raw.extend(structure.check_note_frontmatter(vault, path))
     raw.extend(structure.check_reserved(vault))
     raw.extend(structure.check_log_dir(vault))
-    raw.extend(structure.check_tree(vault))
+    raw.extend(structure.check_tree(vault, candidate_name=snapshots.candidate_name))
+    raw.extend(structure.check_text_layer(vault))
     if network:
         raw.extend(lifecycle.lint_lifecycle(vault, ZoteroClient(base=base)))
     else:

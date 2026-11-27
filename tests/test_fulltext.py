@@ -1,6 +1,6 @@
 import hashlib
 
-from research_vault import frontmatter, fulltext
+from research_vault import Result, frontmatter, fulltext
 
 
 def test_verdict_separates_absent_partial_empty_and_complete():
@@ -32,10 +32,53 @@ def test_write_renders_deterministic_frontmatter_and_verbatim_body(tmp_vault):
         "zotero-item-key": "E352DFS8",
         "indexedPages": 2,
         "totalPages": 2,
+        "managed-sha256": fulltext.witness_of(raw),
     }
     assert body == "Page one\fPage two"
     _again, digest_again = fulltext.write(tmp_vault, "D7EJ9FTG", "E352DFS8", response)
     assert digest_again == digest
+
+
+def test_witness_covers_every_byte_but_its_own_line(tmp_vault):
+    response = {"content": "x" * 600, "indexedPages": 1, "totalPages": 1}
+    path, _digest = fulltext.write(tmp_vault, "D7EJ9FTG", "E352DFS8", response)
+    raw = path.read_bytes()
+    assert fulltext.validate_text(raw, "D7EJ9FTG") == (Result.MATCHED, "matched")
+    for edit, reason in (
+        (raw + b"appended\n", "stale"),
+        (
+            raw.replace(
+                b'zotero-item-key: "E352DFS8"',
+                b'zotero-item-key: "E352DFS8"\nextra: "x"',
+            ),
+            "stale",
+        ),
+        (raw.replace(b'type: "fulltext"', b"type: 'fulltext'"), "stale"),
+        (raw.replace(b"managed-sha256", b"managed-sha255"), "missing"),
+        (
+            raw.replace(
+                b'type: "fulltext"\n',
+                b'type: "fulltext"\nmanaged-sha256: "' + b"0" * 64 + b'"\n',
+            ),
+            "duplicate",
+        ),
+    ):
+        result, detail = fulltext.validate_text(edit, "D7EJ9FTG")
+        assert (result, detail) == (
+            Result.UNMATCHED,
+            f"schema-violation — {reason} managed-sha256",
+        ), edit
+    assert fulltext.validate_text(raw, "OTHERKEY") == (
+        Result.UNMATCHED,
+        "schema-violation — key does not match file name",
+    )
+    assert fulltext.validate_text(b"\xff\xfe", "D7EJ9FTG") == (
+        Result.UNREACHABLE,
+        "outage — text file is not UTF-8",
+    )
+    assert fulltext.validate_text(
+        b'---\ntype: "fulltext"\n---\nbody\n', "D7EJ9FTG"
+    ) == (Result.UNMATCHED, "schema-violation — missing managed-sha256")
 
 
 def test_write_refuses_an_unsafe_attachment_key(tmp_vault):
@@ -83,6 +126,7 @@ def test_write_renders_a_char_indexed_response_and_no_content_as_an_empty_body(
         "zotero-item-key": "E352DFS8",
         "indexedChars": 600,
         "totalChars": 600,
+        "managed-sha256": fulltext.witness_of(path.read_bytes()),
     }
     assert body == ""
 

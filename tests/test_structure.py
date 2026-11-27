@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from research_vault import Result, structure
+from research_vault.outcome import Outcome
 from tests.conftest import package_ast
 
 
@@ -1027,3 +1028,119 @@ def test_reserved_check_leaves_log_entries_to_the_log_dir_check(tmp_path):
     _write(tmp_path, "log/index.md", "prose\n")
     (outcome,) = structure.check_reserved(tmp_path)
     assert (outcome.target, outcome.result) == ("reserved-files", Result.MATCHED)
+
+
+def _text(vault, key="D7EJ9FTG", item="E352DFS8"):
+    from research_vault import fulltext
+
+    path, _ = fulltext.write(
+        vault, key, item, {"content": "x" * 600, "indexedPages": 1, "totalPages": 1}
+    )
+    return path
+
+
+def test_text_layer_rows_follow_the_acceptance_table(tmp_path):
+    """Designs cluster 4 (a): the five edits and their rows; a deleted text gives
+    no row, a fresh render none, and no row carries a marker origin."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    path = _text(tmp_path)
+    assert [
+        o
+        for o in structure.check_text_layer(tmp_path)
+        if o.result is not Result.MATCHED
+    ] == []
+    raw = path.read_bytes()
+    path.write_bytes(raw + b"edited\n")
+    (row,) = [
+        o for o in structure.check_text_layer(tmp_path) if o.result is Result.UNMATCHED
+    ]
+    assert (row.check, row.target, row.reason, dict(row.extra)) == (
+        "text-layer",
+        "path-bytes:fulltext/D7EJ9FTG.md",
+        "schema-violation — stale managed-sha256",
+        {},
+    )
+    path.write_text(
+        '---\ntype: "fulltext"\nzotero-attachment-key: "D7EJ9FTG"\n---\nstub\n'
+    )
+    (row,) = [
+        o for o in structure.check_text_layer(tmp_path) if o.result is Result.UNMATCHED
+    ]
+    assert row.reason == "schema-violation — missing managed-sha256"
+    path.write_bytes(raw)
+    (tmp_path / "fulltext" / "OTHERKEY.md").write_bytes(raw)
+    (row,) = [
+        o for o in structure.check_text_layer(tmp_path) if o.result is Result.UNMATCHED
+    ]
+    assert (row.target, row.reason) == (
+        "path-bytes:fulltext/OTHERKEY.md",
+        "schema-violation — key does not match file name",
+    )
+    (tmp_path / "fulltext" / "OTHERKEY.md").unlink()
+    path.unlink()
+    assert structure.check_text_layer(tmp_path) == [
+        Outcome(
+            "text-layer",
+            "fulltext",
+            Result.SKIPPED,
+            "no-identifier — no text file to check",
+        )
+    ]
+
+
+def test_text_layer_reports_strays_under_fulltext(tmp_path):
+    """#211's fulltext/ half: one shape, <attachment key>.md."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    _text(tmp_path)
+    (tmp_path / "fulltext" / "x.pdf").write_bytes(b"%PDF")
+    (tmp_path / "fulltext" / "notes.md").write_text('---\ntype: "fulltext"\n---\n')
+    (tmp_path / "fulltext" / "sub").mkdir()
+    (tmp_path / "fulltext" / ".DS_Store").write_bytes(b"\0")
+    rows = [
+        (o.target, o.reason)
+        for o in structure.check_text_layer(tmp_path)
+        if o.result is Result.UNMATCHED
+    ]
+    assert rows == [
+        (
+            "path-bytes:fulltext/notes.md",
+            "schema-violation — fulltext/ holds only <attachment key>.md: fulltext/notes.md",
+        ),
+        (
+            "fulltext/sub/",
+            "schema-violation — fulltext/ holds only <attachment key>.md: fulltext/sub/",
+        ),
+        (
+            "path-bytes:fulltext/x.pdf",
+            "schema-violation — fulltext/ holds only <attachment key>.md: fulltext/x.pdf",
+        ),
+    ]
+
+
+def test_a_text_file_in_a_committed_candidate_is_a_tree_row(tmp_path):
+    """#211: fulltext/ is gitignored; a force-added text on an index or HEAD
+    candidate commits licensed text with no finding unless check_tree says so."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    _text(tmp_path)
+    assert [
+        o
+        for o in structure.check_tree(tmp_path, candidate_name="worktree")
+        if "fulltext" in str(o.target)
+    ] == []
+    rows = [
+        (o.target, o.reason)
+        for o in structure.check_tree(tmp_path, candidate_name="index")
+        if "fulltext" in str(o.target)
+    ]
+    assert rows == [
+        (
+            "path-bytes:fulltext/D7EJ9FTG.md",
+            "schema-violation — fulltext/ is never committed: fulltext/D7EJ9FTG.md",
+        )
+    ]

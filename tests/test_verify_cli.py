@@ -1949,6 +1949,7 @@ def test_correction_ack_does_not_suppress_same_hash_blocking_retraction(
     ) == [
         ("captured-set", "SKIPPED", "no-identifier — no source ledger"),
         ("propagation", "SKIPPED", "no-identifier — no applied propagation plan"),
+        ("text-layer", "SKIPPED", "no-identifier — no text layer"),
     ]
 
 
@@ -2411,6 +2412,7 @@ def test_surface_contract_defaults_to_open_audit_and_explicit_commit_closes(
                 "okf-frontmatter",
                 "okf-structure",
                 "tree",
+                "text-layer",
                 "propagation",
                 "captured-set",
                 "dead-link",
@@ -2510,15 +2512,15 @@ def test_synthetic_offline_outcomes_have_no_state_or_effect_authority(tmp_vault)
     assert all(item.result is Result.UNREACHABLE for item in synthetic)
     # The pipeline files every genuine non-MATCHED row, SKIPPED included
     # (lifecycle's decision-26 row is filed the same way, measured 2026-09-08),
-    # so the two lints that report "this vault holds nothing of mine yet" — the
-    # propagation residue lint with no applied plan, and the captured-set lint
-    # with no source ledger — move the queue and nothing else; no synthetic row
-    # reaches it.
+    # so the three checks that report "this vault holds nothing of mine yet" — the
+    # propagation residue lint with no applied plan, the captured-set lint
+    # with no source ledger, and the text-layer check with no fulltext/ — move
+    # the queue and nothing else; no synthetic row reaches it.
     after = _vault_bytes(tmp_vault)
     moved = {key for key in before | after if before.get(key) != after.get(key)}
     assert moved == {b"inbox/review-queue.md"}
     filed = {entry.check for entry in inbox.load(tmp_vault)}
-    assert filed == {"propagation", "captured-set"}
+    assert filed == {"propagation", "captured-set", "text-layer"}
     assert filed.isdisjoint({item.check for item in synthetic})
 
 
@@ -7202,3 +7204,62 @@ def test_a_row_the_replay_did_not_raise_again_stays_beside_it(net_vault):
         reasons = {(o.check, str(o.target)) for o in rows}
         assert ("citation-key", "fabricated2020") in reasons
         assert ("evidence-layer", "path-bytes:literature/smith2020.md") in reasons
+
+
+def test_text_layer_closes_publish_and_writes_no_marker(net_vault):
+    """Cluster 4's [risk]: a closing check's rows reach _mutate_marker; a row
+    with no origin writes nothing into the text file.
+
+    The fixture vault carries an unrelated citation-key row that holds every
+    surface, so the assertions read the text-layer blockers alone."""
+    from research_vault import fulltext, inbox, verify
+
+    def text_layer_blockers(surface):
+        _report, effective, _hashes, warning = verify.verify_state(
+            net_vault, network=False
+        )
+        _decision, blockers = verify.surface_decision(surface, effective, warning)
+        return [b for b in blockers if b.startswith("UNMATCHED text-layer")]
+
+    assert "text-layer" in verify.CLOSING_BY_SURFACE["publish"]
+    assert "text-layer" not in verify.CLOSING_BY_SURFACE["commit"]
+    assert "text-layer" not in inbox.CHECK_IDS
+    path, _ = fulltext.write(
+        net_vault,
+        "ATT00001",
+        "SMITH020",
+        {"content": "x" * 600, "indexedPages": 1, "totalPages": 1},
+    )
+    assert text_layer_blockers("publish") == []
+    path.write_bytes(path.read_bytes() + b"edited\n")
+    before = path.read_bytes()
+    assert len(text_layer_blockers("publish")) == 1
+    assert text_layer_blockers("commit") == []
+    assert path.read_bytes() == before
+    finding = next(f for f in inbox.open_entries(net_vault) if f.check == "text-layer")
+    inbox.append_ack(net_vault, finding.id, "manual — accepted", "human:eran")
+    assert text_layer_blockers("publish") == []
+    path.write_bytes(path.read_bytes() + b"again\n")
+    assert len(text_layer_blockers("publish")) == 1
+
+
+def test_a_force_added_text_file_is_refused_at_commit(net_vault):
+    from research_vault import fulltext, verify
+
+    fulltext.write(
+        net_vault,
+        "ATT00001",
+        "SMITH020",
+        {"content": "x" * 600, "indexedPages": 1, "totalPages": 1},
+    )
+    subprocess.run(
+        ["git", "add", "-f", "fulltext/ATT00001.md"], cwd=net_vault, check=True
+    )
+    _report, effective, _hashes, warning = verify.verify_state(
+        net_vault, network=False, git_candidate="index"
+    )
+    decision, blockers = verify.surface_decision("commit", effective, warning)
+    assert decision == 1
+    assert any(
+        b.startswith("UNMATCHED tree") and "fulltext/ATT00001.md" in b for b in blockers
+    )

@@ -5,10 +5,11 @@ the literature note records each file's sha256. The hash is machine-local.
 """
 
 import hashlib
+import re
 from pathlib import Path
 from typing import NamedTuple
 
-from . import frontmatter
+from . import Result, frontmatter
 from .zotero import ITEM_KEY
 
 FULLTEXT_DIR = "fulltext"
@@ -60,6 +61,10 @@ def path_for(vault_root, attachment_key) -> Path:
     return Path(vault_root) / FULLTEXT_DIR / f"{attachment_key}.md"
 
 
+WITNESS = "managed-sha256"
+_WITNESS_LINE = re.compile(rb'^managed-sha256: "[0-9a-f]{64}"\r?\n', re.MULTILINE)
+
+
 def _render(attachment_key, item_key, response) -> str:
     fields: list[tuple[str, object]] = [
         ("type", "fulltext"),
@@ -72,7 +77,46 @@ def _render(attachment_key, item_key, response) -> str:
             if not all(isinstance(value, int) for value in values):
                 raise ValueError(f"malformed — {pair[0]} pair missing")
             fields.extend(zip(pair, values, strict=True))
-    return frontmatter.serialize(dict(fields)) + (response.get("content") or "")
+    body = response.get("content") or ""
+    without = frontmatter.serialize(dict(fields)) + body
+    # #207: the self-witness — the hash of the render with its own line absent,
+    # emitted as the last frontmatter key. Any byte change afterwards (body,
+    # value, added key, requoting) reads as stale.
+    digest = hashlib.sha256(without.encode("utf-8")).hexdigest()
+    return frontmatter.serialize(dict([*fields, (WITNESS, digest)])) + body
+
+
+def witness_of(raw: bytes) -> str:
+    """The witness `raw` should carry: the hash of its bytes without the one witness line."""
+    return hashlib.sha256(_WITNESS_LINE.sub(b"", raw, count=1)).hexdigest()
+
+
+def validate_text(raw: bytes, stem: str) -> tuple[Result, str]:
+    """#207's check side: exactly one well-formed witness line, equal to the
+    hash of everything else; the attachment key equal to the file stem."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return Result.UNREACHABLE, "outage — text file is not UTF-8"
+    try:
+        data, _body = frontmatter.parse(text)
+    except frontmatter.FrontmatterError:
+        return Result.UNMATCHED, "schema-violation — malformed frontmatter"
+    witnesses = [
+        value for key, value in frontmatter._mapping_items(data) if key == WITNESS
+    ]
+    if not witnesses:
+        return Result.UNMATCHED, "schema-violation — missing managed-sha256"
+    if len(witnesses) != 1:
+        return Result.UNMATCHED, "schema-violation — duplicate managed-sha256"
+    witness = witnesses[0]
+    if not isinstance(witness, str) or re.fullmatch(r"[0-9a-f]{64}", witness) is None:
+        return Result.UNMATCHED, "schema-violation — invalid managed-sha256"
+    if witness != witness_of(raw):
+        return Result.UNMATCHED, "schema-violation — stale managed-sha256"
+    if data.get("zotero-attachment-key") != stem:
+        return Result.UNMATCHED, "schema-violation — key does not match file name"
+    return Result.MATCHED, "matched"
 
 
 def write(vault_root, attachment_key, item_key, response) -> tuple[Path, str]:
