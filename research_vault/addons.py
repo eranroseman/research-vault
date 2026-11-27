@@ -23,11 +23,15 @@ _SETTING_ROW = re.compile(
     + "".join(_CELL.format(name=name) for name in ("addon", "pref", "accepted"))
     + r"\|$"
 )
-_LITERAL = re.compile(r'^(?:true|false|-?\d+|"(?:[^"\\]|\\.)*"|unset)$')
+_LITERAL = re.compile(r'^(?:true|false|-?\d+|"(?:[^"\\]|\\.)*"|unset|set)$')
 _NONE = "—"
 # prefs.js writes `user_pref(...);`; an .xpi's shipped defaults write
-# `pref(...)`, Better BibTeX 9.0.68's without the semicolon.
-_PREF = re.compile(r'^(?:user_)?pref\("(?P<name>[^"]+)",\s*(?P<value>.+?)\);?\s*$')
+# `pref(...)`, Better BibTeX 9.0.68's without the semicolon, ZotMoov
+# 1.2.32's in single quotes.
+_PREF = re.compile(
+    r"""^(?:user_)?pref\((?P<quote>["'])(?P<name>(?:(?!(?P=quote)).)+)(?P=quote),"""
+    r"""\s*(?P<value>.+?)\);?\s*$"""
+)
 
 
 class Addon(NamedTuple):
@@ -208,6 +212,10 @@ def _string_pref(raw: str) -> str:
     prefs.js is JavaScript, so a build may escape a string in a way JSON does
     not accept. One such line must not fail the whole file.
     """
+    if len(raw) >= 2 and raw[0] == raw[-1] == "'":
+        inner = raw[1:-1]
+        # JavaScript's single-quoted string; one with an escape keeps its token.
+        return raw if "\\" in inner or "'" in inner else inner
     if not raw.startswith('"'):
         return raw
     try:
@@ -321,7 +329,21 @@ def xpi_defaults(
 def _literal_token(raw: str) -> str:
     if raw in {"true", "false"} or raw.lstrip("-").isdigit():
         return raw
-    return literal(_string_pref(raw)) if raw.startswith('"') else raw
+    if raw.startswith('"'):
+        return literal(_string_pref(raw))
+    decoded = _string_pref(raw)
+    # a single-quoted string is the literal prefs.js would write; any other
+    # token, or one carrying an escape, stays as written and matches nothing
+    return raw if decoded == raw else literal(decoded)
+
+
+def accepts(accepted: tuple[str, ...], value: str) -> bool:
+    """Whether an effective value is one of the accepted literals. `set` takes
+    any value but an absent or empty one, the mirror of `unset` (R37), for a
+    setting whose value is the person's own, such as a folder."""
+    if value in accepted:
+        return True
+    return "set" in accepted and value not in {"unset", '""'}
 
 
 def effective_value(

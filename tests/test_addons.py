@@ -56,6 +56,27 @@ def test_declared_parses_both_tables_strictly():
         )
         in declaration.settings
     )
+    # R37: MarkDB-Connect's keys as its 0.2.4 xpi ships them (read 2026-11-27)
+    assert declaration.settings_for("daeda@mit.edu") == [
+        addons.Setting(
+            "MarkDB-Connect", "extensions.zotero.mdbc.removetags", ('"addonly"',)
+        ),
+        addons.Setting("MarkDB-Connect", "extensions.zotero.mdbc.sourcedir", ("set",)),
+        addons.Setting(
+            "MarkDB-Connect", "extensions.zotero.mdbc.matchstrategy", ('"citekeyyaml"',)
+        ),
+        addons.Setting(
+            "MarkDB-Connect", "extensions.zotero.mdbc.yamlkeyword", ('"citationKey"',)
+        ),
+        addons.Setting(
+            "MarkDB-Connect",
+            "extensions.zotero.mdbc.filefilterstrategy",
+            ('"customfileregexp"',),
+        ),
+        addons.Setting(
+            "MarkDB-Connect", "extensions.zotero.mdbc.filepattern", ('"^.+\\\\.md$"',)
+        ),
+    ]
     rules = [
         s
         for s in declaration.settings
@@ -67,7 +88,7 @@ def test_declared_parses_both_tables_strictly():
         assert setting.addon in names, setting
         for literal in setting.accepted:
             assert (
-                literal in {"unset", "true", "false"}
+                literal in {"unset", "set", "true", "false"}
                 or literal.lstrip("-").isdigit()
                 or (literal.startswith('"') and literal.endswith('"'))
             ), literal
@@ -331,6 +352,47 @@ def test_xpi_defaults_read_full_and_relative_keys(tmp_path):
     }
     # no xpi: nothing to read
     assert addons.xpi_defaults(tmp_path, "zotero-pmcid-fetcher@iris-advies.com") == {}
+
+
+def test_set_accepts_any_value_but_an_absent_or_empty_one():
+    """R37: `set` mirrors `unset` for a setting whose value is the person's own
+    (MarkDB-Connect's source folder): any effective value but none or `""`."""
+    assert addons.accepts(("set",), '"/v/literature"')
+    assert addons.accepts(("set",), "true")
+    assert not addons.accepts(("set",), '""')
+    assert not addons.accepts(("set",), "unset")
+    assert addons.accepts(('"none"', "unset"), "unset")
+    assert not addons.accepts(('"none"',), '"long"')
+
+
+def test_xpi_defaults_read_single_quoted_lines_as_prefs_js_literals(tmp_path):
+    """ZotMoov 1.2.32's root prefs.js quotes with single quotes and builds two
+    values with JSON.stringify (xpi read 2026-11-27, sha256 7770dc2c…). A
+    single-quoted string reads as the double-quoted literal prefs.js would
+    write; a value that is not a literal keeps its token, which no declared
+    literal matches."""
+    _xpi(
+        tmp_path,
+        "zotmoov@wileyy.com",
+        {
+            "prefs.js": (
+                "// ZotMoov\n"
+                "pref('extensions.zotmoov.enable_automove', true);\n"
+                "pref('extensions.zotmoov.file_behavior', 'move');\n"
+                "pref('extensions.zotmoov.dst_dir', '');\n"
+                "pref('extensions.zotmoov.auto_process_delay', 5000);\n"
+                "pref('extensions.zotmoov.allowed_fileext', "
+                "JSON.stringify(['pdf', 'epub']))\n"
+            )
+        },
+    )
+    assert addons.xpi_defaults(tmp_path, "zotmoov@wileyy.com") == {
+        "extensions.zotmoov.enable_automove": "true",
+        "extensions.zotmoov.file_behavior": '"move"',
+        "extensions.zotmoov.dst_dir": '""',
+        "extensions.zotmoov.auto_process_delay": "5000",
+        "extensions.zotmoov.allowed_fileext": "JSON.stringify(['pdf', 'epub'])",
+    }
 
 
 def test_xpi_defaults_root_prefs_js_wins_over_defaults_preferences(tmp_path):

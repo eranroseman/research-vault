@@ -115,7 +115,7 @@ Guards attract excuses, so the skills answer the common ones in-line rather than
 
 ## Zotero add-ons
 
-Installing a Zotero add-on is a human step in the setup wizard. Doctor reads these two tables (packaged as `research_vault/templates/zotero-addons.md`): the first names every add-on the vault declares — required, recommended, optional, or excluded on harm grounds (the lanes 2–3 spec §3) — the second the preference values each must hold, as `prefs.js` spells them. Doctor's `plugins` row fails when a required add-on is not active, an active add-on is below its minimum version, or an active add-on's effective value (its `prefs.js` line, else the default shipped in its `.xpi`) is not an accepted literal; its `advisory` row warns when a recommended add-on is `appDisabled` or an excluded one is active. `DOI Manager`'s two values must be in `prefs.js` before the add-on is installed.
+Installing a Zotero add-on is a human step in the setup wizard. Doctor reads these two tables (packaged as `research_vault/templates/zotero-addons.md`): the first names every add-on the vault declares — required, recommended, optional, or excluded on harm grounds (the lanes 2–3 spec §3) — the second the preference values each must hold, as `prefs.js` spells them. Doctor's `plugins` row fails when a required add-on is not active, an active add-on is below its minimum version, or an active add-on's effective value (its `prefs.js` line, else the default shipped in its `.xpi`) is not an accepted literal (`unset` accepts an absent key, `set` any value but an absent or empty one); its `advisory` row warns when a recommended add-on is `appDisabled` or an excluded one is active. `DOI Manager`'s two values must be in `prefs.js` before the add-on is installed.
 
 ### Add-ons
 
@@ -173,64 +173,69 @@ Installing a Zotero add-on is a human step in the setup wizard. Doctor reads the
 
 ### Declared settings
 
-| Add-on                        | Preference                                                                     | Accepted          |
-| ----------------------------- | ------------------------------------------------------------------------------ | ----------------- |
-| PMCID fetcher                 | `extensions.zotero.pmcid.auto`                                                 | `false`           |
-| PMCID fetcher                 | `extensions.zotero.pmcid.tags`                                                 | `false`           |
-| DOI Manager                   | `extensions.shortdoi.autoretrieve`                                             | `"none"`          |
-| DOI Manager                   | `extensions.shortdoi.monthly_verify`                                           | `false`           |
-| Meta Refresh                  | `extensions.zotero.metarefresh.titleSimilarityThreshold`                       | `"2"`             |
-| Meta Refresh                  | `extensions.zotero.metarefresh.useS2`                                          | `false`           |
-| Meta Refresh                  | `extensions.zotero.metarefresh.useOpenAlex`                                    | `false`           |
-| Meta Refresh                  | `extensions.zotero.metarefresh.fieldConferenceName`                            | `false`           |
-| Meta Refresh                  | `extensions.zotero.metarefresh.backupToExtra`                                  | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.lint.onAdded`                                | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-language`                       | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-doi`                            | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-journal-abbr`                   | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-short-title`                    | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-university-place`               | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-value-nullish`                       | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-field-misuse`                        | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-title-trailing-dot`                  | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-issue-extra-zeros`                   | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-pages-extra-zeros`                   | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-volume-extra-zeros`                  | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-title-sentence-case`            | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-shortTitle-sentence-case`       | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-bookTitle-sentence-case`        | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-proceedingsTitle-sentence-case` | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-title-chemical-formula`         | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-creators-case`                  | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-creators-pinyin`                | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-date-format`                    | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-filing-date-format`             | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-issue-date-format`              | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-priority-date-format`           | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-extra-order`                    | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-doi-long`                       | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-publication-title-alias`        | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-publication-title-case`         | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-pages-range`                    | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-conference-abbr`                | `false`           |
-| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-thesis-type`                    | `false`           |
-| Attachment Scanner            | `extensions.attachmentscanner.monitor_attachments`                             | `true`            |
-| Attachment Scanner            | `extensions.attachmentscanner.scan_duplicates`                                 | `false`           |
-| MarkDB-Connect                | `extensions.zotero.mdbc.removetags`                                            | `"addonly"`       |
-| arXiv Workflow                | `extensions.zotero.arxiv-workflow.merge.arXivExtra`                            | `true`            |
-| arXiv Workflow                | `extensions.zotero.arxiv-workflow.features.arXivUpdate`                        | `false`           |
-| arXiv Workflow                | `extensions.zotero.arxiv-workflow.merge.trashUnannotatedPDF`                   | `false`           |
-| Citation counts               | `extensions.citationcounts.autoretrieve`                                       | `"none"`, `unset` |
-| open-citations                | `extensions.zotero.opencitations.writeExtra`                                   | `false`, `unset`  |
-| Google Scholar citation count | `extensions.zotero.gscc.useAutoCountUpdate`                                    | `false`, `unset`  |
-| ZotSeek                       | `extensions.zotero.zotseek.mcpServer.enabled`                                  | `false`, `unset`  |
-| Better Notes                  | `extensions.zotero.Knowledge4Zotero.annotationNote.enableTagSync`              | `false`           |
-| Better Notes                  | `extensions.zotero.Knowledge4Zotero.syncNoteIds`                               | `""`              |
-| Better Notes                  | `extensions.zotero.Knowledge4Zotero.sync.autoSyncLinkedNotes`                  | `false`, `unset`  |
-| ZotMoov                       | `extensions.zotmoov.file_behavior`                                             | `"copy"`          |
-| ZotMoov                       | `extensions.zotmoov.enable_automove`                                           | `false`           |
-| zotero-docling                | `extensions.zoteroDocling.autoConvert`                                         | `false`, `unset`  |
-| MinerU for Zotero             | `extensions.zotero.mineruForZotero.apiEnabled`                                 | `false`, `unset`  |
+| Add-on                        | Preference                                                                     | Accepted             |
+| ----------------------------- | ------------------------------------------------------------------------------ | -------------------- |
+| PMCID fetcher                 | `extensions.zotero.pmcid.auto`                                                 | `false`              |
+| PMCID fetcher                 | `extensions.zotero.pmcid.tags`                                                 | `false`              |
+| DOI Manager                   | `extensions.shortdoi.autoretrieve`                                             | `"none"`             |
+| DOI Manager                   | `extensions.shortdoi.monthly_verify`                                           | `false`              |
+| Meta Refresh                  | `extensions.zotero.metarefresh.titleSimilarityThreshold`                       | `"2"`                |
+| Meta Refresh                  | `extensions.zotero.metarefresh.useS2`                                          | `false`              |
+| Meta Refresh                  | `extensions.zotero.metarefresh.useOpenAlex`                                    | `false`              |
+| Meta Refresh                  | `extensions.zotero.metarefresh.fieldConferenceName`                            | `false`              |
+| Meta Refresh                  | `extensions.zotero.metarefresh.backupToExtra`                                  | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.lint.onAdded`                                | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-language`                       | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-doi`                            | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-journal-abbr`                   | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-short-title`                    | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.require-university-place`               | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-value-nullish`                       | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-field-misuse`                        | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-title-trailing-dot`                  | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-issue-extra-zeros`                   | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-pages-extra-zeros`                   | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.no-volume-extra-zeros`                  | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-title-sentence-case`            | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-shortTitle-sentence-case`       | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-bookTitle-sentence-case`        | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-proceedingsTitle-sentence-case` | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-title-chemical-formula`         | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-creators-case`                  | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-creators-pinyin`                | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-date-format`                    | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-filing-date-format`             | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-issue-date-format`              | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-priority-date-format`           | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-extra-order`                    | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-doi-long`                       | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-publication-title-alias`        | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-publication-title-case`         | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-pages-range`                    | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-conference-abbr`                | `false`              |
+| Linter for Zotero             | `extensions.zotero.formatmetadata.rule.correct-thesis-type`                    | `false`              |
+| Attachment Scanner            | `extensions.attachmentscanner.monitor_attachments`                             | `true`               |
+| Attachment Scanner            | `extensions.attachmentscanner.scan_duplicates`                                 | `false`              |
+| MarkDB-Connect                | `extensions.zotero.mdbc.removetags`                                            | `"addonly"`          |
+| MarkDB-Connect                | `extensions.zotero.mdbc.sourcedir`                                             | `set`                |
+| MarkDB-Connect                | `extensions.zotero.mdbc.matchstrategy`                                         | `"citekeyyaml"`      |
+| MarkDB-Connect                | `extensions.zotero.mdbc.yamlkeyword`                                           | `"citationKey"`      |
+| MarkDB-Connect                | `extensions.zotero.mdbc.filefilterstrategy`                                    | `"customfileregexp"` |
+| MarkDB-Connect                | `extensions.zotero.mdbc.filepattern`                                           | `"^.+\\.md$"`        |
+| arXiv Workflow                | `extensions.zotero.arxiv-workflow.merge.arXivExtra`                            | `true`               |
+| arXiv Workflow                | `extensions.zotero.arxiv-workflow.features.arXivUpdate`                        | `false`              |
+| arXiv Workflow                | `extensions.zotero.arxiv-workflow.merge.trashUnannotatedPDF`                   | `false`              |
+| Citation counts               | `extensions.citationcounts.autoretrieve`                                       | `"none"`, `unset`    |
+| open-citations                | `extensions.zotero.opencitations.writeExtra`                                   | `false`, `unset`     |
+| Google Scholar citation count | `extensions.zotero.gscc.useAutoCountUpdate`                                    | `false`, `unset`     |
+| ZotSeek                       | `extensions.zotero.zotseek.mcpServer.enabled`                                  | `false`, `unset`     |
+| Better Notes                  | `extensions.zotero.Knowledge4Zotero.annotationNote.enableTagSync`              | `false`              |
+| Better Notes                  | `extensions.zotero.Knowledge4Zotero.syncNoteIds`                               | `""`                 |
+| Better Notes                  | `extensions.zotero.Knowledge4Zotero.sync.autoSyncLinkedNotes`                  | `false`, `unset`     |
+| ZotMoov                       | `extensions.zotmoov.file_behavior`                                             | `"copy"`             |
+| ZotMoov                       | `extensions.zotmoov.enable_automove`                                           | `false`              |
+| zotero-docling                | `extensions.zoteroDocling.autoConvert`                                         | `false`, `unset`     |
+| MinerU for Zotero             | `extensions.zotero.mineruForZotero.apiEnabled`                                 | `false`, `unset`     |
 
 ## Obsidian plugins
 

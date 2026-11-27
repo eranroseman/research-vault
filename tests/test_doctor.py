@@ -656,6 +656,59 @@ def test_doctor_plugins_fails_when_an_active_addons_value_is_not_accepted(
     )
 
 
+def test_doctor_plugins_reads_markdb_connects_source_folder_as_set_or_not(
+    tmp_vault, tmp_path, monkeypatch
+):
+    """R37: the shipped empty source folder fails `set`; a folder passes. The
+    other five values as MarkDB-Connect 0.2.4 ships them (read 2026-11-27)."""
+    shipped = (
+        'pref("extensions.zotero.mdbc.sourcedir", "");\n'
+        'pref("extensions.zotero.mdbc.matchstrategy", "citekeyyaml");\n'
+        'pref("extensions.zotero.mdbc.yamlkeyword", "");\n'
+        'pref("extensions.zotero.mdbc.removetags", "keepsynced");\n'
+    )
+    held = [
+        ("extensions.zotero.mdbc.removetags", '"addonly"'),
+        ("extensions.zotero.mdbc.yamlkeyword", '"citationKey"'),
+        ("extensions.zotero.mdbc.filefilterstrategy", '"customfileregexp"'),
+        ("extensions.zotero.mdbc.filepattern", '"^.+\\\\.md$"'),
+    ]
+    addons_list = [
+        _addon("better-bibtex@iris-advies.com", "9.0.63"),
+        _addon("daeda@mit.edu", "0.2.4"),
+    ]
+    profile = _profile_with(
+        tmp_path / "empty",
+        addons_list,
+        held,
+        xpis=[("daeda@mit.edu", {"prefs.js": shipped})],
+    )
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    client = _ready_client(monkeypatch)
+
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
+
+    assert by["plugins"] == doctor.Probe(
+        "plugins",
+        Result.UNMATCHED,
+        'MarkDB-Connect extensions.zotero.mdbc.sourcedir="" (accepted set)',
+        facts=(
+            ("daeda@mit.edu", ("extensions.zotero.mdbc.sourcedir not accepted (set)",)),
+        ),
+    )
+
+    (profile / "prefs.js").write_text(
+        "".join(
+            f'user_pref("{k}", {v});\n'
+            for k, v in [*held, ("extensions.zotero.mdbc.sourcedir", '"/v/literature"')]
+        )
+    )
+
+    by = {p.check: p for p in doctor.doctor(vault, client=client)}
+
+    assert by["plugins"].result is Result.MATCHED, by["plugins"]
+
+
 def test_doctor_fulltext_sync_reports_zotero_defaults_when_prefs_are_unset(
     tmp_vault, tmp_path, monkeypatch
 ):

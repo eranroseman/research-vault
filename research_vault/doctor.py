@@ -405,7 +405,7 @@ def _setting_findings(profile: _ProfileFacts, addon, settings):
         value = addons.effective_value(
             profile.prefs, defaults or {}, setting.pref, addon.key_prefix
         )
-        if value not in setting.accepted:
+        if not addons.accepts(setting.accepted, value):
             accepted = ", ".join(setting.accepted)
             # the hashed fact keys off the setting, never its value (DP46)
             facts.append(
