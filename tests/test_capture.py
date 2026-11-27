@@ -2546,7 +2546,7 @@ def test_an_unreadable_record_is_its_own_row_not_a_folded_drift(tmp_vault, monke
     (row,) = _capture_rows(tmp_vault, monkeypatch)
     assert (row.result, row.target) == (
         Result.UNMATCHED,
-        "path-bytes:system/compiled-pages.json",
+        "system/compiled-pages.json",
     )
     assert row.reason.startswith("schema-violation — compiled-page record unreadable")
 
@@ -2577,7 +2577,7 @@ def test_a_page_whose_yaml_fails_keeps_its_error_beside_the_folded_drift(
             "revert them to the sealed bytes"
         ),
     )
-    assert yaml.target == "path-bytes:wiki/concepts/b.md"
+    assert yaml.target == "wiki/concepts/b.md"
     assert yaml.reason.startswith(
         "schema-violation — wiki/concepts/b.md: frontmatter is not valid YAML ("
     )
@@ -2596,3 +2596,48 @@ def test_names_that_are_not_utf8_are_counted_once(tmp_vault, monkeypatch):
     assert row.reason.startswith(
         "drift — seal refused 2 files whose name is not UTF-8 text; "
     )
+
+
+def test_a_standing_schema_violation_files_once_and_refiles_when_it_changes(
+    tmp_vault, monkeypatch
+):
+    """N2 (C10): a compile-tool page whose YAML fails is filed once (exit 1)
+    and stands on the next capture (exit 0); a change to it files again."""
+    import hashlib
+
+    import research_vault.__main__ as cli
+    from research_vault import inbox
+    from tests.test_compiled import _journal
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    bad = tmp_vault / "wiki" / "concepts" / "b.md"
+
+    def write(text):
+        bad.write_text(text)
+        _journal(
+            tmp_vault,
+            f"op-{len(text)}",
+            {"wiki/concepts/b.md": hashlib.sha256(bad.read_bytes()).hexdigest()},
+        )
+
+    def run():
+        return cli._print_and_hold(
+            tmp_vault, capture.capture(tmp_vault, client, ["E352DFS8"]), capture.CHECK
+        )
+
+    def filed():
+        return [
+            f
+            for f in inbox.load(tmp_vault)
+            if f.target == "wiki/concepts/b.md" and f.ack_of is None
+        ]
+
+    write("---\ntitle: A: B\n---\n")
+    assert run() == 1
+    assert len(filed()) == 1
+    assert run() == 0
+    assert len(filed()) == 1
+    write("---\ntitle: A: B: C\n---\n")
+    assert run() == 1
+    assert len({f.target_hash for f in filed()}) == 2

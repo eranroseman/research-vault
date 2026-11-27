@@ -766,6 +766,32 @@ def _names(rows: list[Outcome]) -> str:
     return ", ".join(names)
 
 
+def _standing_violation(vault: Path, row: Outcome) -> Outcome:
+    """A schema violation seal reported, made standing (C10, N2): hashed on
+    its target and that target's current state, so it files once and a
+    capture while it stands exits 0; a changed state files again. The
+    target becomes an identifier, as the queue's standing test reads one
+    (`inbox.component_standing`); seal refuses a name that is not UTF-8
+    before any schema check, so the path is plain text."""
+    target = str(row.target)
+    name = (
+        os.fsdecode(decode_repo_path(target))
+        if row.target_kind == "repo-path"
+        else target
+    )
+    fact = f"{target} {_current(vault, row)}"
+    return Outcome(
+        row.check,
+        compiled._shown(name),
+        row.result,
+        row.reason,
+        extra={
+            "standing": True,
+            "target_hash": hashlib.sha256(fact.encode("utf-8")).hexdigest()[:16],
+        },
+    )
+
+
 def _sealed(vault: Path) -> list[Outcome]:
     """Spec §5.4: capture runs after compile, so it seals what the compile
     tool wrote. A row only when the seal did something: `matched — sealed N`,
@@ -782,7 +808,11 @@ def _sealed(vault: Path) -> list[Outcome]:
     # Only drift folds (I1): a schema violation (the record unreadable, a
     # page's frontmatter not YAML) is its own row, with its own reason.
     drift = [row for row in refused if row.reason.startswith("drift — ")]
-    out = [row for row in refused if not row.reason.startswith("drift — ")]
+    out = [
+        _standing_violation(vault, row)
+        for row in refused
+        if not row.reason.startswith("drift — ")
+    ]
     if drift:
         facts = sorted(f"{row.target} {_current(vault, row)}" for row in drift)
         digest = hashlib.sha256("\n".join(facts).encode("utf-8")).hexdigest()[:16]
