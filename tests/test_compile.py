@@ -1486,6 +1486,41 @@ def test_apply_seals_the_reported_wiki_paths_a_complete_journal_names(
     }
 
 
+def test_apply_seals_only_the_paths_the_tool_reported(tmp_vault, tmp_path, monkeypatch):
+    """Spec §5.4: compile seals what it wrote, not the whole vault; an
+    unsealed hand page it did not report is left for the next full seal."""
+    from tests.test_compiled import _journal
+
+    _note(tmp_vault)
+    _fake_tool(tmp_path, monkeypatch)
+    bundle_path, _inspected = compile_mod.plan(
+        tmp_vault, ["jakesch.etal2023a"], today="2026-09-07"
+    )
+    ledger = tmp_vault / "wiki" / "meta" / "ledgers" / "source-ledger.json"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text('{"sources": {}}\n')
+    digest = hashlib.sha256(ledger.read_bytes()).hexdigest()
+    _journal(tmp_vault, "op", {"wiki/meta/ledgers/source-ledger.json": digest})
+    (tmp_vault / "wiki" / "concepts" / "hand.md").write_text("by hand\n")
+    outcome = compile_mod.apply(tmp_vault, bundle_path, "abc123")
+    assert outcome.reason == (
+        "matched — wiki/meta/ledgers/source-ledger.json; sealed 1"
+    )
+
+
+def test_the_seal_skips_a_reported_path_that_is_not_text(tmp_vault, monkeypatch):
+    """The tool's `changed_paths` is its JSON; a non-string entry is not a
+    `wiki/` path and is never asked whether it starts with one."""
+    calls = []
+    monkeypatch.setattr(
+        compile_mod.compiled,
+        "seal",
+        lambda vault, paths: calls.append(paths) or [],
+    )
+    assert compile_mod._sealed(tmp_vault, [1, "wiki/a.md"]) == ""
+    assert calls == [["wiki/a.md"]]
+
+
 def test_apply_names_a_seal_refusal_in_its_reason(tmp_vault, tmp_path, monkeypatch):
     from research_vault import compiled
 
@@ -1505,3 +1540,20 @@ def test_apply_names_a_seal_refusal_in_its_reason(tmp_vault, tmp_path, monkeypat
         "compile wrote these bytes; write it through the compile tool and seal, remove it, or acknowledge (a row stamped with a commit clears only by acknowledgement)"
     )
     assert compiled.load_record(tmp_vault) == {}
+
+
+def test_a_seal_refusing_two_pages_names_both_in_the_reason(tmp_vault, monkeypatch):
+    """The refusals are joined with `; `, as the printed reason shows them."""
+    from research_vault import compiled
+
+    monkeypatch.setattr(
+        compile_mod.compiled,
+        "seal",
+        lambda vault, paths: [
+            compiled.Outcome(compiled.CHECK, path, Result.UNMATCHED, f"drift — {path}")
+            for path in paths
+        ],
+    )
+    assert compile_mod._sealed(tmp_vault, ["wiki/a.md", "wiki/b.md"]) == (
+        "; seal refused: drift — wiki/a.md; drift — wiki/b.md"
+    )

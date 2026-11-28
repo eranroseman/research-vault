@@ -2432,6 +2432,65 @@ def test_apply_still_refuses_a_page_hand_edited_before_it(tmp_vault, monkeypatch
     assert compiled.load_record(tmp_vault)["wiki/sources/A.md"] == sealed
 
 
+def test_the_preseal_leaves_a_page_already_sealed_at_its_journal_bytes(
+    tmp_vault, monkeypatch
+):
+    """W5: only a page whose journal bytes are not yet its record entry is
+    presealed; one sealed at those bytes is not sealed again."""
+    from tests.test_compiled import _journal
+
+    page = tmp_vault / "wiki" / "concepts" / "x.md"
+    page.write_text('---\ntype: "concept"\n---\nNo links.\n')
+    digest = hashlib.sha256(page.read_bytes()).hexdigest()
+    _journal(tmp_vault, "op1", {"wiki/concepts/x.md": digest})
+    (sealed,) = compiled.seal(tmp_vault, ["wiki/concepts/x.md"])
+    assert sealed.reason == "matched — sealed 1"
+    assert compiled.load_record(tmp_vault) == {"wiki/concepts/x.md": digest}
+    calls = []
+    monkeypatch.setattr(
+        propagate.compiled, "seal", lambda vault, pages: calls.append(pages) or []
+    )
+    assert propagate._preseal(tmp_vault) == []
+    assert calls == []
+
+
+def test_the_reseal_over_an_unreadable_record_reseals_nothing(tmp_vault):
+    """§5.4: the lint reports an unreadable record; the reseal holds no page."""
+    (tmp_vault / compiled.RECORD_PATH).write_text("{")
+    assert propagate._reseal(tmp_vault, ["wiki/concepts/x.md"]) == []
+
+
+def test_apply_keeps_the_preseals_refusal_of_a_page_it_did_not_rewrite(
+    tmp_vault, monkeypatch
+):
+    """W5: a compile-tool page whose frontmatter is not YAML is refused by
+    the preseal; apply rewrites and reseals nothing of it, so the refusal is
+    one of its rows."""
+    from tests.test_compiled import _journal
+
+    _seed(tmp_vault)
+    bad = tmp_vault / "wiki" / "concepts" / "bad.md"
+    bad.parent.mkdir(parents=True, exist_ok=True)
+    bad.write_text("---\ntitle: A: B\n---\n")
+    _journal(
+        tmp_vault,
+        "op1",
+        {"wiki/concepts/bad.md": hashlib.sha256(bad.read_bytes()).hexdigest()},
+    )
+    client = _zotero(monkeypatch)
+    _, path, digest = _planned(tmp_vault, client)
+    monkeypatch.setattr(
+        propagate.capture, "capture", lambda vault, client, keys, **kw: []
+    )
+    outcomes = propagate.apply(tmp_vault, client, path, digest)
+    assert [
+        o.reason.startswith(
+            "schema-violation — wiki/concepts/bad.md: frontmatter is not valid YAML"
+        )
+        for o in outcomes
+    ] == [False, True], outcomes
+
+
 @pytest.mark.parametrize("recorded", [True, False], ids=["recorded", "never-sealed"])
 def test_apply_seals_a_compiled_page_before_it_rewrites_it(
     tmp_vault, monkeypatch, recorded

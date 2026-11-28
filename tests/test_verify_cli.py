@@ -7475,8 +7475,19 @@ def test_compiled_layer_closes_commit_and_publish_and_the_seal_verb_runs(
     page.write_text(page.read_text() + "\nA hand-written line.\n")
     _report, effective, _hashes, warning = verify.verify_state(net_vault, network=False)
     assert verify.surface_decision("commit", effective, warning)[0] == 1
+
+    def held():
+        return [
+            f.check
+            for f in inbox.load(net_vault)
+            if "mortality-trends" in str(f.target) and f.check == "compiled-layer"
+        ]
+
+    before = held()
     assert cli.main(["seal", "--vault", str(net_vault)]) == 1
     assert "differs from the compiled-page record" in capsys.readouterr().out
+    # The refusal is held under the verb's check, beside verify's own row.
+    assert held() == [*before, "compiled-layer"]
 
 
 def test_the_fixture_vault_s_compiled_layer_is_sealed(net_vault):
@@ -7712,6 +7723,42 @@ def test_the_recheck_accepts_only_a_propagation_record_the_commit_adds(
     assert held is record_in_base
 
 
+@pytest.mark.parametrize(
+    ("other", "held"),
+    [
+        (
+            json.dumps(
+                {"operation_id": "20260101T000000Z", "mapping": {"x2020": "x2020a"}}
+            ).encode(),
+            False,
+        ),
+        (b"{not json", True),
+    ],
+    ids=["another-operation", "unparseable"],
+)
+def test_the_recheck_reads_every_base_record_by_its_parsed_operation_id(
+    net_vault, other, held
+):
+    """C8b and C10 in the replay: a base record naming another operation
+    leaves the added record free to vouch; a base file that does not parse
+    may name any operation, so the added record never vouches."""
+    from research_vault import propagate
+
+    record_dir = net_vault / propagate.RECORD_DIR
+    record_dir.mkdir(parents=True, exist_ok=True)
+    (record_dir / "other.json").write_bytes(other)
+    base, rewritten = _propagated_page(net_vault, record_in_base=False)
+    _report, effective, _hashes, _warning = verify.verify_state(
+        net_vault, network=False, recheck_commits=base
+    )
+    rows = [
+        (o.target, o.extra.get("commit"))
+        for o in effective
+        if o.check == "compiled-layer" and o.result is Result.UNMATCHED
+    ]
+    assert (("path-bytes:wiki/concepts/citing.md", rewritten) in rows) is held
+
+
 def _symlink_the_wiki(vault):
     """Round 2's probe: wiki/ moved under projects/, an unsealed page beside
     it, and `wiki` a symlink to it."""
@@ -7816,6 +7863,47 @@ def test_a_hand_committed_key_rewrite_names_seal_and_seal_clears_it(net_vault, c
             if o.check == "compiled-layer"
             and o.target == "path-bytes:wiki/concepts/citing.md"
         ]
+
+
+def test_seal_given_paths_seals_only_those(net_vault, capsys):
+    """`seal <path>` judges the named pages alone: a hand edit elsewhere,
+    which seal would refuse, neither fails nor is filed by it."""
+    _propagated_page(net_vault, record_in_base=False)
+    page = net_vault / "wiki" / "concepts" / "mortality-trends.md"
+    page.write_text(page.read_text() + "\nA hand-written line.\n")
+    capsys.readouterr()
+    assert main(["seal", "--vault", str(net_vault), "wiki/concepts/citing.md"]) == 0
+    assert "matched — sealed 1" in capsys.readouterr().out
+    assert not [f for f in inbox.load(net_vault) if f.check == "compiled-layer"]
+
+
+def test_seal_that_cannot_run_names_the_failure_on_stderr_and_exits_2(
+    net_vault, monkeypatch, capsys
+):
+    """As the sibling verbs: a named failure is one stderr line and exit 2."""
+    import research_vault.__main__ as cli
+
+    def refuse(*_args):
+        raise OSError(30, "Read-only file system")
+
+    monkeypatch.setattr(cli.compiled, "seal", refuse)
+    assert main(["seal", "--vault", str(net_vault)]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == "seal unavailable: [Errno 30] Read-only file system\n"
+
+
+def test_seal_takes_base_after_the_verb_and_requires_vault(net_vault, capsys):
+    """The seal subcommand parses like every verb: `--base` after it, and
+    `--vault` required, an argparse usage exit without it."""
+    assert (
+        main(["seal", "--vault", str(net_vault), "--base", "http://127.0.0.1:9"]) == 0
+    )
+    capsys.readouterr()
+    with pytest.raises(SystemExit) as exit_info:
+        main(["seal"])
+    assert exit_info.value.code == 2
+    assert "the following arguments are required: --vault" in capsys.readouterr().err
 
 
 def test_the_recheck_knows_a_moved_record_by_its_operation_id(net_vault):
@@ -8011,3 +8099,101 @@ def test_a_committed_text_file_holds_publish(net_vault):
             "fulltext/ is never committed"
         )
     ]
+
+
+def _git_repo(path):
+    """A bare-bones repository with one commit identity, for the git helpers."""
+    subprocess.run(["git", "init", "-q", str(path)], check=True)
+    for key, value in (("user.name", "t"), ("user.email", "t@example.org")):
+        subprocess.run(["git", "config", key, value], cwd=path, check=True)
+    return path
+
+
+def _commit_file(repo, relative, text, message):
+    path = repo / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    subprocess.run(["git", "add", "-f", "--", relative], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", message], cwd=repo, check=True)
+    return _head(repo)
+
+
+def test_a_carrying_ref_that_does_not_resolve_brings_nothing_even_beside_its_name(
+    tmp_path,
+):
+    """C14: with no merge, cherry-pick or revert in progress no record is
+    carried, though a worktree file is named as the ref expression is."""
+    repo = _git_repo(tmp_path / "repo")
+    _commit_file(repo, "a.txt", "a\n", "one")
+    (repo / "MERGE_HEAD^{commit}").write_text("not a ref\n")
+    assert verify._carried_records(repo) == []
+
+
+def test_a_commit_adding_an_unsealed_page_with_no_record_is_linted(tmp_path):
+    """C2: a tree with wiki content and no compiled-page record has a
+    compiled layer, and its unsealed page is a row at that commit."""
+    repo = _git_repo(tmp_path / "repo")
+    _commit_file(repo, "wiki/page.md", '---\ntype: "concept"\n---\nby hand\n', "page")
+    candidate = gitstate.snapshot_tree(repo, "HEAD", {})
+    base = gitstate.snapshot_tree(repo, gitstate._empty_tree(repo), {})
+    assert [
+        (o.check, o.target, o.result)
+        for o in verify._compiled_layer(repo, base, candidate)
+        if o.result is Result.UNMATCHED
+    ] == [("compiled-layer", "path-bytes:wiki/page.md", Result.UNMATCHED)]
+
+
+def test_an_unsealed_page_a_later_commit_leaves_alone_is_not_raised_there(tmp_path):
+    """P33 for compiled-layer: the parent tree's own rows are linted as the
+    replay lints, so the row the parent raised is inherited, not re-raised."""
+    repo = _git_repo(tmp_path / "repo")
+    first = _commit_file(
+        repo, "wiki/page.md", '---\ntype: "concept"\n---\nby hand\n', "page"
+    )
+    _commit_file(repo, "notes.txt", "unrelated\n", "unrelated")
+    rows = verify._history_outcomes(repo, first, hasher=lambda o, b, c: "h")
+    assert [
+        o.check for o, _base, _candidate in rows if o.check == "compiled-layer"
+    ] == []
+
+
+def test_a_text_only_the_index_tracks_is_tracked(net_vault):
+    """W1: a force-added text the index holds and HEAD does not is listed."""
+    from types import SimpleNamespace
+
+    from research_vault import fulltext
+
+    fulltext.write(
+        net_vault,
+        "ATT00001",
+        "SMITH020",
+        {"content": "x" * 600, "indexedPages": 1, "totalPages": 1},
+    )
+    subprocess.run(
+        ["git", "add", "-f", "fulltext/ATT00001.md"], cwd=net_vault, check=True
+    )
+    snapshots = SimpleNamespace(
+        candidate_name="worktree", head=SimpleNamespace(images={})
+    )
+    assert verify._tracked_texts(net_vault, snapshots) == {b"fulltext/ATT00001.md"}
+
+
+def test_a_text_head_tracks_is_tracked_when_the_index_cannot_be_read(net_vault):
+    """W1: HEAD's texts stand on their own; a failed index read is no path,
+    not a failure."""
+    from types import SimpleNamespace
+
+    (net_vault / ".git" / "index").write_bytes(b"garbage")
+    assert (
+        subprocess.run(
+            ["git", "ls-files"], cwd=net_vault, capture_output=True, check=False
+        ).returncode
+        != 0
+    )
+    snapshots = SimpleNamespace(
+        candidate_name="worktree",
+        head=SimpleNamespace(
+            images={b"fulltext/ATT00001.md": object(), b"wiki/x.md": object()}
+        ),
+    )
+    assert verify._tracked_texts(net_vault, snapshots) == {b"fulltext/ATT00001.md"}

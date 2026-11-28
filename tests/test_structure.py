@@ -7,6 +7,7 @@ import pytest
 
 from research_vault import Result, structure
 from research_vault.outcome import Outcome
+from research_vault.pathcodec import RepoPath
 from tests.conftest import package_ast
 
 
@@ -160,6 +161,31 @@ def test_tree_check(tmp_path):
 
     scaffold.scaffold_vault(tmp_path)
     assert [o.result for o in structure.check_tree(tmp_path)] == [Result.MATCHED]
+
+
+def test_check_tree_defaults_to_the_worktree_and_reads_no_commit(tmp_path):
+    """The default candidate is the worktree: a text git tracks is a row only
+    when the caller passes it in ``tracked``, so a call without either reads
+    no commit and files no fulltext/ row."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    (tmp_path / "fulltext").mkdir(exist_ok=True)
+    (tmp_path / "fulltext" / "D7EJ9FTG.txt").write_text("text\n")
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.org"]
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "add", "-f", "fulltext/D7EJ9FTG.txt"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        [*git, "commit", "-q", "--no-verify", "-m", "force-add a text"],
+        cwd=tmp_path,
+        check=True,
+    )
+    rows = structure.check_tree(tmp_path)
+    assert [(o.check, o.target, o.result) for o in rows] == [
+        ("tree", "vault", Result.MATCHED)
+    ]
 
 
 def test_commit_surface_closes_on_structure_violation(tmp_path):
@@ -1218,4 +1244,110 @@ def test_a_dot_named_text_is_reported_by_both_checks(tmp_path):
         "path-bytes:fulltext/.gitkeep",
         "path-bytes:fulltext/.versions/D7EJ9FTG.md",
         "path-bytes:fulltext/D7EJ9FTG.md",
+    ]
+
+
+def test_a_text_layer_without_its_folder_is_one_skipped_row_on_fulltext(tmp_path):
+    """A fresh clone has no fulltext/: the one SKIPPED row is filed, so its
+    target is half of the filing key (P59)."""
+    assert structure.check_text_layer(tmp_path) == [
+        Outcome(
+            "text-layer", "fulltext", Result.SKIPPED, "no-identifier — no text layer"
+        )
+    ]
+
+
+def test_a_text_layer_of_valid_texts_is_one_matched_row_on_fulltext(tmp_path):
+    """The MATCHED row's check and target are the filing key that closes the
+    SKIPPED ('text-layer', 'fulltext') entry once a text exists (P59)."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    _text(tmp_path)
+    assert structure.check_text_layer(tmp_path) == [
+        Outcome("text-layer", "fulltext", Result.MATCHED, "matched")
+    ]
+
+
+def test_a_text_named_with_another_suffix_is_a_stray(tmp_path):
+    """fulltext/ holds only `<attachment key>.md`: a valid text renamed to a
+    key-shaped stem with another suffix is a stray, not a text."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    _text(tmp_path).rename(tmp_path / "fulltext" / "D7EJ9FTG.txt")
+    assert [
+        (o.target, o.reason)
+        for o in structure.check_text_layer(tmp_path)
+        if o.result is Result.UNMATCHED
+    ] == [
+        (
+            "path-bytes:fulltext/D7EJ9FTG.txt",
+            "schema-violation — fulltext/ holds only <attachment key>.md",
+        )
+    ]
+
+
+def test_a_stray_directory_is_named_by_its_plain_path_whatever_its_letters(tmp_path):
+    """A plain-text directory name is an identifier ending in `/`; only a name
+    holding a newline, a NUL or non-UTF-8 bytes falls back to the encoded path."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    _text(tmp_path)
+    (tmp_path / "fulltext" / "XYZ").mkdir()
+    assert [
+        o.target
+        for o in structure.check_text_layer(tmp_path)
+        if o.result is Result.UNMATCHED
+    ] == ["fulltext/XYZ/"]
+
+
+def _unreadable(monkeypatch, path):
+    real = Path.read_bytes
+
+    def read_bytes(self):
+        if self == path:
+            raise PermissionError("denied")
+        return real(self)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
+
+def test_a_text_it_cannot_read_is_one_unreachable_row_on_its_path(
+    tmp_path, monkeypatch
+):
+    """An outage reading a text is filed under the text's own path (P59), with
+    the error as its reason."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    _unreadable(monkeypatch, _text(tmp_path))
+    assert structure.check_text_layer(tmp_path) == [
+        Outcome(
+            "text-layer",
+            RepoPath(b"fulltext/D7EJ9FTG.md"),
+            Result.UNREACHABLE,
+            "outage — denied",
+        )
+    ]
+
+
+def test_the_text_layer_judges_every_entry_after_a_skipped_or_unread_one(
+    tmp_path, monkeypatch
+):
+    """A dot-directory skipped and a text it cannot read end neither walk: the
+    entries sorted after them are still judged."""
+    from research_vault import scaffold
+
+    scaffold.scaffold_vault(tmp_path)
+    folder = tmp_path / "fulltext"
+    (folder / ".sync").mkdir(parents=True)
+    text = folder / "AAAA1111.md"
+    text.write_bytes(b"unread")
+    (folder / "zz.pdf").write_bytes(b"%PDF")
+    _unreadable(monkeypatch, text)
+    assert [(o.result, o.target) for o in structure.check_text_layer(tmp_path)] == [
+        (Result.UNREACHABLE, "path-bytes:fulltext/AAAA1111.md"),
+        (Result.UNMATCHED, "path-bytes:fulltext/zz.pdf"),
     ]

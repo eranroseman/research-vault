@@ -676,6 +676,23 @@ def test_expected_deny_rules_falls_back_to_the_copy_when_hooks_is_absent(monkeyp
     )
 
 
+def test_expected_deny_rules_reads_the_guard_beside_the_package(monkeypatch, tmp_path):
+    """One source: `hooks/pretooluse_guard.py` one level above the package
+    directory, when present, outranks the pinned copy. A stand-in guard with a
+    one-entry roster tells the two apart."""
+    from research_vault import doctor
+
+    guard = tmp_path / "hooks" / "pretooluse_guard.py"
+    guard.parent.mkdir()
+    guard.write_text(
+        "MACHINE_SURFACE_DIR_NAMES = frozenset({'only'})\n"
+        "MACHINE_SURFACE_PREFIXES = ()\n"
+        "MACHINE_SURFACE_FILES = frozenset()\n"
+    )
+    monkeypatch.setattr(doctor, "__file__", str(tmp_path / "pkg" / "doctor.py"))
+    assert doctor.expected_deny_rules() == ["Edit(/only/**)"]
+
+
 def test_package_data_glob_reaches_every_template_file():
     """Designs cluster 6(a): setuptools' build_py uses the standard-library glob,
     which skips dot entries at any depth. The hermetic form of that call must

@@ -2481,6 +2481,153 @@ def test_capture_reports_what_its_seal_did(tmp_vault, monkeypatch):
     )
 
 
+def test_the_folded_seal_refusal_is_hashed_on_each_path_and_its_state(
+    tmp_vault, monkeypatch
+):
+    """R42: the folded row's target_hash is the queue's 16 hex characters of
+    the sorted `path state` facts, one per line; an absent page is
+    `absent`."""
+    import hashlib
+
+    from research_vault import compiled
+    from research_vault.outcome import Outcome
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    refusals = [
+        Outcome(compiled.CHECK, "wiki/b.md", Result.UNMATCHED, "drift — b"),
+        Outcome(compiled.CHECK, "wiki/a.md", Result.UNMATCHED, "drift — a"),
+    ]
+    monkeypatch.setattr(capture.compiled, "seal", lambda vault, *a, **k: refusals)
+    outcomes = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert (
+        outcomes[1].extra["target_hash"]
+        == (hashlib.sha256(b"wiki/a.md absent\nwiki/b.md absent").hexdigest()[:16])
+    )
+
+
+def test_a_refused_symlink_or_directory_is_hashed_as_what_stands_there(
+    tmp_vault, monkeypatch
+):
+    """R42: a refused path that is a symlink hashes as `symlink`, one that is
+    neither a file nor absent as `special`, so the stored finding's
+    target_hash names what stands there."""
+    import hashlib
+
+    from research_vault import compiled
+    from research_vault.outcome import Outcome
+
+    (tmp_vault / "wiki" / "a.md").symlink_to("elsewhere.md")
+    (tmp_vault / "wiki" / "b.md").mkdir()
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    refusals = [
+        Outcome(compiled.CHECK, "wiki/a.md", Result.UNMATCHED, "drift — a"),
+        Outcome(compiled.CHECK, "wiki/b.md", Result.UNMATCHED, "drift — b"),
+    ]
+    monkeypatch.setattr(capture.compiled, "seal", lambda vault, *a, **k: refusals)
+    outcomes = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert (
+        outcomes[1].extra["target_hash"]
+        == (hashlib.sha256(b"wiki/a.md symlink\nwiki/b.md special").hexdigest()[:16])
+    )
+
+
+def test_a_refused_page_that_cannot_be_read_is_hashed_on_its_error_type(
+    tmp_vault, monkeypatch
+):
+    """R42: a refused file whose bytes cannot be read hashes as `unreadable`
+    and the error's type, so the same fault stands and another files again."""
+    import hashlib
+
+    from research_vault import compiled
+    from research_vault.outcome import Outcome
+
+    page = tmp_vault / "wiki" / "a.md"
+    page.write_text("x\n")
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    refusals = [Outcome(compiled.CHECK, "wiki/a.md", Result.UNMATCHED, "drift — a")]
+    monkeypatch.setattr(capture.compiled, "seal", lambda vault, *a, **k: refusals)
+    read_bytes = Path.read_bytes
+
+    def refuse(self):
+        if self == page:
+            raise PermissionError("denied")
+        return read_bytes(self)
+
+    monkeypatch.setattr(Path, "read_bytes", refuse)
+    outcomes = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert (
+        outcomes[1].extra["target_hash"]
+        == (hashlib.sha256(b"wiki/a.md unreadable PermissionError").hexdigest()[:16])
+    )
+
+
+def test_capture_reports_a_seal_that_sealed_as_one_matched_row(tmp_vault, monkeypatch):
+    """Spec §5.4: a seal that sealed pages is one MATCHED row on the record,
+    carrying seal's own reason."""
+    from research_vault import compiled
+    from research_vault.outcome import Outcome
+    from research_vault.pathcodec import RepoPath
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    sealed = [
+        Outcome(
+            compiled.CHECK,
+            RepoPath(b"wiki/a.md"),
+            Result.MATCHED,
+            "matched — sealed 2",
+        )
+    ]
+    monkeypatch.setattr(capture.compiled, "seal", lambda vault, *a, **k: sealed)
+    outcomes = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    assert [
+        (o.check, o.target, o.target_kind, o.result, o.reason)
+        for o in outcomes
+        if o.check == "compiled-layer"
+    ] == [
+        (
+            "compiled-layer",
+            "system/compiled-pages.json",
+            "identifier",
+            Result.MATCHED,
+            "matched — sealed 2",
+        )
+    ]
+
+
+def test_a_standing_schema_violation_is_hashed_on_its_target_and_state(
+    tmp_vault, monkeypatch
+):
+    """N2 (C10): the standing row's target_hash is the queue's 16 hex
+    characters of `target state`."""
+    import hashlib
+
+    from research_vault import compiled
+    from research_vault.outcome import Outcome
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    (tmp_vault / "system" / "compiled-pages.json").unlink(missing_ok=True)
+    violation = [
+        Outcome(
+            compiled.CHECK,
+            "system/compiled-pages.json",
+            Result.UNMATCHED,
+            "schema-violation — x",
+        )
+    ]
+    monkeypatch.setattr(capture.compiled, "seal", lambda vault, *a, **k: violation)
+    outcomes = capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+    (row,) = [o for o in outcomes if o.check == "compiled-layer"]
+    assert (
+        row.extra["target_hash"]
+        == (hashlib.sha256(b"system/compiled-pages.json absent").hexdigest()[:16])
+    )
+
+
 def test_capture_with_seal_off_does_not_seal(tmp_vault, monkeypatch):
     """propagate.apply's recapture: propagate reseals after its record is written."""
     fake = _canned_run(canned_item(FakeZotero()))
@@ -2595,6 +2742,30 @@ def test_names_that_are_not_utf8_are_counted_once(tmp_vault, monkeypatch):
     (row,) = _capture_rows(tmp_vault, monkeypatch)
     assert row.reason.startswith(
         "drift — seal refused 2 files whose name is not UTF-8 text; "
+    )
+
+
+def test_one_name_that_is_not_utf8_is_counted_as_one_file(tmp_vault, monkeypatch):
+    """M4: a single hidden name is `1 file`, not `1 files`."""
+    from research_vault import compiled
+    from research_vault.outcome import Outcome
+    from research_vault.pathcodec import RepoPath
+
+    fake = _canned_run(canned_item(FakeZotero()))
+    client = _client(monkeypatch, fake)
+    refusals = [
+        Outcome(
+            compiled.CHECK, RepoPath(b"wiki/\xff.md"), Result.UNMATCHED, "drift — x"
+        )
+    ]
+    monkeypatch.setattr(capture.compiled, "seal", lambda vault, *a, **k: refusals)
+    (row,) = [
+        o
+        for o in capture.capture(tmp_vault, client, ["jakesch.etal2023a"])
+        if o.check == "compiled-layer"
+    ]
+    assert row.reason.startswith(
+        "drift — seal refused 1 file whose name is not UTF-8 text; "
     )
 
 

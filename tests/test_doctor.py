@@ -1942,6 +1942,113 @@ def test_a_deny_rule_that_is_not_text_never_reaches_the_reason(tmp_vault):
     )
 
 
+def test_an_unreadable_deny_list_names_the_row_and_the_parse_error(tmp_vault):
+    """The unreadable path prints the governed row id and the error that made
+    the settings unreadable: a JSON error, or a deny value that is not a list."""
+    settings = tmp_vault / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    settings.write_text("{not json")
+    try:
+        json.loads("{not json")
+    except json.JSONDecodeError as error:
+        parse_error = str(error)
+    assert doctor._deny_rules_probe(tmp_vault) == doctor.Probe(
+        "deny-rules",
+        Result.UNMATCHED,
+        f".claude/settings.json unreadable: {parse_error}",
+    )
+    settings.write_text(json.dumps({"permissions": {"deny": "Edit(/wiki/**)"}}))
+    assert doctor._deny_rules_probe(tmp_vault) == doctor.Probe(
+        "deny-rules",
+        Result.UNMATCHED,
+        ".claude/settings.json unreadable: permissions.deny is not a list",
+    )
+
+
+def test_a_missing_roster_rule_row_carries_the_deny_rules_id(tmp_vault):
+    """The UNMATCHED roster row is the governed `deny-rules` row, not only its
+    reason."""
+    settings = tmp_vault / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    roster = doctor.expected_deny_rules()
+    settings.write_text(
+        json.dumps({"permissions": {"deny": [*roster[:-1], "Edit(/daily/**)"]}})
+    )
+    assert doctor._deny_rules_probe(tmp_vault) == doctor.Probe(
+        "deny-rules", Result.UNMATCHED, f"missing {roster[-1]}; extra Edit(/daily/**)"
+    )
+
+
+def test_a_deny_rule_that_is_not_an_edit_rule_is_neither_present_nor_extra(
+    tmp_vault,
+):
+    """Only Edit(...) strings count: a Bash rule does not stand in for a missing
+    roster rule and is not listed as an extra; a non-string rule is skipped."""
+    settings = tmp_vault / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    roster = doctor.expected_deny_rules()
+    settings.write_text(
+        json.dumps({"permissions": {"deny": [*roster[:-1], "Bash(rm -rf /)"]}})
+    )
+    assert doctor._deny_rules_probe(tmp_vault) == doctor.Probe(
+        "deny-rules", Result.UNMATCHED, f"missing {roster[-1]}"
+    )
+    settings.write_text(json.dumps({"permissions": {"deny": [*roster, 7]}}))
+    assert doctor._deny_rules_probe(tmp_vault).result is Result.MATCHED
+
+
+def test_two_deny_rules_that_are_not_text_are_counted_in_the_plural(tmp_vault):
+    """W11: more than one hidden rule reads "rules that are", never shown."""
+    settings = tmp_vault / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    roster = doctor.expected_deny_rules()
+    settings.write_text(
+        '{"permissions": {"deny": ['
+        + ", ".join(f'"{rule}"' for rule in roster[:-1])
+        + ', "Edit(/x\\ud800)", "Edit(/y\\ud801)"]}}'
+    )
+    assert doctor._deny_rules_probe(tmp_vault).reason == (
+        f"missing {roster[-1]}; extra 2 rules that are not UTF-8 text"
+    )
+
+
+def test_deny_settings_are_read_as_utf8_under_an_ascii_locale(tmp_vault):
+    """settings.json is UTF-8 whatever the host locale: under LC_ALL=C (locale
+    codec ANSI_X3.4-1968 without UTF-8 mode, checked 2026-11-28) a non-ASCII
+    rule is still read and reported as an extra."""
+    import os
+    import sys
+
+    settings = tmp_vault / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    roster = doctor.expected_deny_rules()
+    rules = [*roster[:-1], "Edit(/café/**)"]
+    settings.write_bytes(
+        json.dumps({"permissions": {"deny": rules}}, ensure_ascii=False).encode()
+    )
+    env = {**os.environ, "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"}
+    env["LC_ALL"] = "C"
+    child = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; from pathlib import Path; from research_vault import doctor;"
+                " p = doctor._deny_rules_probe(Path(sys.argv[1]));"
+                " print(ascii((p.result.name, p.reason)))"
+            ),
+            str(tmp_vault),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert child.stdout.strip() == ascii(
+        ("UNMATCHED", f"missing {roster[-1]}; extra Edit(/café/**)")
+    )
+
+
 def _seeded_vault(tmp_path):
     vault = tmp_path / "vault"
     scaffold.scaffold_vault(vault, with_obsidian=True)

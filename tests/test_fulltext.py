@@ -81,6 +81,44 @@ def test_witness_covers_every_byte_but_its_own_line(tmp_vault):
     ) == (Result.UNMATCHED, "schema-violation — missing managed-sha256")
 
 
+def test_validate_text_names_malformed_frontmatter_and_an_invalid_witness(tmp_vault):
+    """The reasons are filed as text-layer finding rows, so each is pinned
+    whole: an unclosed fence is malformed, and a witness that is not 64
+    lowercase hex characters, or is not a string, is invalid rather than stale."""
+    assert fulltext.validate_text(b'---\ntype: "fulltext"\n', "D7EJ9FTG") == (
+        Result.UNMATCHED,
+        "schema-violation — malformed frontmatter",
+    )
+    response = {"content": "x" * 600, "indexedPages": 1, "totalPages": 1}
+    path, _digest = fulltext.write(tmp_vault, "D7EJ9FTG", "E352DFS8", response)
+    raw = path.read_bytes()
+    witness = b'managed-sha256: "' + fulltext.witness_of(raw).encode() + b'"'
+    for value in (b'"' + b"z" * 64 + b'"', b"5"):
+        edit = raw.replace(witness, b"managed-sha256: " + value)
+        assert fulltext.validate_text(edit, "D7EJ9FTG") == (
+            Result.UNMATCHED,
+            "schema-violation — invalid managed-sha256",
+        ), edit
+
+
+def test_witness_strips_only_the_frontmatter_line_not_a_body_lookalike(tmp_vault):
+    """A body line shaped like the witness is content: the witness hashes it."""
+    body_line = 'managed-sha256: "' + "a" * 64 + '"\n'
+    response = {
+        "content": "x" * 600 + "\n" + body_line,
+        "indexedPages": 1,
+        "totalPages": 1,
+    }
+    path, _digest = fulltext.write(tmp_vault, "D7EJ9FTG", "E352DFS8", response)
+    raw = path.read_bytes()
+    assert fulltext.validate_text(raw, "D7EJ9FTG") == (Result.MATCHED, "matched")
+    first = raw.index(b"managed-sha256: ")
+    end = raw.index(b"\n", first) + 1
+    assert (
+        fulltext.witness_of(raw) == hashlib.sha256(raw[:first] + raw[end:]).hexdigest()
+    )
+
+
 def test_write_refuses_an_unsafe_attachment_key(tmp_vault):
     import pytest
 

@@ -3,11 +3,13 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
+from pathlib import Path
 
 import pytest
 
-from research_vault import Result, compiled, propagate, scaffold
+from research_vault import Result, captured, compiled, gitstate, propagate, scaffold
 
 
 def _sha(data: bytes) -> str:
@@ -447,6 +449,25 @@ def test_a_name_that_is_not_utf8_is_a_row_and_never_sealed(wiki_vault):
     assert compiled.load_record(wiki_vault) == {}
 
 
+def test_a_symlink_whose_name_is_not_utf8_is_this_file_in_the_reason(
+    wiki_vault, tmp_path_factory
+):
+    """The reason is a filed finding's field, written strictly as UTF-8, so
+    it says "this file" where the name is not text."""
+    outside = tmp_path_factory.mktemp("outside") / "x.md"
+    outside.write_text("x\n")
+    try:
+        (wiki_vault / "wiki" / os.fsdecode(b"caf\xe9.md")).symlink_to(outside)
+    except OSError:
+        pytest.skip("the filesystem refuses a name that is not UTF-8")
+    (row,) = compiled.lint_compiled_layer(wiki_vault)
+    assert (row.target, row.reason) == (
+        "path-bytes:wiki/caf%E9.md",
+        "drift — this file is a symlink; a compiled page is a file: "
+        + compiled.NOT_A_FILE_REMEDY,
+    )
+
+
 def test_no_wiki_is_skipped(tmp_vault):
     # The bare fixture vault carries an empty wiki/concepts/; a vault with no
     # wiki/ at all has no compiled layer.
@@ -860,6 +881,969 @@ def test_the_record_lookup_costs_a_bounded_number_of_git_calls(wiki_vault, monke
     assert len(calls) <= 12, calls
 
 
+# Survivor triage (Plan C Task 4): what the record lookup reads from git.
+
+_REWRITTEN = "---\ntype: source\n---\nAs [@new2020, p. 3] shows.\n"
+
+
+def _r41_control(vault):
+    """The R41 control: a page sealed in one commit, then its key rewrite and
+    the record naming it committed together by hand."""
+    page = _sealed_citing_page(vault)
+    page.write_text(_REWRITTEN)
+    _propagation_record(vault, "20261127T000000Z", {"old2020": "new2020"})
+    _commit(vault, "the rewrite and its record, by hand")
+    return page
+
+
+def test_a_stray_file_in_the_old_record_s_commit_leaves_the_record_old(wiki_vault):
+    """P2: the stray `0notes.txt` sorts before the record in the same commit's
+    raw diff; the lookup skips it and still reads the record after it."""
+    folder = wiki_vault / propagate.RECORD_DIR
+    folder.mkdir(parents=True)
+    (folder / "0notes.txt").write_text("not a record\n")
+    _propagation_record(wiki_vault, "20260101T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "an old propagation beside a stray note")
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text(_REWRITTEN)
+    _commit(wiki_vault, "the old rewrite replayed by hand")
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+def test_a_deleted_record_in_history_leaves_the_r41_control_vouched_for(wiki_vault):
+    """A deletion's raw line names no new blob (forty zeros); the lookup
+    reads no blob for it, so it neither fails nor decides anything."""
+    _propagation_record(wiki_vault, "20260101T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "an old propagation")
+    _git(wiki_vault, "rm", "-q", "system/propagations/20260101T000000Z.json")
+    _commit(wiki_vault, "the old record removed")
+    _r41_control(wiki_vault)
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (row.result, row.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def test_the_history_lookups_hold_when_the_worktree_lacks_the_paths(wiki_vault):
+    """The hook judges a materialised index while the repository is the real
+    checkout, whose worktree may lack system/propagations/ and the record;
+    the paths are pathspecs after `--`, never read as revisions."""
+    page = _sealed_citing_page(wiki_vault)
+    sealing = _git(wiki_vault, "rev-parse", "HEAD")
+    recorded = compiled.load_record(wiki_vault)["wiki/sources/A.md"]
+    page.write_text(_REWRITTEN)
+    _propagation_record(wiki_vault, "20261127T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "the rewrite and its record, by hand")
+    introduced = _git(wiki_vault, "rev-parse", "HEAD")
+    shutil.rmtree(wiki_vault / propagate.RECORD_DIR)
+    (wiki_vault / compiled.RECORD_PATH).unlink()
+    judge = compiled._Local(wiki_vault)
+    assert judge._introduced("20261127T000000Z") == [introduced]
+    assert judge._sealing_commit("wiki/sources/A.md", recorded) == sealing
+
+
+def test_a_record_renamed_into_place_before_the_seal_is_old(wiki_vault):
+    """M2 with rename detection off: a record committed as `stash.txt`, then
+    moved to its record name, is introduced by the move, which predates the
+    seal. Renames detected would read only the old, non-record path."""
+    folder = wiki_vault / propagate.RECORD_DIR
+    folder.mkdir(parents=True)
+    _propagation_record(wiki_vault, "20260101T000000Z", {"old2020": "new2020"})
+    (folder / "20260101T000000Z.json").rename(folder / "stash.txt")
+    _commit(wiki_vault, "a record under a stray name")
+    _git(
+        wiki_vault,
+        "mv",
+        "system/propagations/stash.txt",
+        "system/propagations/20260101T000000Z.json",
+    )
+    _commit(wiki_vault, "the record moved to its name")
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text(_REWRITTEN)
+    _commit(wiki_vault, "the old rewrite replayed by hand")
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+def test_a_record_a_merge_resolution_added_before_the_seal_is_old(wiki_vault):
+    """`-m`: a merge diffs against each parent, so a record the resolution
+    itself added is introduced by the merge, which predates the seal."""
+    (wiki_vault / "inbox" / "base.md").write_text("base\n")
+    _commit(wiki_vault, "base")
+    main = _branch(wiki_vault)
+    _git(wiki_vault, "switch", "-qc", "side")
+    (wiki_vault / "inbox" / "side.md").write_text("side\n")
+    _commit(wiki_vault, "side")
+    _git(wiki_vault, "switch", "-q", main)
+    (wiki_vault / "inbox" / "main.md").write_text("main\n")
+    _commit(wiki_vault, "main")
+    _git(wiki_vault, "merge", "-q", "--no-ff", "--no-commit", "side")
+    _propagation_record(wiki_vault, "20260101T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "merge, adding an old record")
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text(_REWRITTEN)
+    _commit(wiki_vault, "the old rewrite replayed by hand")
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+def _failing(monkeypatch, which):
+    """`gitstate._git` with the call `which(args)` picks replaced by a git
+    call that fails, its check flag passed through."""
+    real = compiled.gitstate._git
+
+    def failing(repository, *args, **kwargs):
+        if which(args):
+            return real(repository, "log", "--no-such-option", **kwargs)
+        return real(repository, *args, **kwargs)
+
+    monkeypatch.setattr(compiled.gitstate, "_git", failing)
+
+
+def test_a_failing_record_history_read_never_vouches(wiki_vault, monkeypatch):
+    """C10: the introductions log failing is an undecided lookup, a row, not
+    a traceback."""
+    _r41_control(wiki_vault)
+    _failing(monkeypatch, lambda args: "--topo-order" in args)
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+def test_a_failing_record_blob_read_never_vouches(wiki_vault, monkeypatch):
+    """C10: a blob batch that fails, answering nothing, is undecided: a row,
+    not a traceback."""
+    _r41_control(wiki_vault)
+    _failing(monkeypatch, lambda args: "cat-file" in args)
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+def test_a_file_named_head_in_an_unborn_repository_is_not_a_commit(wiki_vault):
+    """No commit yet, so every record is newer than the seal; `--verify`
+    keeps rev-parse from reading a worktree file named HEAD as a path."""
+    shutil.rmtree(wiki_vault / ".git")  # the scaffold commits
+    _git(wiki_vault, "init", "-q")
+    (wiki_vault / "HEAD").write_text("")
+    page = _page(
+        wiki_vault,
+        "wiki/sources/A.md",
+        "---\ntype: source\n---\nAs [@old2020, p. 3] shows.\n",
+    )
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)
+    page.write_text(_REWRITTEN)
+    _propagation_record(wiki_vault, "20261127T000000Z", {"old2020": "new2020"})
+    rows = [o for o in compiled.lint_compiled_layer(wiki_vault) if "A.md" in o.target]
+    assert [(o.result, o.reason) for o in rows] == [
+        (
+            Result.MATCHED,
+            (
+                "matched — citation keys follow propagation 20261127T000000Z; "
+                "run seal wiki/sources/A.md"
+            ),
+        )
+    ]
+
+
+def test_the_sealing_commit_is_found_whatever_the_user_s_log_format(wiki_vault):
+    _git(wiki_vault, "config", "format.pretty", "%s")
+    _r41_control(wiki_vault)
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (row.result, row.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def test_the_entry_s_text_outside_the_record_names_no_sealing_commit(wiki_vault):
+    """The `-S` search is limited to the record: a later commit that copies
+    the entry's text into another file is not the sealing commit."""
+    page = _sealed_citing_page(wiki_vault)
+    recorded = compiled.load_record(wiki_vault)["wiki/sources/A.md"]
+    _propagation_record(wiki_vault, "20261127T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "a record after the seal")
+    _page(
+        wiki_vault,
+        "notes/copy.md",
+        json.dumps("wiki/sources/A.md") + ": " + json.dumps(recorded) + "\n",
+    )
+    _commit(wiki_vault, "the entry's text copied")
+    page.write_text(_REWRITTEN)
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.MATCHED
+
+
+def test_a_later_record_write_that_keeps_the_entry_is_not_its_sealing_commit(
+    wiki_vault,
+):
+    """The sealing commit is the one that introduced the entry (`-S`), not
+    the newest that rewrote the record around it."""
+    page = _sealed_citing_page(wiki_vault)
+    _propagation_record(wiki_vault, "20261127T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "a record after the seal")
+    other = _page(wiki_vault, "wiki/sources/B.md", "---\ntype: source\n---\nB\n")
+    _journal(
+        wiki_vault,
+        "op2",
+        {"wiki/sources/B.md": _sha(other.read_bytes())},
+        epoch=time.time() + 1,
+    )
+    compiled.seal(wiki_vault, ["wiki/sources/B.md"])
+    _commit(wiki_vault, "B sealed")
+    page.write_text(_REWRITTEN)
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.MATCHED
+
+
+def test_a_failing_sealing_commit_search_never_vouches(wiki_vault, monkeypatch):
+    _r41_control(wiki_vault)
+    _failing(
+        monkeypatch,
+        lambda args: any(isinstance(a, bytes) and a.startswith(b"-S") for a in args),
+    )
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert row.result is Result.UNMATCHED
+
+
+def test_a_page_named_outside_ascii_finds_its_sealing_commit(wiki_vault):
+    """The record spells names raw (`ensure_ascii=False`), so the search
+    must too."""
+    page = _page(
+        wiki_vault,
+        "wiki/sources/Café.md",
+        "---\ntype: source\n---\nAs [@old2020, p. 3] shows.\n",
+    )
+    _journal(wiki_vault, "op1", {"wiki/sources/Café.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)
+    _commit(wiki_vault)
+    page.write_text(_REWRITTEN)
+    _propagation_record(wiki_vault, "20261127T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "the rewrite and its record, by hand")
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/Café.md"])
+    assert (row.result, row.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def test_an_uncommitted_seal_is_newer_than_a_committed_record(wiki_vault):
+    """R41: HEAD holds no record entry for the page, so the seal is newer
+    than HEAD and the committed record predates it."""
+    _propagation_record(wiki_vault, "20260101T000000Z", {"old2020": "new2020"})
+    _commit(wiki_vault, "a propagation")
+    assert (
+        compiled.gitstate.blob_bytes(wiki_vault, "HEAD", compiled.RECORD_PATH) is None
+    )
+    page = _page(
+        wiki_vault,
+        "wiki/sources/A.md",
+        "---\ntype: source\n---\nAs [@old2020, p. 3] shows.\n",
+    )
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)
+    page.write_text(_REWRITTEN)
+    rows = [o for o in compiled.lint_compiled_layer(wiki_vault) if "A.md" in o.target]
+    assert [o.result for o in rows] == [Result.UNMATCHED]
+
+
+def test_sealed_bytes_only_a_merge_resolution_wrote_are_read_from_head(wiki_vault):
+    """C7: with the store gone, a merge resolution's reseal is read from HEAD;
+    the path's history (`git log --raw`, no `-m`) shows no diff for a merge."""
+    page = _page(
+        wiki_vault,
+        "wiki/sources/A.md",
+        "---\ntype: source\n---\nSee [B](/wiki/concepts/B.md).\n",
+    )
+    target = _page(wiki_vault, "wiki/concepts/B.md", "---\ntype: concept\n---\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    _commit(wiki_vault, "S0")
+    main = _branch(wiki_vault)
+    _git(wiki_vault, "switch", "-qc", "side")
+    (wiki_vault / "inbox" / "side.md").write_text("side\n")
+    _commit(wiki_vault, "side")
+    _git(wiki_vault, "switch", "-q", main)
+    (wiki_vault / "inbox" / "main.md").write_text("main\n")
+    _commit(wiki_vault, "main")
+    _git(wiki_vault, "merge", "-q", "--no-ff", "--no-commit", "side")
+    page.write_text("---\ntype: source\n---\nSee [B](/wiki/concepts/B.md), merged.\n")
+    _journal(
+        wiki_vault,
+        "op2",
+        {"wiki/sources/A.md": _sha(page.read_bytes())},
+        epoch=time.time() + 1,
+    )
+    compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    _commit(wiki_vault, "merge: A resealed")
+    shutil.rmtree(wiki_vault / compiled.SEALED_STORE)
+    target.rename(wiki_vault / "wiki" / "concepts" / "C.md")
+    page.write_text("---\ntype: source\n---\nSee [B](/wiki/concepts/C.md), merged.\n")
+    rows = [o for o in compiled.lint_compiled_layer(wiki_vault) if "A.md" in o.target]
+    assert [o.reason for o in rows] == [
+        "matched — link targets follow a rename; run seal wiki/sources/A.md"
+    ]
+
+
+# Survivor triage (Plan C Task 4): the judges' sealed-bytes reads.
+
+
+def _versions(vault, relative, *bodies):
+    """``relative`` committed once per body, oldest first."""
+    path = vault / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    for body in bodies:
+        path.write_bytes(body)
+        _commit(vault, f"{relative} = {body!r}")
+    return path
+
+
+def _empty_base(vault):
+    """The re-check's judge over a base snapshot holding nothing, so only the
+    path's history can answer."""
+    return compiled.snapshot_base(gitstate.Snapshot({}), vault)
+
+
+def test_the_re_check_reads_a_sealed_blob_from_deep_in_the_path_s_history(
+    wiki_vault,
+):
+    """C7: the log yields v2, v3, then v1, so the oldest blob is the batch's
+    last answer and is found only when every earlier one parses."""
+    _versions(wiki_vault, "wiki/a.md", b"v1\n", b"v2\n", b"v3\n")
+    assert _empty_base(wiki_vault).sealed("wiki/a.md", _sha(b"v1\n")) == b"v1\n"
+
+
+def test_the_re_check_reads_sealed_bytes_from_the_base_snapshot(tmp_path):
+    """C2: a file image in the base whose bytes hash to the entry is the
+    sealed copy; any other hash, or no image, falls through to a history
+    that (with no `.git`) holds nothing."""
+    snapshot = gitstate.Snapshot(
+        {b"wiki/a.md": gitstate.FileImage(b"wiki/a.md", "file", 0o100644, b"x")}
+    )
+    base = compiled.snapshot_base(snapshot, tmp_path)
+    assert base.sealed("wiki/a.md", _sha(b"x")) == b"x"
+    assert base.sealed("wiki/a.md", _sha(b"y")) is None
+    assert base.sealed("wiki/b.md", _sha(b"x")) is None
+
+
+def test_a_deleted_page_s_history_still_holds_its_sealed_bytes(wiki_vault):
+    """A deletion names no new blob (forty zeros), which is never asked of
+    the batch; the path, absent from the worktree, is a pathspec after
+    `--`."""
+    _versions(wiki_vault, "wiki/a.md", b"v1\n", b"v2\n")
+    _git(wiki_vault, "rm", "-q", "wiki/a.md")
+    _commit(wiki_vault, "wiki/a.md removed")
+    assert compiled._history_blob(wiki_vault, "wiki/a.md", _sha(b"v1\n")) == b"v1\n"
+
+
+def test_an_unborn_repository_has_no_history_and_the_page_differs(wiki_vault):
+    """No commit yet: the history read fails and answers nothing, a row,
+    not a traceback."""
+    shutil.rmtree(wiki_vault / ".git")  # the scaffold commits
+    _git(wiki_vault, "init", "-q")
+    (wiki_vault / "wiki" / "a.md").write_bytes(b"new\n")
+    compiled.write_record(wiki_vault, {"wiki/a.md": _sha(b"old\n")})
+    rows = [
+        (o.result, o.reason)
+        for o in compiled.lint_compiled_layer(wiki_vault)
+        if o.target == "path-bytes:wiki/a.md"
+    ]
+    assert rows == [
+        (
+            Result.UNMATCHED,
+            "drift — wiki/a.md differs from the compiled-page record; "
+            + compiled.DIFFERS_REMEDY,
+        )
+    ]
+
+
+def test_the_history_read_is_bounded_to_the_path_s_last_commits(
+    wiki_vault, monkeypatch
+):
+    """C7: only the last `HISTORY_BOUND` commits touching the path are read,
+    and a commit's old blob counts as well as its new one. A later commit
+    touching another page is outside the path's history."""
+    monkeypatch.setattr(compiled, "HISTORY_BOUND", 1)
+    _versions(wiki_vault, "wiki/a.md", b"v1\n", b"v2\n", b"v3\n")
+    _versions(wiki_vault, "wiki/other.md", b"other\n")
+    base = _empty_base(wiki_vault)
+    assert base.sealed("wiki/a.md", _sha(b"v2\n")) == b"v2\n"
+    assert base.sealed("wiki/a.md", _sha(b"v1\n")) is None
+
+
+def test_the_history_read_holds_when_git_abbreviates_with_an_ellipsis(
+    wiki_vault, monkeypatch
+):
+    """`--no-abbrev`: with GIT_PRINT_SHA1_ELLIPSIS=yes git prints an
+    abbreviated oid as `a8116d9...`, which the batch reports missing."""
+    monkeypatch.setenv("GIT_PRINT_SHA1_ELLIPSIS", "yes")
+    _versions(wiki_vault, "wiki/a.md", b"v1\n", b"v2\n")
+    assert _empty_base(wiki_vault).sealed("wiki/a.md", _sha(b"v1\n")) == b"v1\n"
+
+
+def test_a_gitlink_in_the_path_s_history_ends_the_history_read(wiki_vault):
+    """A gitlink may name a commit of this very repository, which the batch
+    answers as `commit <size>`: not a blob, so nothing after it is read
+    (C10: fail closed), and the older blob is not found."""
+    _versions(wiki_vault, "wiki/p.md", b"v1\n")
+    own = _git(wiki_vault, "rev-parse", "HEAD")
+    _git(wiki_vault, "update-index", "--cacheinfo", f"160000,{own},wiki/p.md")
+    _git(wiki_vault, "commit", "-qm", "a gitlink to an own commit", "--no-verify")
+    _versions(wiki_vault, "wiki/p.md", b"v3\n")
+    assert (
+        _git(wiki_vault, "log", "--format=", "--raw", "--", "wiki/p.md").count("160000")
+        == 2
+    )
+    assert _empty_base(wiki_vault).sealed("wiki/p.md", _sha(b"v1\n")) is None
+
+
+def test_a_record_lookup_holds_when_git_abbreviates_with_an_ellipsis(
+    wiki_vault, monkeypatch
+):
+    """`--no-abbrev`: an abbreviated record blob `a8116d9...` would be
+    missing from the batch, an undecided lookup that never vouches."""
+    monkeypatch.setenv("GIT_PRINT_SHA1_ELLIPSIS", "yes")
+    _r41_control(wiki_vault)
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (row.result, row.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def test_the_record_lookup_never_reads_a_path_outside_the_records(wiki_vault):
+    """The record folder is a pathspec: a name holding \\x01 then a byte
+    outside ASCII would split the `-z` log at the commit marker and leave a
+    commit id that is not ASCII."""
+    try:
+        (wiki_vault / "inbox" / os.fsdecode(b"n\x01\xff")).write_bytes(b"n\n")
+    except OSError:
+        pytest.skip("the filesystem refuses a name that is not UTF-8")
+    _commit(wiki_vault, "a stray name")
+    _r41_control(wiki_vault)
+    (row,) = compiled.seal(wiki_vault, ["wiki/sources/A.md"])
+    assert (row.result, row.reason) == (Result.MATCHED, "matched — sealed 1")
+
+
+def test_an_operation_no_record_introduced_has_no_commits(wiki_vault):
+    _r41_control(wiki_vault)
+    assert compiled._Local(wiki_vault)._introduced("20990101T000000Z") == []
+
+
+def test_only_a_json_object_carrying_an_operation_id_names_one():
+    assert compiled._parsed_operation(b'{"schema": 1}') is None
+    assert compiled._parsed_operation(b'["operation_id"]') is None
+    assert compiled._parsed_operation(b'{"operation_id": 7}') == "7"
+
+
+def test_a_commit_s_symlinks_and_special_files_in_the_layer_are_its_nodes():
+    """`README.md` sorts first and is outside the layer, `wiki/.obsidian`
+    sorts before the pages and is excluded: each is skipped, not the end."""
+
+    def image(raw, kind, mode, data):
+        return gitstate.FileImage(raw, kind, mode, data)
+
+    snapshot = gitstate.Snapshot(
+        {
+            b"README.md": image(b"README.md", "file", 0o100644, b""),
+            b"wiki/.obsidian": image(b"wiki/.obsidian", "symlink", 0o120000, b"t"),
+            b"wiki/a": image(b"wiki/a", "symlink", 0o120000, b"t"),
+            b"wiki/b": image(b"wiki/b", "special", 0o160000, None),
+        }
+    )
+    assert compiled._snapshot_nodes(snapshot) == {
+        "wiki/a": "symlink",
+        "wiki/b": "special",
+    }
+
+
+def test_a_sealed_page_edited_into_bytes_that_are_not_utf8_differs(wiki_vault):
+    """The definite tests read both sides as text with `surrogateescape`, so
+    a byte that is not UTF-8 is a difference, not a traceback."""
+    page = _page(wiki_vault, "wiki/a.md", "---\ntype: source\n---\nok\n")
+    _journal(wiki_vault, "op1", {"wiki/a.md": _sha(page.read_bytes())})
+    compiled.seal(wiki_vault)
+    page.write_bytes(b"---\ntype: source\n---\nok \xff\n")
+    rows = [
+        (o.result, o.reason)
+        for o in compiled.lint_compiled_layer(wiki_vault)
+        if o.target == "path-bytes:wiki/a.md"
+    ]
+    assert rows == [
+        (
+            Result.UNMATCHED,
+            "drift — wiki/a.md differs from the compiled-page record; "
+            + compiled.DIFFERS_REMEDY,
+        )
+    ]
+
+
+# Survivor triage (Plan C Task 4): journal_hashes, the link-only test, seal,
+# the two lints and the record's custody.
+
+
+def _raw_journal(vault, name, document):
+    """A journal written as given, so a test can shape what `_journal` fixes."""
+    folder = vault / ".vault-meta" / "transactions" / name
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "journal.json").write_text(
+        document if isinstance(document, str) else json.dumps(document)
+    )
+
+
+def _complete(writes, **fields):
+    return {"state": "complete", "writes": writes, **fields}
+
+
+def _record_bytes(pages):
+    """A record's bytes, as HEAD or a carried commit holds them."""
+    return json.dumps({"schema": compiled.SCHEMA, "pages": pages}).encode()
+
+
+def _in_the_c_locale(vault, statement):
+    """Run ``statement`` (``compiled`` and ``VAULT`` bound) in a child whose
+    locale codec is ASCII: UTF-8 mode off and the C locale left uncoerced
+    (not `-I`, which turns UTF-8 mode back on). Any read or write that leaves
+    its encoding to the locale fails there on a byte outside ASCII. The
+    child prints JSON, so its own stdout stays ASCII."""
+    package = str(Path(compiled.__file__).resolve().parents[1])
+    path = os.pathsep.join(p for p in (package, os.environ.get("PYTHONPATH")) if p)
+    env = {
+        **os.environ,
+        "LC_ALL": "C",
+        "PYTHONCOERCECLOCALE": "0",
+        "PYTHONUTF8": "0",
+        "PYTHONPATH": path,
+    }
+    script = (
+        "import json, locale\n"
+        "from research_vault import compiled\n"
+        f"VAULT = {str(vault)!r}\n"
+        "assert locale.getencoding() == 'ANSI_X3.4-1968', locale.getencoding()\n"
+        f"{statement}\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-X", "utf8=0", "-c", script],
+        cwd=vault,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout)
+
+
+def test_journal_hashes_skips_writes_that_name_no_path_or_hash(wiki_vault):
+    """A malformed write is skipped, not the end of the journal."""
+    _raw_journal(
+        wiki_vault,
+        "op1",
+        _complete(
+            [
+                "junk",
+                {"new_sha256": "a" * 64},
+                {"path": "wiki/x.md", "new_sha256": 5},
+                {"path": "wiki/a.md", "new_sha256": "b" * 64},
+            ],
+            created_epoch=1_000,
+        ),
+    )
+    assert compiled.journal_hashes(wiki_vault) == {"wiki/a.md": "b" * 64}
+
+
+def test_journal_hashes_skips_an_unreadable_or_unfinished_journal(wiki_vault):
+    """`0` is not JSON and `a` is only prepared: each is skipped, and the
+    complete journal after them still counts."""
+    _raw_journal(wiki_vault, "0", "{not json")
+    _raw_journal(
+        wiki_vault,
+        "a",
+        {
+            "state": "prepared",
+            "writes": [{"path": "wiki/p.md", "new_sha256": "p" * 64}],
+        },
+    )
+    _raw_journal(
+        wiki_vault, "b", _complete([{"path": "wiki/a.md", "new_sha256": "a" * 64}])
+    )
+    assert compiled.journal_hashes(wiki_vault) == {"wiki/a.md": "a" * 64}
+
+
+def test_journal_hashes_takes_the_latest_date_not_the_latest_name(wiki_vault):
+    """`a` is dated after `b`, the reverse of their sorted names."""
+    _journal(wiki_vault, "a", {"wiki/a.md": "2" * 64}, epoch=2_000)
+    _journal(wiki_vault, "b", {"wiki/a.md": "1" * 64}, epoch=1_000)
+    assert compiled.journal_hashes(wiki_vault) == {"wiki/a.md": "2" * 64}
+
+
+def test_journal_hashes_breaks_a_date_tie_by_the_later_name(wiki_vault):
+    """Every undated journal ties at 0; the later one in sorted order wins."""
+    _journal(wiki_vault, "a", {"wiki/a.md": "1" * 64}, epoch=1_000)
+    _journal(wiki_vault, "b", {"wiki/a.md": "2" * 64}, epoch=1_000)
+    assert compiled.journal_hashes(wiki_vault) == {"wiki/a.md": "2" * 64}
+
+
+def test_an_undated_journal_ranks_below_every_dated_one(wiki_vault):
+    _raw_journal(
+        wiki_vault, "a", _complete([{"path": "wiki/a.md", "new_sha256": "1" * 64}])
+    )
+    _journal(wiki_vault, "b", {"wiki/a.md": "2" * 64}, epoch=0.5)
+    assert compiled.journal_hashes(wiki_vault) == {"wiki/a.md": "2" * 64}
+
+
+def test_journal_hashes_reads_a_utf8_journal_whatever_the_locale(wiki_vault):
+    """The compile tool writes journals with `ensure_ascii=False`, so a page
+    name outside ASCII is raw UTF-8 in the file."""
+    folder = wiki_vault / ".vault-meta" / "transactions" / "op1"
+    folder.mkdir(parents=True)
+    (folder / "journal.json").write_bytes(
+        json.dumps(
+            _complete([{"path": "wiki/Café.md", "new_sha256": "a" * 64}]),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    )
+    assert _in_the_c_locale(
+        wiki_vault, "print(json.dumps(compiled.journal_hashes(VAULT)))"
+    ) == {"wiki/Café.md": "a" * 64}
+
+
+@pytest.fixture
+def link_index(wiki_vault):
+    _page(wiki_vault, "wiki/concepts/B.md", "---\ntype: concept\n---\n")
+    _page(wiki_vault, "wiki/concepts/C.md", "---\ntype: concept\n---\n")
+    return captured.link_index(wiki_vault)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("See [B](/wiki/concepts/B.md).\n", "Saw [B](/wiki/concepts/B.md).\n"),
+        ("Xsee [B](/wiki/concepts/B.md).\n", "Ysee [B](/wiki/concepts/B.md).\n"),
+        (
+            "See [B](/wiki/concepts/B.md).\n",
+            "See [B](/wiki/concepts/B.md) and [B](/wiki/concepts/B.md).\n",
+        ),
+        ("plain\n", "plain\n"),
+    ],
+    ids=["prose-between", "first-character", "link-count", "no-links"],
+)
+def test_a_change_outside_the_link_destinations_is_not_link_only(link_index, old, new):
+    """Prose that differs, from the very first character; a link added; and
+    a text with no links at all, which no rename touched."""
+    assert (
+        compiled.only_link_targets_changed(old, new, link_index, "wiki/sources/A.md")
+        is False
+    )
+
+
+def test_a_nested_json_file_under_the_records_is_no_record():
+    assert compiled.is_record_file(b"system/propagations/r.json") is True
+    assert compiled.is_record_file(b"system/propagations/sub/r.json") is False
+
+
+def test_the_record_write_keeps_a_name_outside_ascii_as_text(wiki_vault):
+    """`_Local._sealing_commit` searches HEAD's record for the entry as
+    `json.dumps(..., ensure_ascii=False)` writes it."""
+    compiled.write_record(wiki_vault, {"wiki/Café.md": "a" * 64})
+    assert '"wiki/Café.md"' in (wiki_vault / compiled.RECORD_PATH).read_text(
+        encoding="utf-8"
+    )
+
+
+def test_a_record_of_another_schema_names_the_schema_in_its_row(wiki_vault):
+    """The reason feeds the row's finding id, so it is pinned whole."""
+    (wiki_vault / compiled.RECORD_PATH).write_text(
+        json.dumps({"schema": "other", "pages": {}})
+    )
+    (row,) = compiled.lint_compiled_layer(wiki_vault)
+    assert row.reason == (
+        "schema-violation — compiled-page record unreadable: not a "
+        "research-vault.compiled-pages.v1 document"
+    )
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root reads any file"
+)
+def test_a_record_the_os_refuses_to_read_names_the_error_in_its_row(wiki_vault):
+    path = compiled.write_record(wiki_vault, {"wiki/a.md": "a" * 64})
+    path.chmod(0)
+    try:
+        (row,) = compiled.lint_compiled_layer(wiki_vault)
+    finally:
+        path.chmod(0o644)
+    assert row.reason.startswith(
+        "schema-violation — compiled-page record unreadable: [Errno 13]"
+    )
+
+
+def test_an_unreadable_or_excluded_propagation_record_is_skipped(wiki_vault):
+    """`.hidden.json` (excluded) and `0000-broken.json` (not JSON) sort
+    before the real record; each is skipped, not the end of the search."""
+    page = _sealed_citing_page(wiki_vault)
+    page.write_text(_REWRITTEN)
+    _propagation_record(wiki_vault, "20261127T000000Z", {"old2020": "new2020"})
+    folder = wiki_vault / propagate.RECORD_DIR
+    (folder / ".hidden.json").write_text("{not json")
+    (folder / "0000-broken.json").write_text("{not json")
+    rows = [o for o in compiled.lint_compiled_layer(wiki_vault) if "A.md" in o.target]
+    assert [(o.result, o.reason) for o in rows] == [
+        (
+            Result.MATCHED,
+            (
+                "matched — citation keys follow propagation 20261127T000000Z; "
+                "run seal wiki/sources/A.md"
+            ),
+        )
+    ]
+
+
+def test_lint_reads_past_a_symlinked_folder_s_entries_to_an_absent_page(
+    wiki_vault, tmp_path_factory
+):
+    outside = tmp_path_factory.mktemp("outside")
+    (wiki_vault / "wiki" / "link").symlink_to(outside, target_is_directory=True)
+    compiled.write_record(
+        wiki_vault, {"wiki/link/x.md": "a" * 64, "wiki/z.md": "b" * 64}
+    )
+    assert compiled.lint_compiled_layer(wiki_vault) == [
+        compiled._not_a_file("wiki/link", "symlink"),
+        compiled._absent("wiki/z.md"),
+    ]
+
+
+def test_lint_drops_only_the_entry_the_tool_deleted(wiki_vault):
+    """`a` has a journal delete and files no row; `b`, after it, has none."""
+    compiled.write_record(wiki_vault, {"wiki/a.md": "a" * 64, "wiki/b.md": "b" * 64})
+    _journal(wiki_vault, "op1", {"wiki/a.md": None})
+    assert compiled.lint_compiled_layer(wiki_vault) == [compiled._absent("wiki/b.md")]
+
+
+def test_lint_reads_past_a_rename_reseal_to_the_next_page(wiki_vault):
+    """The MATCHED note for `A.md` is not the end: `Z.md`, unsealed, still
+    files its row."""
+    page = _page(
+        wiki_vault,
+        "wiki/sources/A.md",
+        "---\ntype: source\n---\nSee [B](/wiki/concepts/B.md).\n",
+    )
+    target = _page(wiki_vault, "wiki/concepts/B.md", "---\ntype: concept\n---\n")
+    _journal(
+        wiki_vault,
+        "op1",
+        {
+            "wiki/sources/A.md": _sha(page.read_bytes()),
+            "wiki/concepts/B.md": _sha(target.read_bytes()),
+        },
+    )
+    compiled.seal(wiki_vault)
+    _commit(wiki_vault)
+    target.rename(wiki_vault / "wiki" / "concepts" / "C.md")
+    page.write_text("---\ntype: source\n---\nSee [B](/wiki/concepts/C.md).\n")
+    _page(wiki_vault, "wiki/sources/Z.md", "---\ntype: source\n---\nby hand\n")
+    rows = compiled.lint_compiled_layer(wiki_vault, journal=False)
+    assert [(o.target, o.result) for o in rows] == [
+        ("path-bytes:wiki/concepts/C.md", Result.UNMATCHED),
+        ("path-bytes:wiki/sources/A.md", Result.MATCHED),
+        ("path-bytes:wiki/sources/Z.md", Result.UNMATCHED),
+        ("path-bytes:wiki/concepts/B.md", Result.UNMATCHED),
+    ]
+
+
+def test_seal_refuses_a_recorded_page_that_is_absent_and_keeps_its_entry(
+    wiki_vault,
+):
+    compiled.write_record(wiki_vault, {"wiki/a.md": "a" * 64})
+    assert compiled.seal(wiki_vault) == [compiled._absent("wiki/a.md")]
+    assert compiled.load_record(wiki_vault) == {"wiki/a.md": "a" * 64}
+
+
+def test_seal_counts_every_entry_the_tool_deleted(wiki_vault):
+    compiled.write_record(wiki_vault, {"wiki/a.md": "a" * 64, "wiki/b.md": "b" * 64})
+    _journal(wiki_vault, "op1", {"wiki/a.md": None, "wiki/b.md": None})
+    assert compiled.seal(wiki_vault) == [
+        compiled.Outcome(
+            compiled.CHECK, compiled.RECORD_PATH, Result.MATCHED, "matched — sealed 2"
+        )
+    ]
+    assert compiled.load_record(wiki_vault) == {}
+
+
+def test_seal_reads_past_its_refusals_to_the_next_page(wiki_vault):
+    """`0.md` is recorded but absent and `1.md` is unsealed; each is refused,
+    and `z.md` after them is still sealed."""
+    compiled.write_record(wiki_vault, {"wiki/0.md": "0" * 64})
+    _page(wiki_vault, "wiki/1.md", "---\ntype: source\n---\nby hand\n")
+    page = _page(wiki_vault, "wiki/z.md", "---\ntype: source\n---\nz\n")
+    _journal(wiki_vault, "op1", {"wiki/z.md": _sha(page.read_bytes())})
+    assert [o.target for o in compiled.seal(wiki_vault)] == [
+        "path-bytes:wiki/0.md",
+        "path-bytes:wiki/1.md",
+    ]
+    assert compiled.load_record(wiki_vault) == {
+        "wiki/0.md": "0" * 64,
+        "wiki/z.md": _sha(page.read_bytes()),
+    }
+
+
+def test_seal_stores_a_page_sealed_before_the_store_existed(wiki_vault):
+    """C7's back-fill: an entry already equal to the page's bytes."""
+    page = _page(wiki_vault, "wiki/sources/A.md", "---\ntype: source\n---\nA\n")
+    data = page.read_bytes()
+    compiled.write_record(wiki_vault, {"wiki/sources/A.md": _sha(data)})
+    assert compiled.stored_bytes(wiki_vault, _sha(data)) is None
+    compiled.seal(wiki_vault)
+    assert compiled.stored_bytes(wiki_vault, _sha(data)) == data
+
+
+def test_seal_takes_a_named_path_with_its_slashes_stripped(wiki_vault):
+    page = _page(wiki_vault, "wiki/sources/X", "x\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/X": _sha(page.read_bytes())})
+    (row,) = compiled.seal(wiki_vault, ["/wiki/sources/X"])
+    assert row.reason == "matched — sealed 1"
+    assert compiled.load_record(wiki_vault) == {"wiki/sources/X": _sha(b"x\n")}
+
+
+def test_seal_reads_journals_from_the_repository_root_it_is_given(wiki_vault):
+    page = _page(wiki_vault, "wiki/sources/A.md", "---\ntype: source\n---\nA\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/A.md": _sha(page.read_bytes())})
+    (row,) = compiled.seal(wiki_vault, repository_root=wiki_vault)
+    assert row.reason == "matched — sealed 1"
+
+
+def test_seal_names_the_yaml_error_in_its_refusal(wiki_vault):
+    """The reason feeds the row's finding id, so it is pinned whole."""
+    page = _page(wiki_vault, "wiki/sources/C.md", "---\ntitle: A: B\n---\nx\n")
+    _journal(wiki_vault, "op1", {"wiki/sources/C.md": _sha(page.read_bytes())})
+    (row,) = compiled.seal(wiki_vault)
+    assert row.reason == (
+        "schema-violation — wiki/sources/C.md: frontmatter is not valid YAML "
+        "(frontmatter is not valid YAML: mapping values are not allowed in this "
+        "context (line 2, column 9))"
+    )
+
+
+def test_seal_normalises_a_page_whose_bytes_are_not_utf8(wiki_vault):
+    """The stray byte rides through the link rewrite and back to disk."""
+    page = wiki_vault / "wiki" / "sources" / "A.md"
+    page.parent.mkdir(parents=True)
+    page.write_bytes(b"---\ntype: source\n---\nSee [[B]] \xff.\n")
+    target = _page(wiki_vault, "wiki/concepts/B.md", "---\ntype: concept\n---\n")
+    _journal(
+        wiki_vault,
+        "op1",
+        {
+            "wiki/sources/A.md": _sha(page.read_bytes()),
+            "wiki/concepts/B.md": _sha(target.read_bytes()),
+        },
+    )
+    (row,) = compiled.seal(wiki_vault)
+    assert row.reason == "matched — sealed 2"
+    normalised = b"---\ntype: source\n---\nSee [B](/wiki/concepts/B.md) \xff.\n"
+    assert page.read_bytes() == normalised
+    assert compiled.load_record(wiki_vault)["wiki/sources/A.md"] == _sha(normalised)
+
+
+def test_seal_writes_a_normalised_page_as_utf8_whatever_the_locale(wiki_vault):
+    page = wiki_vault / "wiki" / "sources" / "A.md"
+    page.parent.mkdir(parents=True)
+    page.write_bytes("---\ntype: source\n---\nCafé [[B]].\n".encode())
+    target = _page(wiki_vault, "wiki/concepts/B.md", "---\ntype: concept\n---\n")
+    _journal(
+        wiki_vault,
+        "op1",
+        {
+            "wiki/sources/A.md": _sha(page.read_bytes()),
+            "wiki/concepts/B.md": _sha(target.read_bytes()),
+        },
+    )
+    assert _in_the_c_locale(
+        wiki_vault, "print(json.dumps([o.reason for o in compiled.seal(VAULT)]))"
+    ) == ["matched — sealed 2"]
+    assert page.read_bytes() == (
+        "---\ntype: source\n---\nCafé [B](/wiki/concepts/B.md).\n".encode()
+    )
+
+
+def test_custody_reads_past_carried_records_that_hold_nothing(wiki_vault):
+    """A missing and an unreadable carried record carry nothing; the good
+    one after them justifies `a`'s entry, and `b`, after `a`, is judged."""
+    compiled.write_record(wiki_vault, {"wiki/a.md": "b" * 64, "wiki/b.md": "c" * 64})
+    rows = compiled.lint_record_custody(
+        wiki_vault,
+        _record_bytes({"wiki/a.md": "a" * 64}),
+        carried=[None, b"{not json", _record_bytes({"wiki/a.md": "b" * 64})],
+    )
+    assert [o.target for o in rows] == ["path-bytes:wiki/b.md"]
+
+
+def test_custody_reads_past_entries_a_journal_or_the_store_justifies(wiki_vault):
+    data = b"stored\n"
+    compiled._store(wiki_vault, data)
+    _journal(wiki_vault, "op1", {"wiki/a.md": "a" * 64})
+    compiled.write_record(
+        wiki_vault,
+        {"wiki/a.md": "a" * 64, "wiki/b.md": _sha(data), "wiki/c.md": "c" * 64},
+    )
+    rows = compiled.lint_record_custody(wiki_vault, None)
+    assert [o.target for o in rows] == ["path-bytes:wiki/c.md"]
+
+
+def test_custody_reads_past_a_rename_reseal_to_the_next_entry(wiki_vault):
+    (wiki_vault / "inbox" / "B.md").write_text("B\n")
+    page = _committed_page(wiki_vault, "See [B](/inbox/B.md).")
+    (wiki_vault / "inbox" / "B.md").rename(wiki_vault / "inbox" / "C.md")
+    page.write_text(_CONCEPT.format("A", "See [B](/inbox/C.md)."))
+    compiled.seal(wiki_vault, ["wiki/concepts/A.md"])
+    shutil.rmtree(wiki_vault / compiled.SEALED_STORE)
+    record = compiled.load_record(wiki_vault)
+    compiled.write_record(wiki_vault, {**record, "wiki/concepts/Z.md": "z" * 64})
+    head = _git(wiki_vault, "show", f"HEAD:{compiled.RECORD_PATH}").encode()
+    rows = compiled.lint_record_custody(wiki_vault, head)
+    assert [o.target for o in rows] == ["path-bytes:wiki/concepts/Z.md"]
+
+
+def test_an_unreadable_head_record_counts_as_empty(wiki_vault):
+    compiled.write_record(wiki_vault, {"wiki/a.md": "a" * 64})
+    rows = compiled.lint_record_custody(wiki_vault, b"{not json")
+    assert [o.reason.split(";")[0] for o in rows] == [
+        (
+            "drift — wiki/a.md's record entry was added with no compile, "
+            "rename or seal behind it"
+        )
+    ]
+
+
+def test_custody_judges_each_removed_entry_on_its_own(wiki_vault):
+    """`a` was deleted by the compile tool and `b` is absent from a carried
+    record too, so neither files a row; `c`, removed with neither behind
+    it, does."""
+    compiled.write_record(wiki_vault, {})
+    _journal(wiki_vault, "op1", {"wiki/a.md": None})
+    head = _record_bytes(
+        {"wiki/a.md": "a" * 64, "wiki/b.md": "b" * 64, "wiki/c.md": "c" * 64}
+    )
+    rows = compiled.lint_record_custody(
+        wiki_vault, head, carried=[_record_bytes({"wiki/c.md": "c" * 64})]
+    )
+    assert [(o.target, o.reason) for o in rows] == [
+        (
+            "path-bytes:wiki/c.md",
+            (
+                "drift — wiki/c.md's record entry was removed with no compile "
+                "delete behind it; restore the entry, or acknowledge"
+            ),
+        )
+    ]
+
+
+def test_custody_judges_a_rename_without_the_seal_store(wiki_vault):
+    """W3: the store holds the page's old bytes and git does not, so the
+    index leg, which reads no store, cannot see the rename and holds."""
+    old = b"---\ntype: source\n---\nSee [B](/wiki/concepts/B.md).\n"
+    new = b"---\ntype: source\n---\nSee [B](/wiki/concepts/C.md).\n"
+    page = wiki_vault / "wiki" / "sources" / "A.md"
+    page.parent.mkdir(parents=True)
+    page.write_bytes(new)
+    _page(wiki_vault, "wiki/concepts/C.md", "---\ntype: concept\n---\n")
+    compiled._store(wiki_vault, old)
+    compiled.write_record(wiki_vault, {"wiki/sources/A.md": _sha(new)})
+    rows = compiled.lint_record_custody(
+        wiki_vault, _record_bytes({"wiki/sources/A.md": _sha(old)})
+    )
+    assert [o.target for o in rows] == ["path-bytes:wiki/sources/A.md"]
+
+
 # Final-review fix wave (W2, W3, W6, W8).
 
 
@@ -993,6 +1977,14 @@ def test_the_record_write_is_atomic(wiki_vault, monkeypatch):
     assert sorted(p.name for p in (wiki_vault / "system").iterdir()) == sorted(
         p.name for p in (wiki_vault / "system").iterdir() if not p.name.startswith(".")
     )
+
+
+def test_the_record_write_creates_the_folders_it_needs(tmp_path):
+    """`write_record` is exported: a caller may write into a vault that has
+    no `system/` yet, nor the vault folder itself."""
+    path = compiled.write_record(tmp_path / "new-vault", {"wiki/a.md": "1" * 64})
+    assert path == tmp_path / "new-vault" / compiled.RECORD_PATH
+    assert compiled.load_record(tmp_path / "new-vault") == {"wiki/a.md": "1" * 64}
 
 
 def test_seal_writes_the_record_before_the_pages_and_a_rerun_accepts_them(
