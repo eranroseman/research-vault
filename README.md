@@ -298,50 +298,61 @@ A new vault's `.obsidian/` is seeded by `scaffold --with-obsidian` from this dec
 
 ### Declared plugin settings
 
-| Plugin                      | File                | Key                                      | Accepted                       |
-| --------------------------- | ------------------- | ---------------------------------------- | ------------------------------ |
-| Core                        | `core-plugins.json` | `sync`                                   | `false`                        |
-| Core                        | `core-plugins.json` | `publish`                                | `false`, `unset`               |
-| Core                        | `core-plugins.json` | `canvas`                                 | `false`                        |
-| Core                        | `core-plugins.json` | `properties`                             | `false`                        |
-| Core                        | `core-plugins.json` | `markdown-importer`                      | `false`, `unset`               |
-| Core                        | `app.json`          | `useMarkdownLinks`                       | `true`                         |
-| Core                        | `app.json`          | `newLinkFormat`                          | `"absolute"`                   |
-| Core                        | `app.json`          | `newFileLocation`                        | `"folder"`                     |
-| Core                        | `app.json`          | `newFileFolderPath`                      | `"inbox"`                      |
-| Core                        | `app.json`          | `attachmentFolderPath`                   | `"inbox"`                      |
-| Core                        | `daily-notes.json`  | `folder`                                 | `"daily"`                      |
-| Core                        | `zk-prefixer.json`  | `folder`                                 | `"inbox"`                      |
-| Dataview                    | `data.json`         | `enableDataviewJs`                       | `false`, `unset`               |
-| Dataview                    | `data.json`         | `enableInlineDataviewJs`                 | `false`, `unset`               |
-| Iconize                     | `data.json`         | `settings.iconPacksPath`                 | `".obsidian/icons"`            |
-| Iconize                     | `data.json`         | `settings.iconsInNotesEnabled`           | `false`                        |
-| Footnote Shortcut           | `data.json`         | `lintOnSave`                             | `false`                        |
-| Novel word count            | `data.json`         | `settings.writeCountsToFile`             | `false`, `unset`               |
-| Better Word Count           | `data.json`         | `collectStats`                           | `false`, `unset`               |
-| Auto Note Mover             | `data.json`         | `use_regex_to_check_for_excluded_folder` | `true`                         |
-| Homepage                    | `data.json`         | `homepages.Main Homepage.autoCreate`     | `false`                        |
-| Citations                   | `data.json`         | `citationExportPath`                     | `"system/bibliography.json"`   |
-| Citations                   | `data.json`         | `literatureNoteFolder`                   | `"Reading notes"`              |
-| Zotero Annotation Citations | `data.json`         | `source`                                 | `"betterbibtex"`, `unset`      |
-| Omnisearch                  | `data.json`         | `httpApiEnabled`                         | `false`, `unset`               |
-| Editing Toolbar             | `data.json`         | `ai.enabled`                             | `false`                        |
-| Kanban                      | `data.json`         | `new-note-folder`                        | `"inbox"`                      |
-| TaskNotes                   | `data.json`         | `enableAPI`                              | `false`                        |
-| TaskNotes                   | `data.json`         | `enableMCP`                              | `false`                        |
-| TaskNotes                   | `data.json`         | `tasksFolder`                            | `"TaskNotes/Tasks"`            |
-| Templater                   | `data.json`         | `templates_folder`                       | `"system/templates"`           |
-| Templater                   | `data.json`         | `startup_templates`                      | `[]`                           |
-| QuickAdd                    | `data.json`         | `disableOnlineFeatures`                  | `true`                         |
-| QuickAdd                    | `data.json`         | `enableUriCallbacks`                     | `false`                        |
-| Citation Suite              | `data.json`         | `libraryFile`                            | `"system/bibliography.json"`   |
-| Reference Map               | `data.json`         | `pullFromZotero`                         | `false`                        |
-| Reference Map               | `data.json`         | `searchCiteKeyPath`                      | `"system/bibliography.json"`   |
-| Simple Citations            | `data.json`         | `jsonPaths`                              | `["system/bibliography.json"]` |
-| Simple Citations            | `data.json`         | `autoAddCitations`                       | `false`, `unset`               |
-| Simple Citations            | `data.json`         | `autoSyncCitations`                      | `false`, `unset`               |
+| Plugin                      | File                | Key                                              | Accepted                                             |
+| --------------------------- | ------------------- | ------------------------------------------------ | ---------------------------------------------------- |
+| Core                        | `core-plugins.json` | `sync`                                           | `false`                                              |
+| Core                        | `core-plugins.json` | `publish`                                        | `false`, `unset`                                     |
+| Core                        | `core-plugins.json` | `canvas`                                         | `false`                                              |
+| Core                        | `core-plugins.json` | `properties`                                     | `false`                                              |
+| Core                        | `core-plugins.json` | `markdown-importer`                              | `false`, `unset`                                     |
+| Core                        | `app.json`          | `useMarkdownLinks`                               | `true`                                               |
+| Core                        | `app.json`          | `newLinkFormat`                                  | `"absolute"`                                         |
+| Core                        | `app.json`          | `newFileLocation`                                | `"folder"`                                           |
+| Core                        | `app.json`          | `newFileFolderPath`                              | `"inbox"`                                            |
+| Core                        | `app.json`          | `attachmentFolderPath`                           | `"inbox"`                                            |
+| Core                        | `daily-notes.json`  | `folder`                                         | `"daily"`                                            |
+| Core                        | `zk-prefixer.json`  | `folder`                                         | `"inbox"`                                            |
+| Dataview                    | `data.json`         | `enableDataviewJs`                               | `false`, `unset`                                     |
+| Dataview                    | `data.json`         | `enableInlineDataviewJs`                         | `false`, `unset`                                     |
+| Iconize                     | `data.json`         | `settings.iconPacksPath`                         | `".obsidian/icons"`                                  |
+| Iconize                     | `data.json`         | `settings.iconsInNotesEnabled`                   | `false`                                              |
+| Footnote Shortcut           | `data.json`         | `lintOnSave`                                     | `false`                                              |
+| Novel word count            | `data.json`         | `settings.writeCountsToFile`                     | `false`, `unset`                                     |
+| Better Word Count           | `data.json`         | `collectStats`                                   | `false`, `unset`                                     |
+| Auto Note Mover             | `data.json`         | `use_regex_to_check_for_excluded_folder`         | `true`                                               |
+| Homepage                    | `data.json`         | `homepages.Main Homepage.autoCreate`             | `false`                                              |
+| Citations                   | `data.json`         | `citationExportPath`                             | `"system/bibliography.json"`                         |
+| Citations                   | `data.json`         | `literatureNoteFolder`                           | `"Reading notes"`                                    |
+| Zotero Annotation Citations | `data.json`         | `source`                                         | `"betterbibtex"`, `unset`                            |
+| Omnisearch                  | `data.json`         | `httpApiEnabled`                                 | `false`, `unset`                                     |
+| Editing Toolbar             | `data.json`         | `ai.enabled`                                     | `false`                                              |
+| Kanban                      | `data.json`         | `new-note-folder`                                | `"inbox"`                                            |
+| TaskNotes                   | `data.json`         | `enableAPI`                                      | `false`                                              |
+| TaskNotes                   | `data.json`         | `enableMCP`                                      | `false`                                              |
+| TaskNotes                   | `data.json`         | `tasksFolder`                                    | `"inbox/tasknotes/tasks"`                            |
+| TaskNotes                   | `data.json`         | `archiveFolder`                                  | `"inbox/tasknotes/archive"`                          |
+| TaskNotes                   | `data.json`         | `commandFileMapping.open-advanced-calendar-view` | `"inbox/tasknotes/views/calendar-default.base"`      |
+| TaskNotes                   | `data.json`         | `commandFileMapping.open-agenda-view`            | `"inbox/tasknotes/views/agenda-default.base"`        |
+| TaskNotes                   | `data.json`         | `commandFileMapping.open-calendar-view`          | `"inbox/tasknotes/views/mini-calendar-default.base"` |
+| TaskNotes                   | `data.json`         | `commandFileMapping.open-kanban-view`            | `"inbox/tasknotes/views/kanban-default.base"`        |
+| TaskNotes                   | `data.json`         | `commandFileMapping.open-tasks-view`             | `"inbox/tasknotes/views/tasks-default.base"`         |
+| TaskNotes                   | `data.json`         | `commandFileMapping.pomodoro-stats-base`         | `"inbox/tasknotes/views/pomodoro-stats.base"`        |
+| TaskNotes                   | `data.json`         | `commandFileMapping.relationships`               | `"inbox/tasknotes/views/relationships.base"`         |
+| Templater                   | `data.json`         | `templates_folder`                               | `"system/templates"`                                 |
+| Templater                   | `data.json`         | `startup_templates`                              | `[]`                                                 |
+| QuickAdd                    | `data.json`         | `disableOnlineFeatures`                          | `true`                                               |
+| QuickAdd                    | `data.json`         | `enableUriCallbacks`                             | `false`                                              |
+| Citation Suite              | `data.json`         | `libraryFile`                                    | `"system/bibliography.json"`                         |
+| Reference Map               | `data.json`         | `pullFromZotero`                                 | `false`                                              |
+| Reference Map               | `data.json`         | `searchCiteKeyPath`                              | `"system/bibliography.json"`                         |
+| Simple Citations            | `data.json`         | `jsonPaths`                                      | `["system/bibliography.json"]`                       |
+| Simple Citations            | `data.json`         | `folderPath`                                     | `"inbox"`                                            |
+| Simple Citations            | `data.json`         | `autoAddCitations`                               | `false`, `unset`                                     |
+| Simple Citations            | `data.json`         | `autoSyncCitations`                              | `false`, `unset`                                     |
 
 ### Load demotions
+
+Each row is keyed by the version measured. A row applies until a measured load clears it, to every tag of the plugin: a pin bump does not lift it, and only removing the row after a re-measure does.
 
 | Plugin    | Version | Host            | Error                                                                                  | Measured   |
 | --------- | ------- | --------------- | -------------------------------------------------------------------------------------- | ---------- |

@@ -1,6 +1,16 @@
 {
+  "archiveFolder": "inbox/tasknotes/archive",
   "calendarViewSettings": {
     "enableTimeblocking": false
+  },
+  "commandFileMapping": {
+    "open-advanced-calendar-view": "inbox/tasknotes/views/calendar-default.base",
+    "open-agenda-view": "inbox/tasknotes/views/agenda-default.base",
+    "open-calendar-view": "inbox/tasknotes/views/mini-calendar-default.base",
+    "open-kanban-view": "inbox/tasknotes/views/kanban-default.base",
+    "open-tasks-view": "inbox/tasknotes/views/tasks-default.base",
+    "pomodoro-stats-base": "inbox/tasknotes/views/pomodoro-stats.base",
+    "relationships": "inbox/tasknotes/views/relationships.base"
   },
   "enableAPI": false,
   "enableGoogleCalendar": false,
@@ -17,6 +27,6 @@
   "taskIdentificationMethod": "property",
   "taskPropertyName": "type",
   "taskPropertyValue": "task",
-  "tasksFolder": "TaskNotes/Tasks",
+  "tasksFolder": "inbox/tasknotes/tasks",
   "webhooks": []
 }

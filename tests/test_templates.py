@@ -1034,6 +1034,27 @@ def test_the_plugin_declaration_reader_reads_a_load_demotion():
     )
 
 
+def test_a_load_demotion_applies_to_every_tag_of_its_plugin():
+    """R66: the row is keyed by the version measured, and a pin bump does not
+    lift it; only removing the row does."""
+    from research_vault import obsidian_plugins
+
+    text = _declaration_text(["| R | `r` | recommended | 2.0 | MIT | x |"]) + (
+        "\n### Load demotions\n\n| Plugin | Version | Host | Error | Measured |\n"
+        "| - | - | - | - | - |\n| R | 1.0 | Obsidian 1 | broken | 2026-11-27 |\n"
+    )
+    demotion = obsidian_plugins.parse(text).demotion_for("r")
+    assert demotion is not None
+    assert demotion.version == "1.0"
+
+
+def test_the_load_demotions_lead_says_a_row_outlives_a_pin_bump():
+    table = asset("obsidian-plugins.md").read_text()
+    lead = table.split("### Load demotions", 1)[1].split("|", 1)[0]
+    assert "applies until a measured load clears it" in lead
+    assert "a pin bump does not lift it" in lead
+
+
 def test_a_demotion_error_cannot_hold_the_records_separator():
     """Review 5(c): the vendoring script splits SOURCE.json's method on it."""
     from research_vault import obsidian_plugins

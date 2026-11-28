@@ -855,14 +855,43 @@ def test_main_needs_a_tag_unless_reapplying(capsys):
 )
 def test_each_declared_load_demotion_is_what_the_record_says(demotion):
     """The Need column is what the script wrote (decision 06): a demoted plugin
-    is recommended, at the version measured, and its committed record carries
-    the measured error and no asset."""
+    is recommended, and its committed record carries the measured error, the
+    version measured and no asset. The pin is not compared with the row's
+    version: the row outlives a pin bump (R66)."""
     plugin = obsidian_plugins.declared().by_name[demotion.plugin]
     assert plugin.need == "recommended"
-    assert plugin.pin == demotion.version
     source = json.loads((SEED / plugin.plugin_id / "SOURCE.json").read_text())
     assert source["assets"] == {}
-    assert source["method"].startswith(f"{vendor.LOAD_DEMOTED}: {demotion.error} (")
+    assert source["method"].startswith(
+        f"{vendor.LOAD_DEMOTED}: {demotion.error} ({demotion.plugin} "
+        f"{demotion.version} on {demotion.host}, measured {demotion.measured})"
+    )
+
+
+def test_a_pin_bump_does_not_lift_a_load_demotion(fake, monkeypatch):
+    """R66: a row measured on 1.0.0 still demotes the plugin vendored at 1.2.0,
+    read through the declaration as the script reads it, and `--reapply`
+    keeps it recommended. Only removing the row clears it."""
+    declaration = obsidian_plugins.parse(
+        "### Plugins\n\n| Plugin | Id | Need | Pin | Licence | Workflows |\n"
+        "| - | - | - | - | - | - |\n"
+        "| Sample | `sample-plugin` | recommended | 1.2.0 | MIT | x |\n"
+        "\n### Load demotions\n\n| Plugin | Version | Host | Error | Measured |\n"
+        "| - | - | - | - | - |\n"
+        "| Sample | 1.0.0 | Obsidian 9.9.9 | fails to load: TypeError x | 2026-11-27 |\n"
+    )
+    monkeypatch.setattr(obsidian_plugins, "declared", lambda: declaration)
+    pages, _ = _web()
+    folder = fake(pages)
+    assert (
+        vendor.write_plugin("sample-plugin", "1.2.0", registry="registry")
+        == "recommended"
+    )
+    source = json.loads((folder / "SOURCE.json").read_text())
+    assert source["tag"] == "1.2.0"
+    assert source["assets"] == {}
+    assert "(Sample 1.0.0 on Obsidian 9.9.9, measured 2026-11-27)" in source["method"]
+    assert vendor.reapply("sample-plugin") == "recommended"
 
 
 def test_a_recommended_record_ships_no_asset_and_a_seeded_one_is_not_demoted():

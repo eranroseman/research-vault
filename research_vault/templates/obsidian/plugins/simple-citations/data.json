@@ -2,7 +2,7 @@
   "autoAddCitations": false,
   "autoSyncCitations": false,
   "autoUpdateCitations": false,
-  "folderPath": "",
+  "folderPath": "inbox",
   "jsonPaths": [
     "system/bibliography.json"
   ],

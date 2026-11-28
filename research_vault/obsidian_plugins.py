@@ -73,6 +73,8 @@ class Setting(NamedTuple):
 class Demotion(NamedTuple):
     """A measured load failure that demotes a plugin to recommended (R63): the
     vendoring script reads it after the licence screen and writes no asset.
+    `version` records what was measured and selects nothing: the row applies
+    to every tag of the plugin, so a pin bump does not lift it (R66).
     Removing the row after a re-measure is what clears it."""
 
     plugin: str
