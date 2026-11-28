@@ -236,6 +236,6 @@
   ],
   "source": "https://github.com/hans/obsidian-citation-plugin/tree/0.4.5",
   "redistributable": true,
-  "measured": "2026-11-27",
-  "method": "demoted to recommended by a measured load failure: fails to load on Obsidian 1.15.1: Class constructor Ax cannot be invoked without 'new' (Citations 0.4.5 on Obsidian 1.15.1, measured 2026-11-27); licence screen: LICENSE at the tag's commit (SPDX read from its text); bundled is the production closure of package-lock.json at the commit, plus each package.json devDependency whose name occurs in main.js, less obsidian and any @codemirror/* or electron pinned to a GitHub ref under obsidianmd/ or lishid/, each licence read from registry.npmjs.org at its version; main.js scanned for a copyleft licence banner, none found; the assets are the GitHub release artifacts at the tag"
+  "measured": "2026-11-28",
+  "method": "demoted to recommended by a measured load failure: fails to load on Obsidian 1.15.1: Class constructor Ax cannot be invoked without 'new' (Citations 0.4.5 on Obsidian 1.15.1, measured 2026-11-27); licence screen: LICENSE at the tag's commit (SPDX read from its text); bundled is the production closure of package-lock.json at the commit, plus each package.json devDependency whose name occurs in main.js, less each of Obsidian's documented externals (the sample plugin's esbuild externals and Node's builtins) that main.js only require()s, each licence read from registry.npmjs.org at its version; main.js scanned for a copyleft licence banner, none found; the assets are the GitHub release artifacts at the tag"
 }

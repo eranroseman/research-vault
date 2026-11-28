@@ -35,12 +35,15 @@ over-attribution: THIRD-PARTY-NOTICES and SOURCE.json's `bundled` list
    continued by `[A-Za-z0-9_-]` on either side, anywhere in the file (a
    require, an import path, a comment, or an unrelated word that is also the
    name, which over-attributes); deterministic for a given main.js;
-3. less HOST_PROVIDED, the only subtraction: `obsidian` always (its npm package
-   is type declarations only), and `@codemirror/*` or `electron` only where the
-   lockfile's `resolved` (or, without a lockfile, package.json's spec) is a
-   GitHub ref under `obsidianmd/` or `lishid/`, the app's own sources
-   (APP_SOURCES; the measurement is recorded beside it). A registry tarball
-   of upstream CodeMirror stays listed.
+3. less HOST_PROVIDED, the only subtraction (R64): Obsidian's documented
+   externals, the names the official sample plugin's esbuild.config.mjs marks
+   external (obsidianmd/obsidian-sample-plugin at
+   07ceb81d1fb3384af611ebf665a1ec42a7e5926d: `obsidian`, `electron`, eight
+   `@codemirror/*`, three `@lezer/*`, and Node's builtinModules), each
+   subtracted only when main.js does nothing with the name but `require("…")`
+   it (is_host_provided): that is what an external reference compiles to, and
+   any other occurrence means the code was bundled, so the name stays listed.
+   Where the package was resolved from does not matter.
 
 A plugin with no lockfile records no install, so the closure is walked through
 registry.npmjs.org from package.json at each range's floor (unlocked): it
@@ -85,26 +88,113 @@ _API = "https://api.github.com/"
 COPYLEFT = re.compile(
     r"^(GPL|LGPL|AGPL|MPL|EUPL|CPAL|CDDL|OSL|EPL|CECILL|SSPL)\b", re.IGNORECASE
 )
+# CC-BY-4.0 (R65) carries attribution but no source obligation, so it does not
+# demote; THIRD-PARTY-NOTICES, which names every bundled package with its
+# licence and URL, discharges its BY term.
 PERMISSIVE = re.compile(
     r"^(MIT|ISC|0BSD|BSD-[123]-Clause|Apache-2\.0|Unlicense|Zlib|CC0-1\.0"
-    r"|BlueOak-1\.0\.0|WTFPL|PSF-2\.0|Python-2\.0)$",
+    r"|CC-BY-4\.0|BlueOak-1\.0\.0|WTFPL|PSF-2\.0|Python-2\.0)$",
     re.IGNORECASE,
 )
-# The plugin API package: every plugin's bundler marks it external and the
-# running app supplies it (`require("obsidian")` in main.js); the npm package
-# ships type declarations only, so none of it can be in the asset. Often pinned
-# to a git ref the npm registry cannot answer.
-HOST_PROVIDED = {"obsidian"}
-# Libraries the app also supplies, subtracted only where the lockfile pins
-# them to the app's own sources. Measured 2026-11-27 across the sixteen
-# lockfiles: `obsidian` resolves to registry.npmjs.org or to
-# git+ssh://git@github.com/obsidianmd/obsidian-api.git#<sha>;
-# `@codemirror/language` to git+ssh://git@github.com/lishid/cm-language.git#<sha>
-# (Obsidian's fork) in dataview and obsidian-icon-folder; every other
-# `@codemirror/*` to registry.npmjs.org, which is upstream CodeMirror a plugin
-# could inline as well as the app supplies it; `electron` in none.
-APP_SUPPLIED = re.compile(r"^(@codemirror/[^/]+|electron)$")
-APP_SOURCES = re.compile(r"github\.com[:/](obsidianmd|lishid)/")
+# Obsidian's documented externals (R64): `external` in the official sample
+# plugin's esbuild.config.mjs at obsidianmd/obsidian-sample-plugin
+# 07ceb81d1fb3384af611ebf665a1ec42a7e5926d (fetched 2026-11-27), whose last
+# entry is `...builtinModules` from `node:module`; NODE_BUILTINS is that list
+# as Node 24.21.0 prints it (measured 2026-11-27), without the `node:`-only
+# names, which no npm package can carry. The running app supplies each, so a
+# reference main.js only require()s is not bundled code.
+OBSIDIAN_EXTERNALS = frozenset(
+    {
+        "obsidian",
+        "electron",
+        "@codemirror/autocomplete",
+        "@codemirror/collab",
+        "@codemirror/commands",
+        "@codemirror/language",
+        "@codemirror/lint",
+        "@codemirror/search",
+        "@codemirror/state",
+        "@codemirror/view",
+        "@lezer/common",
+        "@lezer/highlight",
+        "@lezer/lr",
+    }
+)
+NODE_BUILTINS = frozenset(
+    {
+        "_http_agent",
+        "_http_client",
+        "_http_common",
+        "_http_incoming",
+        "_http_outgoing",
+        "_http_server",
+        "_stream_duplex",
+        "_stream_passthrough",
+        "_stream_readable",
+        "_stream_transform",
+        "_stream_wrap",
+        "_stream_writable",
+        "_tls_common",
+        "_tls_wrap",
+        "assert",
+        "assert/strict",
+        "async_hooks",
+        "buffer",
+        "child_process",
+        "cluster",
+        "console",
+        "constants",
+        "crypto",
+        "dgram",
+        "diagnostics_channel",
+        "dns",
+        "dns/promises",
+        "domain",
+        "events",
+        "fs",
+        "fs/promises",
+        "http",
+        "http2",
+        "https",
+        "inspector",
+        "inspector/promises",
+        "module",
+        "net",
+        "os",
+        "path",
+        "path/posix",
+        "path/win32",
+        "perf_hooks",
+        "process",
+        "punycode",
+        "querystring",
+        "readline",
+        "readline/promises",
+        "repl",
+        "stream",
+        "stream/consumers",
+        "stream/promises",
+        "stream/web",
+        "string_decoder",
+        "sys",
+        "timers",
+        "timers/promises",
+        "tls",
+        "trace_events",
+        "tty",
+        "url",
+        "util",
+        "util/types",
+        "v8",
+        "vm",
+        "wasi",
+        "worker_threads",
+        "zlib",
+    }
+)
+HOST_PROVIDED = OBSIDIAN_EXTERNALS | NODE_BUILTINS
+_IDENTIFIER = re.compile(r"[A-Za-z_$][\w$]*")
+_SPECIFIER_EDGE = "\"'`/"
 COPYLEFT_BANNER = re.compile(
     r"GNU (?:Lesser |Library |Affero )?General Public License"
     r"|Mozilla Public License|European Union Public Licen[cs]e"
@@ -307,14 +397,37 @@ class Locked(NamedTuple):
     resolved: str
 
 
-def is_host_provided(package: Locked) -> bool:
-    """The HOST_PROVIDED subtraction: `obsidian` always, an APP_SUPPLIED name
-    only when the lockfile pins it to APP_SOURCES."""
-    if package.name in HOST_PROVIDED:
-        return True
-    return bool(
-        APP_SUPPLIED.match(package.name) and APP_SOURCES.search(package.resolved)
+def is_host_provided(name: str, main_js: str | None) -> bool:
+    """The HOST_PROVIDED subtraction (R64): a host-provided name main.js
+    references only as the whole argument of `require("…")` (either quote).
+    Any other occurrence is bundled code and keeps the name listed; so does
+    no require at all, or no main.js, because the error must be
+    over-attribution. An occurrence is in_bundle's whole name, except that a
+    name which can be a JavaScript identifier counts only where a specifier
+    or a path segment starts, after a quote, a backtick or `/`: `var obsidian
+    = require("obsidian"); obsidian.Notice` binds the module, and
+    `".obsidian/plugins"` names the config folder; neither bundles anything
+    (measured 2026-11-27: the config-folder strings alone would keep
+    `obsidian` listed for three seeded plugins)."""
+    if name not in HOST_PROVIDED or main_js is None:
+        return False
+    requires = len(
+        re.findall(
+            r"(?<![\w$.])require\(\s*([\"'])" + re.escape(name) + r"\1\s*\)", main_js
+        )
     )
+    can_bind = _IDENTIFIER.fullmatch(name) is not None
+    occurrences = 0
+    start = main_js.find(name)
+    while start != -1:
+        before = main_js[start - 1 : start] if start else ""
+        after = main_js[start + len(name) :][:1]
+        whole = not _NAME_CHAR.match(before) and not _NAME_CHAR.match(after)
+        starts_specifier = bool(before) and before in _SPECIFIER_EDGE
+        if whole and (starts_specifier or not can_bind):
+            occurrences += 1
+        start = main_js.find(name, start + 1)
+    return requires > 0 and occurrences == requires
 
 
 def in_bundle(name: str, main_js: str, tokens: set[str] | None = None) -> bool:
@@ -522,9 +635,9 @@ def unlocked(package: dict) -> list[Locked]:
     installed, so the closure is walked through registry.npmjs.org, each range
     at its floor. The names over-attribute (a floor can require more than the
     build's version did); a version is the floor's, not the build's. The
-    package.json spec stands in for `resolved`, so a git or URL pin is still
-    what is_host_provided reads; the registry cannot answer one, which
-    demotes unless the package is subtracted."""
+    package.json spec stands in for `resolved`; the registry cannot answer a
+    git or URL pin, which demotes unless is_host_provided subtracts the
+    package. A host-provided name's own dependencies are not walked."""
     out: list[Locked] = []
     seen: set[tuple[str, str]] = set()
 
@@ -620,7 +733,7 @@ def enumerate_bundled(
     picked = {
         (p.name, p.version): p
         for p in packages
-        if not is_host_provided(p) and (p.production or p.name in dev)
+        if not is_host_provided(p.name, main_js) and (p.production or p.name in dev)
     }
     return [picked[key] for key in sorted(picked)]
 
@@ -747,8 +860,9 @@ def write_plugin(
     method = (
         "LICENSE at the tag's commit (SPDX read from its text); bundled is "
         f"{closure}, plus each package.json devDependency whose name occurs "
-        "in main.js, less obsidian and any @codemirror/* or electron pinned "
-        "to a GitHub ref under obsidianmd/ or lishid/, each licence read from "
+        "in main.js, less each of Obsidian's documented externals (the sample "
+        "plugin's esbuild externals and Node's builtins) that main.js only "
+        "require()s, each licence read from "
         "registry.npmjs.org at its version; main.js scanned for a copyleft "
         "licence banner, none found; the assets are the GitHub release "
         "artifacts at the tag"

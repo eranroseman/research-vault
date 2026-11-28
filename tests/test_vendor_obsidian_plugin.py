@@ -534,7 +534,10 @@ def test_in_bundle_matches_a_whole_name_case_sensitively(name, text, present):
     assert vendor.in_bundle(name, text, tokens) is present
 
 
-def test_host_provided_subtracts_obsidian_and_app_sourced_codemirror(fake):
+def test_host_provided_subtracts_only_what_main_js_requires(fake):
+    """R64: a documented external that main.js only require()s is the app's;
+    one main.js also carries in a path, or never names, stays listed.
+    Where the lockfile resolved it from does not matter."""
     lishid = "git+ssh://git@github.com/lishid/cm-language.git#1aadcc2"
     pages, _ = _web(
         dependencies={
@@ -545,10 +548,7 @@ def test_host_provided_subtracts_obsidian_and_app_sourced_codemirror(fake):
         },
         lock={
             "packages": {
-                "node_modules/obsidian": {
-                    "version": "1.4.11",
-                    "resolved": "https://registry.npmjs.org/obsidian/-/obsidian-1.4.11.tgz",
-                },
+                "node_modules/obsidian": {"version": "1.4.11", "resolved": lishid},
                 "node_modules/@codemirror/language": {
                     "version": "6.6.0",
                     "resolved": lishid,
@@ -559,10 +559,15 @@ def test_host_provided_subtracts_obsidian_and_app_sourced_codemirror(fake):
                 },
                 "node_modules/electron": {
                     "version": "30.0.0",
-                    "resolved": "https://registry.npmjs.org/electron/-/electron-30.0.0.tgz",
+                    "resolved": "git+https://github.com/obsidianmd/x.git",
                 },
             }
         },
+        main_js=(
+            b'var obsidian = require("obsidian"); new obsidian.Notice(".obsidian/x");\n'
+            b"var l = require('@codemirror/language');\n"
+            b"// node_modules/@codemirror/state/dist/index.js\n"
+        ),
         npm={
             "@codemirror/state/6.2.1": {"version": "6.2.1", "license": "MIT"},
             "electron/30.0.0": {"version": "30.0.0", "license": "MIT"},
@@ -572,21 +577,65 @@ def test_host_provided_subtracts_obsidian_and_app_sourced_codemirror(fake):
     assert vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == (
         "seeded"
     )
-    # Upstream CodeMirror and electron from the registry are not the app's own
-    # sources, so they stay listed: the error is over-attribution.
     assert _names(folder) == [("@codemirror/state", "6.2.1"), ("electron", "30.0.0")]
-    assert (
-        vendor.is_host_provided(
-            vendor.Locked("electron", "1", True, "github:obsidianmd/electron")
-        )
-        is False
-    )  # `github:` shorthand is no URL; only a github.com ref is read
-    assert vendor.is_host_provided(
-        vendor.Locked("electron", "1", True, "git+https://github.com/obsidianmd/x.git")
+    method = json.loads((folder / "SOURCE.json").read_text())["method"]
+    assert "Obsidian's documented externals" in method
+
+
+@pytest.mark.parametrize(
+    ("name", "main_js", "subtracted"),
+    [
+        ("obsidian", 'const o = require("obsidian");', True),
+        ("@codemirror/view", "e=require( '@codemirror/view' )", True),
+        ("@lezer/lr", 'require("@lezer/lr");require("@lezer/lr")', True),
+        ("fs", 'require("fs").readFileSync', True),
+        # an identifier bound to the module, a config-folder string
+        ("obsidian", 'var obsidian=require("obsidian");obsidian.Notice', True),
+        ("obsidian", "require('obsidian'); p = \".obsidian/plugins\"", True),
+        # mixed: required and also carried in the bundle
+        ("@codemirror/view", 'require("@codemirror/view");/*@codemirror/view*/', False),
+        (
+            "@codemirror/state",
+            'require("@codemirror/state");// node_modules/@codemirror/state/dist',
+            False,
+        ),
+        ("obsidian", 'require("obsidian"); type: "obsidian"', False),
+        # bundled only, or a subpath, or an aliased require
+        ("@codemirror/state", '__commonJS({"@codemirror/state"(e){}})', False),
+        ("@codemirror/state", 'require("@codemirror/state/dist/x")', False),
+        ("electron", 'require2("electron")', False),
+        # never named: over-attribution keeps it
+        ("@codemirror/view", "console.log(1)", False),
+        # not a documented external
+        ("jszip", 'require("jszip")', False),
+    ],
+)
+def test_is_host_provided_reads_require_only_occurrences(name, main_js, subtracted):
+    assert vendor.is_host_provided(name, main_js) is subtracted
+
+
+def test_is_host_provided_keeps_everything_without_a_main_js():
+    assert vendor.is_host_provided("obsidian", None) is False
+
+
+def test_host_provided_is_the_sample_plugins_externals_and_node_builtins():
+    assert len(vendor.OBSIDIAN_EXTERNALS) == 13
+    assert {"obsidian", "electron", "@lezer/lr", "@codemirror/collab"} <= (
+        vendor.HOST_PROVIDED
     )
-    assert not vendor.is_host_provided(
-        vendor.Locked("@lezer/lr", "1", True, lishid)
-    )  # not an app-supplied name
+    assert {"fs", "path", "worker_threads", "fs/promises"} <= vendor.NODE_BUILTINS
+    assert not any(n.startswith("node:") for n in vendor.NODE_BUILTINS)
+
+
+def test_cc_by_4_0_is_established_and_carries_no_source_obligation():
+    """R65: attribution only; the notices discharge its BY term."""
+    assert vendor.has_source_obligation("CC-BY-4.0") is False
+    assert vendor.has_source_obligation("(MIT AND CC-BY-4.0)") is False
+    assert (
+        vendor.verdict("MIT", [{"name": "icons", "licence": "CC-BY-4.0"}], holder="X")
+        == "seeded"
+    )
+    assert vendor.has_source_obligation("CC-BY-SA-4.0") is None  # not established
 
 
 def test_without_a_lockfile_the_closure_walks_the_registry_at_range_floors(fake):
@@ -612,11 +661,8 @@ def test_without_a_lockfile_the_closure_walks_the_registry_at_range_floors(fake)
     assert vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == (
         "seeded"
     )
-    assert _names(folder) == [
-        ("@codemirror/view", "6.4.0"),
-        ("@kurkle/color", "0.3.0"),
-        ("chart.js", "4.3.0"),
-    ]
+    # @codemirror/view is a dev name main.js only require()s: the app's (R64)
+    assert _names(folder) == [("@kurkle/color", "0.3.0"), ("chart.js", "4.3.0")]
     method = json.loads((folder / "SOURCE.json").read_text())["method"]
     assert "no lockfile this script reads at the commit" in method
 
@@ -705,7 +751,7 @@ def test_pnpm_v9_closure_follows_snapshots_and_refuses_a_stale_root():
         ("@lezer/lr", "1.4.0", False),
     }
     language = next(p for p in locked if p.name == "@codemirror/language")
-    assert vendor.is_host_provided(language)
+    assert vendor.is_host_provided(language.name, 'require("@codemirror/language")')
     assert vendor.pnpm_lock(pnpm, {"dependencies": {"other": "1"}}) is None
     with pytest.raises(SystemExit, match="lockfileVersion 9"):
         vendor.pnpm_lock("lockfileVersion: '6.0'\n", package)
