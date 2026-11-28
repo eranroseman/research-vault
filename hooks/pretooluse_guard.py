@@ -11,8 +11,13 @@ from pathlib import Path
 MACHINE_SURFACE_DIR_NAMES = frozenset({"literature", "log", "wiki", "fulltext"})
 # Nested machine directories, matched as a path prefix: `system/` itself holds
 # hand-edited templates, so only its propagation records (here) and its two
-# CLI-written files (below) are guarded.
-MACHINE_SURFACE_PREFIXES = (Path("system/propagations"),)
+# CLI-written files (below) are guarded. `.vault-meta/research-vault/` holds the
+# seal store, the evidence the commit hook accepts for a seal (R45); the rest of
+# `.vault-meta/` is the compile tool's.
+MACHINE_SURFACE_PREFIXES = (
+    Path("system/propagations"),
+    Path(".vault-meta/research-vault"),
+)
 # Root-only exact match: a deeper `log.md` (e.g. inside a project) or
 # `search-log.md` (searchlog.py writes `projects/<name>/search-log.md`) is
 # a different file and is not on this list.

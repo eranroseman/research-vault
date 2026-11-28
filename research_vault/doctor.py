@@ -1045,7 +1045,7 @@ def _pyyaml_probe() -> Probe:
 # beside the package; `tests/test_templates.py` pins this copy against the
 # guard's constants so the two cannot drift.
 _ROSTER_DIR_NAMES = ("literature", "log", "wiki", "fulltext")
-_ROSTER_PREFIXES = ("system/propagations",)
+_ROSTER_PREFIXES = ("system/propagations", ".vault-meta/research-vault")
 _ROSTER_FILES = (
     "log.md",
     "inbox/review-queue.md",

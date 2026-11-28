@@ -134,7 +134,7 @@ def test_markdown_templates_match_canonical_content():
         "# Vault agents guide\n\n"
         "This is a research-vault vault. `literature/`, `log/`, `log.md`, "
         "`inbox/review-queue.md`, `system/bibliography.json`, `fulltext/`, "
-        "`system/propagations/`, and `system/compiled-pages.json` are machine-written — the CLI writes them; don't edit them by hand.\n\n"
+        "`system/propagations/`, `system/compiled-pages.json`, and `.vault-meta/research-vault/` (the seal store) are machine-written — the CLI writes them; don't edit them by hand.\n\n"
         "Evidence is added to Zotero and projected into `literature/` — "
         "evidence notes exist only by projection, never by hand. Read "
         "`wiki/index.md` and recent `log/` entries before editing; review "
@@ -632,7 +632,7 @@ def _roster_rules(dir_names, prefixes, files):
 
 
 def test_seeded_deny_rules_equal_the_guards_roster():
-    """§5.7: the nine Edit(...) deny rules are the roster, spelled the way
+    """§5.7: the ten Edit(...) deny rules are the roster, spelled the way
     Claude Code resolves a /-led project path. One source: the guard."""
     import json
 
@@ -642,7 +642,7 @@ def test_seeded_deny_rules_equal_the_guards_roster():
         [prefix.as_posix() for prefix in guard.MACHINE_SURFACE_PREFIXES],
         [path.as_posix() for path in guard.MACHINE_SURFACE_FILES],
     )
-    assert len(expected) == 9
+    assert len(expected) == 10
     settings = json.loads(asset("vault/claude/settings.json").read_text())
     assert settings == {"permissions": {"deny": expected}}
     assert asset("vault/claude/settings.json").read_text() == (

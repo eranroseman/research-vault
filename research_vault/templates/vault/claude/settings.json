@@ -1,6 +1,7 @@
 {
   "permissions": {
     "deny": [
+      "Edit(/.vault-meta/research-vault/**)",
       "Edit(/fulltext/**)",
       "Edit(/inbox/review-queue.md)",
       "Edit(/literature/**)",
