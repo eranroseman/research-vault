@@ -1,6 +1,7 @@
 """The Obsidian plugin declaration the seed and doctor read (spec §4.2, §6.3).
 
-Shaped as `addons`: one packaged Markdown file, two tables, a strict reader.
+Shaped as `addons`: one packaged Markdown file, two tables, a strict reader;
+a third, the load demotions, is read by the vendoring script (R63).
 """
 
 import json
@@ -27,10 +28,20 @@ _SETTING_ROW = re.compile(
     + "".join(_CELL.format(name=name) for name in ("plugin", "file", "key", "accepted"))
     + r"\|$"
 )
+_DEMOTION_ROW = re.compile(
+    "^"
+    + "".join(
+        _CELL.format(name=name)
+        for name in ("plugin", "version", "host", "error", "measured")
+    )
+    + r"\|$"
+)
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # A header is recognised by the whole row, so a data row is never dropped
 # for sharing a first cell with it.
 _PLUGIN_HEADER = ("Plugin", "Id", "Need", "Pin", "Licence", "Workflows")
 _SETTING_HEADER = ("Plugin", "File", "Key", "Accepted")
+_DEMOTION_HEADER = ("Plugin", "Version", "Host", "Error", "Measured")
 _ACCEPTED_LITERAL = re.compile(r"`([^`]+)`")
 _NONE = "—"
 _DATA_JSON = "data.json"
@@ -56,9 +67,22 @@ class Setting(NamedTuple):
     accepted: tuple[str, ...]
 
 
+class Demotion(NamedTuple):
+    """A measured load failure that demotes a plugin to recommended (R63): the
+    vendoring script reads it after the licence screen and writes no asset.
+    Removing the row after a re-measure is what clears it."""
+
+    plugin: str
+    version: str
+    host: str
+    error: str
+    measured: str
+
+
 class Declaration(NamedTuple):
     plugins: list[Plugin]
     settings: list[Setting]
+    demotions: tuple[Demotion, ...] = ()
 
     @property
     def by_id(self) -> dict[str, Plugin]:
@@ -67,6 +91,12 @@ class Declaration(NamedTuple):
     @property
     def by_name(self) -> dict[str, Plugin]:
         return {plugin.name: plugin for plugin in self.plugins}
+
+    def demotion_for(self, plugin_id: str) -> Demotion | None:
+        plugin = self.by_id.get(plugin_id)
+        return next(
+            (d for d in self.demotions if plugin and d.plugin == plugin.name), None
+        )
 
     def settings_for(self, plugin_id: str) -> list[Setting]:
         name = self.by_id[plugin_id].name
@@ -150,11 +180,23 @@ def _setting_row(line: str) -> Setting | None:
     return Setting(plugin, file, key, tuple(accepted))
 
 
+def _demotion_row(line: str) -> Demotion | None:
+    match = _DEMOTION_ROW.match(line)
+    if match is None:
+        raise _fault(line)
+    if tuple(match.groups()) == _DEMOTION_HEADER:
+        return None
+    if not all(match.groups()) or not _DATE.match(match.group("measured")):
+        raise _fault(line, "demotion cells")
+    return Demotion(*match.groups())
+
+
 def parse(text: str) -> Declaration:
     """The two tables of `text`; every `|` line must parse, or this raises
     ``ValueError``: a typo must never delete a check silently."""
     plugins: list[Plugin] = []
     settings: list[Setting] = []
+    demotions: list[Demotion] = []
     table = None
     for raw in text.splitlines():
         line = raw.strip()
@@ -171,6 +213,10 @@ def parse(text: str) -> Declaration:
             setting = _setting_row(line)
             if setting is not None:
                 settings.append(setting)
+        elif table == "load demotions":
+            demotion = _demotion_row(line)
+            if demotion is not None:
+                demotions.append(demotion)
         else:
             raise ValueError(f"{_SOURCE}: a table row outside a known table: {line!r}")
     for field in ("name", "plugin_id"):
@@ -183,7 +229,22 @@ def parse(text: str) -> Declaration:
             raise ValueError(
                 f"{_SOURCE}: settings row names no declared plugin: {setting.plugin!r}"
             )
-    return Declaration(plugins, settings)
+    by_name = {plugin.name: plugin for plugin in plugins}
+    for demotion in demotions:
+        plugin = by_name.get(demotion.plugin)
+        if plugin is None or plugin.need == "excluded":
+            raise ValueError(
+                f"{_SOURCE}: demotion row names no vendorable plugin: "
+                f"{demotion.plugin!r}"
+            )
+        if plugin.need == "seeded":
+            raise ValueError(
+                f"{_SOURCE}: {demotion.plugin!r} is demoted but declared seeded; "
+                "run the vendoring script and declare what it wrote"
+            )
+    if len({d.plugin for d in demotions}) != len(demotions):
+        raise ValueError(f"{_SOURCE}: a plugin is demoted twice")
+    return Declaration(plugins, settings, tuple(demotions))
 
 
 def declared() -> Declaration:

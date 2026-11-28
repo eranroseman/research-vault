@@ -1,4 +1,6 @@
 {
-  "iconPacksPath": ".obsidian/icons",
-  "iconsInNotesEnabled": false
+  "settings": {
+    "iconPacksPath": ".obsidian/icons",
+    "iconsInNotesEnabled": false
+  }
 }

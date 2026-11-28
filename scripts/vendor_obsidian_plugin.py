@@ -10,6 +10,17 @@ that cannot be established, makes the plugin recommended: data.json stays, no
 asset is written, SOURCE.json says why. The script never edits the declaration
 table; a test compares the two.
 
+A measured load failure demotes too (R63). The declaration's Load demotions
+table names the plugin, the version and host measured, the error and the
+date; after the licence screen the script makes a plugin named there
+recommended whatever its licence, drops the assets, LICENSE and
+THIRD-PARTY-NOTICES, and starts SOURCE.json's method with the measured
+error. The row applies to every tag of the plugin until it is removed after
+a re-measure, so a later release is not seeded unmeasured. `--reapply ID`
+applies the table to the committed record offline, without the network:
+it demotes from SOURCE.json as it stands and never re-seeds (clearing a
+demotion needs the assets, so it is a run with network after the row goes).
+
 What is bundled (R50, #306). The rule is chosen so that any error is
 over-attribution: THIRD-PARTY-NOTICES and SOURCE.json's `bundled` list
 
@@ -61,6 +72,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, NamedTuple
+
+from research_vault import obsidian_plugins
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGINS = ROOT / "research_vault" / "templates" / "obsidian" / "plugins"
@@ -633,6 +646,65 @@ def licensed(packages: list[Locked]) -> list[dict]:
     return out
 
 
+LOAD_DEMOTED = "demoted to recommended by a measured load failure"
+_LICENCE_SCREEN = "; licence screen: "
+
+
+def load_demotion(plugin_id: str) -> obsidian_plugins.Demotion | None:
+    """The declaration's Load demotions row for `plugin_id`, or None (R63)."""
+    return obsidian_plugins.declared().demotion_for(plugin_id)
+
+
+def demoted_method(demotion: obsidian_plugins.Demotion, licence_method: str) -> str:
+    return (
+        f"{LOAD_DEMOTED}: {demotion.error} ({demotion.plugin} {demotion.version} "
+        f"on {demotion.host}, measured {demotion.measured}){_LICENCE_SCREEN}"
+        f"{licence_method}"
+    )
+
+
+def _licence_method(method: str) -> str:
+    """A record's method with any load-demotion prefix taken off."""
+    if method.startswith(LOAD_DEMOTED) and _LICENCE_SCREEN in method:
+        return method.split(_LICENCE_SCREEN, 1)[1]
+    return method
+
+
+def _write_record(folder: Path, source: dict, files: dict[str, bytes]) -> None:
+    # SOURCE.json goes first and is written last: a run that fails between
+    # leaves no record vouching for a half-written folder.
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in ("SOURCE.json", *ASSETS, "LICENSE", "THIRD-PARTY-NOTICES"):
+        (folder / name).unlink(missing_ok=True)
+    for name, data in files.items():
+        (folder / name).write_bytes(data)
+    (folder / "SOURCE.json").write_text(
+        json.dumps(source, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+
+def reapply(plugin_id: str) -> str:
+    """Apply the Load demotions table to the committed record, offline (R63)."""
+    folder = PLUGINS / plugin_id
+    source = json.loads((folder / "SOURCE.json").read_text(encoding="utf-8"))
+    demotion = load_demotion(plugin_id)
+    if demotion is None:
+        if source["assets"]:
+            return "seeded"
+        raise SystemExit(
+            f"{plugin_id}: no load demotion declared and no asset in the record; "
+            "re-seeding needs the release assets, so run with network"
+        )
+    source = {
+        **source,
+        "assets": {},
+        "source": f"https://github.com/{source['repo']}/tree/{source['tag']}",
+        "method": demoted_method(demotion, _licence_method(source["method"])),
+    }
+    _write_record(folder, source, {})
+    return "recommended"
+
+
 def write_plugin(
     plugin_id: str, tag: str, *, registry: str = REGISTRY, today: str | None = None
 ) -> str:
@@ -666,8 +738,26 @@ def write_plugin(
         banner = copyleft_banner(downloaded["main.js"])
         if banner:
             decision = "recommended"
+    licence_decision = decision
+    demotion = load_demotion(plugin_id)
+    if demotion is not None:
+        decision = "recommended"
     if decision != "seeded":
         downloaded = {}
+    method = (
+        "LICENSE at the tag's commit (SPDX read from its text); bundled is "
+        f"{closure}, plus each package.json devDependency whose name occurs "
+        "in main.js, less obsidian and any @codemirror/* or electron pinned "
+        "to a GitHub ref under obsidianmd/ or lishid/, each licence read from "
+        "registry.npmjs.org at its version; main.js scanned for a copyleft "
+        "licence banner, none found; the assets are the GitHub release "
+        "artifacts at the tag"
+        if licence_decision == "seeded"
+        else f"demoted to recommended: licence {spdx!r}, holder {holder!r}, "
+        f"bundled {[(d['name'], d['licence']) for d in bundled]} from {closure}, "
+        f"main.js banner {banner!r}"
+        + ("" if main_js is not None else " (main.js not fetched)")
+    )
     source = {
         "repo": repo,
         "tag": tag,
@@ -680,33 +770,14 @@ def write_plugin(
         "source": None
         if decision == "seeded"
         else f"https://github.com/{repo}/tree/{tag}",
-        "redistributable": decision == "seeded",
+        # the licence's answer; a load demotion leaves it true (R63)
+        "redistributable": licence_decision == "seeded",
         "measured": today or datetime.datetime.now(datetime.UTC).date().isoformat(),
-        "method": (
-            "LICENSE at the tag's commit (SPDX read from its text); bundled is "
-            f"{closure}, plus each package.json devDependency whose name occurs "
-            "in main.js, less obsidian and any @codemirror/* or electron pinned "
-            "to a GitHub ref under obsidianmd/ or lishid/, each licence read from "
-            "registry.npmjs.org at its version; main.js scanned for a copyleft "
-            "licence banner, none found; the assets are the GitHub release "
-            "artifacts at the tag"
-            if decision == "seeded"
-            else f"demoted to recommended: licence {spdx!r}, holder {holder!r}, "
-            f"bundled {[(d['name'], d['licence']) for d in bundled]} from {closure}, "
-            f"main.js banner {banner!r}"
-            + ("" if main_js is not None else " (main.js not fetched)")
-        ),
+        "method": method if demotion is None else demoted_method(demotion, method),
     }
-    folder = PLUGINS / plugin_id
-    folder.mkdir(parents=True, exist_ok=True)
-    # SOURCE.json goes first and is written last: a run that fails between
-    # leaves no record vouching for a half-written folder.
-    for name in ("SOURCE.json", *ASSETS, "LICENSE", "THIRD-PARTY-NOTICES"):
-        (folder / name).unlink(missing_ok=True)
+    files = dict(downloaded)
     if decision == "seeded":
-        for name, data in downloaded.items():
-            (folder / name).write_bytes(data)
-        (folder / "LICENSE").write_bytes(licence_bytes)
+        files["LICENSE"] = licence_bytes
         notices = (
             "\n\n".join(
                 f"{d['name']} {d['version']}\nLicence: {d['licence']}\n{d['url']}"
@@ -714,19 +785,27 @@ def write_plugin(
             )
             or "No bundled third-party package found at the pin."
         )
-        (folder / "THIRD-PARTY-NOTICES").write_text(notices + "\n", encoding="utf-8")
-    (folder / "SOURCE.json").write_text(
-        json.dumps(source, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+        files["THIRD-PARTY-NOTICES"] = (notices + "\n").encode("utf-8")
+    _write_record(PLUGINS / plugin_id, source, files)
     return decision
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("plugin_id")
-    parser.add_argument("tag")
+    parser.add_argument("tag", nargs="?")
     parser.add_argument("--registry", default=REGISTRY)
+    parser.add_argument(
+        "--reapply",
+        action="store_true",
+        help="apply the Load demotions table to the committed record, offline",
+    )
     args = parser.parse_args(argv)
+    if args.reapply:
+        print(f"{args.plugin_id}: {reapply(args.plugin_id)}")
+        return 0
+    if args.tag is None:
+        parser.error("a tag is required unless --reapply")
     decision = write_plugin(args.plugin_id, args.tag, registry=args.registry)
     print(f"{args.plugin_id} {args.tag}: {decision}")
     return 0

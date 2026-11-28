@@ -192,10 +192,15 @@ def test_pyproject_license_expression_names_every_vendored_licence():
             "bundled"
         ]
     }
+    named = set(expression.split(" AND "))
+    used = set()
     for licence in licences | bundled | {"MIT"}:
         choices = licence.strip("()").split(" OR ")
-        named = set(expression.split(" AND "))
-        assert any(set(choice.split(" AND ")) <= named for choice in choices), licence
+        covering = [c for c in choices if set(c.split(" AND ")) <= named]
+        assert covering, licence
+        used |= set(covering[0].split(" AND "))
+    # exact: a licence no vendored file carries is not claimed either
+    assert named == used, named - used
     files = pyproject["project"]["license-files"]
     assert "research_vault/templates/obsidian/plugins/*/LICENSE" in files
     assert "research_vault/templates/obsidian/plugins/*/THIRD-PARTY-NOTICES" in files
@@ -724,3 +729,101 @@ def test_pnpm_v9_closure_follows_snapshots_and_refuses_a_stale_root():
 )
 def test_floor_is_a_registry_version(spec, floor):
     assert vendor._floor(spec) == floor
+
+
+_DEMOTION = obsidian_plugins.Demotion(
+    "Sample", "1.2.0", "Obsidian 9.9.9", "fails to load: TypeError x", "2026-11-27"
+)
+
+
+def test_write_plugin_demotes_a_declared_load_failure_after_the_licence_screen(
+    fake, monkeypatch
+):
+    """R63: a measured load failure demotes an MIT plugin; the record keeps the
+    licence screen's answer and names the error first."""
+    pages, _ = _web()
+    folder = fake(pages)
+    monkeypatch.setattr(
+        vendor,
+        "load_demotion",
+        lambda pid: _DEMOTION if pid == "sample-plugin" else None,
+    )
+    assert (
+        vendor.write_plugin("sample-plugin", "1.2.0", registry="registry")
+        == "recommended"
+    )
+    assert sorted(p.name for p in folder.iterdir()) == ["SOURCE.json"]
+    source = json.loads((folder / "SOURCE.json").read_text())
+    assert source["assets"] == {}
+    assert source["redistributable"] is True  # the licence permits it
+    assert source["source"] == f"https://github.com/{_REPO}/tree/1.2.0"
+    assert source["method"].startswith(
+        f"{vendor.LOAD_DEMOTED}: fails to load: TypeError x (Sample 1.2.0 on "
+        "Obsidian 9.9.9, measured 2026-11-27); licence screen: LICENSE at the tag's"
+    )
+
+
+def test_reapply_demotes_the_committed_record_offline_and_is_idempotent(
+    fake, monkeypatch
+):
+    pages, _ = _web()
+    folder = fake(pages)
+    assert (
+        vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == "seeded"
+    )
+    seeded = json.loads((folder / "SOURCE.json").read_text())
+    (folder / "data.json").write_text("{}\n")
+
+    def offline(url):
+        raise AssertionError(f"reapply fetched {url}")
+
+    monkeypatch.setattr(vendor, "_get", offline)
+    monkeypatch.setattr(vendor, "load_demotion", lambda pid: None)
+    assert vendor.reapply("sample-plugin") == "seeded"  # nothing declared: untouched
+    assert (folder / "main.js").exists()
+    monkeypatch.setattr(vendor, "load_demotion", lambda pid: _DEMOTION)
+    assert vendor.main(["sample-plugin", "--reapply"]) == 0
+    assert sorted(p.name for p in folder.iterdir()) == ["SOURCE.json", "data.json"]
+    once = json.loads((folder / "SOURCE.json").read_text())
+    assert once == {
+        **seeded,
+        "assets": {},
+        "source": f"https://github.com/{_REPO}/tree/1.2.0",
+        "method": vendor.demoted_method(_DEMOTION, seeded["method"]),
+    }
+    assert vendor.reapply("sample-plugin") == "recommended"
+    assert json.loads((folder / "SOURCE.json").read_text()) == once
+    monkeypatch.setattr(vendor, "load_demotion", lambda pid: None)
+    with pytest.raises(SystemExit, match="run with network"):
+        vendor.reapply("sample-plugin")
+
+
+def test_main_needs_a_tag_unless_reapplying(capsys):
+    with pytest.raises(SystemExit):
+        vendor.main(["sample-plugin"])
+    assert "a tag is required" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "demotion", obsidian_plugins.declared().demotions, ids=lambda d: d.plugin
+)
+def test_each_declared_load_demotion_is_what_the_record_says(demotion):
+    """The Need column is what the script wrote (decision 06): a demoted plugin
+    is recommended, at the version measured, and its committed record carries
+    the measured error and no asset."""
+    plugin = obsidian_plugins.declared().by_name[demotion.plugin]
+    assert plugin.need == "recommended"
+    assert plugin.pin == demotion.version
+    source = json.loads((SEED / plugin.plugin_id / "SOURCE.json").read_text())
+    assert source["assets"] == {}
+    assert source["method"].startswith(f"{vendor.LOAD_DEMOTED}: {demotion.error} (")
+
+
+def test_a_recommended_record_ships_no_asset_and_a_seeded_one_is_not_demoted():
+    declaration = obsidian_plugins.declared()
+    for plugin in declaration.plugins:
+        record = SEED / plugin.plugin_id / "SOURCE.json"
+        if plugin.need == "recommended" and record.is_file():
+            assert json.loads(record.read_text())["assets"] == {}, plugin.plugin_id
+        if plugin.need == "seeded":
+            assert declaration.demotion_for(plugin.plugin_id) is None

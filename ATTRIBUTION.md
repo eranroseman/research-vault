@@ -136,7 +136,8 @@ by scaffold with `--with-obsidian`, from
 pin, unmodified, with the repository's `LICENSE`, a `THIRD-PARTY-NOTICES` naming
 every bundled dependency and its licence, and the `SOURCE.json` record. A plugin
 whose licence or a bundled licence carries a source obligation, or whose licence
-cannot be established, is recommended instead and ships no asset
+cannot be established, or that failed to load on a measured Obsidian version
+(the declaration's Load demotions), is recommended instead and ships no asset
 (`research_vault/templates/obsidian-plugins.md`).
 
 | Plugin                                                                                   | Id                            | Author                                                      | Licence | Pin    |
@@ -154,7 +155,6 @@ cannot be established, is recommended instead and ships no asset
 | [Hider](https://github.com/kepano/obsidian-hider)                                        | `obsidian-hider`              | kepano                                                      | MIT     | 1.7.1  |
 | [Auto Note Mover](https://github.com/farux/obsidian-auto-note-mover)                     | `auto-note-mover`             | faru                                                        | MIT     | 1.2.0  |
 | [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks)                          | `obsidian-tasks-plugin`       | Clare Macrae and Ilyas Landikov (created by Martin Schenck) | MIT     | 8.4.0  |
-| [Citations](https://github.com/hans/obsidian-citation-plugin)                            | `obsidian-citation-plugin`    | Jon Gauthier                                                | MIT     | 0.4.5  |
 | [Zotero Cite Links](https://github.com/jpeacock29/zotero-cite-links)                     | `zotero-cite-links`           | jpeacock29                                                  | MIT     | 0.2.0  |
 | [Zotero Annotation Citations](https://github.com/jacquesb26/Zotero-Annotation-Citations) | `zotero-annotation-to-pandoc` | jacquesb26                                                  | MIT     | 1.0.3  |
 

@@ -815,14 +815,53 @@ def test_seeded_settings_satisfy_the_declaration():
         assert value in setting.accepted, (setting, value)
 
 
+# Obsidian 1.15.1's Bases File properties, `FILE_PROPERTIES` in `app.js`
+# (read from obsidian-1.15.1.asar, 2026-11-27, Plan E Task 6 Step 5). None
+# reads a note body (#202): `file.content` is absent.
+BASES_FILE_PROPERTIES = frozenset(
+    {
+        "file.file",
+        "file.name",
+        "file.basename",
+        "file.fullname",
+        "file.path",
+        "file.folder",
+        "file.ext",
+        "file.ctime",
+        "file.mtime",
+        "file.size",
+        "file.links",
+        "file.backlinks",
+        "file.embeds",
+        "file.tags",
+    }
+)
+# `file.<name>` not continued by a word character or a dot on the left. A name
+# followed by `(` is a method call (`file.hasTag(`, `file.inFolder(`), which
+# the property list does not cover, so it is left out of the check.
+_BASES_FILE_KEY = re.compile(r"(?<![\w.])(file\.[A-Za-z_]\w*)(?!\w)(\s*\()?")
+
+
+def _bases_file_properties(text):
+    return {key for key, call in _BASES_FILE_KEY.findall(text) if not call}
+
+
+def test_bases_file_property_reader_skips_method_calls():
+    text = (
+        'file.name, file.hasTag("x"), file.inFolder ("y"), note.file.size, file.content'
+    )
+    assert _bases_file_properties(text) == {"file.name", "file.content"}
+
+
 def test_every_seeded_base_parses_and_reads_no_note_body():
     import yaml
 
     for base in (TEMPLATES / "vault" / "system" / "bases").glob("*.base"):
-        document = yaml.safe_load(base.read_text())
+        text = base.read_text()
+        document = yaml.safe_load(text)
         assert "views" in document, base
-        # #202: Bases cannot read bodies
-        assert "file.content" not in base.read_text(), base
+        # #202: Bases cannot read bodies; every File key is one Obsidian defines
+        assert _bases_file_properties(text) <= BASES_FILE_PROPERTIES, base
     assert not (
         TEMPLATES / "vault" / "system" / "bases" / "open-questions.base"
     ).exists()
@@ -951,3 +990,45 @@ def test_read_key_follows_a_dotted_path_and_says_unset_or_unreadable(tmp_path):
     path.write_text("{")
     with pytest.raises(obsidian_plugins.ConfigUnreadableError, match=r"data\.json"):
         obsidian_plugins.read_key(path, "a")
+
+
+@pytest.mark.parametrize(
+    ("demotion_row", "fault"),
+    [
+        ("| A | 1.0 | Obsidian 1 | e | 2026-11-27 |", "declared seeded"),
+        ("| B | 1.0 | Obsidian 1 | e | 2026-11-27 |", "no vendorable plugin"),
+        ("| X | 1.0 | Obsidian 1 | e | 2026-11-27 |", "no vendorable plugin"),
+        ("| R | 1.0 | Obsidian 1 | e | 27 Nov |", "demotion cells"),
+        ("| R | 1.0 | Obsidian 1 | | 2026-11-27 |", "demotion cells"),
+    ],
+)
+def test_the_plugin_declaration_reader_refuses_a_demotion_it_cannot_apply(
+    demotion_row, fault
+):
+    from research_vault import obsidian_plugins
+
+    text = _declaration_text(
+        [
+            "| A | `a` | seeded | 1.0 | MIT | x |",
+            "| R | `r` | recommended | 1.0 | MIT | x |",
+            "| X | `x` | excluded | — | — | — |",
+        ]
+    ) + (
+        "\n### Load demotions\n\n| Plugin | Version | Host | Error | Measured |\n"
+        f"| - | - | - | - | - |\n{demotion_row}\n"
+    )
+    with pytest.raises(ValueError, match=fault):
+        obsidian_plugins.parse(text)
+
+
+def test_the_plugin_declaration_reader_reads_a_load_demotion():
+    from research_vault import obsidian_plugins
+
+    text = _declaration_text(["| R | `r` | recommended | 1.0 | MIT | x |"]) + (
+        "\n### Load demotions\n\n| Plugin | Version | Host | Error | Measured |\n"
+        "| - | - | - | - | - |\n| R | 1.0 | Obsidian 1 | it's broken | 2026-11-27 |\n"
+    )
+    declaration = obsidian_plugins.parse(text)
+    assert declaration.demotion_for("r") == obsidian_plugins.Demotion(
+        "R", "1.0", "Obsidian 1", "it's broken", "2026-11-27"
+    )

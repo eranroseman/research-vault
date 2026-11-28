@@ -3,7 +3,9 @@
   "autoSyncCitations": false,
   "autoUpdateCitations": false,
   "folderPath": "",
-  "jsonPaths": "system/bibliography.json",
+  "jsonPaths": [
+    "system/bibliography.json"
+  ],
   "optionalFields": [
     "type"
   ]

@@ -1,3 +1,4 @@
 {
-  "brackets": true
+  "brackets": true,
+  "libraryFile": "system/bibliography.json"
 }

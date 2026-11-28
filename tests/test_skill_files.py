@@ -182,7 +182,13 @@ def test_setup_vault_seeds_obsidian_and_hands_consent_to_the_trust_prompt():
     assert "Do you trust the author of this vault?" in text
     assert "Trust author and enable plugins" in text
     assert "eval Object.keys(app.plugins.plugins)" in text
-    assert "dev:errors" in text
+    # a constructor failure: enabled, never loaded (measured 2026-11-27)
+    assert 'eval "[...app.plugins.enabledPlugins]"' in text
+    # an onload failure: listed as loaded; only Obsidian's notice shows it
+    assert "Failed to load plugin “<id>”" in text
+    # named as blind to both failures, never as the check
+    assert "`obsidian dev:errors` is empty for both" in text
+    assert "`dev:errors` must be empty" not in text
     assert "Never run `plugins:restrict on`" in text
     assert "setEnable(false)" in text
     assert (
