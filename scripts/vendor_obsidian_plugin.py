@@ -43,7 +43,9 @@ over-attribution: THIRD-PARTY-NOTICES and SOURCE.json's `bundled` list
    subtracted only when main.js does nothing with the name but `require("…")`
    it (is_host_provided): that is what an external reference compiles to, and
    any other occurrence means the code was bundled, so the name stays listed.
-   Where the package was resolved from does not matter.
+   Where the package was resolved from does not matter. A Node builtin name
+   an installed npm package also carries (a polyfill) is never subtracted,
+   and `obsidian` followed by `:` or `.` is a URI or host, not a module.
 
 A plugin with no lockfile records no install, so the closure is walked through
 registry.npmjs.org from package.json at each range's floor (unlocked): it
@@ -397,7 +399,9 @@ class Locked(NamedTuple):
     resolved: str
 
 
-def is_host_provided(name: str, main_js: str | None) -> bool:
+def is_host_provided(
+    name: str, main_js: str | None, installed: frozenset[str] = frozenset()
+) -> bool:
     """The HOST_PROVIDED subtraction (R64): a host-provided name main.js
     references only as the whole argument of `require("…")` (either quote).
     Any other occurrence is bundled code and keeps the name listed; so does
@@ -408,8 +412,16 @@ def is_host_provided(name: str, main_js: str | None) -> bool:
     = require("obsidian"); obsidian.Notice` binds the module, and
     `".obsidian/plugins"` names the config folder; neither bundles anything
     (measured 2026-11-27: the config-folder strings alone would keep
-    `obsidian` listed for three seeded plugins)."""
+    `obsidian` listed for three seeded plugins). For `obsidian` alone, an
+    occurrence followed by `:` or `.` is a URI or a host (`obsidian://open`,
+    `https://obsidian.md`), not a module. A Node builtin name is subtracted
+    only when `installed`, the lockfile's packages (the registry walk's
+    without one), holds no npm package of that name: a polyfill such as
+    `buffer` can be bundled under the builtin's name, so an installed one
+    stays listed."""
     if name not in HOST_PROVIDED or main_js is None:
+        return False
+    if name in NODE_BUILTINS and name in installed:
         return False
     requires = len(
         re.findall(
@@ -424,7 +436,8 @@ def is_host_provided(name: str, main_js: str | None) -> bool:
         after = main_js[start + len(name) :][:1]
         whole = not _NAME_CHAR.match(before) and not _NAME_CHAR.match(after)
         starts_specifier = bool(before) and before in _SPECIFIER_EDGE
-        if whole and (starts_specifier or not can_bind):
+        uri = name == "obsidian" and after in (":", ".")
+        if whole and not uri and (starts_specifier or not can_bind):
             occurrences += 1
         start = main_js.find(name, start + 1)
     return requires > 0 and occurrences == requires
@@ -637,7 +650,8 @@ def unlocked(package: dict) -> list[Locked]:
     build's version did); a version is the floor's, not the build's. The
     package.json spec stands in for `resolved`; the registry cannot answer a
     git or URL pin, which demotes unless is_host_provided subtracts the
-    package. A host-provided name's own dependencies are not walked."""
+    package. Only `obsidian`'s own dependencies are not walked: it is type
+    declarations alone, and any other host name may be bundled."""
     out: list[Locked] = []
     seen: set[tuple[str, str]] = set()
 
@@ -648,7 +662,9 @@ def unlocked(package: dict) -> list[Locked]:
                 continue
             seen.add((name, version))
             out.append(Locked(name, version, production, str(spec)))
-            if production and name not in HOST_PROVIDED:
+            # only `obsidian` is type declarations alone; any other host
+            # name may be bundled, so its tree is walked (over-attribution)
+            if production and name != "obsidian":
                 walk((_registry(name, version) or {}).get("dependencies") or {}, True)
 
     walk(
@@ -730,10 +746,12 @@ def enumerate_bundled(
         for name in package.get("devDependencies") or {}
         if main_js is not None and in_bundle(name, main_js, tokens)
     }
+    installed = frozenset(p.name for p in packages)
     picked = {
         (p.name, p.version): p
         for p in packages
-        if not is_host_provided(p.name, main_js) and (p.production or p.name in dev)
+        if not is_host_provided(p.name, main_js, installed)
+        and (p.production or p.name in dev)
     }
     return [picked[key] for key in sorted(picked)]
 
@@ -760,7 +778,7 @@ def licensed(packages: list[Locked]) -> list[dict]:
 
 
 LOAD_DEMOTED = "demoted to recommended by a measured load failure"
-_LICENCE_SCREEN = "; licence screen: "
+_LICENCE_SCREEN = obsidian_plugins.LICENCE_SCREEN
 
 
 def load_demotion(plugin_id: str) -> obsidian_plugins.Demotion | None:
@@ -799,11 +817,19 @@ def _write_record(folder: Path, source: dict, files: dict[str, bytes]) -> None:
 def reapply(plugin_id: str) -> str:
     """Apply the Load demotions table to the committed record, offline (R63)."""
     folder = PLUGINS / plugin_id
-    source = json.loads((folder / "SOURCE.json").read_text(encoding="utf-8"))
+    record = folder / "SOURCE.json"
+    try:
+        source = json.loads(record.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise SystemExit(
+            f"{plugin_id}: no record at {record}; vendor it with network first"
+        ) from None
     demotion = load_demotion(plugin_id)
     if demotion is None:
         if source["assets"]:
             return "seeded"
+        if not source["redistributable"]:
+            return "recommended"  # its licence demoted it; nothing to apply
         raise SystemExit(
             f"{plugin_id}: no load demotion declared and no asset in the record; "
             "re-seeding needs the release assets, so run with network"

@@ -2127,11 +2127,19 @@ def test_obsidian_probe_skips_a_core_plugins_settings_file_while_it_is_off(tmp_p
         Result.MATCHED,
         ".obsidian: core-plugins.json drifts: zk-prefixer=false",
     )
-    # an id missing from core-plugins.json takes Obsidian's default: judged
+    # an id missing from core-plugins.json takes Obsidian's default: the Unique
+    # note creator has no defaultOn in 1.15.1, so it is off and not judged;
+    # Daily notes defaults on, so its file is judged
     seeded = json.loads(core.read_text())
     del seeded["zk-prefixer"]
     core.write_text(json.dumps(seeded))
-    assert doctor._obsidian_probe(vault, {}).result is Result.UNMATCHED
+    assert doctor._obsidian_probe(vault, {}).result is Result.MATCHED
+    del seeded["daily-notes"]
+    core.write_text(json.dumps(seeded))
+    (folder / "daily-notes.json").write_text(json.dumps({"folder": ""}))
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.reason == 'Core daily-notes.json folder="" (accepted "daily")'
+    (folder / "daily-notes.json").write_text(json.dumps({"folder": "daily"}))
     (folder / "zk-prefixer.json").write_text(json.dumps({"folder": "inbox"}))
     (folder / "app.json").write_text(json.dumps({"useMarkdownLinks": False}))
     probe = doctor._obsidian_probe(vault, {})
@@ -2143,7 +2151,9 @@ def test_core_plugin_off_reads_the_stem_against_the_seeds_core_ids():
     seed = {"daily-notes": True, "zk-prefixer": True}
     assert doctor._core_plugin_off("daily-notes.json", seed, {"daily-notes": False})
     assert not doctor._core_plugin_off("daily-notes.json", seed, {"daily-notes": True})
-    assert not doctor._core_plugin_off("daily-notes.json", seed, {})
+    assert not doctor._core_plugin_off("daily-notes.json", seed, {})  # defaultOn
+    assert doctor._core_plugin_off("zk-prefixer.json", seed, {})  # no defaultOn
+    assert not doctor._core_plugin_off("zk-prefixer.json", seed, {"zk-prefixer": True})
     assert not doctor._core_plugin_off("app.json", seed, {"app": False})
     assert not doctor._core_plugin_off("core-plugins.json", seed, {})
 

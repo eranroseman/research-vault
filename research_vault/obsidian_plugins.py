@@ -36,6 +36,9 @@ _DEMOTION_ROW = re.compile(
     )
     + r"\|$"
 )
+# The separator the vendoring script writes between a load demotion's error
+# and the licence screen's method in SOURCE.json (R63).
+LICENCE_SCREEN = "; licence screen: "
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # A header is recognised by the whole row, so a data row is never dropped
 # for sharing a first cell with it.
@@ -188,6 +191,9 @@ def _demotion_row(line: str) -> Demotion | None:
         return None
     if not all(match.groups()) or not _DATE.match(match.group("measured")):
         raise _fault(line, "demotion cells")
+    if LICENCE_SCREEN in match.group("error"):
+        # the vendoring script splits a record's method on it
+        raise _fault(line, f"error holds {LICENCE_SCREEN!r}")
     return Demotion(*match.groups())
 
 

@@ -873,3 +873,87 @@ def test_a_recommended_record_ships_no_asset_and_a_seeded_one_is_not_demoted():
             assert json.loads(record.read_text())["assets"] == {}, plugin.plugin_id
         if plugin.need == "seeded":
             assert declaration.demotion_for(plugin.plugin_id) is None
+
+
+def test_the_registry_walk_descends_into_a_bundled_host_name(fake):
+    """Review 1: only `obsidian` (type declarations) stops the no-lockfile
+    walk; a host name main.js bundles keeps its own dependencies listed."""
+    pages, _ = _web(
+        dependencies={"@codemirror/view": "^6", "buffer": "^6.0.3"},
+        main_js=(
+            b"// node_modules/@codemirror/view/dist/index.js\n"
+            b'var b = require("buffer/");\n'
+        ),
+        npm={
+            "@codemirror/view/6.0.0": {
+                "version": "6.0.0",
+                "license": "MIT",
+                "dependencies": {"style-mod": "^4.0.0", "w3c-keyname": "^2.2.4"},
+            },
+            "style-mod/4.0.0": {"version": "4.0.0", "license": "MIT"},
+            "w3c-keyname/2.2.4": {"version": "2.2.4", "license": "MIT"},
+            "buffer/6.0.3": {
+                "version": "6.0.3",
+                "license": "MIT",
+                "dependencies": {"base64-js": "^1.3.1", "ieee754": "^1.2.1"},
+            },
+            "base64-js/1.3.1": {"version": "1.3.1", "license": "MIT"},
+            "ieee754/1.2.1": {"version": "1.2.1", "license": "BSD-3-Clause"},
+        },
+    )
+    folder = fake(pages)
+    assert vendor.write_plugin("sample-plugin", "1.2.0", registry="registry") == (
+        "seeded"
+    )
+    assert _names(folder) == [
+        ("@codemirror/view", "6.0.0"),
+        ("base64-js", "1.3.1"),
+        ("buffer", "6.0.3"),
+        ("ieee754", "1.2.1"),
+        ("style-mod", "4.0.0"),
+        ("w3c-keyname", "2.2.4"),
+    ]
+
+
+def test_a_builtin_name_an_installed_polyfill_carries_is_never_subtracted():
+    """Review 3: `require("buffer")` may reach the bundled npm polyfill."""
+    main_js = 'require("buffer");'
+    assert vendor.is_host_provided("buffer", main_js) is True
+    assert vendor.is_host_provided("buffer", main_js, frozenset({"buffer"})) is False
+    # an externals name is not a builtin: the installed set does not matter
+    assert vendor.is_host_provided(
+        "@codemirror/view",
+        'require("@codemirror/view")',
+        frozenset({"@codemirror/view"}),
+    )
+
+
+@pytest.mark.parametrize(
+    ("main_js", "subtracted"),
+    [
+        ('require("obsidian"); open("obsidian://open?vault=x")', True),
+        ('require("obsidian"); u = "https://obsidian.md/help"', True),
+        ('require("obsidian"); s = "obsidian"', False),
+    ],
+)
+def test_an_obsidian_uri_or_host_is_no_module_occurrence(main_js, subtracted):
+    """Review 4: for `obsidian` only, a name followed by `:` or `.`."""
+    assert vendor.is_host_provided("obsidian", main_js) is subtracted
+    assert (
+        vendor.is_host_provided("electron", 'require("electron");"electron:x"') is False
+    )
+
+
+def test_reapply_accepts_a_licence_demoted_record_and_names_a_missing_one(fake):
+    """Review 5(a, b)."""
+    pages, _ = _web(licence=_GPL)
+    folder = fake(pages)
+    assert (
+        vendor.write_plugin("sample-plugin", "1.2.0", registry="registry")
+        == "recommended"
+    )
+    before = (folder / "SOURCE.json").read_text()
+    assert vendor.reapply("sample-plugin") == "recommended"
+    assert (folder / "SOURCE.json").read_text() == before
+    with pytest.raises(SystemExit, match="no-such-plugin: no record at"):
+        vendor.reapply("no-such-plugin")

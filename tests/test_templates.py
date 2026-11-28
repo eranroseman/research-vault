@@ -1032,3 +1032,15 @@ def test_the_plugin_declaration_reader_reads_a_load_demotion():
     assert declaration.demotion_for("r") == obsidian_plugins.Demotion(
         "R", "1.0", "Obsidian 1", "it's broken", "2026-11-27"
     )
+
+
+def test_a_demotion_error_cannot_hold_the_records_separator():
+    """Review 5(c): the vendoring script splits SOURCE.json's method on it."""
+    from research_vault import obsidian_plugins
+
+    text = _declaration_text(["| R | `r` | recommended | 1.0 | MIT | x |"]) + (
+        "\n### Load demotions\n\n| Plugin | Version | Host | Error | Measured |\n"
+        "| - | - | - | - | - |\n| R | 1.0 | Obsidian 1 | a; licence screen: b | 2026-11-27 |\n"
+    )
+    with pytest.raises(ValueError, match="licence screen"):
+        obsidian_plugins.parse(text)

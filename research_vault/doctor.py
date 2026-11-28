@@ -832,6 +832,36 @@ def _enabled_obsidian_plugins(folder: Path) -> set[str]:
     return {plugin_id for plugin_id in enabled if isinstance(plugin_id, str)}
 
 
+# Obsidian 1.15.1's core plugins whose `defaultOn` is true: the state an id
+# missing from `core-plugins.json` takes (`app.js` from obsidian-1.15.1.asar,
+# read 2026-11-27; the research doc's cold-open section lists both halves).
+_CORE_DEFAULT_ON = frozenset(
+    {
+        "backlink",
+        "bases",
+        "bookmarks",
+        "canvas",
+        "command-palette",
+        "daily-notes",
+        "editor-status",
+        "file-explorer",
+        "file-recovery",
+        "global-search",
+        "graph",
+        "note-composer",
+        "outgoing-link",
+        "outline",
+        "page-preview",
+        "properties",
+        "switcher",
+        "sync",
+        "tag-pane",
+        "templates",
+        "word-count",
+    }
+)
+
+
 def _core_plugin_off(file: str, seed_core: dict, core: dict) -> bool:
     """Whether a Core settings file belongs to a core plugin the vault has off
     (R54). Obsidian 1.15.1 keeps a core plugin's settings in
@@ -839,9 +869,11 @@ def _core_plugin_off(file: str, seed_core: dict, core: dict) -> bool:
     `app.js`, read 2026-11-27), so the file's stem names its plugin when the
     stem is a core id; `app.json` and `core-plugins.json` name none and are
     always judged. An id absent from the vault's `core-plugins.json` takes
-    Obsidian's default, so only an explicit off skips."""
+    Obsidian's default, `_CORE_DEFAULT_ON`."""
     plugin_id = file.removesuffix(".json")
-    return plugin_id in seed_core and plugin_id in core and not core[plugin_id]
+    if plugin_id not in seed_core:
+        return False
+    return not core.get(plugin_id, plugin_id in _CORE_DEFAULT_ON)
 
 
 def _obsidian_probe(vault: Path, config: dict) -> Probe:
@@ -899,7 +931,10 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
         for setting in declaration.settings:
             if setting.plugin == obsidian_plugins.CORE:
                 if _core_plugin_off(setting.file, seed_core, core):
-                    continue  # its own row names it: `<id> not accepted` (R54)
+                    # R54: an explicit off is named by the drift note
+                    # (`core-plugins.json drifts: <id>=false`); an id missing
+                    # whose default is off is named by nothing
+                    continue
                 component, relative = "core", setting.file
             else:
                 plugin_id = declaration.by_name[setting.plugin].plugin_id
