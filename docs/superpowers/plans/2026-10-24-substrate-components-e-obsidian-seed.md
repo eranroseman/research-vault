@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.12 in `.venv`; stdlib `urllib`, `json`, `hashlib`, `tempfile`; GitHub's releases API and `obsidianmd/obsidian-releases`' `community-plugins.json` registry for the vendoring script (network, run by hand); Obsidian 1.13.7 with its CLI on the scratch vault for the live legs; PyYAML for the `.base` test.
 
+*Amended 2026-11-27 (R67):* the live legs ran on Obsidian 1.15.1 (installer 1.12.7, self-updated through 1.14.4), not the 1.13.7 this header, the Tech Stack line and Task 6 name; every result is 1.15.1's. Task 6 Step 5's `@2173021` is 1.13.7's offset: the leg read 1.15.1's `FILE_PROPERTIES` by name. The record is the spec's §4.7 note and the section-1 research's "The cold open (measured 2026-11-27)". The 1.13.7 text above is left as the plan was written.
+
 **Spec:** `docs/superpowers/specs/2026-10-03-substrate-components-design.md` §4 whole, §6.2's mode row (#161), §6.3, §8's Obsidian legs, §11's assembly, `ATTRIBUTION.md`, `pyproject.toml` and `okf-conformance.md` amendments; decision 06–08 and 18. Screen B §9 and screen C §8 carry every setting; designs cluster 5 (c)–(d) and cluster 6 the mechanisms; research Q10–Q12, Q16, Q28. Cites as in Plan A.
 
 **Precondition:** Plans A–D have merged to `main`. §9 binds it: nothing here merges before detection and the capture monitor exist on `main`.
