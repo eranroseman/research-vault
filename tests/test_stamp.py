@@ -1,4 +1,6 @@
+import json
 import os
+from importlib import resources
 
 import pytest
 
@@ -368,6 +370,32 @@ def test_a_bare_root_note_is_stamped_fleeting(tmp_path):
     assert stamped == ["Tasks Status Report 2026-10-24.md"]
     # frontmatter without type: still a person's call
     assert ("typed.md", "no-type") in reported
+
+
+def test_a_typeless_note_in_the_seeded_tasknotes_folders_gets_a_type(tmp_path):
+    """R69 and the whole-plan review: a task note in the folders the seed gives
+    TaskNotes is typed, so the hook accepts it. A bare one is stamped
+    `fleeting`; one carrying TaskNotes' frontmatter with no `type` is under
+    `inbox/`'s fleeting exemption, so no `missing type` row refuses it."""
+    seed = json.loads(
+        resources.files("research_vault")
+        .joinpath("templates/obsidian/plugins/tasknotes/data.json")
+        .read_text(encoding="utf-8")
+    )
+    folders = [seed["tasksFolder"], seed["archiveFolder"]]
+    bare = [f"{folder}/Write the report.md" for folder in folders]
+    for relative in bare:
+        (tmp_path / relative).parent.mkdir(parents=True)
+        (tmp_path / relative).write_text("a task\n")
+    blocked = tmp_path / folders[0] / "Blocked.md"
+    blocked.write_text('---\ntitle: "Blocked"\nstatus: "open"\n---\n')
+    stamped, _reported = stamp.stamp_types(tmp_path)
+    assert sorted(stamped) == sorted(bare)
+    for relative in bare:
+        data, _body = frontmatter.parse((tmp_path / relative).read_text())
+        assert data == {"type": "fleeting"}
+        assert structure.check_note_frontmatter(tmp_path, tmp_path / relative) == []
+    assert structure.check_note_frontmatter(tmp_path, blocked) == []
 
 
 @pytest.mark.parametrize(
