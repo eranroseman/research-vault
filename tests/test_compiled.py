@@ -1492,6 +1492,10 @@ def test_journal_hashes_reads_a_utf8_journal_whatever_the_locale(wiki_vault):
             ensure_ascii=False,
         ).encode("utf-8")
     )
+    # The same call in-process: mutmut runs, for each mutant, only the tests
+    # its stats phase saw reach the function in-process, and the child's
+    # call is invisible to it.
+    assert compiled.journal_hashes(wiki_vault) == {"wiki/Café.md": "a" * 64}
     assert _in_the_c_locale(
         wiki_vault, "print(json.dumps(compiled.journal_hashes(VAULT)))"
     ) == {"wiki/Café.md": "a" * 64}
@@ -1750,6 +1754,13 @@ def test_seal_writes_a_normalised_page_as_utf8_whatever_the_locale(wiki_vault):
     assert _in_the_c_locale(
         wiki_vault, "print(json.dumps([o.reason for o in compiled.seal(VAULT)]))"
     ) == ["matched — sealed 2"]
+    assert page.read_bytes() == (
+        "---\ntype: source\n---\nCafé [B](/wiki/concepts/B.md).\n".encode()
+    )
+    # The same call in-process: mutmut runs, for each mutant, only the tests
+    # its stats phase saw reach the function in-process, and the child's
+    # call is invisible to it.
+    compiled.seal(wiki_vault)
     assert page.read_bytes() == (
         "---\ntype: source\n---\nCafé [B](/wiki/concepts/B.md).\n".encode()
     )

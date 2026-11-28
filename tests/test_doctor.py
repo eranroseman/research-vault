@@ -2026,6 +2026,12 @@ def test_deny_settings_are_read_as_utf8_under_an_ascii_locale(tmp_vault):
     settings.write_bytes(
         json.dumps({"permissions": {"deny": rules}}, ensure_ascii=False).encode()
     )
+    # The same call in-process: mutmut runs, for each mutant, only the tests
+    # its stats phase saw reach the function in-process, and the child's
+    # call is invisible to it.
+    assert doctor._deny_rules_probe(tmp_vault).reason == (
+        f"missing {roster[-1]}; extra Edit(/café/**)"
+    )
     env = {**os.environ, "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"}
     env["LC_ALL"] = "C"
     child = subprocess.run(
