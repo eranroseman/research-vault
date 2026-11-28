@@ -1,5 +1,6 @@
 """Create a new research-vault vault from packaged templates."""
 
+import json
 import shutil
 import stat
 import subprocess
@@ -7,7 +8,7 @@ import tempfile
 from importlib import resources
 from pathlib import Path
 
-from . import okf
+from . import __version__, clock, okf
 
 VAULT_DIRS = [
     "inbox",
@@ -26,6 +27,10 @@ _LOCAL_ONLY_PATHS = {".git/hooks/pre-commit", ".research-vault/machine.json"}
 OBSIDIAN_DIR = ".obsidian"
 OBSIDIAN_TEMPLATE = "obsidian"
 _OBSIDIAN_UNIT = ".obsidian/"
+# R70 (#314): the vault's record that scaffold copied the seed, outside
+# `.obsidian/` (which the person and Obsidian own). Doctor judges the Core
+# rows only when it is present.
+OBSIDIAN_SEED_RECORD = "system/obsidian-seed.json"
 _SKIPPED_OBSIDIAN = (
     "skipped .obsidian/: already present — to seed it, close Obsidian, move "
     ".obsidian/ aside and run scaffold again"
@@ -129,6 +134,21 @@ def _copy_obsidian_seed(vault: Path, created: list[str]) -> None:
         shutil.rmtree(staging, ignore_errors=True)
         raise
     created.append(_OBSIDIAN_UNIT)
+    _record_obsidian_seed(vault, created)
+
+
+def _record_obsidian_seed(vault: Path, created: list[str]) -> None:
+    """R70: record that the seed was copied, with the package version that
+    shipped it and the date, so doctor can tell a seeded vault's Core settings
+    from Obsidian's own. Written only when the copy happened; a re-seed after
+    the person moved `.obsidian/` aside rewrites it."""
+    record = vault / OBSIDIAN_SEED_RECORD
+    record.parent.mkdir(parents=True, exist_ok=True)
+    body = {"copied": clock.today(), "version": __version__}
+    record.write_text(
+        json.dumps(body, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    created.append(OBSIDIAN_SEED_RECORD)
 
 
 def _add_empty_root_sentinels(vault: Path, created: list[str]) -> None:
@@ -284,6 +304,8 @@ def scaffold_vault(
     vault = Path(dest).absolute()
     templates = resources.files("research_vault").joinpath("templates")
     owned_paths = _owned_paths(templates, with_ci, with_rw_ci)
+    if with_obsidian:
+        owned_paths.append(OBSIDIAN_SEED_RECORD)
     _reject_owned_symlinks(vault, owned_paths)
     _prepare_repository(vault)
     _preflight_conflicts(vault, templates, with_ci, with_rw_ci, with_obsidian)

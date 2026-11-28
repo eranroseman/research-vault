@@ -2291,6 +2291,71 @@ def test_compile_tool_probe_reads_the_vaults_mode(tmp_vault, monkeypatch):
     )
 
 
+def _declined_vault(tmp_path):
+    """A vault scaffolded without the seed, then opened in Obsidian, which wrote
+    its own `.obsidian/`: an empty `app.json` and a minimal `core-plugins.json`."""
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault)
+    (vault / ".research-vault" / "machine.json").write_text(
+        json.dumps({"mailto": "e@example.edu"})
+    )
+    (vault / ".obsidian").mkdir()
+    (vault / ".obsidian" / "app.json").write_text("{}")
+    (vault / ".obsidian" / "core-plugins.json").write_text(
+        json.dumps({"file-explorer": True, "sync": True})
+    )
+    return vault
+
+
+def test_obsidian_probe_skips_core_rows_when_the_seed_was_declined(
+    tmp_path, monkeypatch
+):
+    """R70 (#314): with no seed record, Obsidian's own Core settings are not a
+    finding. Doctor exits 0 and capture files no `obsidian` record."""
+    import research_vault.__main__ as cli
+    from research_vault import capture
+
+    vault = _declined_vault(tmp_path)
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe == doctor.Probe(
+        "obsidian", Result.SKIPPED, ".obsidian: seed declined, Core settings not judged"
+    )
+    monkeypatch.setattr(
+        cli, "doctor", lambda vault_root, client: [doctor._obsidian_probe(vault, {})]
+    )
+    assert cli.main(["doctor", "--vault", str(vault)]) == 0
+    assert [
+        row for row in capture._component_findings(vault) if row.check == "obsidian"
+    ] == []
+    # the same files in a seeded vault are findings
+    (vault / scaffold.OBSIDIAN_SEED_RECORD).write_text("{}\n")
+    assert doctor._obsidian_probe(vault, {}).result is Result.UNMATCHED
+
+
+def test_a_declined_seed_still_judges_an_installed_plugin(tmp_path):
+    """R70: plugin rows are judged whenever the plugin is installed."""
+    vault = _declined_vault(tmp_path)
+    folder = vault / ".obsidian"
+    (folder / "community-plugins.json").write_text(json.dumps(["dataview"]))
+    plugin = folder / "plugins" / "dataview"
+    plugin.mkdir(parents=True)
+    (plugin / "manifest.json").write_text(
+        json.dumps({"id": "dataview", "version": "0.5.68"})
+    )
+    (plugin / "data.json").write_text(json.dumps({"enableDataviewJs": True}))
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.UNMATCHED
+    assert probe.facts == (
+        ("dataview", ("data.json enableDataviewJs not accepted (false, unset)",)),
+    )
+    (plugin / "data.json").write_text("{}")
+    assert doctor._obsidian_probe(vault, {}) == doctor.Probe(
+        "obsidian",
+        Result.MATCHED,
+        ".obsidian: seed declined, Core settings not judged",
+    )
+
+
 def test_cold_rows_carry_the_obsidian_row_capture_files(tmp_path):
     """§6.4: `obsidian` is a cold component row, read from machine.json's folder."""
     from research_vault import inbox

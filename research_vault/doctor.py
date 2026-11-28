@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from . import Result, addons, obsidian_plugins, paths, structure
-from .scaffold import VAULT_DIRS, _git, scaffold_vault
+from .scaffold import OBSIDIAN_SEED_RECORD, VAULT_DIRS, _git, scaffold_vault
 from .zotero import LocalApiDisabledError, ZoteroClient, ZoteroError, header
 
 
@@ -876,6 +876,9 @@ def _core_plugin_off(file: str, seed_core: dict, core: dict) -> bool:
     return not core.get(plugin_id, plugin_id in _CORE_DEFAULT_ON)
 
 
+SEED_DECLINED = "seed declined, Core settings not judged"
+
+
 def _obsidian_probe(vault: Path, config: dict) -> Probe:
     """Spec §6.3: cold reads of the configured Obsidian folder against the
     packaged declaration. UNMATCHED only for a declared key off its values on
@@ -885,7 +888,10 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
     folder is SKIPPED. An enabled excluded plugin is a note here and an
     `advisory` fact (Plan E deviation 5). A seeded plugin that is off is not
     read, manifest included (R57), nor is a core plugin's settings file while
-    that core plugin is off (R54)."""
+    that core plugin is off (R54). Core rows and core drift are judged only
+    when scaffold recorded copying the seed (`OBSIDIAN_SEED_RECORD`, R70): in
+    a vault that declined it, Obsidian's own defaults are not a finding, and
+    the row is SKIPPED unless an installed plugin was judged."""
     name, folder = _obsidian_folder(vault, config)
     if not folder.is_dir():
         return Probe("obsidian", Result.SKIPPED, f"{name} absent")
@@ -897,11 +903,13 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
         )
     seed = _OBSIDIAN_SEED.joinpath("core-plugins.json").read_text(encoding="utf-8")
     seed_core = json.loads(seed)
+    seeded = (vault / OBSIDIAN_SEED_RECORD).is_file()
     found: list[tuple[str, str, str]] = []  # (component, hashable fact, shown)
     notes_out: list[str] = []
+    judged = seeded  # whether the row read anything it could match
     try:
         enabled = _enabled_obsidian_plugins(folder)
-        core = _config_json(folder, "core-plugins.json", dict) or {}
+        core = (_config_json(folder, "core-plugins.json", dict) or {}) if seeded else {}
         for core_id, value in sorted(core.items()):
             if core_id in seed_core and seed_core[core_id] != value:
                 notes_out.append(
@@ -923,6 +931,7 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
             installed = _config_json(folder, manifest, dict)
             if installed is None:
                 continue
+            judged = True
             if installed.get("version") != plugin.pin:
                 notes_out.append(
                     f"{plugin.plugin_id} pinned {plugin.pin}, "
@@ -930,6 +939,8 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
                 )
         for setting in declaration.settings:
             if setting.plugin == obsidian_plugins.CORE:
+                if not seeded:
+                    continue  # R70: Obsidian's own Core settings are not ours
                 if _core_plugin_off(setting.file, seed_core, core):
                     # R54: an explicit off is named by the drift note
                     # (`core-plugins.json drifts: <id>=false`); an id missing
@@ -941,6 +952,7 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
                 if plugin_id not in enabled:
                     continue
                 component, relative = plugin_id, f"plugins/{plugin_id}/{setting.file}"
+                judged = True
             try:
                 value = obsidian_plugins.read_key(folder / relative, setting.key)
             except obsidian_plugins.ConfigUnreadableError as error:
@@ -966,14 +978,25 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
         )
     except _ConfigMisshapenError as error:
         found = [(error.component, str(error), str(error))]
-    names = {"core": obsidian_plugins.CORE}
-    names.update((p.plugin_id, p.name) for p in declaration.plugins)
     if found:
+        names = {"core": obsidian_plugins.CORE}
+        names.update((p.plugin_id, p.name) for p in declaration.plugins)
         shown = "; ".join(f"{names[c]} {text}" for c, _fact, text in found)
         return Probe("obsidian", Result.UNMATCHED, shown, facts=_grouped(found))
+    return _obsidian_held(name, notes_out, seeded=seeded, judged=judged)
+
+
+def _obsidian_held(name: str, notes: list[str], *, seeded: bool, judged: bool) -> Probe:
+    """The `obsidian` row when nothing failed: MATCHED with its notes, or, in a
+    vault that declined the seed and has no installed plugin judged, SKIPPED
+    (R70)."""
+    if not seeded:
+        notes = [*notes, SEED_DECLINED]
+        if not judged:
+            return Probe("obsidian", Result.SKIPPED, f"{name}: {'; '.join(notes)}")
     detail = (
-        "; ".join(notes_out)
-        if notes_out
+        "; ".join(notes)
+        if notes
         else "every declared key holds; no drift from the seed"
     )
     return Probe("obsidian", Result.MATCHED, f"{name}: {detail}")

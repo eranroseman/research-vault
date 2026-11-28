@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import subprocess
@@ -686,13 +687,46 @@ def test_scaffold_seeds_obsidian_only_when_asked_and_as_one_unit(tmp_path):
     created = scaffold.scaffold_vault(vault, with_obsidian=True)
     assert ".obsidian/" in created
     assert (vault / ".obsidian").is_dir()
+    assert scaffold.OBSIDIAN_SEED_RECORD in created
     assert git(vault, "show", "--format=", "--name-only", "HEAD").splitlines() == (
-        sorted(TRACKABLE_CREATED + git(vault, "ls-files", ".obsidian").splitlines())
+        sorted(
+            [
+                *TRACKABLE_CREATED,
+                scaffold.OBSIDIAN_SEED_RECORD,
+                *git(vault, "ls-files", ".obsidian").splitlines(),
+            ]
+        )
     )
     assert sorted(p.name for p in vault.glob(".obsidian.research-vault-seed-*")) == []
     plain = tmp_path / "plain"
-    assert ".obsidian/" not in scaffold.scaffold_vault(plain)
+    plain_created = scaffold.scaffold_vault(plain)
+    assert ".obsidian/" not in plain_created
     assert not (plain / ".obsidian").exists()
+    assert scaffold.OBSIDIAN_SEED_RECORD not in plain_created
+    assert not (plain / scaffold.OBSIDIAN_SEED_RECORD).exists()
+
+
+def test_scaffold_records_the_seed_it_copied_outside_obsidian(tmp_path):
+    """R70 (#314): a tracked record in `system/`, never inside `.obsidian/`,
+    names the package version and the date; a skipped seed writes none."""
+    from research_vault import __version__, clock
+
+    vault = tmp_path / "vault"
+    scaffold.scaffold_vault(vault, with_obsidian=True)
+    record = vault / scaffold.OBSIDIAN_SEED_RECORD
+    assert record.read_text(encoding="utf-8") == (
+        json.dumps({"copied": clock.today(), "version": __version__}, indent=2) + "\n"
+    )
+    assert git(vault, "ls-files", scaffold.OBSIDIAN_SEED_RECORD).strip() == (
+        scaffold.OBSIDIAN_SEED_RECORD
+    )
+    assert not scaffold.OBSIDIAN_SEED_RECORD.startswith(scaffold.OBSIDIAN_DIR)
+    skipped = tmp_path / "skipped"
+    (skipped / ".obsidian").mkdir(parents=True)
+    assert scaffold.OBSIDIAN_SEED_RECORD not in scaffold.scaffold_vault(
+        skipped, with_obsidian=True
+    )
+    assert not (skipped / scaffold.OBSIDIAN_SEED_RECORD).exists()
 
 
 def test_scaffold_leaves_an_existing_obsidian_alone_and_says_so(tmp_path, capsys):
