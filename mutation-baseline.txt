@@ -1,13 +1,11 @@
 # mutation-baseline.txt -- every survivor of the research_vault modules measured by scripts/mutation_gate.py --update-baseline over mutmut; one survivor key per line, format in the script header
 # a `# reason: <text>` line immediately above a key records why that survivor is accepted; the writer re-emits it above the same key and reports on stderr any reason whose key no mutant of the run produced
-research_vault/__main__.py::func/_hold::-        print(f"warning: review record refused: {detail}", file=sys.stderr)\n+        print(None, file=sys.stderr)
-research_vault/__main__.py::func/_hold::-        print(f"warning: review record refused: {detail}", file=sys.stderr)\n+        print(f"warning: review record refused: {detail}", )
-research_vault/__main__.py::func/_hold::-        print(f"warning: review record refused: {detail}", file=sys.stderr)\n+        print(f"warning: review record refused: {detail}", file=None)
-research_vault/__main__.py::func/_hold::-        print(f"warning: review record refused: {detail}", file=sys.stderr)\n+        print(file=sys.stderr)
 # reason: a default that equals the passed value: _hold's only caller, _hold_outcome (__main__.py:175), always passes target_kind=outcome.target_kind, so the default is never read
 research_vault/__main__.py::func/_hold::-    target_kind: str = "identifier",\n+    target_kind: str = "IDENTIFIER",
 # reason: a default that equals the passed value: _hold's only caller, _hold_outcome (__main__.py:175), always passes target_kind=outcome.target_kind, so the default is never read
 research_vault/__main__.py::func/_hold::-    target_kind: str = "identifier",\n+    target_kind: str = "XXidentifierXX",
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/__main__.py::func/_print_and_hold::-            continue\n+            break
 research_vault/__main__.py::func/cmd_ack::-        print(f"acknowledgment refused: {error}", file=sys.stderr)\n+        print(None, file=sys.stderr)
 research_vault/__main__.py::func/cmd_ack::-        print(f"acknowledgment refused: {error}", file=sys.stderr)\n+        print(f"acknowledgment refused: {error}", )
 research_vault/__main__.py::func/cmd_ack::-        print(f"acknowledgment refused: {error}", file=sys.stderr)\n+        print(f"acknowledgment refused: {error}", file=None)
@@ -25,6 +23,8 @@ research_vault/__main__.py::func/cmd_disarm_publish::-    print("disarmed" if re
 research_vault/__main__.py::func/cmd_disarm_publish::-    print("disarmed" if removed else "not armed")\n+    print("disarmed" if removed else "NOT ARMED")
 research_vault/__main__.py::func/cmd_disarm_publish::-    print("disarmed" if removed else "not armed")\n+    print("disarmed" if removed else "XXnot armedXX")
 research_vault/__main__.py::func/cmd_disarm_publish::-    print("disarmed" if removed else "not armed")\n+    print(None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/__main__.py::func/cmd_propagate::-            continue\n+            break
 research_vault/__main__.py::func/cmd_search_log::-                    "search-log refused: --not-admitted requires --reason",\n+                    "XXsearch-log refused: --not-admitted requires --reasonXX",
 research_vault/__main__.py::func/cmd_search_log::-                actor=actor,\n-            )\n+                )
 research_vault/__main__.py::func/cmd_search_log::-                date=args.date,
@@ -119,12 +119,64 @@ research_vault/__main__.py::func/record_finding::-            "record it"\n+    
 research_vault/__main__.py::func/record_finding::-            reason,\n+            None,
 research_vault/__main__.py::func/record_finding::-            reason,\n-        )\n+            )
 research_vault/__main__.py::func/record_finding::-        return 2, str(error)\n+        return 2, str(None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_addon_row::-        None if minimum in {"", _NONE} else minimum,\n+        None if minimum in {"XXXX", _NONE} else minimum,
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_addon_row::-        raise ValueError(f"zotero-addons.md: unreadable row {line!r} (no id)")\n+        raise ValueError(None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_addon_row::-        raise ValueError(f"zotero-addons.md: unreadable row {line!r}")\n+        raise ValueError(None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_code::-    if cell in {"", _NONE}:\n+    if cell in {"XXXX", _NONE}:
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_code::-    if cell.startswith("`") and cell.endswith("`") and len(cell) > 2:\n+    if cell.startswith("`") and cell.endswith("`") and len(cell) > 3:
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_code::-    if cell.startswith("`") and cell.endswith("`") and len(cell) > 2:\n+    if cell.startswith("`") and cell.endswith("`") and len(cell) >= 2:
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_code::-    if cell.startswith("`") and cell.endswith("`") and len(cell) > 2:\n+    if cell.startswith("`") or cell.endswith("`") and len(cell) > 2:
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    if raw in {"true", "false"} or raw.lstrip("-").isdigit():\n+    if raw in {"TRUE", "false"} or raw.lstrip("-").isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    if raw in {"true", "false"} or raw.lstrip("-").isdigit():\n+    if raw in {"XXtrueXX", "false"} or raw.lstrip("-").isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    if raw in {"true", "false"} or raw.lstrip("-").isdigit():\n+    if raw in {"true", "FALSE"} or raw.lstrip("-").isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    if raw in {"true", "false"} or raw.lstrip("-").isdigit():\n+    if raw in {"true", "XXfalseXX"} or raw.lstrip("-").isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    if raw in {"true", "false"} or raw.lstrip("-").isdigit():\n+    if raw in {"true", "false"} and raw.lstrip("-").isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    if raw in {"true", "false"} or raw.lstrip("-").isdigit():\n+    if raw in {"true", "false"} or raw.lstrip("XX-XX").isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    if raw in {"true", "false"} or raw.lstrip("-").isdigit():\n+    if raw in {"true", "false"} or raw.lstrip(None).isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    if raw in {"true", "false"} or raw.lstrip("-").isdigit():\n+    if raw in {"true", "false"} or raw.rstrip("-").isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    if raw in {"true", "false"} or raw.lstrip("-").isdigit():\n+    if raw not in {"true", "false"} or raw.lstrip("-").isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_literal_token::-    return literal(_string_pref(raw)) if raw.startswith('"') else raw\n+    return literal(_string_pref(raw)) if raw.startswith('XX"XX') else raw
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/_setting_row::-        raise ValueError(f"zotero-addons.md: unreadable row {line!r}")\n+        raise ValueError(None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/bbt_auto_exports::-            value = _string_pref(value)\n+            value = None
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/bbt_auto_exports::-            value = _string_pref(value)\n+            value = _string_pref(None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/bbt_auto_exports::-        if isinstance(value, str) and value.startswith('"'):\n+        if isinstance(value, str) and value.startswith('XX"XX'):
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/bbt_auto_exports::-        if isinstance(value, str) and value.startswith('"'):\n+        if isinstance(value, str) or value.startswith('"'):
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/addons.py::func/declared::-        text = declaration.read_text(encoding="utf-8")\n+        text = declaration.read_text(encoding="UTF-8")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/addons.py::func/declared::-        text = declaration.read_text(encoding="utf-8")\n+        text = declaration.read_text(encoding=None)
 # reason: equivalent on the grammar: importlib.resources.files(anchor=None) defaults to the calling module's own package, and declared() is defined in research_vault.addons whose __package__ is exactly "research_vault" -- the literal string argument and the None default resolve to the identical anchor
 research_vault/addons.py::func/declared::-    declaration = resources.files("research_vault").joinpath(\n+    declaration = resources.files(None).joinpath(
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/declared::-    table = None\n+    table = ""
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/literal::-    return json.dumps(value, ensure_ascii=False)\n+    return json.dumps(value, )
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/literal::-    return json.dumps(value, ensure_ascii=False)\n+    return json.dumps(value, ensure_ascii=None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/literal::-    return json.dumps(value, ensure_ascii=False)\n+    return json.dumps(value, ensure_ascii=True)
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/addons.py::func/observe::-        (Path(profile_dir) / "extensions.json").read_text(encoding="utf-8")\n+        (Path(profile_dir) / "extensions.json").read_text(encoding="UTF-8")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
@@ -135,6 +187,40 @@ research_vault/addons.py::func/read_prefs::-        (Path(profile_dir) / "prefs.
 research_vault/addons.py::func/read_prefs::-        (Path(profile_dir) / "prefs.js").read_text(encoding="utf-8").splitlines()\n+        (Path(profile_dir) / "prefs.js").read_text(encoding=None).splitlines()
 # reason: equivalent on the grammar: a prefs.js numeric literal reaching this branch starts with a digit or "-", never "X", so wrapping the strip charset with X changes nothing
 research_vault/addons.py::func/read_prefs::-        elif raw.lstrip("-").isdigit():\n+        elif raw.lstrip("XX-XX").isdigit():
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/unreadable_pref_lines::-        (Path(profile_dir) / "prefs.js").read_text(encoding="utf-8").splitlines()\n+        (Path(profile_dir) / "prefs.js").read_text(encoding="UTF-8").splitlines()
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/unreadable_pref_lines::-        (Path(profile_dir) / "prefs.js").read_text(encoding="utf-8").splitlines()\n+        (Path(profile_dir) / "prefs.js").read_text(encoding=None).splitlines()
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/unreadable_pref_lines::-        if not stripped or stripped.startswith(("//", "/*", "*")):\n+        if not stripped or stripped.startswith(("//", "/*", "XX*XX")):
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/unreadable_pref_lines::-        if not stripped or stripped.startswith(("//", "/*", "*")):\n+        if not stripped or stripped.startswith(("//", "XX/*XX", "*")):
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/version_at_least::-        for segment in text.split("."):\n+        for segment in text.split("XX.XX"):
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/version_at_least::-    have += [0] * (width - len(have))\n+    have += [0] * (width + len(have))
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/version_at_least::-    have += [0] * (width - len(have))\n+    have += [1] * (width - len(have))
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/version_at_least::-    want += [0] * (width - len(want))\n+    want += [1] * (width - len(want))
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/xpi_defaults::-                        continue\n+                        break
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/xpi_defaults::-                    if not stripped.startswith(("pref(", "user_pref(")):\n+                    if not stripped.startswith(("pref(", "USER_PREF(")):
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/xpi_defaults::-                    if not stripped.startswith(("pref(", "user_pref(")):\n+                    if not stripped.startswith(("pref(", "XXuser_pref(XX")):
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/xpi_defaults::-                or (n.startswith("defaults/preferences/") and n.endswith(".js"))\n+                or (n.startswith("defaults/preferences/") or n.endswith(".js"))
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/xpi_defaults::-                text = archive.read(name).decode("utf-8", errors="replace")\n+                text = archive.read(name).decode("UTF-8", errors="replace")
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/xpi_defaults::-                text = archive.read(name).decode("utf-8", errors="replace")\n+                text = archive.read(name).decode("utf-8", )
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/xpi_defaults::-                text = archive.read(name).decode("utf-8", errors="replace")\n+                text = archive.read(name).decode("utf-8", errors="REPLACE")
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/xpi_defaults::-                text = archive.read(name).decode("utf-8", errors="replace")\n+                text = archive.read(name).decode("utf-8", errors="XXreplaceXX")
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/addons.py::func/xpi_defaults::-                text = archive.read(name).decode("utf-8", errors="replace")\n+                text = archive.read(name).decode(errors="replace")
 research_vault/appendlog.py::func/_escape_field_value::-    return value.replace("\\", "\\\\").replace("]", r"\]")\n+    return value.replace("XX\\XX", "\\\\").replace("]", r"\]")
 research_vault/appendlog.py::func/_sync_directory::-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)\n+    flags = os.O_RDONLY & getattr(os, "O_DIRECTORY", 0)
 research_vault/appendlog.py::func/_sync_directory::-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)\n+    flags = os.O_RDONLY | getattr(None, "O_DIRECTORY", 0)
@@ -219,6 +305,12 @@ research_vault/capture.py::func/_capture_one::-        with path.open("w", encod
 research_vault/capture.py::func/_capture_one::-        with path.open("w", encoding="utf-8", newline="") as handle:\n+        with path.open("w", newline="") as handle:
 # reason: equivalent on the grammar: existing's only `is not None` use is immediately conjoined with a content-equality check (content_changed / the projection comparison) that a freshly captured item's real content can never satisfy against empty prior state, so None and "" reach the same else branch
 research_vault/capture.py::func/_capture_one::-    existing = None\n+    existing = ""
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/capture.py::func/_component_findings::-                    f"mismatch — {component}: {'; '.join(facts)}",\n+                    f"mismatch — {component}: {'XX; XX'.join(facts)}",
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/capture.py::func/_component_findings::-            digest = hashlib.sha256("\n".join(facts).encode("utf-8")).hexdigest()[:16]\n+            digest = hashlib.sha256("XX\nXX".join(facts).encode("utf-8")).hexdigest()[:16]
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/capture.py::func/_component_findings::-            digest = hashlib.sha256("\n".join(facts).encode("utf-8")).hexdigest()[:16]\n+            digest = hashlib.sha256("\n".join(facts).encode("UTF-8")).hexdigest()[:16]
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/capture.py::func/_every_note::-            data, _body = frontmatter.parse(path.read_text(encoding="utf-8"))\n+            data, _body = frontmatter.parse(path.read_text(encoding="UTF-8"))
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
@@ -243,6 +335,10 @@ research_vault/capture.py::func/_re_key_target::-    return prior.reason[len("re
 research_vault/capture.py::func/_refused::-        target = None\n+        target = ""
 # reason: equivalent on the grammar: every refusal code (_REFUSED's members, re-keyed) is one hyphenated word with no internal whitespace, so `split(" — ")[0]` and the default whitespace `split(None)[0]` land on the same first token
 research_vault/capture.py::func/_refused::-    code = prior.reason.split(" — ")[0]\n+    code = prior.reason.split(None)[0]
+# reason: equivalent: Python codec names are case-insensitive, so .encode("UTF-8") yields the same bytes as .encode("utf-8") and the digest is unchanged
+research_vault/capture.py::func/_sealed::-        digest = hashlib.sha256("\n".join(facts).encode("utf-8")).hexdigest()[:16]\n+        digest = hashlib.sha256("\n".join(facts).encode("UTF-8")).hexdigest()[:16]
+# reason: equivalent: Python codec names are case-insensitive, so .encode("UTF-8") yields the same bytes as .encode("utf-8") and the digest is unchanged
+research_vault/capture.py::func/_standing_violation::-            "target_hash": hashlib.sha256(fact.encode("utf-8")).hexdigest()[:16],\n+            "target_hash": hashlib.sha256(fact.encode("UTF-8")).hexdigest()[:16],
 # reason: per-run identity: the tags summary row's hash is minted fresh on every run (ruling P3), so no acknowledgment outlives a run and the hash's layout carries no cross-version promise; the row stays one per run either way
 research_vault/capture.py::func/_tags_summary::-            extra={"target_hash": hashlib.sha256(basis.encode()).hexdigest()[:16]},\n+            extra={"target_hash": hashlib.sha256(basis.encode()).hexdigest()[:17]},
 # reason: per-run identity: the tags summary row's hash is minted fresh on every run (ruling P3), so no acknowledgment outlives a run and the hash's layout carries no cross-version promise; the row stays one per run either way
@@ -540,20 +636,302 @@ research_vault/checks.py::func/reduce_update_notice_outcomes::-        raise Typ
 research_vault/checks.py::func/registry_agency::-            f"https://doi.org/doiRA/{_doi_path(doi)}", vault_root\n+            f"https://doi.org/doiRA/{_doi_path(doi)}", None
 research_vault/compile.py::func/_run::-        check=False,\n+        check=None,
 research_vault/compile.py::func/_run::-        check=False,\n-    )\n+        )
+# reason: equivalent: the last element of str.rsplit(sep, n) is the text after the last sep for every n >= 1 and for no maxsplit, so rsplit(" ")[-1] equals rsplit(" ", 1)[-1] for any reason (compile.py:356)
+research_vault/compile.py::func/_sealed::-    sealed = rows[0].reason.rsplit(" ", 1)[-1] if rows else "0"\n+    sealed = rows[0].reason.rsplit(" ", )[-1] if rows else "0"
+# reason: equivalent: compiled.seal's MATCHED reason is always f"matched — sealed {sealed}" (compiled.py:1045), where sealed is an int with no space in it, so rsplit(" ", 1) always has exactly two elements, and [+1] is the same element as [-1]
+research_vault/compile.py::func/_sealed::-    sealed = rows[0].reason.rsplit(" ", 1)[-1] if rows else "0"\n+    sealed = rows[0].reason.rsplit(" ", 1)[+1] if rows else "0"
+# reason: equivalent: compiled.seal never returns an empty list (compiled.py:1044 returns `refusals or [MATCHED summary]`), so the `else "0"` branch is never taken
+research_vault/compile.py::func/_sealed::-    sealed = rows[0].reason.rsplit(" ", 1)[-1] if rows else "0"\n+    sealed = rows[0].reason.rsplit(" ", 1)[-1] if rows else "XX0XX"
+# reason: equivalent: the last element of str.rsplit(sep, n) is the text after the last sep for every n >= 1, so rsplit(" ", 2)[-1] equals rsplit(" ", 1)[-1] for any reason (compile.py:356)
+research_vault/compile.py::func/_sealed::-    sealed = rows[0].reason.rsplit(" ", 1)[-1] if rows else "0"\n+    sealed = rows[0].reason.rsplit(" ", 2)[-1] if rows else "0"
+# reason: equivalent: compiled.seal's MATCHED reason is always f"matched — sealed {sealed}" (compiled.py:1045), where sealed is an int with no space in it, so splitting on any whitespace has the same last token as splitting on " "
+research_vault/compile.py::func/_sealed::-    sealed = rows[0].reason.rsplit(" ", 1)[-1] if rows else "0"\n+    sealed = rows[0].reason.rsplit(None, 1)[-1] if rows else "0"
+# reason: equivalent — the continue at compiled.py:589 (meta is None or not token) fires only on the empty token that ends each -z chunk: with --no-renames and -m (compiled.py:563-568) every entry is ":meta\0path\0", one path per meta, and each merge parent gets its own \x01 chunk (checked with git 2.43.0, 2026-11-28), so break there stops nothing
+research_vault/compiled.py::func/_Local._read_introductions::-                continue\n+                break
+# reason: equivalent on git's `-z --raw --no-renames` grammar: every `:` meta token is followed by exactly one non-empty path token, and the only token with meta None is each chunk's trailing empty token, so `meta is None` and `not token` are always true or false together at compiled.py:589
+research_vault/compiled.py::func/_Local._read_introductions::-            if meta is None or not token:\n+            if meta is None and not token:
+# reason: equivalent: an oid is lowercase hex, which holds no `X`, so stripping b"XX0XX" removes exactly what b"0" removes at compiled.py:596
+research_vault/compiled.py::func/_Local._read_introductions::-            if new.strip(b"0"):\n+            if new.strip(b"XX0XX"):
+# reason: equivalent: the reset at compiled.py:592 only runs right after a path token, and a "" meta is no different from None on any later token: a `:` token resets it (:586-588), an empty token is skipped (:589), and any other token makes `"".split()` an empty list, which `len(fields) < 5` skips (:593) before is_record_file is called, leaving meta None as the original does
+research_vault/compiled.py::func/_Local._read_introductions::-            meta = None\n+            meta = ""
+# reason: message-only change on an _UndecidedError that vouches catches and discards (compiled.py:485-486); no row, log or stored record carries its text
+research_vault/compiled.py::func/_Local._read_introductions::-            raise _UndecidedError("git cat-file failed")\n+            raise _UndecidedError("GIT CAT-FILE FAILED")
+# reason: message-only change on an _UndecidedError that vouches catches and discards (compiled.py:485-486); no row, log or stored record carries its text
+research_vault/compiled.py::func/_Local._read_introductions::-            raise _UndecidedError("git cat-file failed")\n+            raise _UndecidedError("XXgit cat-file failedXX")
+# reason: message-only change on an _UndecidedError that vouches catches and discards (compiled.py:485-486); no row, log or stored record carries its text
+research_vault/compiled.py::func/_Local._read_introductions::-            raise _UndecidedError("git cat-file failed")\n+            raise _UndecidedError(None)
+# reason: equivalent: the tokens are `\n:`-led meta or paths under the `system/propagations` pathspec, which start with `s`, so whitespace stripping removes only the leading newline b"\n" removes at compiled.py:585
+research_vault/compiled.py::func/_Local._read_introductions::-            token = raw_token.lstrip(b"\n")\n+            token = raw_token.lstrip(None)
+# reason: equivalent: no path token can start with `X` (each starts with `system/propagations`, the pathspec at compiled.py:574) and meta tokens start with `\n:`, so the extra `X` characters strip nothing
+research_vault/compiled.py::func/_Local._read_introductions::-            token = raw_token.lstrip(b"\n")\n+            token = raw_token.lstrip(b"XX\nXX")
+# reason: equivalent: with --no-abbrev (compiled.py:570) git log prints %h as the full 40-hex id (checked with git 2.43.0, 2026-11-28), so the commit ids are byte-identical
+research_vault/compiled.py::func/_Local._read_introductions::-        "--format=%x01%H",\n+        "--format=%x01%h",
+# reason: equivalent: commit order only orders each id's list, and vouches returns False if any listed commit is an ancestor and True only after checking every one (compiled.py:494-505), so order cannot change the result
+research_vault/compiled.py::func/_Local._read_introductions::-        "--reverse",
+# reason: equivalent: commit order only orders each id's list, and vouches returns False if any listed commit is an ancestor and True only after checking every one (compiled.py:494-505), so order cannot change the result
+research_vault/compiled.py::func/_Local._read_introductions::-        "--topo-order",
+# reason: equivalent: `git log` with no revision reads HEAD, which rev-parse just confirmed (compiled.py:553-557)
+research_vault/compiled.py::func/_Local._read_introductions::-        "HEAD",
+# reason: equivalent: gitstate._git tests `if check and ...` (gitstate.py:128), and None is falsy like False
+research_vault/compiled.py::func/_Local._read_introductions::-        check=False,\n+        check=None,
+# reason: equivalent: Python codec names are case-insensitive
+research_vault/compiled.py::func/_Local._read_introductions::-        commit = tokens[0].decode("ascii")\n+        commit = tokens[0].decode("ASCII")
+# reason: equivalent: one extra byte skipped drops only the first character of the next cat-file header's oid, which is never read; the header still splits into three fields with parts[1] == b"blob" (compiled.py:614-617), and the slice past the last blob is empty
+research_vault/compiled.py::func/_Local._read_introductions::-        data = data[size + 1 :]\n+        data = data[size + 2 :]
+# reason: equivalent: the first token after a commit id is always a `\n:` meta (compiled.py:586-587) or the trailing empty token, which `not token` skips at :589, so the initial value is never read
+research_vault/compiled.py::func/_Local._read_introductions::-        meta: bytes | None = None\n+        meta: bytes | None = ""
+# reason: message-only change on an _UndecidedError that vouches catches and discards (compiled.py:485-486); no row, log or stored record carries its text
+research_vault/compiled.py::func/_Local._read_introductions::-        raise _UndecidedError("git log failed")\n+        raise _UndecidedError("GIT LOG FAILED")
+# reason: message-only change on an _UndecidedError that vouches catches and discards (compiled.py:485-486); no row, log or stored record carries its text
+research_vault/compiled.py::func/_Local._read_introductions::-        raise _UndecidedError("git log failed")\n+        raise _UndecidedError("XXgit log failedXX")
+# reason: message-only change on an _UndecidedError that vouches catches and discards (compiled.py:485-486); no row, log or stored record carries its text
+research_vault/compiled.py::func/_Local._read_introductions::-        raise _UndecidedError("git log failed")\n+        raise _UndecidedError(None)
+# reason: equivalent: only head.returncode's truthiness is read (compiled.py:556). `rev-parse --verify -Q HEAD` exits 0 when HEAD names a commit and 128 when there is none, even with a file named HEAD present; `-q` exits 1 there, which is also nonzero (checked with git 2.43.0, 2026-11-28)
+research_vault/compiled.py::func/_Local._read_introductions::-        self._repository, "rev-parse", "--verify", "-q", "HEAD", check=False\n+        self._repository, "rev-parse", "--verify", "-Q", "HEAD", check=False
+# reason: equivalent: gitstate._git tests `if check and ...` (gitstate.py:128), and None is falsy like False
+research_vault/compiled.py::func/_Local._read_introductions::-        self._repository, "rev-parse", "--verify", "-q", "HEAD", check=False\n+        self._repository, "rev-parse", "--verify", "-q", "HEAD", check=None
+# reason: equivalent: -q only silences rev-parse's stderr and turns the no-commit exit 128 into 1; only nonzero is read (compiled.py:556), and `--verify HEAD` exits 0 with a commit and 128 without one, even when a file named HEAD exists (checked with git 2.43.0, 2026-11-28)
+research_vault/compiled.py::func/_Local._read_introductions::-        self._repository, "rev-parse", "--verify", "-q", "HEAD", check=False\n+        self._repository, "rev-parse", "--verify", "HEAD", check=False
+# reason: equivalent: the commit is only passed to blob_bytes (compiled.py:530) and returned for `merge-base --is-ancestor` (compiled.py:495-501), and both accept the unique abbreviation %h prints for the same commit
+research_vault/compiled.py::func/_Local._sealing_commit::-        "--format=%H",\n+        "--format=%h",
+# reason: equivalent: `git log` with no revision reads HEAD, and HEAD exists, since blob_bytes(HEAD) just returned the record (compiled.py:515-517)
+research_vault/compiled.py::func/_Local._sealing_commit::-        "HEAD",
+# reason: equivalent: gitstate._git tests `if check and ...` (gitstate.py:128), and None is falsy like False
+research_vault/compiled.py::func/_Local._sealing_commit::-        check=False,\n+        check=None,
+# reason: equivalent: git log -S lists the first commit L that changes the needle count, and every commit walked before L kept the count HEAD has (>= 1, checked at compiled.py:516), so L's record holds the needle; at is never None for L, and the loop returns at the first iteration under `and` or `or` (compiled.py:529-532)
+research_vault/compiled.py::func/_Local._sealing_commit::-        if at is not None and needle in at:\n+        if at is not None or needle in at:
+# reason: equivalent: json.dumps reads ensure_ascii only for truthiness, and None is falsy like False
+research_vault/compiled.py::func/_Local._sealing_commit::-        json.dumps(page, ensure_ascii=False) + ": " + json.dumps(recorded)\n+        json.dumps(page, ensure_ascii=None) + ": " + json.dumps(recorded)
+# reason: equivalent: Python codec names are case-insensitive
+research_vault/compiled.py::func/_Local._sealing_commit::-    ).encode("utf-8", errors="surrogateescape")\n+    ).encode("UTF-8", errors="surrogateescape")
+# reason: equivalent: _sealing_commit is reached only for a page key load_record/parse_record admit, and they admit only keys _is_plain_text accepts as UTF-8 encodable (compiled.py:114-116, structure.py:128-134; reseal_note's callers need record.get(relative), compiled.py:825-831, 916-919, 988-1000). The encode never meets a surrogate, so the error handler is never looked up and the default codec is already utf-8
+research_vault/compiled.py::func/_Local._sealing_commit::-    ).encode("utf-8", errors="surrogateescape")\n+    ).encode("utf-8", )
+# reason: equivalent: _sealing_commit is reached only for a page key load_record/parse_record admit, and they admit only keys _is_plain_text accepts as UTF-8 encodable (compiled.py:114-116, structure.py:128-134; reseal_note's callers need record.get(relative), compiled.py:825-831, 916-919, 988-1000). The encode never meets a surrogate, so the error handler is never looked up and the default codec is already utf-8
+research_vault/compiled.py::func/_Local._sealing_commit::-    ).encode("utf-8", errors="surrogateescape")\n+    ).encode("utf-8", errors="SURROGATEESCAPE")
+# reason: equivalent: _sealing_commit is reached only for a page key load_record/parse_record admit, and they admit only keys _is_plain_text accepts as UTF-8 encodable (compiled.py:114-116, structure.py:128-134; reseal_note's callers need record.get(relative), compiled.py:825-831, 916-919, 988-1000). The encode never meets a surrogate, so the error handler is never looked up and the default codec is already utf-8
+research_vault/compiled.py::func/_Local._sealing_commit::-    ).encode("utf-8", errors="surrogateescape")\n+    ).encode("utf-8", errors="XXsurrogateescapeXX")
+# reason: equivalent: _sealing_commit is reached only for a page key load_record/parse_record admit, and they admit only keys _is_plain_text accepts as UTF-8 encodable (compiled.py:114-116, structure.py:128-134; reseal_note's callers need record.get(relative), compiled.py:825-831, 916-919, 988-1000). The encode never meets a surrogate, so the error handler is never looked up and the default codec is already utf-8
+research_vault/compiled.py::func/_Local._sealing_commit::-    ).encode("utf-8", errors="surrogateescape")\n+    ).encode(errors="surrogateescape")
+# reason: equivalent: Python codec names are case-insensitive
+research_vault/compiled.py::func/_Local._sealing_commit::-    for commit in log.stdout.decode("ascii", errors="replace").split():\n+    for commit in log.stdout.decode("ASCII", errors="replace").split():
+# reason: equivalent: --format=%H (compiled.py:523) makes git log print only hex ids and newlines, which ASCII and UTF-8 decode alike without error, so the codec spelling and error handler are never consulted
+research_vault/compiled.py::func/_Local._sealing_commit::-    for commit in log.stdout.decode("ascii", errors="replace").split():\n+    for commit in log.stdout.decode("ascii", ).split():
+# reason: equivalent: --format=%H (compiled.py:523) makes git log print only hex ids and newlines, which ASCII and UTF-8 decode alike without error, so the codec spelling and error handler are never consulted
+research_vault/compiled.py::func/_Local._sealing_commit::-    for commit in log.stdout.decode("ascii", errors="replace").split():\n+    for commit in log.stdout.decode("ascii", errors="REPLACE").split():
+# reason: equivalent: --format=%H (compiled.py:523) makes git log print only hex ids and newlines, which decode as ASCII without error, so the error handler is never looked up (an unknown handler name raises LookupError only when an error occurs)
+research_vault/compiled.py::func/_Local._sealing_commit::-    for commit in log.stdout.decode("ascii", errors="replace").split():\n+    for commit in log.stdout.decode("ascii", errors="XXreplaceXX").split():
+# reason: equivalent: --format=%H (compiled.py:523) makes git log print only hex ids and newlines, which ASCII and UTF-8 decode alike without error, so the codec spelling and error handler are never consulted
+research_vault/compiled.py::func/_Local._sealing_commit::-    for commit in log.stdout.decode("ascii", errors="replace").split():\n+    for commit in log.stdout.decode(errors="replace").split():
+# reason: equivalent: gitstate._git tests `if check and ...` (gitstate.py:128), and None is falsy like False
+research_vault/compiled.py::func/_Local.vouches::-            check=False,\n+            check=None,
+# reason: equivalent: a 'file' FileImage always carries bytes (gitstate.py:40-41), so `image.data or ...` takes the fallback only when data is b'', and json.loads raises on b'' and on b'XXXX' alike, so both reach `except _UndecidedError: return True` (compiled.py:648-651)
+research_vault/compiled.py::func/_Snapshot._names_operation::-            if _parsed_operation(image.data or b"") == operation:\n+            if _parsed_operation(image.data or b"XXXX") == operation:
+# reason: equivalent: the statement after the while loop is `return None` (compiled.py:387), so leaving the loop by `break` and returning None directly give the same result
+research_vault/compiled.py::func/_history_blob::-            break  # `missing`, or not a blob: nothing more to read reliably\n+            return  # `missing`, or not a blob: nothing more to read reliably
+# reason: equivalent on git's output: with `--format=` git log --raw prints only the `:`-prefixed raw lines, no commit header and no blank separator, merges included (measured with git 2.43.0 on 2026-11-28 over linear, merged and conflict-resolved histories), so the `continue` at compiled.py:366-367 never runs and `break` cannot cut the history short
+research_vault/compiled.py::func/_history_blob::-            continue\n+            break
+# reason: equivalent: bytes.strip takes a set of bytes, and b'XX0XX' is the set {X, 0}; a hex object id never contains X, so it strips exactly what b'0' strips (compiled.py:370)
+research_vault/compiled.py::func/_history_blob::-            if oid.strip(b"0") and oid not in oids:\n+            if oid.strip(b"XX0XX") and oid not in oids:
+# reason: equivalent on git's output: without `--format=` git log adds the default header and message lines (`commit ...`, `Author:`, `Date:`, `Merge:`, blank, four-space-indented message), none of which starts with `:`, and compiled.py:366-367 skips every line that does not
+research_vault/compiled.py::func/_history_blob::-        "--format=",
+# reason: equivalent: oids are read only from fields 2-3 of each raw line (compiled.py:368-370), and a rename line (`R`, which arises only when a wildcard pathspec matches both paths) carries the same preimage and postimage oids as the `D` and `A` pair --no-renames prints instead; a single-path pathspec gets no rename pairing at all (measured with git 2.43.0 on 2026-11-28: `git mv` into the path logs an `A` line either way; a glob pathspec logs `R100` with old and new oids). Same oid set, and _sha selects the blob, so order cannot matter
+research_vault/compiled.py::func/_history_blob::-        "--no-renames",
+# reason: equivalent: git log with no revision argument defaults to HEAD, so dropping the explicit `HEAD` (compiled.py:357) logs the same commits
+research_vault/compiled.py::func/_history_blob::-        "HEAD",
+# reason: equivalent on cat-file's output grammar: the extra byte skipped is the first hex digit of the next `<oid> <type> <size>` header, which still splits into three tokens with the same type and size (compiled.py:379-384), and the oid token is never read; after the last blob the remainder is empty either way
+research_vault/compiled.py::func/_history_blob::-        blob, data = data[:size], data[size + 1 :]\n+        blob, data = data[:size], data[size + 2 :]
+# reason: equivalent: `_git` raises only `if check and result.returncode != 0` (gitstate.py:128), and None is falsy exactly as False is
+research_vault/compiled.py::func/_history_blob::-        check=False,\n+        check=None,
+# reason: equivalent: with --no-renames each raw line has exactly one tab, before the path (git C-quotes a tab inside a path), and the oids are fields 2-3 of the whitespace-split part before it, which every variant of this split (rsplit, no maxsplit, maxsplit 2, or no split at all, since the path is then fields[5:]) leaves unchanged (compiled.py:368-369)
+research_vault/compiled.py::func/_history_blob::-        fields = line.split(b"\t", 1)[0].split()\n+        fields = line.rsplit(b"\t", 1)[0].split()
+# reason: equivalent: with --no-renames each raw line has exactly one tab, before the path (git C-quotes a tab inside a path), and the oids are fields 2-3 of the whitespace-split part before it, which every variant of this split (rsplit, no maxsplit, maxsplit 2, or no split at all, since the path is then fields[5:]) leaves unchanged (compiled.py:368-369)
+research_vault/compiled.py::func/_history_blob::-        fields = line.split(b"\t", 1)[0].split()\n+        fields = line.split(b"XX\tXX", 1)[0].split()
+# reason: equivalent: the first element of bytes.split(sep) is the text before the first sep for any maxsplit, so split(b"\t")[0] equals split(b"\t", 1)[0] (compiled.py:368)
+research_vault/compiled.py::func/_history_blob::-        fields = line.split(b"\t", 1)[0].split()\n+        fields = line.split(b"\t", )[0].split()
+# reason: equivalent: with --no-renames each raw line has exactly one tab, before the path (git C-quotes a tab inside a path), and the oids are fields 2-3 of the whitespace-split part before it, which every variant of this split (rsplit, no maxsplit, maxsplit 2, or no split at all, since the path is then fields[5:]) leaves unchanged (compiled.py:368-369)
+research_vault/compiled.py::func/_history_blob::-        fields = line.split(b"\t", 1)[0].split()\n+        fields = line.split(b"\t", 2)[0].split()
+# reason: equivalent: `_git` raises only `if check and result.returncode != 0` (gitstate.py:128), and None is falsy exactly as False is
+research_vault/compiled.py::func/_history_blob::-        repository, "cat-file", "--batch", stdin=b"\n".join(oids) + b"\n", check=False\n+        repository, "cat-file", "--batch", stdin=b"\n".join(oids) + b"\n", check=None
+# reason: equivalent on git's behaviour: `git cat-file --batch` reports a missing or ambiguous object, and a corrupt loose object, in-band as `<oid> missing` and exits 0 (measured with git 2.43.0 on 2026-11-28 with a zero oid, the token `M` and a garbage-overwritten loose object), and the oids passed are 40-hex ids from --raw --no-abbrev (compiled.py:368-371), so check=True never raises
+research_vault/compiled.py::func/_history_blob::-        repository, "cat-file", "--batch", stdin=b"\n".join(oids) + b"\n", check=False\n+        repository, "cat-file", "--batch", stdin=b"\n".join(oids) + b"\n", check=True
+# reason: equivalent on git's behaviour: `git cat-file --batch` reports a missing or ambiguous object in-band and exits 0 (measured with git 2.43.0 on 2026-11-28 with a zero oid and the token `M`), so check=True differs only when git itself dies on a corrupt object store, which no test or contract covers and which is not worth a test
+research_vault/compiled.py::func/_history_blob::-        repository, "cat-file", "--batch", stdin=b"\n".join(oids) + b"\n", check=False\n-    )\n+        repository, "cat-file", "--batch", stdin=b"\n".join(oids) + b"\n", )
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/compiled.py::func/_parsed_operation::-        document = json.loads(data.decode("utf-8"))\n+        document = json.loads(data.decode("UTF-8"))
+# reason: message-only change on the _UndecidedError text: every handler discards it (compiled.py:485 `except _UndecidedError: return False`, :538-542 stores and re-raises into that handler, :650 `return True`), so no row, record or output carries it
+research_vault/compiled.py::func/_parsed_operation::-        raise _UndecidedError(str(error)) from error\n+        raise _UndecidedError(None) from error
+# reason: message-only change on the _UndecidedError text: every handler discards it (compiled.py:485 `except _UndecidedError: return False`, :538-542 stores and re-raises into that handler, :650 `return True`), so no row, record or output carries it
+research_vault/compiled.py::func/_parsed_operation::-        raise _UndecidedError(str(error)) from error\n+        raise _UndecidedError(str(None)) from error
+# reason: equivalent: `structure.is_excluded` (structure.py:88-91) only reads the parts of path.relative_to(anchor), and `anchor / relative` relative to the same anchor gives back `relative`'s parts for any anchor, so the anchor string never matters
+research_vault/compiled.py::func/_snapshot_nodes::-        anchor = Path("/vault")\n+        anchor = Path("/VAULT")
+# reason: equivalent: `structure.is_excluded` (structure.py:88-91) only reads the parts of path.relative_to(anchor), and `anchor / relative` relative to the same anchor gives back `relative`'s parts for any anchor, so the anchor string never matters
+research_vault/compiled.py::func/_snapshot_nodes::-        anchor = Path("/vault")\n+        anchor = Path("XX/vaultXX")
+# reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
+research_vault/compiled.py::func/_text::-    return data.decode("utf-8", errors="surrogateescape")\n+    return data.decode("UTF-8", errors="surrogateescape")
+# reason: equivalent: bytes.decode's encoding defaults to 'utf-8' in Python 3, not the locale encoding, so dropping the explicit 'utf-8' decodes identically
+research_vault/compiled.py::func/_text::-    return data.decode("utf-8", errors="surrogateescape")\n+    return data.decode(errors="surrogateescape")
+# reason: equivalent: a value in `others` is read only by `_not_a_file` (compiled.py:187-203, via :822 and :979), which tests `kind == "file"` and `kind == "symlink"` alone; any other value, "special", "SPECIAL", "XXspecialXX" or None, gives the same "not a regular file" reason, and the dict stays truthy for :813
+research_vault/compiled.py::func/_walk::-                others[relative] = "special"\n+                others[relative] = "SPECIAL"
+# reason: equivalent: a value in `others` is read only by `_not_a_file` (compiled.py:187-203, via :822 and :979), which tests `kind == "file"` and `kind == "symlink"` alone; any other value, "special", "SPECIAL", "XXspecialXX" or None, gives the same "not a regular file" reason, and the dict stays truthy for :813
+research_vault/compiled.py::func/_walk::-                others[relative] = "special"\n+                others[relative] = "XXspecialXX"
+# reason: equivalent: a value in `others` is read only by `_not_a_file` (compiled.py:187-203, via :822 and :979), which tests `kind == "file"` and `kind == "symlink"` alone; any other value, "special", "SPECIAL", "XXspecialXX" or None, gives the same "not a regular file" reason, and the dict stays truthy for :813
+research_vault/compiled.py::func/_walk::-                others[relative] = "special"\n+                others[relative] = None
+# reason: equivalent: a value in `others` is read only by `_not_a_file` (compiled.py:187-203, via :822 and :979), which tests `kind == "file"` and `kind == "symlink"` alone; any other value, "special", "SPECIAL", "XXspecialXX" or None, gives the same "not a regular file" reason, and the dict stays truthy for :813
+research_vault/compiled.py::func/_walk::-        return files, ({"wiki": "special"} if os.path.lexists(wiki) else others)\n+        return files, ({"wiki": "SPECIAL"} if os.path.lexists(wiki) else others)
+# reason: equivalent: a value in `others` is read only by `_not_a_file` (compiled.py:187-203, via :822 and :979), which tests `kind == "file"` and `kind == "symlink"` alone; any other value, "special", "SPECIAL", "XXspecialXX" or None, gives the same "not a regular file" reason, and the dict stays truthy for :813
+research_vault/compiled.py::func/_walk::-        return files, ({"wiki": "special"} if os.path.lexists(wiki) else others)\n+        return files, ({"wiki": "XXspecialXX"} if os.path.lexists(wiki) else others)
+# reason: equivalent: os.walk's followlinks defaults to False, so dropping the keyword passes the same value (compiled.py:157)
+research_vault/compiled.py::func/_walk::-    for root, dirnames, filenames in os.walk(wiki, followlinks=False):\n+    for root, dirnames, filenames in os.walk(wiki, ):
+# reason: equivalent: every symlinked directory is removed from dirnames before os.walk descends (compiled.py:160-168, `dirnames[:] = kept`), and `wiki` itself is no symlink here (:150-151), so followlinks only governs directories the walk never visits
+research_vault/compiled.py::func/_walk::-    for root, dirnames, filenames in os.walk(wiki, followlinks=False):\n+    for root, dirnames, filenames in os.walk(wiki, followlinks=None):
+# reason: equivalent: every symlinked directory is removed from dirnames before os.walk descends (compiled.py:160-168, `dirnames[:] = kept`), and `wiki` itself is no symlink here (:150-151), so followlinks only governs directories the walk never visits
+research_vault/compiled.py::func/_walk::-    for root, dirnames, filenames in os.walk(wiki, followlinks=False):\n+    for root, dirnames, filenames in os.walk(wiki, followlinks=True):
+# reason: equivalent: the anchor is read only through structure.is_excluded(anchor / relative, anchor), which looks at path.relative_to(vault).parts alone (structure.py:88), so any anchor gives the same parts for the same raw_path
+research_vault/compiled.py::func/is_record_file::-    anchor = Path("/vault")\n+    anchor = Path("/VAULT")
+# reason: equivalent: the anchor is read only through structure.is_excluded(anchor / relative, anchor), which looks at path.relative_to(vault).parts alone (structure.py:88), so any anchor gives the same parts for the same raw_path
+research_vault/compiled.py::func/is_record_file::-    anchor = Path("/vault")\n+    anchor = Path("XX/vaultXX")
+# reason: encoding alias: Python codec names are case-insensitive, so read_text(encoding="UTF-8") decodes exactly as "utf-8"
+research_vault/compiled.py::func/journal_hashes::-            journal = json.loads(journal_path.read_text(encoding="utf-8"))\n+            journal = json.loads(journal_path.read_text(encoding="UTF-8"))
+# reason: equivalent: a journal without "writes" now gives None instead of [], and the next line iterates writes only if isinstance(writes, list), else [] (compiled.py:258), so both iterate nothing
+research_vault/compiled.py::func/journal_hashes::-        writes = journal.get("writes", [])\n+        writes = journal.get("writes", )
+# reason: equivalent: a journal without "writes" now gives None instead of [], and the next line iterates writes only if isinstance(writes, list), else [] (compiled.py:258), so both iterate nothing
+research_vault/compiled.py::func/journal_hashes::-        writes = journal.get("writes", [])\n+        writes = journal.get("writes", None)
+# reason: equivalent: the default is read only for a path with no journal write, and both "" and "XXXX" are not None, so `is None` is False either way; a path the journal names returns its own value regardless of the default
+research_vault/compiled.py::func/lint_compiled_layer::-        if journal_writes.get(relative, "") is None:\n+        if journal_writes.get(relative, "XXXX") is None:
+# reason: equivalent: the default is read only for a path with no journal write, and both "" and "XXXX" are not None, so `is None` is False either way; a path the journal names returns its own value regardless of the default
+research_vault/compiled.py::func/lint_record_custody::-        if journal.get(relative, "") is None:\n+        if journal.get(relative, "XXXX") is None:
+# reason: equivalent: _Local reads store only as the truthiness test `if self._use_store` (compiled.py:464), and None is falsy like False
+research_vault/compiled.py::func/lint_record_custody::-    witness = _Witness(vault, _Local(repository, store=False))\n+    witness = _Witness(vault, _Local(repository, store=None))
+# reason: equivalent: cursor_old/cursor_new are read only as slice starts (compiled.py:282) before the loop reassigns them (:296). The early return at compiled.py:278 guarantees the loop runs at least once, so the final slice (:297) always reads reassigned cursors, and a None slice start means 0
+research_vault/compiled.py::func/only_link_targets_changed::-    cursor_old = cursor_new = 0\n+    cursor_old = cursor_new = None
+# reason: equivalent: the early return at compiled.py:278 leaves the zip only for lists of equal length, so strict never raises and zip yields the same pairs with or without it
+research_vault/compiled.py::func/only_link_targets_changed::-    for a, b in zip(old_links, new_links, strict=True):\n+    for a, b in zip(old_links, new_links, ):
+# reason: equivalent: the early return at compiled.py:278 leaves the zip only for lists of equal length, so strict never raises and zip yields the same pairs with or without it
+research_vault/compiled.py::func/only_link_targets_changed::-    for a, b in zip(old_links, new_links, strict=True):\n+    for a, b in zip(old_links, new_links, strict=False):
+# reason: equivalent: the early return at compiled.py:278 leaves the zip only for lists of equal length, so strict never raises and zip yields the same pairs with or without it
+research_vault/compiled.py::func/only_link_targets_changed::-    for a, b in zip(old_links, new_links, strict=True):\n+    for a, b in zip(old_links, new_links, strict=None):
+# reason: encoding alias: Python codec names are case-insensitive, so data.decode("UTF-8") decodes exactly as "utf-8"
+research_vault/compiled.py::func/parse_record::-        document = json.loads(data.decode("utf-8"))\n+        document = json.loads(data.decode("UTF-8"))
+# reason: encoding alias: Python codec names are case-insensitive, so encode("UTF-8", ...) encodes exactly as "utf-8"
+research_vault/compiled.py::func/seal::-                files[relative] = normalised.encode("utf-8", errors="surrogateescape")\n+                files[relative] = normalised.encode("UTF-8", errors="surrogateescape")
+# reason: equivalent: str.encode's encoding defaults to "utf-8", so encode(errors="surrogateescape") is encode("utf-8", errors="surrogateescape")
+research_vault/compiled.py::func/seal::-                files[relative] = normalised.encode("utf-8", errors="surrogateescape")\n+                files[relative] = normalised.encode(errors="surrogateescape")
+# reason: equivalent: the default is read only for a path with no journal write, and both "" and "XXXX" are not None, so `is None` is False either way; a path the journal names returns its own value regardless of the default
+research_vault/compiled.py::func/seal::-            if relative in record and journal.get(relative, "") is None:\n+            if relative in record and journal.get(relative, "XXXX") is None:
+# reason: encoding alias: Python codec names are case-insensitive, so write_text(encoding="UTF-8") encodes exactly as "utf-8"
+research_vault/compiled.py::func/seal::-            normalised, encoding="utf-8", errors="surrogateescape", newline=""\n+            normalised, encoding="UTF-8", errors="surrogateescape", newline=""
+# reason: equivalent on POSIX: with newline=None, TextIOWrapper translates "\n" on write only to os.linesep, which is "\n" off Windows, so the bytes match newline=""; the suite runs only on ubuntu-latest (.github/workflows/quality.yml:28,114,171)
+research_vault/compiled.py::func/seal::-            normalised, encoding="utf-8", errors="surrogateescape", newline=""\n+            normalised, encoding="utf-8", errors="surrogateescape", newline=None
+# reason: equivalent on POSIX: with newline=None, TextIOWrapper translates "\n" on write only to os.linesep, which is "\n" off Windows, so the bytes match newline=""; the suite runs only on ubuntu-latest (.github/workflows/quality.yml:28,114,171)
+research_vault/compiled.py::func/seal::-            normalised, encoding="utf-8", errors="surrogateescape", newline=""\n-        )\n+            normalised, encoding="utf-8", errors="surrogateescape", )
+# reason: encoding alias: Python codec names are case-insensitive, so encode("UTF-8") encodes exactly as "utf-8"
+research_vault/compiled.py::func/write_record::-        (json.dumps(document, indent=2, ensure_ascii=False) + "\n").encode("utf-8")\n+        (json.dumps(document, indent=2, ensure_ascii=False) + "\n").encode("UTF-8")
+# reason: equivalent: with indent=2, json.dumps builds a JSONEncoder whose pure-Python iterencode chooses the escaper with `if self.ensure_ascii`, and None is falsy like False (checked 2026-11-28 on Python 3.12.3: json.dumps({'é': 1}, indent=2, ensure_ascii=None) keeps 'é' raw)
+research_vault/compiled.py::func/write_record::-        (json.dumps(document, indent=2, ensure_ascii=False) + "\n").encode("utf-8")\n+        (json.dumps(document, indent=2, ensure_ascii=None) + "\n").encode("utf-8")
+# reason: equivalent: the unlink runs only after temporary.write_bytes created the file and temporary.replace raised; os.replace either completes or leaves the source in place, so the temporary always exists and missing_ok is never consulted
+research_vault/compiled.py::func/write_record::-        temporary.unlink(missing_ok=True)\n+        temporary.unlink(missing_ok=False)
+# reason: equivalent: the unlink runs only after temporary.write_bytes created the file and temporary.replace raised; os.replace either completes or leaves the source in place, so the temporary always exists and missing_ok is never consulted
+research_vault/compiled.py::func/write_record::-        temporary.unlink(missing_ok=True)\n+        temporary.unlink(missing_ok=None)
+# reason: equivalent: write_record's only caller, seal (compiled.py:1039), calls it only when sealed > 0, which needs a file under vault/wiki or an entry in vault's own record, so the vault exists and system/ is the only level mkdir has to create
+research_vault/compiled.py::func/write_record::-    path.parent.mkdir(parents=True, exist_ok=True)\n+    path.parent.mkdir(exist_ok=True)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_advisory_addons::-            "advisory", Result.SKIPPED, f"plugins row carries the fault: {error}"\n+            "advisory", Result.SKIPPED, None
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_advisory_probe::-        "no appDisabled recommended add-on, no active excluded add-on, "\n+        "NO APPDISABLED RECOMMENDED ADD-ON, NO ACTIVE EXCLUDED ADD-ON, "
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_advisory_probe::-        "no appDisabled recommended add-on, no active excluded add-on, "\n+        "XXno appDisabled recommended add-on, no active excluded add-on, XX"
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_advisory_probe::-        "no appDisabled recommended add-on, no active excluded add-on, "\n+        "no appdisabled recommended add-on, no active excluded add-on, "
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_advisory_probe::-        "no appDisabled recommended add-on, no active excluded add-on, "\n-        "no enabled excluded Obsidian plugin",\n+        None,
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_advisory_probe::-        "no enabled excluded Obsidian plugin",\n+        "NO ENABLED EXCLUDED OBSIDIAN PLUGIN",
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_advisory_probe::-        "no enabled excluded Obsidian plugin",\n+        "XXno enabled excluded Obsidian pluginXX",
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_advisory_probe::-        "no enabled excluded Obsidian plugin",\n+        "no enabled excluded obsidian plugin",
 research_vault/doctor.py::func/_backup_probe::-        return Probe("backup", Result.MATCHED, backup.strip())\n+        return Probe("backup", None, backup.strip())
 research_vault/doctor.py::func/_backup_probe::-        return Probe("backup", Result.MATCHED, backup.strip())\n+        return Probe("backup", Result.MATCHED, None)
 research_vault/doctor.py::func/_backup_probe::-    backup = config.get("zotero_backup")\n+    backup = None
 research_vault/doctor.py::func/_backup_probe::-    backup = config.get("zotero_backup")\n+    backup = config.get("XXzotero_backupXX")
 research_vault/doctor.py::func/_backup_probe::-    backup = config.get("zotero_backup")\n+    backup = config.get("ZOTERO_BACKUP")
 research_vault/doctor.py::func/_backup_probe::-    backup = config.get("zotero_backup")\n+    backup = config.get(None)
-research_vault/doctor.py::func/_bbt_git_probe::-        return Probe("bbt-git", Result.MATCHED, "git=off")\n+        return Probe("bbt-git", Result.MATCHED, "GIT=OFF")
-research_vault/doctor.py::func/_bbt_git_probe::-        return Probe("bbt-git", Result.MATCHED, "git=off")\n+        return Probe("bbt-git", Result.MATCHED, "XXgit=offXX")
-research_vault/doctor.py::func/_bbt_git_probe::-        return Probe("bbt-git", Result.MATCHED, "git=off")\n+        return Probe("bbt-git", Result.MATCHED, None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"\n+                "BBT-GIT", Result.UNREACHABLE, f".git/config unreadable: {error}"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"\n+                "XXbbt-gitXX", Result.UNREACHABLE, f".git/config unreadable: {error}"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"\n+                "bbt-git", None, f".git/config unreadable: {error}"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"\n+                "bbt-git", Result.UNREACHABLE, None
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"\n+                "bbt-git", f".git/config unreadable: {error}"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"\n+                None, Result.UNREACHABLE, f".git/config unreadable: {error}"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"\n+                Result.UNREACHABLE, f".git/config unreadable: {error}"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                "bbt-git", Result.UNREACHABLE, f".git/config unreadable: {error}"\n-            )\n+                "bbt-git", Result.UNREACHABLE, )
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                "git=config, no Better BibTeX opt-in in .git/config",\n+                "git=config, no better bibtex opt-in in .git/config",
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                key_prefix=addons.BBT_PREFIX,\n+                key_prefix=None,
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                key_prefix=addons.BBT_PREFIX,\n-            )\n+                )
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                keys=(_BBT_GIT,),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-                keys=(_BBT_GIT,),\n+                keys=None,
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"\n+            "BBT-GIT", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"\n+            "XXbbt-gitXX", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"\n+            "bbt-git", None, f"prefs.js line naming {_BBT_GIT} unreadable"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"\n+            "bbt-git", Result.UNREACHABLE, None
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"\n+            "bbt-git", f"prefs.js line naming {_BBT_GIT} unreadable"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"\n+            None, Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"\n+            Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            "bbt-git", Result.UNREACHABLE, f"prefs.js line naming {_BBT_GIT} unreadable"\n-        )\n+            "bbt-git", Result.UNREACHABLE, )
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            config = ""\n+            config = "XXXX"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            config = ""\n+            config = None
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            config = (vault / ".git" / "config").read_text(encoding="utf-8")\n+            config = (vault / ".git" / "config").read_text(encoding="UTF-8")
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-            config = (vault / ".git" / "config").read_text(encoding="utf-8")\n+            config = (vault / ".git" / "config").read_text(encoding=None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-        profile.unreadable, _BBT_GIT, addons.BBT_PREFIX\n+        profile.unreadable, _BBT_GIT, None
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-    defaults: dict[str, str] = {}\n+    defaults: dict[str, str] = None
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_bbt_git_probe::-    if _BBT_GIT not in profile.prefs and _names_key(\n+    if _BBT_GIT in profile.prefs and _names_key(
 research_vault/doctor.py::func/_bbt_probe::-        return Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")\n+        return Probe("bbt", Result.UNMATCHED, "BETTER BIBTEX VERSION MISSING")
 research_vault/doctor.py::func/_bbt_probe::-        return Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")\n+        return Probe("bbt", Result.UNMATCHED, "XXBetter BibTeX version missingXX")
 research_vault/doctor.py::func/_bbt_probe::-        return Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")\n+        return Probe("bbt", Result.UNMATCHED, "better bibtex version missing")
 research_vault/doctor.py::func/_bbt_probe::-        return Probe("bbt", Result.UNMATCHED, "Better BibTeX version missing")\n+        return Probe("bbt", Result.UNMATCHED, None)
-research_vault/doctor.py::func/_compile_tool_probe::-        f"{_COMPILE_PLUGIN} at {sha[:7]}, pin is {_COMPILE_PIN}",\n+        f"{_COMPILE_PLUGIN} at {sha[:8]}, pin is {_COMPILE_PIN}",
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_compile_mode::-        mode = json.loads(path.read_text(encoding="utf-8")).get("mode", "generic")\n+        mode = json.loads(path.read_text(encoding="UTF-8")).get("mode", "generic")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_compile_mode::-        mode = json.loads(path.read_text(encoding="utf-8")).get("mode", "generic")\n+        mode = json.loads(path.read_text(encoding=None)).get("mode", "generic")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_compile_mode::-    shown = mode if isinstance(mode, str) else json.dumps(mode)\n+    shown = mode if isinstance(mode, str) else json.dumps(None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_config_json::-        document = json.loads((folder / relative).read_text(encoding="utf-8"))\n+        document = json.loads((folder / relative).read_text(encoding="UTF-8"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_config_json::-        document = json.loads((folder / relative).read_text(encoding="utf-8"))\n+        document = json.loads((folder / relative).read_text(encoding=None))
+# reason: equivalent: Python codec names are case-insensitive, so read_text(encoding="UTF-8") at doctor.py:989 selects the same utf-8 codec
+research_vault/doctor.py::func/_deny_rules_probe::-        document = json.loads(settings.read_text(encoding="utf-8"))\n+        document = json.loads(settings.read_text(encoding="UTF-8"))
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_export_targets_vault::-        raise paths.PathError(f"{raw!r}: {error}") from error\n+        raise paths.PathError(None) from error
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_export_targets_vault::-    if not isinstance(raw, str) or not raw:\n+    if not isinstance(raw, str) and not raw:
 research_vault/doctor.py::func/_first_stored_attachment::-            reported = header(headers, "Total-Results")\n+            reported = header(headers, "TOTAL-RESULTS")
 research_vault/doctor.py::func/_first_stored_attachment::-            reported = header(headers, "Total-Results")\n+            reported = header(headers, "total-results")
 research_vault/doctor.py::func/_first_stored_attachment::-    total: str | None = None\n+    total: str | None = ""
@@ -577,6 +955,44 @@ research_vault/doctor.py::func/_machine_config::-    mailto = config.get("mailto
 research_vault/doctor.py::func/_machine_config::-    mailto = config.get("mailto")\n+    mailto = config.get(None)
 research_vault/doctor.py::func/_machine_config::-    return config, Probe("machine-config", Result.MATCHED, f"mailto {mailto.strip()}")\n+    return config, Probe("machine-config", None, f"mailto {mailto.strip()}")
 research_vault/doctor.py::func/_machine_config::-    return config, Probe("machine-config", Result.MATCHED, f"mailto {mailto.strip()}")\n+    return config, Probe("machine-config", Result.MATCHED, None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_names_key::-    return any(addons.line_names_key(line, (key,), key_prefix) for line in lines)\n+    return any(addons.line_names_key(line, (key,), None) for line in lines)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_names_key::-    return any(addons.line_names_key(line, (key,), key_prefix) for line in lines)\n+    return any(addons.line_names_key(line, None, key_prefix) for line in lines)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-                    continue\n+                    break
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-                continue\n+                break
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian", Result.UNMATCHED, f"plugin declaration malformed: {error}"\n+            "OBSIDIAN", Result.UNMATCHED, f"plugin declaration malformed: {error}"
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian", Result.UNMATCHED, f"plugin declaration malformed: {error}"\n+            "XXobsidianXX", Result.UNMATCHED, f"plugin declaration malformed: {error}"
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian", Result.UNMATCHED, f"plugin declaration malformed: {error}"\n+            "obsidian", None, f"plugin declaration malformed: {error}"
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian", Result.UNMATCHED, f"plugin declaration malformed: {error}"\n+            "obsidian", Result.UNMATCHED, None
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian", Result.UNMATCHED, f"plugin declaration malformed: {error}"\n+            "obsidian", f"plugin declaration malformed: {error}"
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian", Result.UNMATCHED, f"plugin declaration malformed: {error}"\n+            None, Result.UNMATCHED, f"plugin declaration malformed: {error}"
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian", Result.UNMATCHED, f"plugin declaration malformed: {error}"\n+            Result.UNMATCHED, f"plugin declaration malformed: {error}"
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian", Result.UNMATCHED, f"plugin declaration malformed: {error}"\n-        )\n+            "obsidian", Result.UNMATCHED, )
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian",\n+            "OBSIDIAN",
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian",\n+            "XXobsidianXX",
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-            "obsidian",\n+            None,
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-        "; ".join(notes_out)\n+        "XX; XX".join(notes_out)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-        shown = "; ".join(f"{names[c]} {text}" for c, _fact, text in found)\n+        shown = "XX; XX".join(f"{names[c]} {text}" for c, _fact, text in found)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-    seed = _OBSIDIAN_SEED.joinpath("core-plugins.json").read_text(encoding="utf-8")\n+    seed = _OBSIDIAN_SEED.joinpath("core-plugins.json").read_text(encoding="UTF-8")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_obsidian_probe::-    seed = _OBSIDIAN_SEED.joinpath("core-plugins.json").read_text(encoding="utf-8")\n+    seed = _OBSIDIAN_SEED.joinpath("core-plugins.json").read_text(encoding=None)
 research_vault/doctor.py::func/_path_shim_probe::-            "path-shim", Result.SKIPPED, f"stored attachment {key} has no file URL"\n+            "PATH-SHIM", Result.SKIPPED, f"stored attachment {key} has no file URL"
 research_vault/doctor.py::func/_path_shim_probe::-            "path-shim", Result.SKIPPED, f"stored attachment {key} has no file URL"\n+            "XXpath-shimXX", Result.SKIPPED, f"stored attachment {key} has no file URL"
 research_vault/doctor.py::func/_path_shim_probe::-            "path-shim", Result.SKIPPED, f"stored attachment {key} has no file URL"\n+            "path-shim", None, f"stored attachment {key} has no file URL"
@@ -585,7 +1001,6 @@ research_vault/doctor.py::func/_path_shim_probe::-            "path-shim", Resul
 research_vault/doctor.py::func/_path_shim_probe::-            "path-shim", Result.SKIPPED, f"stored attachment {key} has no file URL"\n+            None, Result.SKIPPED, f"stored attachment {key} has no file URL"
 research_vault/doctor.py::func/_path_shim_probe::-            "path-shim", Result.SKIPPED, f"stored attachment {key} has no file URL"\n+            Result.SKIPPED, f"stored attachment {key} has no file URL"
 research_vault/doctor.py::func/_path_shim_probe::-            "path-shim", Result.SKIPPED, f"stored attachment {key} has no file URL"\n-        )\n+            "path-shim", Result.SKIPPED, )
-research_vault/doctor.py::func/_path_shim_probe::-        return Probe("path-shim", Result.MATCHED, str(local))\n+        return Probe("path-shim", Result.MATCHED, None)
 research_vault/doctor.py::func/_path_shim_probe::-        return Probe("path-shim", Result.MATCHED, str(local))\n+        return Probe("path-shim", Result.MATCHED, str(None))
 research_vault/doctor.py::func/_path_shim_probe::-        return Probe("path-shim", Result.UNREACHABLE, f"file URL for {key}: {error}")\n+        return Probe("PATH-SHIM", Result.UNREACHABLE, f"file URL for {key}: {error}")
 research_vault/doctor.py::func/_path_shim_probe::-        return Probe("path-shim", Result.UNREACHABLE, f"file URL for {key}: {error}")\n+        return Probe("XXpath-shimXX", Result.UNREACHABLE, f"file URL for {key}: {error}")
@@ -595,14 +1010,46 @@ research_vault/doctor.py::func/_path_shim_probe::-        return Probe("path-shi
 research_vault/doctor.py::func/_path_shim_probe::-        return Probe("path-shim", Result.UNREACHABLE, f"file URL for {key}: {error}")\n+        return Probe("path-shim", f"file URL for {key}: {error}")
 research_vault/doctor.py::func/_path_shim_probe::-        return Probe("path-shim", Result.UNREACHABLE, f"file URL for {key}: {error}")\n+        return Probe(None, Result.UNREACHABLE, f"file URL for {key}: {error}")
 research_vault/doctor.py::func/_path_shim_probe::-        return Probe("path-shim", Result.UNREACHABLE, f"file URL for {key}: {error}")\n+        return Probe(Result.UNREACHABLE, f"file URL for {key}: {error}")
-research_vault/doctor.py::func/_plugins_probe::-            and profile.prefs.get(addon.auto_pref) is not True\n+            and profile.prefs.get(None) is not True
-research_vault/doctor.py::func/_plugins_probe::-        return Probe("plugins", Result.UNMATCHED, "; ".join(failures))\n+        return Probe("plugins", Result.UNMATCHED, "XX; XX".join(failures))
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_plugins_probe::-            continue\n+            break
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_plugins_probe::-            version = seen["version"] or ""\n+            version = seen["version"] or "XXXX"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_plugins_probe::-        if addon.need == "excluded":\n+        if addon.need == "EXCLUDED":
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_plugins_probe::-        if addon.need == "excluded":\n+        if addon.need == "XXexcludedXX":
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_plugins_probe::-        return Probe("plugins", Result.UNREACHABLE, "; ".join(unreachable))\n+        return Probe("plugins", Result.UNREACHABLE, "XX; XX".join(unreachable))
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_plugins_probe::-        shown = "; ".join(\n+        shown = "XX; XX".join(
 research_vault/doctor.py::func/_plugins_probe::-    return Probe("plugins", Result.MATCHED, "; ".join(notes_out))\n+    return Probe("plugins", Result.MATCHED, "XX; XX".join(notes_out))
 research_vault/doctor.py::func/_remote_probe::-        result = _git(vault, "remote", check=False)\n+        result = _git(vault, "remote", )
 research_vault/doctor.py::func/_remote_probe::-        result = _git(vault, "remote", check=False)\n+        result = _git(vault, "remote", check=None)
 research_vault/doctor.py::func/_remote_probe::-        result = _git(vault, "remote", check=False)\n+        result = _git(vault, "remote", check=True)
 research_vault/doctor.py::func/_remote_probe::-        return Probe("remote", Result.UNREACHABLE, f"Git remote unreadable: {error}")\n+        return Probe("remote", None, f"Git remote unreadable: {error}")
 research_vault/doctor.py::func/_remote_probe::-        return Probe("remote", Result.UNREACHABLE, f"Git remote unreadable: {error}")\n+        return Probe("remote", Result.UNREACHABLE, None)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-                continue\n+                break
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-            accepted = ", ".join(setting.accepted)\n+            accepted = "XX, XX".join(setting.accepted)
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-            if _names_key(profile.unreadable, setting.pref, addon.key_prefix):\n+            if _names_key(profile.unreadable, setting.pref, None):
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-            profile.path, addon.addon_id, keys=keys, key_prefix=addon.key_prefix\n+            profile.path, addon.addon_id, key_prefix=addon.key_prefix
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-            profile.path, addon.addon_id, keys=keys, key_prefix=addon.key_prefix\n+            profile.path, addon.addon_id, keys=None, key_prefix=addon.key_prefix
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-            profile.path, addon.addon_id, keys=keys, key_prefix=addon.key_prefix\n+            profile.path, addon.addon_id, keys=keys, key_prefix=None
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-            profile.path, addon.addon_id, keys=keys, key_prefix=addon.key_prefix\n-        )\n+            profile.path, addon.addon_id, keys=keys, )
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-            profile.prefs, defaults or {}, setting.pref, addon.key_prefix\n+            profile.prefs, defaults or {}, setting.pref, None
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-    defaults_error = ""\n+    defaults_error = "XXXX"
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-    defaults_error = ""\n+    defaults_error = None
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/_setting_findings::-    keys = tuple(setting.pref for setting in settings)\n+    keys = None
 research_vault/doctor.py::func/_translator_formats_probe::-            "translator formats still answer 500 (closed route)",\n+            "TRANSLATOR FORMATS STILL ANSWER 500 (CLOSED ROUTE)",
 research_vault/doctor.py::func/_translator_formats_probe::-            "translator formats still answer 500 (closed route)",\n+            "XXtranslator formats still answer 500 (closed route)XX",
 research_vault/doctor.py::func/_translator_formats_probe::-            "translator formats still answer 500 (closed route)",\n+            None,
@@ -645,6 +1092,44 @@ research_vault/doctor.py::func/_zotero_probe::-            "local API preference
 research_vault/doctor.py::func/_zotero_probe::-            "local API preference is off — enable it in Settings, Advanced",\n+            "local api preference is off — enable it in settings, advanced",
 research_vault/doctor.py::func/_zotero_probe::-        return Probe("zotero", Result.UNREACHABLE, str(error))\n+        return Probe("zotero", Result.UNREACHABLE, None)
 research_vault/doctor.py::func/_zotero_probe::-        return Probe("zotero", Result.UNREACHABLE, str(error))\n+        return Probe("zotero", Result.UNREACHABLE, str(None))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("advisory", lambda: _advisory_probe(profile, vault, config)),\n+        ("ADVISORY", lambda: _advisory_probe(profile, vault, config)),
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("advisory", lambda: _advisory_probe(profile, vault, config)),\n+        ("XXadvisoryXX", lambda: _advisory_probe(profile, vault, config)),
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("advisory", lambda: _advisory_probe(profile, vault, config)),\n+        ("advisory", lambda: _advisory_probe(None, vault, config)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("bbt-git", lambda: _bbt_git_probe(profile, vault)),\n+        ("BBT-GIT", lambda: _bbt_git_probe(profile, vault)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("bbt-git", lambda: _bbt_git_probe(profile, vault)),\n+        ("XXbbt-gitXX", lambda: _bbt_git_probe(profile, vault)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("bbt-git", lambda: _bbt_git_probe(profile, vault)),\n+        ("bbt-git", lambda: _bbt_git_probe(profile, None)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("compile-tool", lambda: _compile_tool_probe(vault)),\n+        ("COMPILE-TOOL", lambda: _compile_tool_probe(vault)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("compile-tool", lambda: _compile_tool_probe(vault)),\n+        ("XXcompile-toolXX", lambda: _compile_tool_probe(vault)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("compile-tool", lambda: _compile_tool_probe(vault)),\n+        ("compile-tool", lambda: _compile_tool_probe(None)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("fulltext-sync", lambda: _fulltext_sync_probe(profile)),\n+        ("FULLTEXT-SYNC", lambda: _fulltext_sync_probe(profile)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("fulltext-sync", lambda: _fulltext_sync_probe(profile)),\n+        ("XXfulltext-syncXX", lambda: _fulltext_sync_probe(profile)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("fulltext-sync", lambda: _fulltext_sync_probe(profile)),\n+        ("fulltext-sync", lambda: _fulltext_sync_probe(None)),
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("obsidian", lambda: _obsidian_probe(vault, config)),\n+        ("OBSIDIAN", lambda: _obsidian_probe(vault, config)),
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("obsidian", lambda: _obsidian_probe(vault, config)),\n+        ("XXobsidianXX", lambda: _obsidian_probe(vault, config)),
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/doctor.py::func/cold_rows::-        ("plugins", lambda: _plugins_probe(profile, vault)),\n+        ("plugins", lambda: _plugins_probe(profile, None)),
+# reason: equivalent on the reachable inputs: guard_path always ends in .py (doctor.py:961), and importlib.util.spec_from_file_location returns a spec with a SourceFileLoader for any .py path, so spec and spec.loader are never None and line 966 never runs
+research_vault/doctor.py::func/expected_deny_rules::-            raise ImportError(f"cannot load {guard_path}")\n+            raise ImportError(None)
+# reason: equivalent on the reachable inputs: guard_path always ends in .py (doctor.py:961), and importlib.util.spec_from_file_location returns a spec with a SourceFileLoader for any .py path, so spec and spec.loader are never None and line 966 never runs
+research_vault/doctor.py::func/expected_deny_rules::-        if spec is None or spec.loader is None:\n+        if spec is None and spec.loader is None:
+# reason: equivalent: the spec name at doctor.py:964 only becomes the throwaway module's __name__; module_from_spec does not register it in sys.modules, and the guard reads __name__ only in `if __name__ == "__main__"` (hooks/pretooluse_guard.py:155), which neither spelling satisfies
+research_vault/doctor.py::func/expected_deny_rules::-        spec = importlib.util.spec_from_file_location("pretooluse_guard", guard_path)\n+        spec = importlib.util.spec_from_file_location("PRETOOLUSE_GUARD", guard_path)
+# reason: equivalent: the spec name at doctor.py:964 only becomes the throwaway module's __name__; module_from_spec does not register it in sys.modules, and the guard reads __name__ only in `if __name__ == "__main__"` (hooks/pretooluse_guard.py:155), which neither spelling satisfies
+research_vault/doctor.py::func/expected_deny_rules::-        spec = importlib.util.spec_from_file_location("pretooluse_guard", guard_path)\n+        spec = importlib.util.spec_from_file_location("XXpretooluse_guardXX", guard_path)
 research_vault/events.py::func/_calendar_date::-    if not _single_line(value) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):\n+    if not _single_line(value) and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
 research_vault/events.py::func/_duplicate_header::-        (index for index, line in enumerate(lines[1:], 1) if line == "---"), None\n+        (index for index, line in enumerate(lines[1:], 2) if line == "---"), None
 research_vault/events.py::func/_duplicate_header::-        (index for index, line in enumerate(lines[1:], 1) if line == "---"), None\n-    )\n+        (index for index, line in enumerate(lines[1:], 1) if line == "---"), )
@@ -802,7 +1287,11 @@ research_vault/fulltext.py::func/_render::-            fields.extend(zip(pair, v
 research_vault/fulltext.py::func/_render::-            fields.extend(zip(pair, values, strict=True))\n+            fields.extend(zip(pair, values, strict=False))
 research_vault/fulltext.py::func/_render::-            fields.extend(zip(pair, values, strict=True))\n+            fields.extend(zip(pair, values, strict=None))
 research_vault/fulltext.py::func/_render::-        if pair[0] in response or pair[1] in response:\n+        if pair[1] in response or pair[1] in response:
+# reason: equivalent: Python codec names are case-insensitive, so str.encode("UTF-8") at fulltext.py:85 yields the same bytes as "utf-8"
+research_vault/fulltext.py::func/_render::-    digest = hashlib.sha256(without.encode("utf-8")).hexdigest()\n+    digest = hashlib.sha256(without.encode("UTF-8")).hexdigest()
 research_vault/fulltext.py::func/path_for::-    if not ITEM_KEY.match(attachment_key or ""):\n+    if not ITEM_KEY.match(attachment_key or "XXXX"):
+# reason: equivalent: Python codec names are case-insensitive, so raw.decode("UTF-8") at fulltext.py:98 selects the same utf-8 codec and raises the same UnicodeDecodeError
+research_vault/fulltext.py::func/validate_text::-        text = raw.decode("utf-8")\n+        text = raw.decode("UTF-8")
 research_vault/fulltext.py::func/verdict::-    elif "indexedChars" in response or "totalChars" in response:\n+    elif "INDEXEDCHARS" in response or "totalChars" in response:
 research_vault/fulltext.py::func/verdict::-    elif "indexedChars" in response or "totalChars" in response:\n+    elif "XXindexedCharsXX" in response or "totalChars" in response:
 research_vault/fulltext.py::func/verdict::-    elif "indexedChars" in response or "totalChars" in response:\n+    elif "indexedchars" in response or "totalChars" in response:
@@ -1170,7 +1659,6 @@ research_vault/inbox.py::func/_body::-        return ""\n+        return "XXXX"
 research_vault/inbox.py::func/_body::-        text = queue.read_text(encoding="utf-8")\n+        text = queue.read_text(encoding="UTF-8")
 research_vault/inbox.py::func/_body::-        text = queue.read_text(encoding="utf-8")\n+        text = queue.read_text(encoding=None)
 research_vault/inbox.py::func/_line_fields::-        raise InboxError(f"duplicate inbox field on line {number}: {line!r}")\n+        raise InboxError(None)
-research_vault/inbox.py::func/_line_fields::-        raise InboxError(f"unparseable inbox line {number}: {line!r}")\n+        raise InboxError(None)
 research_vault/inbox.py::func/_prepare_append::-        queue.parent.mkdir(parents=True, exist_ok=True)\n+        queue.parent.mkdir(exist_ok=True)
 research_vault/inbox.py::func/_prepare_append::-        queue.parent.mkdir(parents=True, exist_ok=True)\n+        queue.parent.mkdir(parents=False, exist_ok=True)
 research_vault/inbox.py::func/_prepare_append::-        queue.parent.mkdir(parents=True, exist_ok=True)\n+        queue.parent.mkdir(parents=None, exist_ok=True)
@@ -1257,6 +1745,10 @@ research_vault/inbox.py::func/append_entry::-    with queue_path.open("a", encod
 research_vault/inbox.py::func/append_entry::-    with queue_path.open("a", encoding="utf-8", newline="") as queue:\n+    with queue_path.open("a", encoding="utf-8", newline=None) as queue:
 research_vault/inbox.py::func/append_entry::-    with queue_path.open("a", encoding="utf-8", newline="") as queue:\n+    with queue_path.open("a", encoding=None, newline="") as queue:
 research_vault/inbox.py::func/append_entry::-    with queue_path.open("a", encoding="utf-8", newline="") as queue:\n+    with queue_path.open("a", newline="") as queue:
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/inbox.py::func/component_rows::-            rows[scope_id(entry.check, entry.target, entry.target_hash)] = entry\n+            rows[scope_id(entry.check, None, entry.target_hash)] = entry
+# reason: pending — Plan D code, re-measured and triaged at that plan's close (R72)
+research_vault/inbox.py::func/component_rows::-            rows[scope_id(entry.check, entry.target, entry.target_hash)] = entry\n+            rows[scope_id(entry.check, entry.target, None)] = entry
 research_vault/inbox.py::func/load::-                        "acknowledgment must reference one hash/fingerprint-coherent finding"\n+                        "ACKNOWLEDGMENT MUST REFERENCE ONE HASH/FINGERPRINT-COHERENT FINDING"
 research_vault/inbox.py::func/load::-                        "acknowledgment must reference one hash/fingerprint-coherent finding"\n+                        "XXacknowledgment must reference one hash/fingerprint-coherent findingXX"
 research_vault/inbox.py::func/load::-                        "acknowledgment must reference one hash/fingerprint-coherent finding"\n+                        None
@@ -1557,6 +2049,134 @@ research_vault/markers.py::func/clear_marker_for::-        claim_id = target.spl
 research_vault/markers.py::func/clear_marker_for::-        claim_id = target.split("#^", 1)[1]\n+        claim_id = target.split("#^", 2)[1]
 # reason: equivalent on the grammar: first_only is only read via a truthiness test (if first_only: break), and False and None are equally falsy
 research_vault/markers.py::func/clear_marker_for::-        if _rewrite_marker_lines(path, check, matcher, clear=True, first_only=False):\n+        if _rewrite_marker_lines(path, check, matcher, clear=True, first_only=None):
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_code::-    if cell in {"", _NONE}:\n+    if cell in {"XXXX", _NONE}:
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_code::-    if cell.startswith("`") and cell.endswith("`") and len(cell) > 2:\n+    if cell.startswith("`") and cell.endswith("`") and len(cell) >= 2:
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_code::-    if cell.startswith("`") and cell.endswith("`") and len(cell) > 2:\n+    if cell.startswith("`") and cell.endswith("`") or len(cell) > 2:
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_code::-    if cell.startswith("`") and cell.endswith("`") and len(cell) > 2:\n+    if cell.startswith("`") or cell.endswith("`") and len(cell) > 2:
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_code::-    raise _fault(line, f"cell {cell!r}")\n+    raise _fault(None, f"cell {cell!r}")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_code::-    raise _fault(line, f"cell {cell!r}")\n+    raise _fault(f"cell {cell!r}")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_fault::-    detail = f" ({why})" if why else ""\n+    detail = f" ({why})" if why else "XXXX"
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_fault::-def _fault(line: str, why: str = "") -> ValueError:\n+def _fault(line: str, why: str = "XXXX") -> ValueError:
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_literal::-        raise _fault(line, f"accepted literal {text!r}") from error\n+        raise _fault(None, f"accepted literal {text!r}") from error
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_literal::-        raise _fault(line, f"accepted literal {text!r}") from error\n+        raise _fault(f"accepted literal {text!r}") from error
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_literal::-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_literal::-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(value, ensure_ascii=False, sort_keys=False, separators=(",", ":"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_literal::-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(value, ensure_ascii=False, sort_keys=None, separators=(",", ":"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_literal::-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", "XX:XX"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_literal::-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(value, ensure_ascii=None, sort_keys=True, separators=(",", ":"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_literal::-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_literal::-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plain::-    return None if cell in {"", _NONE} else cell\n+    return None if cell in {"XXXX", _NONE} else cell
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        _plain(match.group("licence")),\n+        None,
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        _plain(match.group("licence")),\n+        _plain(None),
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        match.group("workflows"),\n+        None,
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line)\n+        raise _fault(None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, "no id")\n+        raise _fault("no id")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, "no id")\n+        raise _fault(None, "no id")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, "no id")\n+        raise _fault(line, "NO ID")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, "no id")\n+        raise _fault(line, "XXno idXX")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, "no id")\n+        raise _fault(line, )
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, "no id")\n+        raise _fault(line, None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, "no pin")\n+        raise _fault("no pin")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, "no pin")\n+        raise _fault(None, "no pin")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, "no pin")\n+        raise _fault(line, "XXno pinXX")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, f"need {need!r}")\n+        raise _fault(None, f"need {need!r}")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-        raise _fault(line, f"need {need!r}")\n+        raise _fault(f"need {need!r}")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_plugin_row::-    plugin_id = _code(match.group("id"), line)\n+    plugin_id = _code(match.group("id"), None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line)\n+        raise _fault(None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, "accepted literals")\n+        raise _fault("accepted literals")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, "accepted literals")\n+        raise _fault(None, "accepted literals")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, "accepted literals")\n+        raise _fault(line, "XXaccepted literalsXX")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, "file or key")\n+        raise _fault("file or key")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, "file or key")\n+        raise _fault(None, "file or key")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, "file or key")\n+        raise _fault(line, "FILE OR KEY")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, "file or key")\n+        raise _fault(line, "XXfile or keyXX")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, "file or key")\n+        raise _fault(line, )
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, "file or key")\n+        raise _fault(line, None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, f"{plugin} cannot declare {file}")\n+        raise _fault(None, f"{plugin} cannot declare {file}")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-        raise _fault(line, f"{plugin} cannot declare {file}")\n+        raise _fault(f"{plugin} cannot declare {file}")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-    accepted = [_literal(literal, line) for literal in literals]\n+    accepted = [_literal(literal, None) for literal in literals]
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-    file = _code(match.group("file"), line)\n+    file = _code(match.group("file"), None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-    if not file or not file.endswith(".json") or not key:\n+    if not file and not file.endswith(".json") or not key:
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-    if not file or not file.endswith(".json") or not key:\n+    if not file or not file.endswith(".json") and not key:
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/_setting_row::-    key = _code(match.group("key"), line)\n+    key = _code(match.group("key"), None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/declared::-        raise ValueError(f"{_SOURCE}: not UTF-8: {error}") from error\n+        raise ValueError(None) from error
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/declared::-        text = source.read_text(encoding="utf-8")\n+        text = source.read_text(encoding="UTF-8")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/declared::-        text = source.read_text(encoding="utf-8")\n+        text = source.read_text(encoding=None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/declared::-    source = resources.files("research_vault").joinpath(f"templates/{_SOURCE}")\n+    source = resources.files(None).joinpath(f"templates/{_SOURCE}")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/parse::-            raise ValueError(f"{_SOURCE}: a table row outside a known table: {line!r}")\n+            raise ValueError(None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/parse::-    table = None\n+    table = ""
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/read_key::-        document = json.loads(Path(path).read_text(encoding="utf-8"))\n+        document = json.loads(Path(path).read_text(encoding="UTF-8"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/read_key::-        document = json.loads(Path(path).read_text(encoding="utf-8"))\n+        document = json.loads(Path(path).read_text(encoding=None))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/read_key::-    return json.dumps(node, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(node, ensure_ascii=False, separators=(",", ":"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/read_key::-    return json.dumps(node, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(node, ensure_ascii=False, sort_keys=False, separators=(",", ":"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/read_key::-    return json.dumps(node, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(node, ensure_ascii=False, sort_keys=None, separators=(",", ":"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/read_key::-    return json.dumps(node, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(node, ensure_ascii=False, sort_keys=True, separators=(",", "XX:XX"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/obsidian_plugins.py::func/read_key::-    return json.dumps(node, ensure_ascii=False, sort_keys=True, separators=(",", ":"))\n+    return json.dumps(node, ensure_ascii=None, sort_keys=True, separators=(",", ":"))
 research_vault/okf.py::func/_day_lines::-        _data, body = frontmatter.parse(day_file.read_text(encoding="utf-8"))\n+        _data, body = frontmatter.parse(day_file.read_text(encoding="UTF-8"))
 research_vault/okf.py::func/_day_lines::-        _data, body = frontmatter.parse(day_file.read_text(encoding="utf-8"))\n+        _data, body = frontmatter.parse(day_file.read_text(encoding=None))
 research_vault/okf.py::func/regenerate_log::-def regenerate_log(vault_root, tail_entries: int = 20) -> str:\n+def regenerate_log(vault_root, tail_entries: int = 21) -> str:
@@ -1624,6 +2244,8 @@ research_vault/pathcodec.py::func/encode_repo_path::-    return PATH_BYTES_PREFI
 research_vault/paths.py::func/load_machine_config::-        text = f.read_text(encoding="utf-8")\n+        text = f.read_text(encoding="UTF-8")
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
 research_vault/paths.py::func/load_machine_config::-        text = f.read_text(encoding="utf-8")\n+        text = f.read_text(encoding=None)
+# reason: equivalent: capture reads seal only as the condition of `_sealed(vault) if seal else []` (capture.py:536), and None is falsy like False
+research_vault/propagate.py::func/_apply_entry::-    recapture = capture.capture(vault, client, [approved.item_keys[old]], seal=False)\n+    recapture = capture.capture(vault, client, [approved.item_keys[old]], seal=None)
 # reason: equivalent on the grammar: json.dumps's ensure_ascii check is a plain truthiness test, and None/False are both falsy, so they encode identically (verified: json.dumps({"a": "e"}, ensure_ascii=None) == json.dumps({"a": "e"}, ensure_ascii=False))
 research_vault/propagate.py::func/_canonical::-    return json.dumps(document, sort_keys=True, indent=2, ensure_ascii=False) + "\n"\n+    return json.dumps(document, sort_keys=True, indent=2, ensure_ascii=None) + "\n"
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
@@ -1889,6 +2511,20 @@ research_vault/scaffold.py::func/_add_empty_root_sentinels::-        directory.m
 research_vault/scaffold.py::func/_commit_created_paths::-        "--",
 research_vault/scaffold.py::func/_commit_created_paths::-        "--only",
 research_vault/scaffold.py::func/_commit_created_paths::-    _git(vault, "add", "--", *trackable)\n+    _git(vault, "add", *trackable)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_copy_obsidian_seed::-        shutil.rmtree(staging, ignore_errors=True)\n+        shutil.rmtree(staging, )
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_copy_obsidian_seed::-        shutil.rmtree(staging, ignore_errors=True)\n+        shutil.rmtree(staging, ignore_errors=False)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_copy_obsidian_seed::-        shutil.rmtree(staging, ignore_errors=True)\n+        shutil.rmtree(staging, ignore_errors=None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_copy_obsidian_seed::-        tempfile.mkdtemp(dir=vault, prefix=f"{OBSIDIAN_DIR}.research-vault-seed-")\n+        tempfile.mkdtemp(dir=None, prefix=f"{OBSIDIAN_DIR}.research-vault-seed-")
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_copy_obsidian_seed::-        tempfile.mkdtemp(dir=vault, prefix=f"{OBSIDIAN_DIR}.research-vault-seed-")\n+        tempfile.mkdtemp(dir=vault, )
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_copy_obsidian_seed::-        tempfile.mkdtemp(dir=vault, prefix=f"{OBSIDIAN_DIR}.research-vault-seed-")\n+        tempfile.mkdtemp(dir=vault, prefix=None)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_copy_obsidian_seed::-        tempfile.mkdtemp(dir=vault, prefix=f"{OBSIDIAN_DIR}.research-vault-seed-")\n+        tempfile.mkdtemp(prefix=f"{OBSIDIAN_DIR}.research-vault-seed-")
 research_vault/scaffold.py::func/_git::-        check=check,
 research_vault/scaffold.py::func/_git::-        check=check,\n+        check=None,
 research_vault/scaffold.py::func/_git::-def _git(vault: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:\n+def _git(vault: Path, *args: str, check: bool = False) -> subprocess.CompletedProcess:
@@ -1903,6 +2539,10 @@ research_vault/scaffold.py::func/_owned_paths::-    owned.extend((".research-vau
 research_vault/scaffold.py::func/_owned_paths::-    owned.extend((".research-vault/machine.json", ".git/hooks/pre-commit"))\n+    owned.extend((".research-vault/machine.json", ".GIT/HOOKS/PRE-COMMIT"))
 research_vault/scaffold.py::func/_owned_paths::-    owned.extend((".research-vault/machine.json", ".git/hooks/pre-commit"))\n+    owned.extend((".research-vault/machine.json", "XX.git/hooks/pre-commitXX"))
 research_vault/scaffold.py::func/_owned_paths::-    owned.extend((".research-vault/machine.json", ".git/hooks/pre-commit"))\n+    owned.extend(("XX.research-vault/machine.jsonXX", ".git/hooks/pre-commit"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_preflight_conflicts::-    if with_obsidian and not (target.exists() or target.is_symlink()):\n+    if with_obsidian and not (target.exists() and target.is_symlink()):
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_preflight_conflicts::-    if with_obsidian and not (target.exists() or target.is_symlink()):\n+    if with_obsidian or not (target.exists() or target.is_symlink()):
 research_vault/scaffold.py::func/_prepare_repository::-            "reads where git would resolve it"\n+            "READS WHERE GIT WOULD RESOLVE IT"
 research_vault/scaffold.py::func/_prepare_repository::-            "reads where git would resolve it"\n+            "XXreads where git would resolve itXX"
 research_vault/scaffold.py::func/_prepare_repository::-            "scaffold destination's git directory is not its own: "\n+            "XXscaffold destination's git directory is not its own: XX"
@@ -1921,6 +2561,8 @@ research_vault/scaffold.py::func/_prepare_repository::-    if hooks_path.returnc
 research_vault/scaffold.py::func/_render_glossary_if_absent::-    target.parent.mkdir(parents=True, exist_ok=True)\n+    target.parent.mkdir(exist_ok=True)
 research_vault/scaffold.py::func/_render_glossary_if_absent::-    target.parent.mkdir(parents=True, exist_ok=True)\n+    target.parent.mkdir(parents=False, exist_ok=True)
 research_vault/scaffold.py::func/_render_glossary_if_absent::-    target.parent.mkdir(parents=True, exist_ok=True)\n+    target.parent.mkdir(parents=None, exist_ok=True)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/scaffold.py::func/_seed_root::-    return resources.files("research_vault").joinpath("templates", OBSIDIAN_TEMPLATE)\n+    return resources.files(None).joinpath("templates", OBSIDIAN_TEMPLATE)
 research_vault/scaffold.py::func/_template_files::-    for child in sorted(root.iterdir(), key=lambda item: item.name):\n+    for child in sorted(root.iterdir(), ):
 research_vault/scaffold.py::func/_template_files::-    for child in sorted(root.iterdir(), key=lambda item: item.name):\n+    for child in sorted(root.iterdir(), key=None):
 research_vault/scaffold.py::func/_trackable_paths::-            continue\n+            break
@@ -2079,6 +2721,12 @@ research_vault/selectors.py::func/pdf_text::-        return "\n".join(page.extra
 research_vault/selectors.py::func/pdf_text::-        return "\n".join(page.extract_text() or "" for page in reader.pages)\n+        return "\n".join(None)
 research_vault/selectors.py::func/pdf_text::-        return "\n".join(page.extract_text() or "" for page in reader.pages)\n+        return "\n".join(page.extract_text() and "" for page in reader.pages)
 research_vault/selectors.py::func/pdf_text::-        return "\n".join(page.extract_text() or "" for page in reader.pages)\n+        return "\n".join(page.extract_text() or "XXXX" for page in reader.pages)
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/stamp.py::func/_near_block::-    return text.lstrip("\ufeff \t\r\n").startswith(("---\n", "---\r\n"))\n+    return text.lstrip("XX\ufeff \t\r\nXX").startswith(("---\n", "---\r\n"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/stamp.py::func/_near_block::-    return text.lstrip("\ufeff \t\r\n").startswith(("---\n", "---\r\n"))\n+    return text.lstrip("\uFEFF \t\r\n").startswith(("---\n", "---\r\n"))
+# reason: pending — Plan E code, re-measured and triaged at that plan's close (R72)
+research_vault/stamp.py::func/_near_block::-    return text.lstrip("\ufeff \t\r\n").startswith(("---\n", "---\r\n"))\n+    return text.lstrip("\ufeff \t\r\n").startswith(("---\n", "XX---\r\nXX"))
 # reason: encoding alias: codec-name lookup is case/punctuation-insensitive, so "UTF-8" and "utf-8" read the identical bytes
 research_vault/stamp.py::func/_read_text::-    with path.open("r", encoding="utf-8", newline="") as handle:\n+    with path.open("r", encoding="UTF-8", newline="") as handle:
 # reason: encoding alias: encoding=None resolves through locale.getpreferredencoding to UTF-8 in this environment (LANG=C.UTF-8, measured 2026-09-20), the same codec as the explicit "utf-8" this line names
@@ -2107,6 +2755,8 @@ research_vault/stamp.py::func/stamp_text::-        if reparsed.get("type") != de
 research_vault/structure.py::func/_index_shape_problems::-            in_list = False\n+            in_list = None
 # reason: equivalent on the grammar: in_list is read only as a truthiness test, and None and False are both falsy
 research_vault/structure.py::func/_index_shape_problems::-    in_list = False\n+    in_list = None
+# reason: equivalent: Python codec names are case-insensitive, so name.encode("UTF-8") is name.encode("utf-8") (structure.py:131)
+research_vault/structure.py::func/_is_plain_text::-        name.encode("utf-8")\n+        name.encode("UTF-8")
 # reason: equivalent on the grammar: the day file is read with read_text, whose universal-newline decoding turns every "\r\n" and lone "\r" into "\n", so no line of body.split("\n") ends in "\r"
 research_vault/structure.py::func/check_log_dir::-            line = raw.removesuffix("\r")\n+            line = raw.removeprefix("\r")
 # reason: equivalent on the grammar: the day file is read with read_text, whose universal-newline decoding turns every "\r\n" and lone "\r" into "\n", so no line of body.split("\n") ends in "\r"
@@ -2140,6 +2790,8 @@ research_vault/structure.py::func/check_reserved::-            if raw != okf.ren
 research_vault/structure.py::func/check_reserved::-            text = raw.decode("utf-8")\n+            text = raw.decode("UTF-8")
 research_vault/structure.py::func/check_reserved::-    return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]\n+    return [Outcome("OKF-STRUCTURE", "reserved-files", Result.MATCHED, "matched")]
 research_vault/structure.py::func/check_reserved::-    return [Outcome("okf-structure", "reserved-files", Result.MATCHED, "matched")]\n+    return [Outcome("XXokf-structureXX", "reserved-files", Result.MATCHED, "matched")]
+# reason: equivalent: seen is read only as `not seen` at structure.py:593 and set to True at :577, and None and False are both falsy
+research_vault/structure.py::func/check_text_layer::-    seen = False\n+    seen = None
 research_vault/structure.py::func/check_tree::-            "tree", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"\n+            "TREE", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"
 research_vault/structure.py::func/check_tree::-            "tree", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"\n+            "XXtreeXX", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"
 research_vault/structure.py::func/check_tree::-            "tree", "vault", Result.UNMATCHED, f"schema-violation — missing {missing}"\n+            "tree", "VAULT", Result.UNMATCHED, f"schema-violation — missing {missing}"
@@ -2157,6 +2809,20 @@ research_vault/verify.py::func/_apply_state_transitions::-            _mutate_ma
 research_vault/verify.py::func/_candidate_destinations_match_live::-    if snapshots.candidate_name == "worktree":\n+    if snapshots.candidate_name == "WORKTREE":
 # reason: equivalent on the grammar: resolve_snapshots sets candidate_snapshot = live for the real "worktree" candidate, so the loop's per-output comparison is always False regardless of whether this guard short-circuits
 research_vault/verify.py::func/_candidate_destinations_match_live::-    if snapshots.candidate_name == "worktree":\n+    if snapshots.candidate_name == "XXworktreeXX":
+# reason: equivalent: -q only silences rev-parse --verify's error message on stderr, which _git captures and discards; a ref that does not resolve still exits nonzero (1 instead of 128), and verify.py:1111 tests only truthiness
+research_vault/verify.py::func/_carried_records::-            repository, "rev-parse", "-q", "--verify", f"{ref}^{{commit}}", check=False\n+            repository, "rev-parse", "--verify", f"{ref}^{{commit}}", check=False
+# reason: equivalent: _git reads check only as `if check and result.returncode != 0` (gitstate.py:128), and None and False are both falsy
+research_vault/verify.py::func/_carried_records::-            repository, "rev-parse", "-q", "--verify", f"{ref}^{{commit}}", check=False\n+            repository, "rev-parse", "-q", "--verify", f"{ref}^{{commit}}", check=None
+# reason: equivalent: the decode runs only when rev-parse --verify exited 0 (verify.py:1111), and then stdout is one hex object name and a newline, pure ASCII, so the codec (ascii, ASCII or the UTF-8 default) and the error handler (never invoked) cannot change the result
+research_vault/verify.py::func/_carried_records::-        commit = resolved.stdout.decode("ascii", errors="replace").strip()\n+        commit = resolved.stdout.decode("ASCII", errors="replace").strip()
+# reason: equivalent: the decode runs only when rev-parse --verify exited 0 (verify.py:1111), and then stdout is one hex object name and a newline, pure ASCII, so the codec (ascii, ASCII or the UTF-8 default) and the error handler (never invoked) cannot change the result
+research_vault/verify.py::func/_carried_records::-        commit = resolved.stdout.decode("ascii", errors="replace").strip()\n+        commit = resolved.stdout.decode("ascii", ).strip()
+# reason: equivalent: the decode runs only when rev-parse --verify exited 0 (verify.py:1111), and then stdout is one hex object name and a newline, pure ASCII, so the codec (ascii, ASCII or the UTF-8 default) and the error handler (never invoked) cannot change the result
+research_vault/verify.py::func/_carried_records::-        commit = resolved.stdout.decode("ascii", errors="replace").strip()\n+        commit = resolved.stdout.decode("ascii", errors="REPLACE").strip()
+# reason: equivalent: the decode runs only when rev-parse --verify exited 0 (verify.py:1111), and then stdout is one hex object name and a newline, pure ASCII, so the codec (ascii, ASCII or the UTF-8 default) and the error handler (never invoked) cannot change the result
+research_vault/verify.py::func/_carried_records::-        commit = resolved.stdout.decode("ascii", errors="replace").strip()\n+        commit = resolved.stdout.decode("ascii", errors="XXreplaceXX").strip()
+# reason: equivalent: the decode runs only when rev-parse --verify exited 0 (verify.py:1111), and then stdout is one hex object name and a newline, pure ASCII, so the codec (ascii, ASCII or the UTF-8 default) and the error handler (never invoked) cannot change the result
+research_vault/verify.py::func/_carried_records::-        commit = resolved.stdout.decode("ascii", errors="replace").strip()\n+        commit = resolved.stdout.decode(errors="replace").strip()
 research_vault/verify.py::func/_citation_key_hash::-            data = {}\n+            data = None
 research_vault/verify.py::func/_citation_key_hash::-            data, _ = frontmatter.parse(raw.decode(errors="surrogateescape"))\n+            data, _ = frontmatter.parse(raw.decode(errors="SURROGATEESCAPE"))
 research_vault/verify.py::func/_citation_key_hash::-            data, _ = frontmatter.parse(raw.decode(errors="surrogateescape"))\n+            data, _ = frontmatter.parse(raw.decode(errors="XXsurrogateescapeXX"))
@@ -2183,6 +2849,12 @@ research_vault/verify.py::func/_commit_rows::-    for base, by_key in zip(bases,
 research_vault/verify.py::func/_commit_rows::-    for base, by_key in zip(bases, raised, strict=True):\n+    for base, by_key in zip(bases, raised, strict=False):
 # reason: equivalent on the grammar: raised is built by a comprehension over bases, so the two always have the same length and zip's strict check can never fire
 research_vault/verify.py::func/_commit_rows::-    for base, by_key in zip(bases, raised, strict=True):\n+    for base, by_key in zip(bases, raised, strict=None):
+# reason: equivalent: the prefix only names the temporary directory materialize_snapshot fills (verify.py:840); lint_compiled_layer's rows name vault-relative paths, so no row, hash or record carries the directory's name (prefix=None gives tempfile's default 'tmp')
+research_vault/verify.py::func/_compiled_layer::-    with tempfile.TemporaryDirectory(prefix="research-vault-compiled-") as temporary:\n+    with tempfile.TemporaryDirectory(prefix="RESEARCH-VAULT-COMPILED-") as temporary:
+# reason: equivalent: the prefix only names the temporary directory materialize_snapshot fills (verify.py:840); lint_compiled_layer's rows name vault-relative paths, so no row, hash or record carries the directory's name (prefix=None gives tempfile's default 'tmp')
+research_vault/verify.py::func/_compiled_layer::-    with tempfile.TemporaryDirectory(prefix="research-vault-compiled-") as temporary:\n+    with tempfile.TemporaryDirectory(prefix="XXresearch-vault-compiled-XX") as temporary:
+# reason: equivalent: the prefix only names the temporary directory materialize_snapshot fills (verify.py:840); lint_compiled_layer's rows name vault-relative paths, so no row, hash or record carries the directory's name (prefix=None gives tempfile's default 'tmp')
+research_vault/verify.py::func/_compiled_layer::-    with tempfile.TemporaryDirectory(prefix="research-vault-compiled-") as temporary:\n+    with tempfile.TemporaryDirectory(prefix=None) as temporary:
 # reason: equivalent on the grammar: report['outcomes'] has exactly one production reader, the Stop gate's _has_synthetic_offline (hooks/stop_publish_gate.py:494), which asks only whether any outcome carries synthetic_offline. The gate runs verify_state with network=True, and synthetic_offline outcomes are minted only when network is False (verify.py:1118-1128 and _offline_network_outcomes), so the answer is False on every gate run whatever this filter keeps; cmd_verify prints counts and notices only, and publish discards the report
 research_vault/verify.py::func/_hashed::-    raw = [o for o in raw if id(o) in kept or o.extra.get("synthetic_offline") is True]\n+    raw = [o for o in raw if id(o) in kept or o.extra.get("SYNTHETIC_OFFLINE") is True]
 # reason: equivalent on the grammar: report['outcomes'] has exactly one production reader, the Stop gate's _has_synthetic_offline (hooks/stop_publish_gate.py:494), which asks only whether any outcome carries synthetic_offline. The gate runs verify_state with network=True, and synthetic_offline outcomes are minted only when network is False (verify.py:1118-1128 and _offline_network_outcomes), so the answer is False on every gate run whatever this filter keeps; cmd_verify prints counts and notices only, and publish discards the report
@@ -2223,10 +2895,20 @@ research_vault/verify.py::func/_snapshot_directory_bytes::-            data = im
 research_vault/verify.py::func/_snapshot_path_hash::-        "special",\n+        "SPECIAL",
 research_vault/verify.py::func/_snapshot_path_hash::-        "special",\n+        "XXspecialXX",
 research_vault/verify.py::func/_snapshot_path_hash::-        data = candidate_image.data or b""\n+        data = candidate_image.data or b"XXXX"
+# reason: equivalent: _git reads check only as `if check and result.returncode != 0` (gitstate.py:128), and None and False are both falsy
+research_vault/verify.py::func/_tracked_texts::-    listed = gitstate._git(repository, "ls-files", "-z", "--", "fulltext", check=False)\n+    listed = gitstate._git(repository, "ls-files", "-z", "--", "fulltext", check=None)
+# reason: equivalent: without the pathspec, ls-files lists every tracked path, but _tracked_texts' only consumer, check_tree, keeps only paths that start with b"fulltext/" (structure.py:486-487), so no row changes
+research_vault/verify.py::func/_tracked_texts::-    listed = gitstate._git(repository, "ls-files", "-z", "--", "fulltext", check=False)\n+    listed = gitstate._git(repository, "ls-files", "-z", "--", check=False)
+# reason: equivalent: ls-files exits 0 on a pathspec that matches nothing, so `XX--XX` only adds a pathspec that matches nothing (or, if such a root path exists, one that check_tree's b"fulltext/" filter at structure.py:486-487 drops); and without `--`, `fulltext` is still read as a pathspec, since no option or revision has that name
+research_vault/verify.py::func/_tracked_texts::-    listed = gitstate._git(repository, "ls-files", "-z", "--", "fulltext", check=False)\n+    listed = gitstate._git(repository, "ls-files", "-z", "XX--XX", "fulltext", check=False)
+# reason: equivalent: `git ls-files` takes no revision arguments, so every non-option argument is a pathspec and `fulltext` is read as one with or without `--` (checked with git 2.43.0, 2026-11-28: same -z output, exit 0 also on a pathspec that matches nothing)
+research_vault/verify.py::func/_tracked_texts::-    listed = gitstate._git(repository, "ls-files", "-z", "--", "fulltext", check=False)\n+    listed = gitstate._git(repository, "ls-files", "-z", "fulltext", check=False)
 # reason: equivalent on the grammar: with git_base None, resolve_snapshots sets base_tree = head_tree, so base_is_candidates_parent's first test (base_tree == head_tree) already holds and this elif, the only reader of the "HEAD" literal, never runs
 research_vault/verify.py::func/_two_version_rows::-            "HEAD" if git_base is None else git_base,\n+            "XXHEADXX" if git_base is None else git_base,
 # reason: equivalent on the grammar: with git_base None, resolve_snapshots sets base_tree = head_tree, so base_is_candidates_parent's first test (base_tree == head_tree) already holds and this elif, the only reader of the "HEAD" literal, never runs
 research_vault/verify.py::func/_two_version_rows::-            "HEAD" if git_base is None else git_base,\n+            "head" if git_base is None else git_base,
+# reason: equivalent: replay=True adds only compiled-layer keys (_REPLAY_ONLY, verify.py:857; every lint_compiled_layer row has check compiled.CHECK) to `own` at its one default-reading call (verify.py:1062). `own` is used only as a membership filter on leg rows from _history_lints without replay, which never carry check compiled-layer, so no leg row's fate changes
+research_vault/verify.py::func/_unmatched::-def _unmatched(repository, base_snapshot, candidate_snapshot, *, replay=False):\n+def _unmatched(repository, base_snapshot, candidate_snapshot, *, replay=True):
 # reason: equivalent on the grammar: lints._frontmatter decodes the candidate image as strict UTF-8 and parses it with this same frontmatter.parse, and returns None (no verifier-list row) on either failure. So every image a VERIFIER_LISTS row hashes decodes and parses cleanly here. On valid UTF-8 the error handler is never consulted, and the name is looked up only on a decode error (an unknown handler name passes on valid bytes, checked 2026-11-08)
 research_vault/verify.py::func/_verifier_lists_bytes::-                (image.data or b"").decode(errors="surrogateescape")\n+                (image.data or b"").decode(errors="SURROGATEESCAPE")
 # reason: equivalent on the grammar: lints._frontmatter decodes the candidate image as strict UTF-8 and parses it with this same frontmatter.parse, and returns None (no verifier-list row) on either failure. So every image a VERIFIER_LISTS row hashes decodes and parses cleanly here. On valid UTF-8 the error handler is never consulted, and the name is looked up only on a decode error
