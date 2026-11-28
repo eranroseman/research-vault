@@ -239,7 +239,7 @@ Installing a Zotero add-on is a human step in the setup wizard. Doctor reads the
 
 ## Obsidian plugins
 
-A new vault's `.obsidian/` is seeded by `scaffold --with-obsidian` from this declaration (packaged as `research_vault/templates/obsidian-plugins.md`): seeded plugins are vendored at their pin (their licence permits redistribution with no source obligation), recommended ones ship only their settings and are installed by the person from Obsidian's community list, excluded ones are not declared further. Doctor's `obsidian` row compares the configured folder (`obsidian_config_dir` in `machine.json`, default `.obsidian`) with it: it fails when an enabled plugin's, or Core's, declared key is off its accepted values, and notes a version off the pin, a core plugin toggled away from the seed, and an installed recommended plugin; its `advisory` row warns when an excluded plugin is enabled. A plugin that failed to load on a measured Obsidian version is listed under Load demotions: the vendoring script reads that table and ships it as recommended until a re-measure removes the row.
+A new vault's `.obsidian/` is seeded by `scaffold --with-obsidian` from this declaration (packaged as `research_vault/templates/obsidian-plugins.md`): seeded plugins are vendored at their pin (their licence permits redistribution with no source obligation), recommended ones ship only their settings and are installed by the person from Obsidian's community list, excluded ones are not declared further. Doctor's `obsidian` row compares the configured folder (`obsidian_config_dir` in `machine.json`, default `.obsidian`) with it: it fails when an enabled plugin's, or Core's, declared key is off its accepted values, and notes a version off the pin of an enabled seeded plugin, a core plugin toggled away from the seed, and an installed recommended plugin. A plugin that is off is not read at all, and neither is a core plugin's own settings file (`<id>.json`) while that core plugin is off; `app.json` and `core-plugins.json` are always read. A Core row accepts `unset` only where Obsidian's default for a missing value is the accepted one. Its `advisory` row warns when an excluded plugin is enabled, and says the Obsidian half was not read when `community-plugins.json` will not read. A plugin that failed to load on a measured Obsidian version is listed under Load demotions: the vendoring script reads that table and ships it as recommended until a re-measure removes the row.
 
 ### Plugins
 
@@ -301,10 +301,10 @@ A new vault's `.obsidian/` is seeded by `scaffold --with-obsidian` from this dec
 | Plugin                      | File                | Key                                      | Accepted                       |
 | --------------------------- | ------------------- | ---------------------------------------- | ------------------------------ |
 | Core                        | `core-plugins.json` | `sync`                                   | `false`                        |
-| Core                        | `core-plugins.json` | `publish`                                | `false`                        |
+| Core                        | `core-plugins.json` | `publish`                                | `false`, `unset`               |
 | Core                        | `core-plugins.json` | `canvas`                                 | `false`                        |
 | Core                        | `core-plugins.json` | `properties`                             | `false`                        |
-| Core                        | `core-plugins.json` | `markdown-importer`                      | `false`                        |
+| Core                        | `core-plugins.json` | `markdown-importer`                      | `false`, `unset`               |
 | Core                        | `app.json`          | `useMarkdownLinks`                       | `true`                         |
 | Core                        | `app.json`          | `newLinkFormat`                          | `"absolute"`                   |
 | Core                        | `app.json`          | `newFileLocation`                        | `"folder"`                     |

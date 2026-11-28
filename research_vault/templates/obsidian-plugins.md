@@ -58,10 +58,10 @@
 | Plugin                      | File                | Key                                      | Accepted                       |
 | --------------------------- | ------------------- | ---------------------------------------- | ------------------------------ |
 | Core                        | `core-plugins.json` | `sync`                                   | `false`                        |
-| Core                        | `core-plugins.json` | `publish`                                | `false`                        |
+| Core                        | `core-plugins.json` | `publish`                                | `false`, `unset`               |
 | Core                        | `core-plugins.json` | `canvas`                                 | `false`                        |
 | Core                        | `core-plugins.json` | `properties`                             | `false`                        |
-| Core                        | `core-plugins.json` | `markdown-importer`                      | `false`                        |
+| Core                        | `core-plugins.json` | `markdown-importer`                      | `false`, `unset`               |
 | Core                        | `app.json`          | `useMarkdownLinks`                       | `true`                         |
 | Core                        | `app.json`          | `newLinkFormat`                          | `"absolute"`                   |
 | Core                        | `app.json`          | `newFileLocation`                        | `"folder"`                     |

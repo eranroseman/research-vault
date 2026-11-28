@@ -526,15 +526,18 @@ def _plugins_probe(profile: _ProfileFacts | _ProfileHold, vault: Path) -> Probe:
     return Probe("plugins", Result.MATCHED, "; ".join(notes_out))
 
 
-def _excluded_obsidian_plugins(vault: Path, config: dict) -> list[tuple[str, str, str]]:
-    """Enabled Obsidian plugins the declaration excludes (Plan E deviation 5).
-    A folder that is absent or will not read is the `obsidian` row's to name."""
+def _excluded_obsidian_plugins(
+    vault: Path, config: dict
+) -> list[tuple[str, str, str]] | None:
+    """Enabled Obsidian plugins the declaration excludes (Plan E deviation 5),
+    or None when `community-plugins.json` or the declaration will not read:
+    the `obsidian` row names that, and advisory claims nothing about it (R58)."""
     _name, folder = _obsidian_folder(vault, config)
     try:
         enabled = _enabled_obsidian_plugins(folder)
         declaration = obsidian_plugins.declared()
     except (OSError, ValueError, _ConfigMisshapenError):
-        return []
+        return None
     fact = "enabled (excluded Obsidian plugin)"
     return [
         (plugin.plugin_id, fact, f"{plugin.name} {fact}")
@@ -550,11 +553,13 @@ def _advisory_probe(
     an add-on excluded on harm grounds that is active, and an excluded
     Obsidian plugin that is enabled (R38). A required add-on's fault stays
     the plugins row's (DP26); the Obsidian fact stands whatever the profile."""
-    obsidian = _excluded_obsidian_plugins(vault, config)
+    read = _excluded_obsidian_plugins(vault, config)
+    obsidian = read or []
+    unread = "" if read is not None else _OBSIDIAN_HALF_UNREAD
     zotero = _advisory_addons(profile)
     if isinstance(zotero, Probe):
         if not obsidian:
-            return zotero
+            return zotero._replace(reason=zotero.reason + unread)
         found = obsidian
         held = f"; {zotero.reason}"
     else:
@@ -564,14 +569,17 @@ def _advisory_probe(
         ]
         held = ""
     if found:
-        shown = "; ".join(text for _id, _fact, text in found) + held
+        shown = "; ".join(text for _id, _fact, text in found) + held + unread
         return Probe("advisory", Result.UNMATCHED, shown, facts=_grouped(found))
     return Probe(
         "advisory",
         Result.MATCHED,
-        "no appDisabled recommended add-on, no active excluded add-on, "
-        "no enabled excluded Obsidian plugin",
+        "no appDisabled recommended add-on, no active excluded add-on"
+        + (unread or ", no enabled excluded Obsidian plugin"),
     )
+
+
+_OBSIDIAN_HALF_UNREAD = "; Obsidian half not read, see the obsidian row"
 
 
 def _advisory_addons(
@@ -824,6 +832,18 @@ def _enabled_obsidian_plugins(folder: Path) -> set[str]:
     return {plugin_id for plugin_id in enabled if isinstance(plugin_id, str)}
 
 
+def _core_plugin_off(file: str, seed_core: dict, core: dict) -> bool:
+    """Whether a Core settings file belongs to a core plugin the vault has off
+    (R54). Obsidian 1.15.1 keeps a core plugin's settings in
+    `<config>/<id>.json` (`loadData` is `readConfigJson(this.instance.id)` in
+    `app.js`, read 2026-11-27), so the file's stem names its plugin when the
+    stem is a core id; `app.json` and `core-plugins.json` name none and are
+    always judged. An id absent from the vault's `core-plugins.json` takes
+    Obsidian's default, so only an explicit off skips."""
+    plugin_id = file.removesuffix(".json")
+    return plugin_id in seed_core and plugin_id in core and not core[plugin_id]
+
+
 def _obsidian_probe(vault: Path, config: dict) -> Probe:
     """Spec §6.3: cold reads of the configured Obsidian folder against the
     packaged declaration. UNMATCHED only for a declared key off its values on
@@ -831,7 +851,9 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
     rewrites them non-atomically), one of the wrong JSON type UNMATCHED (no
     re-read clears it); drift from the seed is a note; an absent
     folder is SKIPPED. An enabled excluded plugin is a note here and an
-    `advisory` fact (Plan E deviation 5)."""
+    `advisory` fact (Plan E deviation 5). A seeded plugin that is off is not
+    read, manifest included (R57), nor is a core plugin's settings file while
+    that core plugin is off (R54)."""
     name, folder = _obsidian_folder(vault, config)
     if not folder.is_dir():
         return Probe("obsidian", Result.SKIPPED, f"{name} absent")
@@ -864,6 +886,8 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
                 if (folder / manifest).is_file():
                     notes_out.append(f"recommended plugin {plugin.plugin_id} installed")
                 continue
+            if plugin.plugin_id not in enabled:
+                continue  # a seeded plugin that is off is not read at all (R57)
             installed = _config_json(folder, manifest, dict)
             if installed is None:
                 continue
@@ -874,6 +898,8 @@ def _obsidian_probe(vault: Path, config: dict) -> Probe:
                 )
         for setting in declaration.settings:
             if setting.plugin == obsidian_plugins.CORE:
+                if _core_plugin_off(setting.file, seed_core, core):
+                    continue  # its own row names it: `<id> not accepted` (R54)
                 component, relative = "core", setting.file
             else:
                 plugin_id = declaration.by_name[setting.plugin].plugin_id

@@ -197,3 +197,19 @@ def test_setup_vault_seeds_obsidian_and_hands_consent_to_the_trust_prompt():
     assert "skipped .obsidian/" in text
     assert "LANG" in text
     assert "python3 -m research_vault seal --vault PATH" in text
+
+
+def test_setup_vault_says_the_compile_tool_off_pin_or_mode_holds_publish():
+    """R53: compile-tool closes publish though doctor's exit stays non-fatal,
+    so the skill never calls a finding of that row a warning."""
+    from research_vault.__main__ import DOCTOR_WARN_ONLY
+    from research_vault.verify import CLOSING_BY_SURFACE
+
+    assert "compile-tool" in CLOSING_BY_SURFACE["publish"]
+    assert "compile-tool" in DOCTOR_WARN_ONLY
+    text = _skill_text()
+    assert "a different commit is a warning" not in text
+    assert "a mode other than generic is a warning" not in text
+    assert "A different commit holds publish" in text
+    assert "a mode other than generic holds publish" in text
+    assert "doctor's own exit stays non-fatal" in text

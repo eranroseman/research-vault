@@ -2033,7 +2033,7 @@ def test_obsidian_probe_fails_a_config_file_of_the_wrong_json_type(tmp_path):
         "obsidian", Result.UNMATCHED, f"Core {fact}", facts=(("core", (fact,)),)
     )
     config = {}
-    assert doctor._excluded_obsidian_plugins(vault, config) == []
+    assert doctor._excluded_obsidian_plugins(vault, config) is None  # unread (R58)
     enabled.write_text(seeded)
     (vault / ".obsidian" / "plugins" / "dataview" / "manifest.json").write_text("[]")
     probe = doctor._obsidian_probe(vault, {})
@@ -2107,6 +2107,132 @@ def test_advisory_warns_on_an_enabled_excluded_obsidian_plugin(tmp_path):
     # no Obsidian fact left: the Zotero half's row comes back unchanged
     assert doctor._advisory_probe(profile, vault, config) == doctor._advisory_addons(
         profile
+    )
+
+
+def test_obsidian_probe_skips_a_core_plugins_settings_file_while_it_is_off(tmp_path):
+    """R54: `<id>.json` is the core plugin `<id>`'s settings (`readConfigJson(
+    this.instance.id)`, app.js 1.15.1); while it is off its keys are not judged
+    and the drift note names it. `app.json` belongs to no plugin."""
+    vault = _seeded_vault(tmp_path)
+    folder = vault / ".obsidian"
+    (folder / "zk-prefixer.json").write_text(json.dumps({"folder": ""}))
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.reason == 'Core zk-prefixer.json folder="" (accepted "inbox")'
+    core = folder / "core-plugins.json"
+    core.write_text(json.dumps({**json.loads(core.read_text()), "zk-prefixer": False}))
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe == doctor.Probe(
+        "obsidian",
+        Result.MATCHED,
+        ".obsidian: core-plugins.json drifts: zk-prefixer=false",
+    )
+    # an id missing from core-plugins.json takes Obsidian's default: judged
+    seeded = json.loads(core.read_text())
+    del seeded["zk-prefixer"]
+    core.write_text(json.dumps(seeded))
+    assert doctor._obsidian_probe(vault, {}).result is Result.UNMATCHED
+    (folder / "zk-prefixer.json").write_text(json.dumps({"folder": "inbox"}))
+    (folder / "app.json").write_text(json.dumps({"useMarkdownLinks": False}))
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.UNMATCHED
+    assert "Core app.json useMarkdownLinks=false (accepted true)" in probe.reason
+
+
+def test_core_plugin_off_reads_the_stem_against_the_seeds_core_ids():
+    seed = {"daily-notes": True, "zk-prefixer": True}
+    assert doctor._core_plugin_off("daily-notes.json", seed, {"daily-notes": False})
+    assert not doctor._core_plugin_off("daily-notes.json", seed, {"daily-notes": True})
+    assert not doctor._core_plugin_off("daily-notes.json", seed, {})
+    assert not doctor._core_plugin_off("app.json", seed, {"app": False})
+    assert not doctor._core_plugin_off("core-plugins.json", seed, {})
+
+
+@pytest.mark.parametrize(
+    ("core_id", "result"),
+    [
+        # Obsidian 1.15.1: publish has no defaultOn, markdown-importer is no
+        # longer a core plugin; sync, canvas and properties default on (R55)
+        ("publish", Result.MATCHED),
+        ("markdown-importer", Result.MATCHED),
+        ("sync", Result.UNMATCHED),
+        ("canvas", Result.UNMATCHED),
+        ("properties", Result.UNMATCHED),
+    ],
+)
+def test_a_core_row_accepts_unset_only_where_obsidians_default_is_off(
+    tmp_path, core_id, result
+):
+    vault = _seeded_vault(tmp_path)
+    core = vault / ".obsidian" / "core-plugins.json"
+    seeded = json.loads(core.read_text())
+    del seeded[core_id]
+    core.write_text(json.dumps(seeded))
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is result
+    if result is Result.UNMATCHED:
+        assert (
+            probe.reason == f"Core core-plugins.json {core_id}=unset (accepted false)"
+        )
+
+
+def test_obsidian_probe_reads_no_manifest_behind_a_disabled_seeded_plugin(tmp_path):
+    """R57: a seeded plugin that is off is skipped whole, its manifest too: a
+    corrupt manifest is judged only when the plugin is enabled."""
+    vault = _seeded_vault(tmp_path)
+    folder = vault / ".obsidian"
+    (folder / "plugins" / "dataview" / "manifest.json").write_text('{"id": "data')
+    probe = doctor._obsidian_probe(vault, {})
+    assert probe.result is Result.UNREACHABLE
+    assert "plugins/dataview/manifest.json" in probe.reason
+    enabled = folder / "community-plugins.json"
+    enabled.write_text(
+        json.dumps([p for p in json.loads(enabled.read_text()) if p != "dataview"])
+    )
+    assert doctor._obsidian_probe(vault, {}) == doctor.Probe(
+        "obsidian",
+        Result.MATCHED,
+        ".obsidian: every declared key holds; no drift from the seed",
+    )
+    (folder / "plugins" / "dataview" / "manifest.json").write_text(
+        json.dumps({"id": "dataview", "version": "0.0.1"})
+    )
+    assert "dataview pinned" not in doctor._obsidian_probe(vault, {}).reason
+
+
+@pytest.mark.parametrize("unread", ["", "{}"])
+def test_advisory_claims_nothing_of_an_obsidian_half_it_could_not_read(
+    tmp_vault, tmp_path, monkeypatch, unread
+):
+    """R58: an unreadable or misshapen community-plugins.json is the obsidian
+    row's finding; advisory's MATCHED reason says it did not read that half."""
+    profile = _profile_with(tmp_path, [_addon(BBT, "9.0.68")], [])
+    vault = _profiled_vault(tmp_vault, tmp_path, profile)
+    (vault / ".obsidian").mkdir(exist_ok=True)
+    (vault / ".obsidian" / "community-plugins.json").write_text(unread)
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["advisory"] == doctor.Probe(
+        "advisory",
+        Result.MATCHED,
+        "no appDisabled recommended add-on, no active excluded add-on; "
+        "Obsidian half not read, see the obsidian row",
+    )
+    assert by["obsidian"].result in {Result.UNREACHABLE, Result.UNMATCHED}
+    (vault / ".obsidian" / "community-plugins.json").write_text("[]")
+    by = {p.check: p for p in doctor.doctor(vault, client=_ready_client(monkeypatch))}
+    assert by["advisory"].reason.endswith(", no enabled excluded Obsidian plugin")
+
+
+def test_advisory_marks_a_held_zotero_half_when_the_obsidian_half_is_unread(
+    tmp_path,
+):
+    vault = _seeded_vault(tmp_path)
+    (vault / ".obsidian" / "community-plugins.json").write_text("")
+    config, _machine = doctor._machine_config(vault)
+    probe = doctor._advisory_probe(doctor._profile_facts(config), vault, config)
+    held = doctor._advisory_addons(doctor._profile_facts(config))
+    assert probe == held._replace(
+        reason=held.reason + "; Obsidian half not read, see the obsidian row"
     )
 
 
